@@ -1,1 +1,114 @@
-{}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/BattleDirector-AI/battlecast/spec/v1/schema.json",
+  "title": "battlecast spec v1 — SSE state event payload",
+  "description": "JSON payload of the SSE `state` event emitted by a producer and consumed by battlecast. The producer runs the HTTP + SSE server; battlecast connects out to it as a client. This schema describes one complete snapshot of race state sufficient to render the standings tower and battle box widgets. See SPEC.md for the prose contract; schema.json is the source of truth for payload shape. `schemaVersion` is versioned independently of the battlecast app release version.",
+  "type": "object",
+  "required": ["schemaVersion", "mode", "vehicles", "subject", "relationship"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Version of THIS state contract, numbered independently of the battlecast app release version and of any producer's own version. v1 of the contract uses \"1\". Consumers should branch on this value; see SPEC.md 'Versioning policy'.",
+      "examples": ["1"]
+    },
+    "mode": {
+      "type": "string",
+      "description": "The producer's current broadcast intent. Describes what kind of session the state represents so widgets can adapt presentation. Common values are listed in the enum, but consumers should tolerate unknown strings (best-effort render).",
+      "examples": ["race", "qualifying", "practice", "replay"]
+    },
+    "vehicles": {
+      "type": "array",
+      "description": "Every vehicle in the session, in no guaranteed array order. Consumers sort by `position` to produce running order. Used to render the standings tower.",
+      "items": { "$ref": "#/$defs/vehicle" }
+    },
+    "subject": {
+      "$ref": "#/$defs/subject",
+      "description": "The on-camera driver identity. Identifies which vehicle the broadcast is currently following; widgets highlight this driver. Its `slot_id` should reference one of the `vehicles` entries."
+    },
+    "relationship": {
+      "$ref": "#/$defs/relationship",
+      "description": "The battle context for the on-camera `subject` driver: gaps to the cars immediately ahead and behind, and how contested the battle is. Drives the battle box widget."
+    }
+  },
+  "$defs": {
+    "vehicle": {
+      "type": "object",
+      "description": "A single vehicle's running-order and timing state.",
+      "required": ["slot_id", "driver_name", "vehicle_class", "position"],
+      "additionalProperties": true,
+      "properties": {
+        "slot_id": {
+          "type": "string",
+          "description": "Stable identifier for this vehicle for the duration of a session. Used to correlate vehicles across successive state events and to resolve `subject.slot_id`."
+        },
+        "driver_name": {
+          "type": "string",
+          "description": "Human-readable name of the driver currently in this vehicle."
+        },
+        "vehicle_class": {
+          "type": "string",
+          "description": "The class/category of the vehicle (e.g. for multi-class racing). Free-form string; producers define their own class names."
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The vehicle's place in the overall running order (1 = leader). Consumers sort by this to render the tower."
+        },
+        "last_lap": {
+          "type": ["number", "null"],
+          "description": "Duration of the vehicle's most recently completed lap, in seconds. Null or absent if no lap has been completed yet."
+        },
+        "best_lap": {
+          "type": ["number", "null"],
+          "description": "The vehicle's best lap time so far this session, in seconds. Null or absent if no valid lap has been set."
+        },
+        "sector_times": {
+          "type": "array",
+          "description": "Per-sector times for the vehicle's current reference lap, in seconds, ordered by sector index (element 0 = sector 1). Length matches the track's sector count. May be empty if no sector data is available.",
+          "items": {
+            "type": ["number", "null"]
+          }
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "description": "The on-camera driver identity.",
+      "required": ["slot_id", "driver_name"],
+      "additionalProperties": true,
+      "properties": {
+        "slot_id": {
+          "type": "string",
+          "description": "The `slot_id` of the on-camera vehicle. Should match one of the `vehicles[].slot_id` values."
+        },
+        "driver_name": {
+          "type": "string",
+          "description": "Name of the on-camera driver. Should match the referenced vehicle's `driver_name`; duplicated here so the battle box can render without a vehicles lookup."
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "description": "The battle context for the on-camera subject driver.",
+      "required": ["battle_intensity"],
+      "additionalProperties": true,
+      "properties": {
+        "gap_ahead": {
+          "type": ["number", "null"],
+          "description": "Time gap in seconds from the subject to the vehicle immediately ahead on track in running order. Null or absent when the subject is the leader / has no one ahead."
+        },
+        "gap_behind": {
+          "type": ["number", "null"],
+          "description": "Time gap in seconds from the subject to the vehicle immediately behind on track in running order. Null or absent when the subject is last / has no one behind."
+        },
+        "battle_intensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How close/contested the subject's battle is, normalized to [0, 1]. 0 = no meaningful battle (clear air); 1 = maximally contested (cars nose-to-tail, positions actively changing). The producer computes this from gaps, closing rate, and recent position changes; consumers treat it as an opaque intensity for presentation (e.g. battle box emphasis)."
+        }
+      }
+    }
+  }
+}
