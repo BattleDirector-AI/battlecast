@@ -1,0 +1,21 @@
+# oh-my-claudecode runtime state (operational artifacts, not project content)
+.omc/
+**/.omc/
+!.omc/skills/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Python virtual environments
+.venv/
+venv/
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.log
