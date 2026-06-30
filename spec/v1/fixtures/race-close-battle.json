@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-44",
+      "driver_name": "Hamilton",
+      "vehicle_class": "F1",
+      "position": 1,
+      "last_lap": 92.418,
+      "best_lap": 91.872,
+      "sector_times": [28.914, 31.402, 32.102]
+    },
+    {
+      "slot_id": "car-1",
+      "driver_name": "Verstappen",
+      "vehicle_class": "F1",
+      "position": 2,
+      "last_lap": 92.061,
+      "best_lap": 91.744,
+      "sector_times": [28.802, 31.355, 31.904]
+    },
+    {
+      "slot_id": "car-16",
+      "driver_name": "Leclerc",
+      "vehicle_class": "F1",
+      "position": 3,
+      "last_lap": 92.733,
+      "best_lap": 92.118,
+      "sector_times": [29.011, 31.498, 32.224]
+    },
+    {
+      "slot_id": "car-4",
+      "driver_name": "Norris",
+      "vehicle_class": "F1",
+      "position": 4,
+      "last_lap": 92.889,
+      "best_lap": 92.301,
+      "sector_times": [29.102, 31.557, 32.230]
+    }
+  ],
+  "subject": {
+    "slot_id": "car-1",
+    "driver_name": "Verstappen"
+  },
+  "relationship": {
+    "gap_ahead": 0.4,
+    "gap_behind": 1.8,
+    "battle_intensity": 0.86
+  }
+}
