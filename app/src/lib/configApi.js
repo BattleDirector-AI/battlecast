@@ -13,13 +13,17 @@ async function asJson(res, action) {
   return res.json()
 }
 
-/** True if the config/asset API is reachable (companion server running). */
+/** True if the config/asset API is reachable (companion server running). Validates
+ *  the JSON shape, not just the status, so a pure-static host that answers unknown
+ *  paths with a 200 SPA `index.html` fallback isn't mistaken for the server. */
 export async function serverAvailable({ fetchImpl } = {}) {
   const doFetch = resolveFetch(fetchImpl)
   if (!doFetch) return false
   try {
     const res = await doFetch('/api/profiles')
-    return res.ok
+    if (!res.ok) return false
+    const data = await res.json()
+    return Array.isArray(data?.profiles)
   } catch {
     return false
   }

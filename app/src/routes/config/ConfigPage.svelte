@@ -30,7 +30,11 @@
     fitPreview()
     if (typeof window !== 'undefined') window.addEventListener('resize', fitPreview)
     return () => {
-      if (typeof window !== 'undefined') window.removeEventListener('resize', fitPreview)
+      if (typeof window === 'undefined') return
+      window.removeEventListener('resize', fitPreview)
+      // Also drop any in-flight drag listeners so unmounting mid-drag can't leak them.
+      window.removeEventListener('pointermove', onDrag)
+      window.removeEventListener('pointerup', endDrag)
     }
   })
 
@@ -82,7 +86,10 @@
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
-    const files = Array.from(event.currentTarget.files || [])
+    // Capture the input up front: `event.currentTarget` is null after the first
+    // `await` (it only lives for the synchronous dispatch).
+    const input = event.currentTarget
+    const files = Array.from(input.files || [])
     if (!files.length) return
     if (!serverUp) {
       status = 'Upload needs the companion server. Start `battlecast serve`.'
@@ -97,7 +104,7 @@
       }
     }
     serverLogos = await api.listLogos()
-    event.currentTarget.value = ''
+    input.value = ''
   }
   const addLogoToRotation = (url) => (config = editor.addLogoImage(config, url))
   const removeFromRotation = (url) => (config = editor.removeLogoImage(config, url))
@@ -182,6 +189,9 @@
                 <span
                   class="handle__resize"
                   data-testid="resize-{key}"
+                  role="button"
+                  tabindex="-1"
+                  aria-label="resize {key}"
                   onpointerdown={(e) => {
                     e.stopPropagation()
                     startDrag(e, key, 'resize')
