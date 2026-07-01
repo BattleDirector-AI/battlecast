@@ -5,6 +5,7 @@ import { normalizeConfig } from '../../lib/overlayConfig.js'
 import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
 import lowerThird from './fixtures/profile-lower-third.json'
 import towerOnly from './fixtures/profile-tower-only.json'
+import withLogos from './fixtures/profile-with-logos.json'
 
 afterEach(() => cleanup())
 
@@ -60,6 +61,23 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(slot(container, 'battle')).toBeNull()
     // The hidden battle box renders none of its content.
     expect(container.textContent).not.toContain('BATTLE FOR POSITION')
+  })
+
+  it('composes the logos widget at its slot, driven by the logoRotation config (#33)', () => {
+    const { container } = render(AllView, {
+      snapshot: closeBattle,
+      config: normalizeConfig(withLogos),
+    })
+
+    const logos = slot(container, 'logos')
+    expect(logos).not.toBeNull()
+    // Placed at the configured geometry...
+    expect(logos.style.left).toBe('1560px')
+    expect(logos.style.top).toBe('900px')
+    // ...and showing the first configured sponsor image.
+    expect(logos.querySelector('[data-testid="logo-image"]').getAttribute('src')).toBe(
+      '/logos/sponsor-a.png',
+    )
   })
 
   it('honors z-order by painting widgets in ascending z (later = on top)', () => {

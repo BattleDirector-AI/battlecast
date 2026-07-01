@@ -1,17 +1,18 @@
 <script>
   import StandingsTower from '../tower/StandingsTower.svelte'
   import BattleBox from '../battle/BattleBox.svelte'
-  import { DEFAULT_CONFIG, OVERLAY_CANVAS, resolveWidgets } from '../../lib/overlayConfig.js'
+  import LogoRotation from '../logos/LogoRotation.svelte'
+  import { DEFAULT_CONFIG, OVERLAY_CANVAS, normalizeConfig, resolveWidgets } from '../../lib/overlayConfig.js'
 
   let { snapshot = null, config = DEFAULT_CONFIG } = $props()
 
   // Config-driven layout: each widget is absolutely placed on the 1920x1080
   // canvas per its {x, y, w, h, z}. Only widgets that are `visible` AND have a
-  // component today are rendered — a hidden widget is absent from the DOM, not
-  // just visually collapsed. `logos` is in the contract but has no component
-  // until #33, so it is intentionally skipped here.
-  const RENDERABLE = new Set(['tower', 'battle'])
-  const widgets = $derived(resolveWidgets(config).filter((w) => w.visible && RENDERABLE.has(w.key)))
+  // component are rendered — a hidden widget is absent from the DOM, not just
+  // visually collapsed.
+  const normalized = $derived(normalizeConfig(config))
+  const RENDERABLE = new Set(['tower', 'battle', 'logos'])
+  const widgets = $derived(resolveWidgets(normalized).filter((w) => w.visible && RENDERABLE.has(w.key)))
 </script>
 
 <div
@@ -34,6 +35,8 @@
           relationship={snapshot?.relationship ?? {}}
           vehicles={snapshot?.vehicles ?? []}
         />
+      {:else if w.key === 'logos'}
+        <LogoRotation rotation={normalized.logoRotation} />
       {/if}
     </div>
   {/each}

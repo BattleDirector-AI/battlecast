@@ -1,0 +1,14 @@
+{
+  "configVersion": "1",
+  "name": "with-logos",
+  "widgets": {
+    "tower": { "visible": true, "x": 24, "y": 24, "w": 360, "h": 900, "z": 1 },
+    "battle": { "visible": false, "x": 408, "y": 24, "w": 640, "h": 220, "z": 2 },
+    "logos": { "visible": true, "x": 1560, "y": 900, "w": 320, "h": 140, "z": 3 }
+  },
+  "logoRotation": {
+    "images": ["/logos/sponsor-a.png", "/logos/sponsor-b.png"],
+    "perSlotSeconds": 6,
+    "order": "sequential"
+  }
+}

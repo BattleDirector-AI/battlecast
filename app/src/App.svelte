@@ -7,12 +7,13 @@
   import TowerPage from './routes/tower/TowerPage.svelte'
   import BattlePage from './routes/battle/BattlePage.svelte'
   import AllPage from './routes/all/AllPage.svelte'
+  import LogosPage from './routes/logos/LogosPage.svelte'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
   const rawPath = typeof window !== 'undefined' ? window.location.pathname : '/'
   const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
-  const OVERLAY_ROUTES = ['/tower', '/battle', '/all']
+  const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos']
 
   // Overlay routes composite over live video in OBS, so the page background
   // must be transparent — unlike the default Vite/Svelte scaffold below,
@@ -30,6 +31,8 @@
   <BattlePage />
 {:else if path === '/all'}
   <AllPage />
+{:else if path === '/logos'}
+  <LogosPage />
 {:else}
   <section id="center">
     <div class="hero">
