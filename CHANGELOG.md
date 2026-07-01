@@ -19,7 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   This is the write/serve side of the overlay-config contract (counterpart to the
   #16 read side). Binds to `localhost` by default; uploads are validated (allowed
   image types only, ≤ 5 MiB, sanitized filenames) and profile names are restricted
-  to prevent path traversal. The render path still works as a pure static deploy —
+  to prevent path traversal. Served logo assets carry `nosniff` + a locked-down CSP,
+  so an uploaded SVG can't execute as active content (it still renders via `<img>`).
+  The render path still works as a pure static deploy —
   the server is optional. The config-UI editor (`/config`) lands in the next part.
 - **Logo / sponsor rotation widget (#33)** — a new widget that cycles a set of
   branding images on a per-slot timer with a fade, driven entirely by the overlay

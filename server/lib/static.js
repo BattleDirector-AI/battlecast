@@ -74,7 +74,11 @@ export function createStaticHandler(distDir) {
     if (target) {
       const file = await readFileOrNull(target)
       if (file) {
-        res.writeHead(200, { 'Content-Type': typeFor(target), 'Content-Length': file.length })
+        res.writeHead(200, {
+          'Content-Type': typeFor(target),
+          'Content-Length': file.length,
+          'X-Content-Type-Options': 'nosniff',
+        })
         res.end(req.method === 'HEAD' ? undefined : file)
         return
       }
@@ -85,7 +89,11 @@ export function createStaticHandler(distDir) {
     if (!hasExtension && indexPath) {
       const index = await readFileOrNull(indexPath)
       if (index) {
-        res.writeHead(200, { 'Content-Type': STATIC_TYPES.html, 'Content-Length': index.length })
+        res.writeHead(200, {
+          'Content-Type': STATIC_TYPES.html,
+          'Content-Length': index.length,
+          'X-Content-Type-Options': 'nosniff',
+        })
         res.end(req.method === 'HEAD' ? undefined : index)
         return
       }

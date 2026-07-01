@@ -33,6 +33,24 @@ import { sendJson, sendError, readBody } from './respond.js'
 const MAX_PROFILE_BYTES = 256 * 1024 // config JSON is a few KB; 256 KiB is ample
 const UPLOAD_ENVELOPE_SLACK = 64 * 1024 // room for multipart headers/boundary
 
+// Served logo assets are untrusted uploads. SVG is an active-content format, so a
+// directly-navigated `/logos/evil.svg` could otherwise run script in this origin.
+// `nosniff` + a locked-down CSP (no script, no fetch, sandboxed) neutralizes that
+// while still allowing the images to render via `<img>` in the overlay.
+const ASSET_SECURITY_HEADERS = Object.freeze({
+  'X-Content-Type-Options': 'nosniff',
+  'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+})
+
+/** decodeURIComponent that maps malformed input to a 400 (not a 500). */
+function safeDecode(segment) {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    throw new ValidationError('malformed percent-encoding in path')
+  }
+}
+
 export function createApp({ dataDir, distDir } = {}) {
   if (!dataDir) throw new Error('createApp requires a dataDir')
   const profiles = createProfileStore(dataDir)
@@ -45,7 +63,7 @@ export function createApp({ dataDir, distDir } = {}) {
       return sendJson(res, 200, { profiles: await profiles.list() })
     }
 
-    const name = assertProfileName(decodeURIComponent(url.pathname.slice('/api/profiles/'.length)))
+    const name = assertProfileName(safeDecode(url.pathname.slice('/api/profiles/'.length)))
 
     if (req.method === 'GET') {
       const profile = await profiles.read(name)
@@ -103,7 +121,7 @@ export function createApp({ dataDir, distDir } = {}) {
   }
 
   async function handleLogoItem(req, res, url, rawName) {
-    const name = sanitizeLogoFilename(decodeURIComponent(rawName))
+    const name = sanitizeLogoFilename(safeDecode(rawName))
     if (req.method === 'DELETE') {
       const removed = await logos.remove(name)
       if (!removed) return sendError(res, 404, `no such logo "${name}"`)
@@ -114,13 +132,14 @@ export function createApp({ dataDir, distDir } = {}) {
 
   async function handleLogoAsset(req, res, rawName) {
     if (req.method !== 'GET' && req.method !== 'HEAD') return methodNotAllowed(res, 'GET')
-    const name = sanitizeLogoFilename(decodeURIComponent(rawName))
+    const name = sanitizeLogoFilename(safeDecode(rawName))
     const asset = await logos.read(name)
     if (!asset) return sendError(res, 404, `no such logo "${name}"`)
     res.writeHead(200, {
       'Content-Type': asset.contentType,
       'Content-Length': asset.data.length,
       'Cache-Control': 'no-cache',
+      ...ASSET_SECURITY_HEADERS,
     })
     res.end(req.method === 'HEAD' ? undefined : asset.data)
   }
