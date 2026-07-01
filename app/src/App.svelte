@@ -4,6 +4,7 @@
   import heroImg from './assets/hero.png'
   import Counter from './lib/Counter.svelte'
   import TowerPage from './routes/tower/TowerPage.svelte'
+  import BattlePage from './routes/battle/BattlePage.svelte'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
@@ -14,7 +15,7 @@
 {#if path === '/tower'}
   <TowerPage />
 {:else if path === '/battle'}
-  <div class="route-placeholder">Battle Box — not yet implemented</div>
+  <BattlePage />
 {:else}
   <section id="center">
     <div class="hero">
@@ -99,11 +100,3 @@
   <div class="ticks"></div>
   <section id="spacer"></section>
 {/if}
-
-<style>
-  .route-placeholder {
-    padding: 48px;
-    font-family: system-ui, sans-serif;
-    color: var(--text, #6b6375);
-  }
-</style>

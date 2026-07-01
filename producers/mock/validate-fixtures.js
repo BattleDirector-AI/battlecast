@@ -11,7 +11,11 @@ const fs = require("fs");
 const path = require("path");
 
 const FIXTURES_DIR = path.resolve(__dirname, "..", "..", "spec", "v1", "fixtures");
-const FIXTURE_FILES = ["race-close-battle.json", "race-no-battle.json"];
+const FIXTURE_FILES = [
+  "race-close-battle.json",
+  "race-no-battle.json",
+  "race-idle-battle.json",
+];
 
 function check(cond, msg, errors) {
   if (!cond) errors.push(msg);
