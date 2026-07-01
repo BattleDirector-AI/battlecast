@@ -2,12 +2,14 @@
   "name": "battlecast-mock-producer",
   "version": "1.0.0",
   "private": true,
-  "description": "Reference HTTP + SSE mock producer for battlecast frontend dev. Replays spec/v1 fixtures as `state` events.",
+  "description": "Reference HTTP + SSE mock producer for battlecast frontend dev. Streams a live simulated race by default, or replays spec/v1 fixtures as `state` events.",
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "validate-fixtures": "node validate-fixtures.js"
+    "start": "node server.js simulate",
+    "start:fixtures": "node server.js fixtures",
+    "validate-fixtures": "node validate-fixtures.js",
+    "validate-simulator": "node validate-simulator.js"
   },
   "engines": {
     "node": ">=22"
