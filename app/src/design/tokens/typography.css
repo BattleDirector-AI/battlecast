@@ -1,0 +1,35 @@
+/* Battlecast — Typography tokens
+ * Reference resolution 1920x1080. Sizes in px.
+ * Display = names/titles, UI = small-caps labels, Mono = ALL numerics. */
+
+:root {
+  --bc-font-display: 'Saira Condensed', 'Arial Narrow', sans-serif;
+  --bc-font-ui: 'Saira', 'Helvetica Neue', Arial, sans-serif;
+  --bc-font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+
+  /* ---- Sizes (px @ 1920x1080) ---- */
+  --bc-size-name: 19px;          /* driver name (standard) */
+  --bc-size-name-compact: 15px;  /* driver name (compact) */
+  --bc-size-pos: 19px;           /* position numeral (standard) */
+  --bc-size-pos-compact: 14px;   /* position numeral (compact) */
+  --bc-size-gap: 14px;           /* gap / interval (standard) */
+  --bc-size-gap-compact: 12px;   /* gap / interval (compact) */
+  --bc-size-chip: 10px;          /* class chip label (standard) */
+  --bc-size-chip-compact: 8px;   /* class chip label (compact) */
+  --bc-size-label: 11px;         /* section / UI labels (standard) */
+  --bc-size-label-compact: 9px;  /* section / UI labels (compact) */
+  --bc-size-carnum: 12px;        /* car number */
+  --bc-size-battle-pos: 20px;    /* battle box focus position */
+  --bc-size-battle-name: 21px;   /* battle box focus name */
+
+  /* ---- Weights ---- */
+  --bc-weight-name: 600;         /* driver names */
+  --bc-weight-leader: 700;       /* leaders / emphasis names */
+  --bc-weight-num: 700;          /* numerals */
+  --bc-weight-label: 700;        /* labels */
+
+  /* ---- Tracking ---- */
+  --bc-track-label: 0.18em;      /* UI labels */
+  --bc-track-title: 0.20em;      /* widget titles */
+  --bc-track-chip: 0.06em;       /* class chips */
+}

@@ -16,9 +16,11 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@testing-library/svelte": "^5.4.2",
     "eslint": "^10.6.0",
     "eslint-plugin-svelte": "^3.20.0",
     "globals": "^17.7.0",
+    "happy-dom": "^20.10.6",
     "svelte": "^5.56.4",
     "vite": "^8.1.1",
     "vitest": "^4.1.9"
