@@ -1,0 +1,52 @@
+/* Battlecast — Color tokens
+ * Overlay graphics rendered transparent over live race video.
+ * Surfaces are "smoked glass" — never opaque black — paired with blur. */
+
+:root {
+  /* ---- Surfaces / neutrals (smoked glass over video) ---- */
+  --bc-board: #101216;                       /* solid reference board / studio bg */
+  --bc-plate: rgba(10, 12, 14, 0.82);        /* default widget plate (pair w/ blur) */
+  --bc-plate-dense: rgba(8, 10, 12, 0.84);   /* denser plate for tight rows */
+  --bc-plate-solid: #0a0c0e;                 /* opaque fallback (no blur context) */
+  --bc-header: rgba(16, 19, 22, 0.94);       /* widget header bar */
+
+  /* ---- Hairlines / dividers ---- */
+  --bc-hairline: rgba(255, 255, 255, 0.08);  /* plate edge / outline */
+  --bc-divider: rgba(255, 255, 255, 0.05);   /* between rows */
+  --bc-zebra: rgba(255, 255, 255, 0.022);    /* alternating row tint */
+
+  /* ---- Text ---- */
+  --bc-text: #F2F5F7;                         /* primary */
+  --bc-text-2: rgba(242, 245, 247, 0.60);     /* secondary */
+  --bc-text-3: rgba(242, 245, 247, 0.40);     /* tertiary / muted numerals */
+  --bc-text-4: rgba(242, 245, 247, 0.18);     /* faint scaffolding */
+  --bc-text-on-accent: #0b0e13;               /* text on cyan fill */
+
+  /* ---- Brand accent — RESERVED for the on-camera driver ONLY ---- */
+  --bc-accent: #1FE0C4;                       /* cyan */
+  --bc-accent-soft: rgba(31, 224, 196, 0.22);
+  --bc-accent-glow: rgba(31, 224, 196, 0.28);
+  --bc-accent-line: rgba(31, 224, 196, 0.55);
+  --bc-oncam-text: #EAFFFB;                    /* name text inside on-cam highlight */
+
+  /* ---- Battle intensity — a SEPARATE semantic axis (0 -> 1) ---- */
+  --bc-intensity-calm: #2ED9A6;
+  --bc-intensity-mid: #FFC247;
+  --bc-intensity-hot: #FF4536;
+
+  /* ---- Position delta ---- */
+  --bc-up: #36D17A;
+  --bc-down: #FF4D6D;
+
+  /* ---- Status ---- */
+  --bc-live: #FF4536;
+
+  /* ---- Multi-class color system (first-class) ----
+   * Five hues spaced around the wheel at even lightness so none blur
+   * together over video. Ramp is extensible: add --bc-class-<key>. */
+  --bc-class-gtp: #FF4D6D;    /* Hypercar / GTP */
+  --bc-class-lmp2: #4D9BFF;   /* Prototype 2 / LMP2 */
+  --bc-class-gt3: #36D17A;    /* GT3 */
+  --bc-class-gt4: #B98CFF;    /* GT4 */
+  --bc-class-tcr: #FF9A3C;    /* Touring / TCR */
+}

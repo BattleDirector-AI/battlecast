@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-14",
+      "driver_name": "Alonso",
+      "vehicle_class": "F1",
+      "position": 1,
+      "last_lap": 93.104,
+      "best_lap": 92.611,
+      "sector_times": [29.201, 31.702, 32.201]
+    }
+  ],
+  "subject": {
+    "slot_id": "car-14",
+    "driver_name": "Alonso"
+  },
+  "relationship": {
+    "gap_ahead": null,
+    "gap_behind": null,
+    "battle_intensity": 0
+  }
+}
