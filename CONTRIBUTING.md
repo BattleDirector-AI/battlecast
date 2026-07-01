@@ -43,4 +43,6 @@ and must keep the compliance harness (`spec/v1/compliance/`) passing.
 ## Pull requests
 
 Keep PRs focused. Include or update the fixtures your change is tested against, and
-make sure CI is green before requesting review.
+make sure CI is green before requesting review. Base your PR on **`next`** — see
+[RELEASING.md](RELEASING.md) for the full branch model (`next` → `prerelease` →
+`main`) and how releases and hotfixes flow through it.
