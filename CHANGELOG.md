@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Config UI — the overlay editor at `/config` (#34, part 2 of 2)** — a WYSIWYG
+  editor to arrange the overlay without touching code or CSS, completing epic #19.
+  A live 1920×1080 preview (the real `/all` render) with **drag-to-move and
+  resize handles** per widget; a panel to toggle visibility and set exact
+  geometry/z-order; **logo management** (upload via the companion server, add/
+  reorder/remove rotation images, set per-slot duration + order); a producer-URL
+  field; and **named profiles** — save/load through the server, with a generated
+  OBS Browser Source URL to copy. Degrades to client-only authoring (**export
+  `config.json`**) when no server is running. Config **round-trips**: save a
+  profile → reload it → an identical `/all` render (covered by a behavioral test).
 - **Companion server — `battlecast serve` (#34, part 1 of 2)** — an optional,
   zero-dependency Node server (built-in `http`, Node ≥ 22, same stack as
   `producers/mock`) that serves the built overlay app with **SPA fallback** (so
