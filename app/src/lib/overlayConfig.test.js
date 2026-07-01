@@ -119,6 +119,14 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(normalizeConfig(null).widgets.tower.visible).toBe(true)
     expect(normalizeConfig('nope').widgets.battle.visible).toBe(true)
   })
+
+  it("preserves a profile's declared configVersion, including falsy values", () => {
+    expect(normalizeConfig({ configVersion: '2' }).configVersion).toBe('2')
+    // A falsy-but-present version must not be silently replaced by the default.
+    expect(normalizeConfig({ configVersion: 0 }).configVersion).toBe('0')
+    // Absent => default.
+    expect(normalizeConfig({}).configVersion).toBe(CONFIG_VERSION)
+  })
 })
 
 describe('resolveWidgets — ordered render list', () => {

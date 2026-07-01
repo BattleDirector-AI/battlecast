@@ -18,7 +18,7 @@
  *   a warning and falls back rather than rendering blank or throwing.
  */
 
-import { resolveSrc, DEFAULT_SRC } from '../routes/tower/sseClient.js'
+import { DEFAULT_SRC } from '../routes/tower/sseClient.js'
 
 /** Config contract version, numbered independently of the app release and the
  *  spec `schemaVersion`. */
@@ -27,15 +27,9 @@ export const CONFIG_VERSION = '1'
 /** The fixed layout canvas. Widget geometry is absolute px within this box. */
 export const OVERLAY_CANVAS = Object.freeze({ w: 1920, h: 1080 })
 
-/** Widget keys known to the `/all` layout contract. `logos` is reserved for the
- *  logo-rotation widget (#33); it is part of the contract now so profiles and the
- *  config UI (#34) can target a stable shape, even though `/all` does not render a
- *  logos component until #33 lands. */
-export const WIDGET_KEYS = Object.freeze(['tower', 'battle', 'logos'])
-
 /** Built-in default layout — reproduces today's side-by-side `/all` arrangement
- *  (tower top-left column, battle box as a lower band) so existing users are not
- *  broken when no configuration is supplied. `logos` defaults hidden. */
+ *  (tower in the left column, battle box as an upper band to its right) so existing
+ *  users are not broken when no configuration is supplied. `logos` defaults hidden. */
 export const DEFAULT_CONFIG = Object.freeze({
   configVersion: CONFIG_VERSION,
   name: 'default',
@@ -48,6 +42,11 @@ export const DEFAULT_CONFIG = Object.freeze({
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   theme: {},
 })
+
+/** Canonical widget keys in the layout contract, DERIVED from DEFAULT_CONFIG so it
+ *  cannot drift from the real source of truth. `logos` is part of the contract for
+ *  #33/#34 even though `/all` renders no logos component until #33 lands. */
+export const WIDGET_KEYS = Object.freeze(Object.keys(DEFAULT_CONFIG.widgets))
 
 /** Deep clone that works in Node >=17 / happy-dom (structuredClone) with a JSON
  *  fallback. DEFAULT_CONFIG is frozen, so callers must clone before mutating. */
@@ -80,7 +79,7 @@ export function normalizeConfig(raw) {
   const src = raw && typeof raw === 'object' ? raw : {}
   const out = clone(DEFAULT_CONFIG)
 
-  out.configVersion = String(src.configVersion || CONFIG_VERSION)
+  out.configVersion = src.configVersion != null ? String(src.configVersion) : CONFIG_VERSION
   if (src.name != null) out.name = String(src.name)
   if (src.producer && typeof src.producer === 'object') {
     out.producer = { ...out.producer, ...src.producer }
@@ -108,31 +107,6 @@ export function normalizeConfig(raw) {
     }
   }
   out.widgets = normalizedWidgets
-  return out
-}
-
-/** Merge a fetched profile over a base config (per-widget shallow merge so a
- *  profile can override just `visible` or just a coordinate). */
-function mergeProfile(base, profile) {
-  const out = clone(base)
-  if (!profile || typeof profile !== 'object') return out
-
-  if (profile.configVersion != null) out.configVersion = String(profile.configVersion)
-  if (profile.name != null) out.name = String(profile.name)
-  if (profile.producer && typeof profile.producer === 'object') {
-    out.producer = { ...out.producer, ...profile.producer }
-  }
-  if (profile.logoRotation && typeof profile.logoRotation === 'object') {
-    out.logoRotation = { ...out.logoRotation, ...profile.logoRotation }
-  }
-  if (profile.theme && typeof profile.theme === 'object') {
-    out.theme = { ...out.theme, ...profile.theme }
-  }
-  if (profile.widgets && typeof profile.widgets === 'object') {
-    for (const [key, w] of Object.entries(profile.widgets)) {
-      if (w && typeof w === 'object') out.widgets[key] = { ...(out.widgets[key] || {}), ...w }
-    }
-  }
   return out
 }
 
@@ -185,22 +159,22 @@ export async function loadConfig(search, { fetchImpl } = {}) {
   const params = new URLSearchParams(search || '')
   const doFetch = fetchImpl || (typeof globalThis !== 'undefined' ? globalThis.fetch : undefined)
 
-  let config = clone(DEFAULT_CONFIG)
-
+  let raw = null
   const profileName = params.get('profile')
   if (profileName && profileName.trim()) {
-    const raw = doFetch ? await fetchProfile(profileName.trim(), doFetch) : null
-    if (raw) {
-      config = mergeProfile(config, raw)
-    } else {
+    raw = doFetch ? await fetchProfile(profileName.trim(), doFetch) : null
+    if (!raw) {
       console.warn(
         `[battlecast] profile "${profileName.trim()}" could not be loaded; using default layout.`,
       )
     }
   }
 
-  config = applyUrlOverrides(config, params)
-  return normalizeConfig(config)
+  // Normalize first — this fills every widget/field from the default (so a partial
+  // profile is completed and `/all` is never blank) — then let explicit URL params
+  // override, so ?show=/?hide= win over both the profile and the default.
+  const config = normalizeConfig(raw ?? DEFAULT_CONFIG)
+  return applyUrlOverrides(config, params)
 }
 
 /**
@@ -215,14 +189,14 @@ export function resolveWidgets(config) {
 }
 
 /**
- * Pick the producer SSE URL for `/all`: an explicit `?src=` wins (via resolveSrc's
- * exact semantics), else the profile's `producer.src`, else the default. This lets
- * a saved profile carry its producer while `?src=` still overrides per Browser
+ * Pick the producer SSE URL for `/all`: an explicit `?src=` wins (trimmed, matching
+ * resolveSrc's semantics), else the profile's `producer.src`, else the default. This
+ * lets a saved profile carry its producer while `?src=` still overrides per Browser
  * Source.
  */
 export function pickProducerSrc(search, config) {
   const explicit = new URLSearchParams(search || '').get('src')
-  if (explicit && explicit.trim()) return resolveSrc(search)
+  if (explicit && explicit.trim()) return explicit.trim()
   const fromProfile = config?.producer?.src
   if (fromProfile && String(fromProfile).trim()) return String(fromProfile).trim()
   return DEFAULT_SRC
