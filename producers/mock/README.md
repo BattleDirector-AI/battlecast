@@ -12,7 +12,7 @@ events.
 
 ```sh
 cd producers/mock
-npm start              # → node server.js
+npm start              # → node server.js simulate — a live, continuously evolving race
 ```
 
 Then connect any SSE client to:
@@ -32,30 +32,57 @@ snapshot in its `data:` field.
 
 ### Configuration
 
-| Env var       | Default | Meaning                                  |
-| ------------- | ------- | ---------------------------------------- |
-| `PORT`        | `8080`  | TCP port to listen on                    |
-| `INTERVAL_MS` | `750`   | Interval between `state` events (≈1.3 Hz) |
+| Env var          | Default | Meaning                                            |
+| ---------------- | ------- | --------------------------------------------------- |
+| `PORT`           | `8080`  | TCP port to listen on                                |
+| `INTERVAL_MS`    | `750`   | Interval between `state` events (≈1.3 Hz)            |
+| `SIM_DT_SECONDS` | `2`     | Sim-seconds of race time advanced per tick (`simulate` mode only) |
 
-## What it emits
+## Modes
 
-On each connection the server emits a `state` event immediately, then every
-`INTERVAL_MS`, cycling through the fixtures in
-[`spec/v1/fixtures/`](../../spec/v1/fixtures/):
+### `simulate` (default) — a live, continuously evolving race
+
+```sh
+npm start
+```
+
+One shared 14-car, 3-class (GTP/LMP2/GT3) race, broadcast identically to every
+connected client — open `/tower`, `/battle`, and `/all` at once and they all reflect
+the same live race, the way separate OBS Browser Sources pointed at one real producer
+would. Each car runs at a per-class base pace plus a per-car skill offset and a slow
+random-walk pace fluctuation, so running order, gaps, and on-track battles emerge and
+change continuously instead of replaying a handful of fixed scenarios. The on-camera
+`subject` is chosen like a broadcast director would — whichever battle is currently
+tightest — with hysteresis so the cut doesn't change every tick.
+
+Implementation: [`simulate.js`](simulate.js).
+
+### `fixtures` — deterministic scenario replay
+
+```sh
+npm run start:fixtures    # → node server.js fixtures
+```
+
+The original behavior: each connection independently cycles through the fixtures in
+[`spec/v1/fixtures/`](../../spec/v1/fixtures/) on a fixed interval:
 
 - `race-close-battle.json` — Verstappen on camera, tight gap ahead, high battle intensity.
 - `race-no-battle.json` — leader on camera in clear air, low battle intensity.
+- `race-idle-battle.json` — a lone car with no adjacent traffic; the genuine idle case.
 
-Fixtures are the **source of truth** for test data; the server only replays them.
+Fixtures are the **source of truth** for the app's fixture-based behavioral tests (see
+`CONTRIBUTING.md`) — use this mode when you want a known, reproducible scenario rather
+than a live race.
 
-## Validate fixtures
+## Validate
 
 ```sh
-npm run validate-fixtures
+npm run validate-fixtures    # structurally checks the static fixtures
+npm run validate-simulator   # steps the simulator for thousands of ticks and checks each snapshot
 ```
 
-Structurally checks each replayed fixture against the required-field contract in
-[`spec/v1/schema.json`](../../spec/v1/schema.json).
+Both check against the same required-field contract in
+[`spec/v1/schema.json`](../../spec/v1/schema.json) ([`validate.js`](validate.js)).
 
 ## Requirements
 
