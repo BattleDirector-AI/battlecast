@@ -1,21 +1,35 @@
 <script>
+  import { onMount } from 'svelte'
   import svelteLogo from './assets/svelte.svg'
   import viteLogo from './assets/vite.svg'
   import heroImg from './assets/hero.png'
   import Counter from './lib/Counter.svelte'
   import TowerPage from './routes/tower/TowerPage.svelte'
   import BattlePage from './routes/battle/BattlePage.svelte'
+  import AllPage from './routes/all/AllPage.svelte'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
   const rawPath = typeof window !== 'undefined' ? window.location.pathname : '/'
   const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
+  const OVERLAY_ROUTES = ['/tower', '/battle', '/all']
+
+  // Overlay routes composite over live video in OBS, so the page background
+  // must be transparent — unlike the default Vite/Svelte scaffold below,
+  // which keeps its themed light/dark background.
+  onMount(() => {
+    if (!OVERLAY_ROUTES.includes(path) || typeof document === 'undefined') return
+    document.documentElement.style.background = 'transparent'
+    document.body.style.background = 'transparent'
+  })
 </script>
 
 {#if path === '/tower'}
   <TowerPage />
 {:else if path === '/battle'}
   <BattlePage />
+{:else if path === '/all'}
+  <AllPage />
 {:else}
   <section id="center">
     <div class="hero">
