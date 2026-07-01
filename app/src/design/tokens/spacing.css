@@ -1,0 +1,32 @@
+/* Battlecast — Spacing & sizing tokens (4px grid) */
+
+:root {
+  /* ---- Spacing scale ---- */
+  --bc-space-1: 4px;
+  --bc-space-2: 8px;
+  --bc-space-3: 12px;
+  --bc-space-4: 16px;
+  --bc-space-6: 24px;
+
+  /* ---- Row heights ---- */
+  --bc-row-standard: 44px;
+  --bc-row-compact: 28px;
+  --bc-row-grouped: 30px;
+  --bc-group-header: 26px;
+  --bc-widget-header: 38px;
+
+  /* ---- Widget dimensions ---- */
+  --bc-tower-width: 380px;
+  --bc-battle-width: 440px;
+
+  /* ---- Class bar (left edge accent on each row) ---- */
+  --bc-classbar: 4px;
+  --bc-classbar-compact: 3px;
+
+  /* ---- Radii ---- */
+  --bc-radius: 4px;
+  --bc-radius-chip: 2px;
+
+  /* ---- Title-safe inset (broadcast safe area) ---- */
+  --bc-inset-safe: 48px;
+}

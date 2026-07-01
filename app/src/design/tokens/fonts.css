@@ -1,0 +1,10 @@
+/* Battlecast — Webfonts
+ * Loaded from Google Fonts for convenience. For production OBS Browser
+ * Sources, SELF-HOST these (offline reliability) and replace the @import
+ * below with local @font-face rules pointing at the binaries.
+ *
+ * Saira Condensed — driver names + titles (display)
+ * Saira           — small-caps UI labels
+ * JetBrains Mono  — ALL numerics (tabular figures) */
+
+@import url('https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@400;500;600;700&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
