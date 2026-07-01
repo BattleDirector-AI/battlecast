@@ -78,12 +78,54 @@ async function testBadMode(mode, { timeoutMs = 2000, samples = 1 } = {}, expectS
   }
 }
 
+async function testEarlyDisconnect() {
+  const port = await getFreePort();
+  const child = await startChild(BAD_PRODUCER, { PORT: String(port), BAD_MODE: "close-early" });
+  try {
+    const start = Date.now();
+    const result = await runCheck(`http://localhost:${port}/events`, { samples: 5, timeoutMs: 8000 });
+    const elapsedMs = Date.now() - start;
+    assert(
+      elapsedMs < 4000,
+      `expected an early producer disconnect to resolve well before the 8000ms timeout, took ${elapsedMs}ms`
+    );
+    assert(
+      result.samples.length === 1 && result.samples[0].valid,
+      `expected exactly 1 valid sample before disconnect, got: ${JSON.stringify(result.samples)}`
+    );
+    console.log(
+      `PASS: harness returns promptly (${elapsedMs}ms) instead of waiting out the full timeout when the producer closes the connection early`
+    );
+  } finally {
+    child.kill();
+  }
+}
+
+async function testOversizedFrame() {
+  const port = await getFreePort();
+  const child = await startChild(BAD_PRODUCER, { PORT: String(port), BAD_MODE: "oversized-frame" });
+  try {
+    const result = await runCheck(`http://localhost:${port}/events`, { samples: 1, timeoutMs: 5000 });
+    assert(result.pass === false, `expected an oversized unterminated frame to FAIL, got: ${JSON.stringify(result)}`);
+    const allMessages = [...result.failures, ...result.samples.flatMap((s) => s.errors)].join("\n");
+    assert(
+      allMessages.includes("exceeded"),
+      `expected FAIL message to mention the buffer size limit, got:\n${allMessages}`
+    );
+    console.log("PASS: harness aborts (rather than hanging or growing memory unbounded) on an oversized unterminated SSE frame");
+  } finally {
+    child.kill();
+  }
+}
+
 async function main() {
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");
   await testBadMode("wrong-event-name", { timeoutMs: 1000 }, "MUST set the SSE `event:` field to `state`");
   await testBadMode("malformed-json", {}, "data is not valid JSON");
+  await testEarlyDisconnect();
+  await testOversizedFrame();
 
   console.log("\nAll compliance harness self-tests passed.");
 }

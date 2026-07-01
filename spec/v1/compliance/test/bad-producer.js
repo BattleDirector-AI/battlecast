@@ -8,6 +8,8 @@
 //   bad-type          `vehicles[0].position` is 0 (schema minimum is 1)
 //   wrong-event-name  otherwise-valid payload sent as `event: update`
 //   malformed-json    `data:` payload is not parseable JSON
+//   close-early       one valid state event, then the connection closes
+//   oversized-frame   an unbounded `data:` line that never terminates
 
 const http = require("http");
 
@@ -53,6 +55,22 @@ const server = http.createServer((req, res) => {
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
   });
+
+  if (BAD_MODE === "close-early") {
+    res.write("event: state\n");
+    res.write(`data: ${JSON.stringify(basePayload)}\n\n`);
+    res.end();
+    return;
+  }
+
+  if (BAD_MODE === "oversized-frame") {
+    res.write("event: state\n");
+    res.write("data: ");
+    const junk = "x".repeat(50_000);
+    const timer = setInterval(() => res.write(junk), 10);
+    req.on("close", () => clearInterval(timer));
+    return;
+  }
 
   const frame = buildFrame();
   const emit = () => {

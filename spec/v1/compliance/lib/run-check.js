@@ -101,6 +101,16 @@ function runCheck(url, opts = {}) {
       finish();
     });
 
+    client.on("end", () => {
+      if (settled) return;
+      if (results.length > 0 && results.length < samples) {
+        failures.push(
+          `producer closed the connection after ${results.length} state event(s), fewer than the requested ${samples} sample(s)`
+        );
+      }
+      finish();
+    });
+
     client.connect();
   });
 }

@@ -52,12 +52,19 @@ function printReport(result) {
 
 async function main() {
   const { url, samples, timeoutMs } = parseArgs(process.argv.slice(2));
-  if (!url) {
-    console.error("Usage: node check.js <sse-url> [--samples N] [--timeout-ms MS]");
+  const usage = "Usage: node check.js <sse-url> [--samples N] [--timeout-ms MS]";
+  if (!url || !Number.isFinite(samples) || samples <= 0 || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    console.error(usage);
     process.exit(2);
   }
 
-  const result = await runCheck(url, { samples, timeoutMs });
+  let result;
+  try {
+    result = await runCheck(url, { samples, timeoutMs });
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(2);
+  }
   printReport(result);
   process.exit(result.pass ? 0 : 1);
 }
