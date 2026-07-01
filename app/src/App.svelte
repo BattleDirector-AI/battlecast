@@ -8,6 +8,7 @@
   import BattlePage from './routes/battle/BattlePage.svelte'
   import AllPage from './routes/all/AllPage.svelte'
   import LogosPage from './routes/logos/LogosPage.svelte'
+  import ConfigPage from './routes/config/ConfigPage.svelte'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
@@ -33,6 +34,8 @@
   <AllPage />
 {:else if path === '/logos'}
   <LogosPage />
+{:else if path === '/config'}
+  <ConfigPage />
 {:else}
   <section id="center">
     <div class="hero">
