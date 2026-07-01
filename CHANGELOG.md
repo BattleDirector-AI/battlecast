@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Logo / sponsor rotation widget (#33)** — a new widget that cycles a set of
+  branding images on a per-slot timer with a fade, driven entirely by the overlay
+  config's `logoRotation` block (`{ images, perSlotSeconds, order }`, where `order`
+  is `sequential` or `shuffle`) — nothing is hardcoded. Matches rF2's native timed
+  sponsor carousel (a gap in LMU). It has its own `/logos` Browser Source route and
+  composes into `/all` as the `logos` widget. Renders an explicit idle state when no
+  images are configured. Images load by URL (`/logos/<file>`), backed by the
+  companion server or a static folder (#34).
 - **Configurable `/all` layout (#16)** — the `/all` overlay now honors a per-profile
   layout config instead of a hardcoded side-by-side arrangement. A new
   `loadConfig()` loader (`app/src/lib/overlayConfig.js`) resolves the layout with
