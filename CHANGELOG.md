@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Companion server — `battlecast serve` (#34, part 1 of 2)** — an optional,
+  zero-dependency Node server (built-in `http`, Node ≥ 22, same stack as
+  `producers/mock`) that serves the built overlay app with **SPA fallback** (so
+  `/tower`, `/battle`, `/all`, `/logos`, `/config` all resolve) plus a small
+  **config + asset API**: `GET/PUT/POST /api/profiles[/<name>]` persists layout
+  profiles as `data/profiles/<name>.json`, and `GET/POST/DELETE /api/logos[/<file>]`
+  + `GET /logos/<file>` store and serve uploaded logo images under `data/logos/`.
+  This is the write/serve side of the overlay-config contract (counterpart to the
+  #16 read side). Binds to `localhost` by default; uploads are validated (allowed
+  image types only, ≤ 5 MiB, sanitized filenames) and profile names are restricted
+  to prevent path traversal. The render path still works as a pure static deploy —
+  the server is optional. The config-UI editor (`/config`) lands in the next part.
 - **Logo / sponsor rotation widget (#33)** — a new widget that cycles a set of
   branding images on a per-slot timer with a fade, driven entirely by the overlay
   config's `logoRotation` block (`{ images, perSlotSeconds, order }`, where `order`

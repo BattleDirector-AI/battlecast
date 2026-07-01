@@ -49,3 +49,17 @@ jobs:
           cache-dependency-path: spec/v1/compliance/package-lock.json
       - run: npm ci
       - run: npm test
+
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Zero runtime/dev dependencies — nothing to install; the built-in test
+      # runner (`node --test`) drives the suite directly.
+      - run: npm test
