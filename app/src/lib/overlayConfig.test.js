@@ -1,0 +1,160 @@
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import {
+  loadConfig,
+  normalizeConfig,
+  resolveWidgets,
+  pickProducerSrc,
+  DEFAULT_CONFIG,
+  CONFIG_VERSION,
+} from './overlayConfig.js'
+import { DEFAULT_SRC } from '../routes/tower/sseClient.js'
+import lowerThird from '../routes/all/fixtures/profile-lower-third.json'
+import towerOnly from '../routes/all/fixtures/profile-tower-only.json'
+
+afterEach(() => vi.restoreAllMocks())
+
+/** A fake fetch driven by a url->{ok?, body?, throw?} route map, recording calls. */
+function makeFetch(routes) {
+  const calls = []
+  const fn = async (url) => {
+    calls.push(url)
+    const entry = routes[url]
+    if (!entry) return { ok: false, status: 404, json: async () => ({}) }
+    if (entry.throw) throw new Error('network down')
+    return { ok: entry.ok !== false, status: entry.ok === false ? 404 : 200, json: async () => entry.body }
+  }
+  fn.calls = calls
+  return fn
+}
+
+describe('loadConfig precedence — URL params > profile fetch > default', () => {
+  it('returns the built-in default and does not fetch when no profile is given', async () => {
+    const fetchImpl = makeFetch({})
+    const config = await loadConfig('', { fetchImpl })
+
+    expect(fetchImpl.calls).toHaveLength(0)
+    expect(config.widgets.tower).toEqual(DEFAULT_CONFIG.widgets.tower)
+    expect(config.widgets.battle).toEqual(DEFAULT_CONFIG.widgets.battle)
+    expect(config.widgets.tower.visible).toBe(true)
+    expect(config.widgets.battle.visible).toBe(true)
+  })
+
+  it('loads a named profile from the server endpoint and applies its geometry', async () => {
+    const fetchImpl = makeFetch({ '/api/profiles/lower-third': { body: lowerThird } })
+    const config = await loadConfig('?profile=lower-third', { fetchImpl })
+
+    expect(fetchImpl.calls).toEqual(['/api/profiles/lower-third'])
+    expect(config.widgets.tower).toMatchObject({ x: 40, y: 40, w: 420, h: 800 })
+    expect(config.widgets.battle).toMatchObject({ x: 640, y: 820, w: 640, h: 200, visible: true })
+  })
+
+  it('falls back to the static /config/<name>.json when the server endpoint 404s', async () => {
+    const fetchImpl = makeFetch({
+      '/api/profiles/lower-third': { ok: false },
+      '/config/lower-third.json': { body: lowerThird },
+    })
+    const config = await loadConfig('?profile=lower-third', { fetchImpl })
+
+    expect(fetchImpl.calls).toEqual(['/api/profiles/lower-third', '/config/lower-third.json'])
+    expect(config.widgets.tower).toMatchObject({ x: 40, y: 40 })
+  })
+
+  it('warns and keeps the default layout when a profile cannot be loaded at all', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const fetchImpl = makeFetch({}) // every candidate 404s
+
+    const config = await loadConfig('?profile=missing', { fetchImpl })
+
+    expect(warn).toHaveBeenCalledOnce()
+    expect(config.widgets.tower).toEqual(DEFAULT_CONFIG.widgets.tower)
+  })
+
+  it('lets an explicit ?hide= URL param override a profile that shows the widget', async () => {
+    const fetchImpl = makeFetch({ '/api/profiles/lower-third': { body: lowerThird } })
+    // The profile marks battle visible; the URL param must win.
+    const config = await loadConfig('?profile=lower-third&hide=battle', { fetchImpl })
+
+    expect(config.widgets.battle.visible).toBe(false)
+    expect(config.widgets.tower.visible).toBe(true)
+  })
+
+  it('lets an explicit ?show= URL param override a profile that hides the widget', async () => {
+    const fetchImpl = makeFetch({ '/api/profiles/tower-only': { body: towerOnly } })
+    // tower-only hides battle; ?show=battle must win.
+    const config = await loadConfig('?profile=tower-only&show=battle', { fetchImpl })
+
+    expect(config.widgets.battle.visible).toBe(true)
+  })
+
+  it('survives a network exception on the fetch and falls back to default', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const fetchImpl = makeFetch({ '/api/profiles/race': { throw: true } })
+    const config = await loadConfig('?profile=race', { fetchImpl })
+
+    expect(config.widgets.tower).toEqual(DEFAULT_CONFIG.widgets.tower)
+  })
+})
+
+describe('normalizeConfig — always yields a complete, well-typed contract', () => {
+  it('coerces string coordinates and fills missing fields from the default', () => {
+    const config = normalizeConfig({
+      widgets: { tower: { x: '100', y: '200' } },
+    })
+    expect(config.widgets.tower.x).toBe(100)
+    expect(config.widgets.tower.y).toBe(200)
+    // Untouched geometry + visibility come from the default.
+    expect(config.widgets.tower.w).toBe(DEFAULT_CONFIG.widgets.tower.w)
+    expect(config.widgets.tower.visible).toBe(true)
+    expect(config.configVersion).toBe(CONFIG_VERSION)
+  })
+
+  it('preserves an unknown widget key from a newer profile, defaulting it hidden', () => {
+    const config = normalizeConfig({
+      widgets: { trackmap: { x: 10, y: 10, w: 300, h: 300 } },
+    })
+    expect(config.widgets.trackmap).toMatchObject({ x: 10, y: 10, w: 300, h: 300, visible: false })
+  })
+
+  it('is safe on null / non-object input', () => {
+    expect(normalizeConfig(null).widgets.tower.visible).toBe(true)
+    expect(normalizeConfig('nope').widgets.battle.visible).toBe(true)
+  })
+
+  it("preserves a profile's declared configVersion, including falsy values", () => {
+    expect(normalizeConfig({ configVersion: '2' }).configVersion).toBe('2')
+    // A falsy-but-present version must not be silently replaced by the default.
+    expect(normalizeConfig({ configVersion: 0 }).configVersion).toBe('0')
+    // Absent => default.
+    expect(normalizeConfig({}).configVersion).toBe(CONFIG_VERSION)
+  })
+})
+
+describe('resolveWidgets — ordered render list', () => {
+  it('sorts widgets by ascending z-order', () => {
+    const order = resolveWidgets({
+      widgets: {
+        tower: { z: 5 },
+        battle: { z: 1 },
+        logos: { z: 3 },
+      },
+    }).map((w) => w.key)
+    expect(order).toEqual(['battle', 'logos', 'tower'])
+  })
+})
+
+describe('pickProducerSrc — producer feed resolution', () => {
+  it('prefers an explicit ?src= over the profile producer', () => {
+    const config = normalizeConfig({ producer: { src: 'http://profile:1/events' } })
+    expect(pickProducerSrc('?src=http://url:9/events', config)).toBe('http://url:9/events')
+  })
+
+  it("uses the profile's producer.src when ?src= is absent", () => {
+    const config = normalizeConfig({ producer: { src: 'http://profile:1/events' } })
+    expect(pickProducerSrc('', config)).toBe('http://profile:1/events')
+  })
+
+  it('falls back to DEFAULT_SRC when neither is present', () => {
+    const config = normalizeConfig({ producer: {} })
+    expect(pickProducerSrc('', config)).toBe(DEFAULT_SRC)
+  })
+})

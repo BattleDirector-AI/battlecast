@@ -1,0 +1,8 @@
+{
+  "configVersion": "1",
+  "name": "tower-only",
+  "widgets": {
+    "tower": { "visible": true, "x": 24, "y": 24, "w": 360, "h": 900, "z": 1 },
+    "battle": { "visible": false, "x": 408, "y": 24, "w": 640, "h": 220, "z": 2 }
+  }
+}

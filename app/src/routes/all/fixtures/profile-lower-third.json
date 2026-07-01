@@ -1,0 +1,9 @@
+{
+  "configVersion": "1",
+  "name": "lower-third",
+  "producer": { "src": "http://localhost:8080/events" },
+  "widgets": {
+    "tower": { "visible": true, "x": 40, "y": 40, "w": 420, "h": 800, "z": 1 },
+    "battle": { "visible": true, "x": 640, "y": 820, "w": 640, "h": 200, "z": 2 }
+  }
+}
