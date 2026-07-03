@@ -92,27 +92,37 @@ describe('ConfigPage editor wiring', () => {
     expect(queryByTestId('remove-logo')).toBeNull()
   })
 
-  it('editing the canvas size resizes the preview stage and re-fits widgets', async () => {
+  it('editing the canvas size (on change) resizes the preview stage without collapsing widgets', async () => {
     const { container, getByTestId } = render(ConfigPage)
     await tick()
 
-    await fireEvent.input(getByTestId('canvas-w'), { target: { value: '1280' } })
-    await fireEvent.input(getByTestId('canvas-h'), { target: { value: '720' } })
+    // Committed on `change`, not per-keystroke — a full value in one event.
+    await fireEvent.change(getByTestId('canvas-w'), { target: { value: '1280' } })
+    await fireEvent.change(getByTestId('canvas-h'), { target: { value: '720' } })
     await tick()
 
     // The preview's inner canvas is sized to the configured canvas.
     expect(getByTestId('preview-stage').firstElementChild.style.width).toBe('1280px')
-    // A widget that used to sit off a 1280-wide canvas is pulled back on.
+    // Regression: a valid resize must NOT shrink widgets — the tower keeps its
+    // width (the per-keystroke oninput bug collapsed everything to 320px/x0).
     const tower = container.querySelector('[data-testid="widget-tower"]')
-    const left = parseFloat(tower.style.left)
-    const width = parseFloat(tower.style.width)
-    expect(left + width).toBeLessThanOrEqual(1280)
+    expect(tower.style.width).toBe('380px')
+    expect(tower.style.left).toBe('24px')
+  })
+
+  it('ignores a blank canvas field instead of snapping to the minimum', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    await fireEvent.change(getByTestId('canvas-w'), { target: { value: '1280' } })
+    await tick()
+    // Clearing the field commits blank — must keep the last good width, not 320.
+    await fireEvent.change(getByTestId('canvas-w'), { target: { value: '' } })
+    await tick()
+    expect(getByTestId('preview-stage').firstElementChild.style.width).toBe('1280px')
   })
 
   it('offers a preset canvas button', async () => {
     const { getByTestId } = render(ConfigPage)
-    await tick()
-    await fireEvent.input(getByTestId('canvas-w'), { target: { value: '800' } })
     await tick()
     await fireEvent.click(getByTestId('canvas-720'))
     await tick()

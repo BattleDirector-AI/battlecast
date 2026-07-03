@@ -90,6 +90,17 @@ describe('configEditor — canvas', () => {
     expect(next.canvas.w).toBe(DEFAULT_CONFIG.canvas.w)
     expect(next.canvas.h).toBe(720)
   })
+
+  it('treats a blank edge as "keep current", not zero', () => {
+    // A cleared input commits '' — must not collapse the canvas to the minimum.
+    const next = setCanvas(DEFAULT_CONFIG, { w: '' })
+    expect(next.canvas.w).toBe(DEFAULT_CONFIG.canvas.w)
+  })
+
+  it('does not shrink widgets when the canvas stays large enough', () => {
+    const next = setCanvas(DEFAULT_CONFIG, { w: 1280, h: 720 })
+    expect(next.widgets.tower).toMatchObject({ x: 24, w: 380 })
+  })
 })
 
 describe('configEditor — producer + OBS URL', () => {

@@ -47,6 +47,9 @@ export function resizeWidget(config, key, w, h) {
 export function setCanvas(config, patch) {
   const next = normalizeConfig(config)
   const toEdge = (v, fallback) => {
+    // Treat blank/absent as "keep current" so clearing the field mid-edit doesn't
+    // snap the canvas (and every widget) down to the minimum.
+    if (v == null || v === '') return Math.max(MIN_CANVAS, Math.round(fallback))
     const n = Number(v)
     return Math.max(MIN_CANVAS, Math.round(Number.isFinite(n) ? n : fallback))
   }

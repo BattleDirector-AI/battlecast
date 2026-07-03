@@ -290,6 +290,10 @@
         <h2>Canvas size</h2>
         <p class="hint">Output resolution the layout is designed against (default 1920×1080).</p>
         <div class="row">
+          <!-- Commit on change (blur/Enter), not every keystroke: setCanvas
+               re-clamps every widget to the canvas and clamping only shrinks, so
+               committing intermediate keystrokes (1 -> 12 -> 128) would collapse
+               widgets before the full value is typed. -->
           <label class="num">
             width
             <input
@@ -297,7 +301,7 @@
               min="320"
               data-testid="canvas-w"
               value={canvas.w}
-              oninput={(e) => setCanvas({ w: Number(e.currentTarget.value) })}
+              onchange={(e) => setCanvas({ w: e.currentTarget.value })}
             />
           </label>
           <label class="num">
@@ -307,7 +311,7 @@
               min="320"
               data-testid="canvas-h"
               value={canvas.h}
-              oninput={(e) => setCanvas({ h: Number(e.currentTarget.value) })}
+              onchange={(e) => setCanvas({ h: e.currentTarget.value })}
             />
           </label>
         </div>
