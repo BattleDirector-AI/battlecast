@@ -166,6 +166,18 @@
       status = `Load failed: ${err.message}`
     }
   }
+  async function deleteProfile() {
+    const name = profileName
+    if (!serverUp || !name) return
+    if (typeof window !== 'undefined' && !window.confirm(`Delete profile "${name}"?`)) return
+    try {
+      const deleted = await api.deleteProfile(name)
+      profiles = await api.listProfiles()
+      status = deleted ? `Deleted profile "${name}".` : `Profile "${name}" was not on the server.`
+    } catch (err) {
+      status = `Delete failed: ${err.message}`
+    }
+  }
 
   function exportJson() {
     if (typeof document === 'undefined') return
@@ -284,6 +296,16 @@
             {/each}
           </select>
         </label>
+        <div class="row">
+          <span title={serverUp ? undefined : 'Start the companion server (make dev) to delete profiles'}>
+            <button
+              class="danger"
+              data-testid="delete-profile"
+              onclick={deleteProfile}
+              disabled={!serverUp || !profiles.includes(profileName)}
+            >Delete "{profileName}"</button>
+          </span>
+        </div>
       </section>
 
       <section class="panel__group">

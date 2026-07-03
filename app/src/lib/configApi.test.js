@@ -7,6 +7,7 @@ import {
   listLogos,
   uploadLogo,
   deleteLogo,
+  deleteProfile,
 } from './configApi.js'
 
 /** A fake fetch driven by a { 'METHOD path': {status?, json?} } route map. */
@@ -48,6 +49,13 @@ describe('configApi', () => {
     expect(result).toEqual({ name: 'race', saved: true })
     const call = fetchImpl.calls.find((c) => c.method === 'PUT')
     expect(JSON.parse(call.body)).toEqual(config)
+  })
+
+  it('deletes a profile (true when deleted, false on 404)', async () => {
+    const fetchImpl = makeFetch({ 'DELETE /api/profiles/race': { json: { name: 'race', deleted: true } } })
+    expect(await deleteProfile('race', { fetchImpl })).toBe(true)
+    // A missing profile (404) resolves false rather than throwing.
+    expect(await deleteProfile('ghost', { fetchImpl })).toBe(false)
   })
 
   it('lists logos and deletes them', async () => {

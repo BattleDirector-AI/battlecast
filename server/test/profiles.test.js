@@ -76,7 +76,25 @@ test('profiles: rejects missing, bad names, and bad bodies', async () => {
 
 test('profiles: unsupported method is 405', async () => {
   await withServer(async ({ base }) => {
-    const res = await fetch(`${base}/api/profiles/race`, { method: 'DELETE' })
+    const res = await fetch(`${base}/api/profiles/race`, { method: 'PATCH' })
     assert.equal(res.status, 405)
+  })
+})
+
+test('profiles: DELETE removes a saved profile, 404 when absent', async () => {
+  await withServer(async ({ base }) => {
+    // Deleting something that was never saved is a 404.
+    assert.equal((await fetch(`${base}/api/profiles/ghost`, { method: 'DELETE' })).status, 404)
+
+    await putJson(base, 'race', { configVersion: '1' })
+    assert.deepEqual((await (await fetch(`${base}/api/profiles`)).json()).profiles, ['race'])
+
+    let res = await fetch(`${base}/api/profiles/race`, { method: 'DELETE' })
+    assert.equal(res.status, 200)
+    assert.deepEqual(await res.json(), { name: 'race', deleted: true })
+
+    assert.deepEqual((await (await fetch(`${base}/api/profiles`)).json()).profiles, [])
+    // Deleting again is now a 404.
+    assert.equal((await fetch(`${base}/api/profiles/race`, { method: 'DELETE' })).status, 404)
   })
 })

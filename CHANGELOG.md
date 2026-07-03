@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Delete profiles** — the companion server now supports `DELETE /api/profiles/<name>`,
+  and the `/config` editor has a Delete button that removes the named profile from
+  the server (with a confirm).
 - **Configurable canvas size** — the overlay config now carries a `canvas` size
   (`{ w, h }`, default 1920×1080). The `/config` editor exposes a Canvas Size
   control (width/height + 1920×1080 / 1280×720 presets), the `/all` render scales
@@ -65,6 +68,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **`/all` (and `/config`) rendered offset and boxed-in on wide windows.** The
+  Vite scaffold styles the `#app` mount as a centered, max-width, side-bordered
+  column, which pushed the overlay ~400px right (off the right edge, with the
+  border drawn as a visible box) on any window wider than the column. Real routes
+  now neutralize that constraint and render full-bleed; overlay routes stay
+  transparent. This is the actual cause of the "weirdly wide" `/all`.
 - **`/config` editor polish.** The Load-profile dropdown is always visible (disabled
   with a reason when there are no saved profiles), so you can pick a profile to load
   as easily as you save one. Panel inputs no longer overflow past the right edge

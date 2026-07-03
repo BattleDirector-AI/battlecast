@@ -10,6 +10,7 @@
  *   GET    /api/profiles/:name      -> profile JSON | 404
  *   PUT    /api/profiles/:name      -> save profile (JSON body) -> 200/201
  *   POST   /api/profiles/:name      -> alias of PUT
+ *   DELETE /api/profiles/:name      -> delete profile -> 200/404
  *   GET    /api/logos               -> { logos: [{ name, url, size }, ...] }
  *   POST   /api/logos               -> upload image (multipart, or raw + ?name=)
  *   DELETE /api/logos/:file         -> delete image -> 200/404
@@ -82,7 +83,12 @@ export function createApp({ dataDir, distDir } = {}) {
       const existed = await profiles.write(name, parsed)
       return sendJson(res, existed ? 200 : 201, { name, saved: true })
     }
-    return methodNotAllowed(res, 'GET, PUT, POST')
+    if (req.method === 'DELETE') {
+      const removed = await profiles.remove(name)
+      if (!removed) return sendError(res, 404, `no such profile "${name}"`)
+      return sendJson(res, 200, { name, deleted: true })
+    }
+    return methodNotAllowed(res, 'GET, PUT, POST, DELETE')
   }
 
   async function handleLogosCollection(req, res, url) {

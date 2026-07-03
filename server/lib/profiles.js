@@ -50,5 +50,17 @@ export function createProfileStore(dataDir) {
       await fs.writeFile(fileFor(name), `${JSON.stringify(obj, null, 2)}\n`, 'utf8')
       return existed
     },
+
+    /** Delete a profile. Returns true if it existed, false if there was nothing
+     *  to delete (so the caller can answer 200 vs 404). */
+    async remove(name) {
+      try {
+        await fs.unlink(fileFor(name))
+        return true
+      } catch (err) {
+        if (err.code === 'ENOENT') return false
+        throw err
+      }
+    },
   }
 }
