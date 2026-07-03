@@ -44,6 +44,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
     will reuse. Config adds per-widget `trigger` / `dwellSeconds` / `showOnConnect`
     (defaulted, additive — no `configVersion` bump), surfaced in the `/config` editor
     for lower-third widgets.
+- **Qualifying / sector lower-third widget (#22)** — a broadcast timing bar for the
+  on-camera driver (`subject`): best & last lap, per-sector times (S1/S2/S3), and —
+  when the producer provides them — `target_lap` / `delta_to_target`, rendered from
+  the resolved `vehicles[]` entry. It has its own `/qualifying` Browser Source route
+  and composes into `/all` as the new `qualifying` widget (offset above the driver
+  name-tag so the two bottom lower-thirds don't overlap).
+  - **Mode-gating (Decision C):** by default the bar only shows/fires on a camera cut
+    when `mode ∈ {qualifying, practice}` (per-widget config `modes`); in other modes a
+    plain cut does not fire.
+  - **Class-best flash (Decision C extension):** independent of `modes`, when the
+    **producer** flips the subject's `notable.class_best_lap` flag false→true, the bar
+    flashes the "fastest lap" moment for a dwell (config `fireOnClassBest`, default on).
+    Per the dumb-overlay principle the overlay **only tracks whether that producer flag
+    changed vs. the previous snapshot** — it never scans lap times to compute a class
+    best — and it does not fire for a pre-existing flag on the baseline snapshot.
+  - **Reuses the #21 `lowerThirdTrigger`** (dwell / persistent / showOnConnect) via a
+    composite trigger key that changes on a mode-eligible cut OR a fresh class-best
+    edge; #21's module behavior and tests are unchanged. Config adds per-widget `modes`
+    and `fireOnClassBest` (defaulted, additive — no `configVersion` bump), surfaced in
+    the `/config` editor for the qualifying widget.
+- **Mock producer — prompt emit on camera cuts.** The reference simulator now
+  sub-steps and emits a `state` snapshot promptly on a `subject` change (within one
+  sub-step, ≤ ~150 ms) instead of only on the fixed cadence, honoring the spec's
+  non-normative latency SHOULD so the lower-thirds fire crisply against the live mock.
+  Total sim-time per real second and the director's (now time-based) on-camera dwell
+  are unchanged. New fixtures `spec/v1/fixtures/race-pre-class-best.json`,
+  `qualifying-sector-a.json`, and `qualifying-no-timing.json`.
 
 ## [0.2.0] - 2026-07-03
 

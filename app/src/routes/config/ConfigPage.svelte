@@ -100,6 +100,16 @@
   const setTrigger = (key, value) => (config = editor.setWidgetField(config, key, 'trigger', value))
   const setDwellSeconds = (key, value) =>
     (config = editor.setWidgetField(config, key, 'dwellSeconds', Number(value)))
+  // #22 qualifying-only knobs. `modes` are the session modes the timing bar dwells
+  // on every camera cut; `fireOnClassBest` toggles the producer-flag class-best flash.
+  const MODE_OPTIONS = ['practice', 'qualifying', 'race']
+  const setMode = (key, mode, checked) => {
+    const current = (config.widgets[key]?.modes || []).filter((m) => m !== mode)
+    if (checked) current.push(mode)
+    config = editor.setWidgetField(config, key, 'modes', current)
+  }
+  const setFireOnClassBest = (key, checked) =>
+    (config = editor.setWidgetField(config, key, 'fireOnClassBest', !!checked))
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
@@ -428,6 +438,34 @@
                 </label>
               </div>
             {/if}
+            {#if key === 'qualifying'}
+              <!-- #22-only: which session modes the timing bar dwells on every
+                   camera cut, and whether the producer-flagged class-best lap fires
+                   the "fastest lap" flash independent of those modes. -->
+              <fieldset class="modes-row">
+                <legend>fires on cut in</legend>
+                {#each MODE_OPTIONS as mode (mode)}
+                  <label class="checkline">
+                    <input
+                      type="checkbox"
+                      data-testid="mode-{key}-{mode}"
+                      checked={w.modes?.includes(mode)}
+                      onchange={(e) => setMode(key, mode, e.currentTarget.checked)}
+                    />
+                    {mode}
+                  </label>
+                {/each}
+              </fieldset>
+              <label class="checkline" title="Flash the timing bar when the producer flags the on-camera driver's lap a class best (any mode)">
+                <input
+                  type="checkbox"
+                  data-testid="fire-class-best-{key}"
+                  checked={w.fireOnClassBest}
+                  onchange={(e) => setFireOnClassBest(key, e.currentTarget.checked)}
+                />
+                Fire on class-best lap
+              </label>
+            {/if}
           </fieldset>
         {/each}
       </section>
@@ -711,6 +749,26 @@
   }
   .trigger-row {
     margin-top: 0.5rem;
+  }
+  .modes-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem 0.7rem;
+    margin: 0.5rem 0 0;
+    padding: 0.3rem 0.5rem 0.4rem;
+    border: 1px solid #2a3140;
+    border-radius: 6px;
+  }
+  .modes-row legend {
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    color: #9aa7ba;
+    letter-spacing: 0.05em;
+  }
+  .modes-row .checkline {
+    margin: 0;
+    text-transform: capitalize;
   }
   .logo-list {
     list-style: none;

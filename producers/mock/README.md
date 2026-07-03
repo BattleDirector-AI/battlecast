@@ -55,6 +55,16 @@ change continuously instead of replaying a handful of fixed scenarios. The on-ca
 `subject` is chosen like a broadcast director would — whichever battle is currently
 tightest — with hysteresis so the cut doesn't change every tick.
 
+**Prompt emit on camera cuts.** Per the spec's non-normative latency SHOULD
+([`spec/v1/SPEC.md`](../../spec/v1/SPEC.md)), when the director cuts to a new
+on-camera `subject` the server emits a `state` snapshot **promptly** (within one
+sub-step, ≤ ~150 ms) instead of waiting for the next cadence tick, so battlecast's
+subject-driven lower-thirds (#21/#22) fire crisply. It does this by sub-stepping the
+simulator several times per `INTERVAL_MS` and broadcasting immediately on a subject
+change; steady state still emits at ~`INTERVAL_MS`. The total sim-time advanced per
+real second is unchanged, and the director's on-camera dwell is time-based, so the
+cut frequency is unchanged — only the emit latency of a cut improves.
+
 As the "smart" side of the dumb-overlay contract, the simulator also computes the
 optional v1.x per-vehicle notability fields the overlay renders (it never derives them
 itself): `notable.class_best_lap` / `session_best_lap` (the car holding the fastest
@@ -77,10 +87,17 @@ The original behavior: each connection independently cycles through the fixtures
 - `race-close-battle.json` — Verstappen on camera, tight gap ahead, high battle intensity.
 - `race-no-battle.json` — leader on camera in clear air, low battle intensity.
 - `race-idle-battle.json` — a lone car with no adjacent traffic; the genuine idle case.
+- `race-pre-class-best.json` — same race as below but BEFORE the on-camera subject
+  (Alonso) sets a class best (`notable.class_best_lap: false`); paired with the next
+  fixture to exercise #22's false→true class-best edge.
 - `race-class-best.json` — multi-class race; the on-camera subject holds a class-best lap
   (`notable.class_best_lap: true`) with `target_lap` set — the v1.x notability fields.
 - `qualifying-target.json` — a qualifying snapshot with `target_lap` / `delta_to_target`
   populated on every car and the class/session best flagged on the pole car.
+- `qualifying-sector-a.json` — a qualifying subject with best/last/sector times but no
+  `target_lap` (the target/delta-absent render case for #22).
+- `qualifying-no-timing.json` — a qualifying subject whose vehicle carries no lap
+  timing at all (#22's no-timing idle case).
 
 Fixtures are the **source of truth** for the app's fixture-based behavioral tests (see
 `CONTRIBUTING.md`) — use this mode when you want a known, reproducible scenario rather

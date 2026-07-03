@@ -41,7 +41,11 @@ const GRID = [
 
 const LAP_UNIT = 1; // one arbitrary "distance around the lap" unit
 const CLOSE_BATTLE_WINDOW = 1.5; // seconds — matches the design system's intensity formula
-const SUBJECT_MIN_DWELL_TICKS = 16; // ~12s of sim time before the "director" will cut away
+// Minimum on-camera dwell before the "director" will cut away, expressed in SIM
+// SECONDS (not ticks) so it is invariant to step granularity — the server may
+// sub-step the simulator to push camera cuts promptly without changing how long a
+// car actually stays on camera. 32 sim-seconds ≈ the previous 16 ticks × 2s/tick.
+const SUBJECT_MIN_DWELL_SECONDS = 32;
 const SUBJECT_SWITCH_MARGIN = 0.4; // seconds — a new battle must be meaningfully tighter to steal the cut
 
 function classPace(classKey) {
@@ -86,13 +90,11 @@ function createSimulator() {
   });
 
   let clock = 0;
-  let tick = 0;
   let subjectSlotId = null;
-  let subjectSinceTick = 0;
+  let subjectSinceClock = 0;
 
   function step(dtSeconds) {
     clock += dtSeconds;
-    tick += 1;
 
     for (const car of cars) {
       // Reset the per-step "just set a personal best" flag; only a lap
@@ -176,12 +178,12 @@ function createSimulator() {
 
     if (subjectSlotId == null) {
       subjectSlotId = bestSlotId;
-      subjectSinceTick = tick;
-    } else if (tick - subjectSinceTick >= SUBJECT_MIN_DWELL_TICKS && bestSlotId !== subjectSlotId) {
+      subjectSinceClock = clock;
+    } else if (clock - subjectSinceClock >= SUBJECT_MIN_DWELL_SECONDS && bestSlotId !== subjectSlotId) {
       const currentGap = closestGapFor(subjectSlotId);
       if (bestGap < currentGap - SUBJECT_SWITCH_MARGIN) {
         subjectSlotId = bestSlotId;
-        subjectSinceTick = tick;
+        subjectSinceClock = clock;
       }
     }
 

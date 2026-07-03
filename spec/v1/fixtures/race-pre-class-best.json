@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-1",
+      "driver_name": "Verstappen",
+      "vehicle_class": "GTP",
+      "position": 1,
+      "last_lap": 92.104,
+      "best_lap": 91.744,
+      "sector_times": [28.802, 31.355, 31.587],
+      "notable": {
+        "class_best_lap": true,
+        "session_best_lap": true,
+        "personal_best_lap": false
+      },
+      "target_lap": 91.744,
+      "delta_to_target": 0.0
+    },
+    {
+      "slot_id": "car-44",
+      "driver_name": "Hamilton",
+      "vehicle_class": "GTP",
+      "position": 2,
+      "last_lap": 92.418,
+      "best_lap": 91.872,
+      "sector_times": [28.914, 31.402, 32.102],
+      "notable": {
+        "class_best_lap": false,
+        "session_best_lap": false,
+        "personal_best_lap": false
+      },
+      "target_lap": 91.744,
+      "delta_to_target": 0.128
+    },
+    {
+      "slot_id": "car-14",
+      "driver_name": "Alonso",
+      "vehicle_class": "GT3",
+      "position": 3,
+      "last_lap": 106.712,
+      "best_lap": 106.301,
+      "sector_times": [33.501, 36.190, 36.610],
+      "notable": {
+        "class_best_lap": false,
+        "session_best_lap": false,
+        "personal_best_lap": false
+      },
+      "target_lap": 106.088,
+      "delta_to_target": 0.213
+    },
+    {
+      "slot_id": "car-23",
+      "driver_name": "Albon",
+      "vehicle_class": "GT3",
+      "position": 4,
+      "last_lap": 106.088,
+      "best_lap": 106.088,
+      "sector_times": [33.402, 36.101, 36.585],
+      "notable": {
+        "class_best_lap": true,
+        "session_best_lap": false,
+        "personal_best_lap": false
+      },
+      "target_lap": 106.088,
+      "delta_to_target": 0.0
+    }
+  ],
+  "subject": {
+    "slot_id": "car-14",
+    "driver_name": "Alonso"
+  },
+  "relationship": {
+    "gap_ahead": 0.6,
+    "gap_behind": 4.2,
+    "battle_intensity": 0.34
+  }
+}
