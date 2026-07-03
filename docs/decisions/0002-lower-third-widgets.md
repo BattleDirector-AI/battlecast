@@ -122,7 +122,8 @@ achievements after the baseline snapshot.
   Per the dumb-overlay principle, the **producer owns the judgment** of what a class best
   is (v1.x `notable` flags, below); the overlay fires when the subject's flag says so and
   does **not** compute it by scanning lap times. The overlay's only logic is presentation:
-  fire when `notable.class_best_lap` for the subject's vehicle turns true, then dwell.
+  it **tracks whether the flag differs from the previous snapshot** and fires on the
+  transition to true, then dwells — it never derives the fact.
   Config `fireOnClassBest` (default `true`) lets a broadcaster disable the flash. **Gated
   on the v1.x `notable` field**; the rest of #22 ships on v1. Overlaps the race ticker
   (#27), which reports the same producer flags field-wide; here it is scoped to the
@@ -172,6 +173,16 @@ Assert rendered content, driven by fixtures + fake timers (as `LogoRotation` doe
   fire-once on connect; #22 mode-gating; #22 class-best fire in race; edge cases above.
 
 ## v1.x additions — the producer fields these features need (see #20)
+
+**Contract impact: no `schemaVersion` bump.** `schemaVersion` is major-only and reserved
+for *breaking* changes; these are **optional additive** fields, and `schema.json` already
+sets `additionalProperties: true` at every level, so a producer may send them today and an
+older consumer ignores them. This is a documented **minor revision of v1** — the version
+string stays `"1"`. Compatibility is total: an old producer that omits `notable` simply
+never triggers the flash (`fireOnClassBest` is a no-op); an old consumer ignores the field.
+The v1.x work is therefore just: document the optional fields in `schema.json` + `SPEC.md`,
+and emit them from the mock producer. **The overlay only tracks whether a flag changed from
+the previous snapshot — it never computes the fact.**
 
 Per the dumb-overlay principle these are **producer-computed fields the overlay renders**,
 not client-side derivations. #21 and #22's core timing display ship on v1 (direct fields);
