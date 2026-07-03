@@ -75,6 +75,35 @@ describe('ConfigPage editor wiring', () => {
     expect(queryByTestId('hide-idle-tower')).toBeNull()
   })
 
+  it('exposes trigger + dwell controls only for lower-third widgets', async () => {
+    const { getByTestId, queryByTestId } = render(ConfigPage)
+    await tick()
+    // The driver lower-third gets the trigger knobs; geometry-only widgets do not.
+    expect(getByTestId('trigger-driver')).toBeTruthy()
+    expect(getByTestId('dwell-driver')).toBeTruthy()
+    expect(queryByTestId('trigger-tower')).toBeNull()
+    expect(queryByTestId('dwell-battle')).toBeNull()
+  })
+
+  it('switching the driver trigger to persistent disables the dwell input', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('dwell-driver').disabled).toBe(false)
+
+    await fireEvent.change(getByTestId('trigger-driver'), { target: { value: 'persistent' } })
+    await tick()
+    expect(getByTestId('trigger-driver').value).toBe('persistent')
+    expect(getByTestId('dwell-driver').disabled).toBe(true)
+  })
+
+  it('editing the driver dwell seconds updates the config', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    await fireEvent.input(getByTestId('dwell-driver'), { target: { value: '9' } })
+    await tick()
+    expect(getByTestId('dwell-driver').value).toBe('9')
+  })
+
   it('toggling "hide when idle" hides the battle box once it goes idle', async () => {
     // Preview uses a close-battle sample (active), so the box stays visible after
     // the toggle; the hide only takes effect on an idle snapshot (covered in AllView

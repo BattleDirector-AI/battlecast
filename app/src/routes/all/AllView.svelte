@@ -2,6 +2,7 @@
   import StandingsTower from '../tower/StandingsTower.svelte'
   import BattleBox from '../battle/BattleBox.svelte'
   import LogoRotation from '../logos/LogoRotation.svelte'
+  import DriverLowerThird from '../driver/DriverLowerThird.svelte'
   import { DEFAULT_CONFIG, normalizeConfig, resolveWidgets } from '../../lib/overlayConfig.js'
   import { isWidgetIdle } from '../../lib/widgetIdle.js'
 
@@ -14,7 +15,7 @@
   // while it has nothing to show (e.g. the battle box in clear air).
   const normalized = $derived(normalizeConfig(config))
   const canvas = $derived(normalized.canvas)
-  const RENDERABLE = new Set(['tower', 'battle', 'logos'])
+  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver'])
   const widgets = $derived(
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
@@ -44,6 +45,8 @@
         />
       {:else if w.key === 'logos'}
         <LogoRotation rotation={normalized.logoRotation} />
+      {:else if w.key === 'driver'}
+        <DriverLowerThird {snapshot} widget={w} />
       {/if}
     </div>
   {/each}

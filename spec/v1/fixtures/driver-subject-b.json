@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-44",
+      "driver_name": "Hamilton",
+      "vehicle_class": "gt3",
+      "position": 1,
+      "last_lap": 91.902,
+      "best_lap": 91.744,
+      "sector_times": [28.801, 31.300, 31.801]
+    },
+    {
+      "slot_id": "car-1",
+      "driver_name": "Verstappen",
+      "vehicle_class": "gt3",
+      "position": 2,
+      "last_lap": 92.488,
+      "best_lap": 92.010,
+      "sector_times": [28.990, 31.470, 32.028]
+    },
+    {
+      "slot_id": "car-16",
+      "driver_name": "Charles Leclerc",
+      "vehicle_class": "gtp",
+      "position": 3,
+      "last_lap": 92.901,
+      "best_lap": 92.402,
+      "sector_times": [29.120, 31.601, 32.180]
+    }
+  ],
+  "subject": {
+    "slot_id": "car-16",
+    "driver_name": "Charles Leclerc"
+  }
+}

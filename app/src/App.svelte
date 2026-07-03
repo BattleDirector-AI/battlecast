@@ -8,13 +8,14 @@
   import BattlePage from './routes/battle/BattlePage.svelte'
   import AllPage from './routes/all/AllPage.svelte'
   import LogosPage from './routes/logos/LogosPage.svelte'
+  import DriverPage from './routes/driver/DriverPage.svelte'
   import ConfigPage from './routes/config/ConfigPage.svelte'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
   const rawPath = typeof window !== 'undefined' ? window.location.pathname : '/'
   const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
-  const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos']
+  const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos', '/driver']
   // Real app routes are full-bleed; only the Vite scaffold landing (the `{:else}`
   // branch) keeps the constrained column.
   const FULL_BLEED_ROUTES = [...OVERLAY_ROUTES, '/config']
@@ -60,6 +61,8 @@
   <AllPage />
 {:else if path === '/logos'}
   <LogosPage />
+{:else if path === '/driver'}
+  <DriverPage />
 {:else if path === '/config'}
   <ConfigPage />
 {:else}

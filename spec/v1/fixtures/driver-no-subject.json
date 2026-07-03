@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-44",
+      "driver_name": "Hamilton",
+      "vehicle_class": "gt3",
+      "position": 1,
+      "last_lap": 91.902,
+      "best_lap": 91.744,
+      "sector_times": [28.801, 31.300, 31.801]
+    }
+  ],
+  "subject": {
+    "slot_id": null,
+    "driver_name": null
+  }
+}
