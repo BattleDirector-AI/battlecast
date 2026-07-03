@@ -11,7 +11,13 @@ const path = require("path");
 const { validate } = require("./validate.js");
 
 const FIXTURES_DIR = path.resolve(__dirname, "..", "..", "spec", "v1", "fixtures");
-const FIXTURE_FILES = ["race-close-battle.json", "race-no-battle.json", "race-idle-battle.json"];
+const FIXTURE_FILES = [
+  "race-close-battle.json",
+  "race-no-battle.json",
+  "race-idle-battle.json",
+  "race-class-best.json",
+  "qualifying-target.json",
+];
 
 let failed = 0;
 for (const name of FIXTURE_FILES) {

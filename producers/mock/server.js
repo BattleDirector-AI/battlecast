@@ -40,7 +40,13 @@ const FIXTURES_DIR = path.resolve(__dirname, "..", "..", "spec", "v1", "fixtures
 // Fixtures replayed in `fixtures` mode, in cycle order. These are the source
 // of truth for test data; the server does not synthesise payloads of its own
 // in this mode.
-const FIXTURE_FILES = ["race-close-battle.json", "race-no-battle.json", "race-idle-battle.json"];
+const FIXTURE_FILES = [
+  "race-close-battle.json",
+  "race-no-battle.json",
+  "race-idle-battle.json",
+  "race-class-best.json",
+  "qualifying-target.json",
+];
 
 function loadFixtures() {
   return FIXTURE_FILES.map((name) => {
