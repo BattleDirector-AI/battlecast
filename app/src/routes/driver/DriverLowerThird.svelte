@@ -38,6 +38,7 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import { fmtName } from '../../design/format.js'
   import { createLowerThirdTrigger, DEFAULT_DWELL_SECONDS } from '../../lib/lowerThirdTrigger.js'
+  import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
 
   // `widget` carries the per-widget lower-third config (trigger, dwellSeconds,
   // showOnConnect) alongside geometry; only lower-thirds read those knobs.
@@ -78,48 +79,42 @@
 </script>
 
 {#if shown}
-  <section
-    class="bc-lt"
-    class:bc-lt--degraded={resolved.state === 'degraded'}
-    data-testid="driver-lower-third"
-    data-state={resolved.state}
-    aria-label="On-camera driver"
-  >
-    <span class="bc-lt__accent" aria-hidden="true"></span>
-    <div class="bc-lt__body">
-      <div class="bc-lt__meta">
-        <span class="bc-lt__label">ON CAMERA</span>
-        {#if position != null}
-          <span class="bc-lt__pos" data-testid="driver-lt-pos">P{position}</span>
-        {/if}
-        {#if carClass}
-          <ClassChip {carClass} size="compact" />
-        {/if}
+  <LowerThirdShell>
+    <section
+      class="bc-lt"
+      class:bc-lt--degraded={resolved.state === 'degraded'}
+      data-testid="driver-lower-third"
+      data-state={resolved.state}
+      aria-label="On-camera driver"
+    >
+      <span class="bc-lt__accent" aria-hidden="true"></span>
+      <div class="bc-lt__body">
+        <div class="bc-lt__meta">
+          <span class="bc-lt__label">ON CAMERA</span>
+          {#if position != null}
+            <span class="bc-lt__pos" data-testid="driver-lt-pos">P{position}</span>
+          {/if}
+          {#if carClass}
+            <ClassChip {carClass} size="compact" />
+          {/if}
+        </div>
+        <span class="bc-lt__name" data-testid="driver-lt-name">{displayName}</span>
       </div>
-      <span class="bc-lt__name" data-testid="driver-lt-name">{displayName}</span>
-    </div>
-  </section>
+    </section>
+  </LowerThirdShell>
 {/if}
 
 <style>
+  /* The plate chrome (background, blur, border, radius, shadow) and the
+     entrance/exit motion now live in LowerThirdShell; this owns only the card's
+     inner layout. */
   .bc-lt {
-    position: relative;
     box-sizing: border-box;
     display: flex;
     align-items: stretch;
     gap: var(--bc-space-3);
     padding: var(--bc-space-3) var(--bc-space-4);
-    background: var(--bc-plate-dense);
-    backdrop-filter: var(--bc-blur);
-    -webkit-backdrop-filter: var(--bc-blur);
-    border: 1px solid var(--bc-hairline);
-    border-radius: var(--bc-radius);
-    box-shadow: var(--bc-shadow-plate);
     color: var(--bc-text);
-    overflow: hidden;
-    /* Fire animation: slide/fade in on each mount (the card only mounts while
-       firing, so this replays on every camera cut). */
-    animation: bc-lt-in var(--bc-dur-reorder) var(--bc-ease);
   }
 
   /* Cyan accent bar — reserved for the on-camera driver, matching the tower. */
@@ -173,16 +168,5 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
-  }
-
-  @keyframes bc-lt-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 </style>
