@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-03
+
 ### Added
 
 - **Per-widget "hide when idle"** — a widget can be configured to drop out of the
