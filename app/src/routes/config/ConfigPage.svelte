@@ -213,12 +213,11 @@
           <input data-testid="profile-name" bind:value={profileName} />
         </label>
         <div class="row">
-          <button
-            data-testid="save"
-            onclick={saveProfile}
-            disabled={!serverUp}
-            title={serverUp ? 'Save this profile to the server' : 'Start the companion server (make dev) to save profiles — or use Export JSON'}
-          >Save</button>
+          <!-- Title on a wrapper, not the button: browsers suppress tooltips on
+               disabled controls, and this hint matters most while disabled. -->
+          <span title={serverUp ? undefined : 'Start the companion server (make dev) to save profiles — or use Export JSON'}>
+            <button data-testid="save" onclick={saveProfile} disabled={!serverUp}>Save</button>
+          </span>
           <button data-testid="export" onclick={exportJson}>Export JSON</button>
         </div>
         {#if profiles.length}
@@ -278,7 +277,7 @@
 
       <section class="panel__group">
         <h2>Logo rotation</h2>
-        <label title={serverUp ? '' : 'Start the companion server (make dev) to upload logos'}>
+        <label title={serverUp ? undefined : 'Start the companion server (make dev) to upload logos'}>
           Upload image
           <input type="file" accept="image/*" data-testid="upload" multiple onchange={onUpload} disabled={!serverUp} />
         </label>

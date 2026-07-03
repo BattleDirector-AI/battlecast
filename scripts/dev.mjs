@@ -19,34 +19,33 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const isWin = process.platform === 'win32'
-const npm = isWin ? 'npm.cmd' : 'npm'
 
 // ANSI colors keep three interleaved logs readable.
 const COLORS = { server: '\x1b[36m', mock: '\x1b[35m', app: '\x1b[32m' }
 const RESET = '\x1b[0m'
 const DIM = '\x1b[2m'
 
+// Every child is a direct `node` process (no shell, no npm wrapper) so each is a
+// first-class child we can reap cleanly — a shell/npm wrapper would leave Vite as
+// an orphaned grandchild if the stack tears down while npm is still starting it.
 const PROCS = [
   {
     name: 'server',
-    cmd: process.execPath,
     args: ['server/serve.js'],
     // Keep dev profiles/logos out of the tree (server/.gitignore ignores data/).
     env: { DATA_DIR: path.join(ROOT, 'server', 'data') },
   },
   {
     name: 'mock',
-    cmd: process.execPath,
     args: ['producers/mock/server.js', 'simulate'],
   },
   {
     name: 'app',
-    cmd: npm,
-    args: ['--prefix', 'app', 'run', 'dev'],
-    // Windows resolves `npm.cmd` only via the shell; the node children above must
-    // NOT use a shell, or `process.execPath` ("C:\Program Files\...") splits on
-    // its space.
-    shell: isWin,
+    // Run Vite straight from its bin so it's our direct child; absolute path since
+    // cwd is app/ (so Vite finds app/vite.config.js), and the other procs' args are
+    // relative to ROOT.
+    args: [path.join(ROOT, 'app', 'node_modules', 'vite', 'bin', 'vite.js')],
+    cwd: path.join(ROOT, 'app'),
   },
 ]
 
@@ -71,22 +70,31 @@ function pipeLabeled(stream, name, out) {
   })
 }
 
+function killChild(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  // Each child is a direct node process, so child.kill() reaps it — but on Windows
+  // taskkill /T also cleans any descendants (e.g. Vite's esbuild service), which a
+  // bare kill would leave behind.
+  if (isWin) {
+    spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' }).on('error', () => {})
+  } else {
+    child.kill()
+  }
+}
+
 function shutdown(code = 0) {
   if (shuttingDown) return
   shuttingDown = true
-  for (const child of children) {
-    if (child.exitCode === null && child.signalCode === null) child.kill()
-  }
+  for (const child of children) killChild(child)
   // Give children a beat to exit on their own before we bail.
   setTimeout(() => process.exit(code), 300)
 }
 
 for (const proc of PROCS) {
-  const child = spawn(proc.cmd, proc.args, {
-    cwd: ROOT,
+  const child = spawn(process.execPath, proc.args, {
+    cwd: proc.cwd ?? ROOT,
     env: { ...process.env, ...proc.env, FORCE_COLOR: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: proc.shell ?? false,
   })
   children.push(child)
   pipeLabeled(child.stdout, proc.name, process.stdout)
