@@ -19,6 +19,21 @@ camera cut** (a change of `subject`) rather than rendering continuously.
 - **#21 Driver lower-third** — identity: name, position, class.
 - **#22 Qualifying/sector lower-third** — timing: best/last lap and sector times.
 
+## Design principle — dumb overlay, smart producer
+
+battlecast **renders; it does not analyze the race.** Any *derived or semantic fact* —
+"this lap is a class best", "this is the fastest lap", a target/reference time, how
+contested a battle is — is **computed by the producer**, which holds authoritative,
+complete race state, and delivered as a field. The overlay reads the field and presents
+it; it **never scans `vehicles[]` to derive such facts itself.** This mirrors the
+existing contract for `battle_intensity` (the producer computes it "from gaps, closing
+rate, and recent position changes"; the consumer treats it as opaque).
+
+The overlay's own logic is limited to **presentation**: noticing that a producer-provided
+value changed, and timing/animating the display (dwell, fade). Consequence: any feature
+that needs a derived fact (the #22 class-best flash, a target time) is **gated on the
+producer providing that field** — see the v1.x additions — not on client-side derivation.
+
 ## Visibility model
 
 Visibility layers in this order; every gate must pass before the widget renders:
@@ -101,18 +116,17 @@ achievements after the baseline snapshot.
 - **Mode-gating (Decision C):** by default shows only when
   `mode ∈ {qualifying, practice}` (config `modes`, overridable). Sector-times in a race
   are unusual as a standing panel; in a race prefer #21.
-- **Race class-best fire (Decision C, extension):** independent of `modes`, when
-  `fireOnClassBest` is set (default `true`) the widget **fires on a class-best event** —
-  when the on-camera driver's most recent completed lap makes them the fastest in their
-  `vehicle_class`. This surfaces the "fastest lap" moment during a race without keeping
-  the panel up otherwise.
-  - **Detection (v1, client-side):** class best = the minimum `best_lap` among vehicles
-    sharing the subject's `vehicle_class`. Fire when the subject's `best_lap` becomes
-    ≤ that minimum *and* it improved since the previous snapshot (edge-triggered — the
-    subject *newly* holds the class best). The first post-connect snapshot only sets the
-    baseline; a pre-existing class best does not fire.
-  - Overlaps the race ticker (#27), which reports fastest-lap events field-wide; here it
-    is scoped to the on-camera driver and rendered as the timing lower-third.
+- **Race class-best fire (Decision C, extension):** independent of `modes`, when the
+  **producer flags** the on-camera driver's lap as a class best, #22 fires to surface it —
+  the "fastest lap" moment — even though the panel is otherwise mode-gated out of races.
+  Per the dumb-overlay principle, the **producer owns the judgment** of what a class best
+  is (v1.x `notable` flags, below); the overlay fires when the subject's flag says so and
+  does **not** compute it by scanning lap times. The overlay's only logic is presentation:
+  fire when `notable.class_best_lap` for the subject's vehicle turns true, then dwell.
+  Config `fireOnClassBest` (default `true`) lets a broadcaster disable the flash. **Gated
+  on the v1.x `notable` field**; the rest of #22 ships on v1. Overlaps the race ticker
+  (#27), which reports the same producer flags field-wide; here it is scoped to the
+  on-camera driver and rendered as the timing lower-third.
 - **Idle when:** subject invalid; or no timing at all (`best_lap`, `last_lap`, and
   `sector_times` all absent); or mode-gated out with no class-best fire; or dwell
   elapsed.
@@ -132,7 +146,8 @@ profiles are unaffected.
   "showOnConnect": true,                 // fire once for the current subject on load
   // #22 only:
   "modes": ["qualifying", "practice"],   // session modes it dwells on every cut
-  "fireOnClassBest": true                // also fire on a class-best lap (esp. in race)
+  "fireOnClassBest": true                // fire when the producer flags a class-best lap
+                                         //   (needs the v1.x `notable` field; no-op until then)
 }
 ```
 
@@ -152,20 +167,30 @@ Assert rendered content, driven by fixtures + fake timers (as `LogoRotation` doe
 
 - Fixtures: subject-A, subject-B (camera switch), no-subject (idle), unresolved-slot
   (degraded), no-timing (#22 idle), qualifying-mode vs race-mode (#22 gating), and a
-  race pair where the subject sets a class best between snapshots.
+  race pair where the producer flags the subject's lap `notable.class_best_lap` (v1.x).
 - Behaviors: fire on change; dwell hides after `dwellSeconds`; re-fire resets the dwell;
   fire-once on connect; #22 mode-gating; #22 class-best fire in race; edge cases above.
 
-## v1.x follow-ups (deferred; see #20)
+## v1.x additions — the producer fields these features need (see #20)
 
-Client-side derivation covers v1, but these would make #22 more robust:
+Per the dumb-overlay principle these are **producer-computed fields the overlay renders**,
+not client-side derivations. #21 and #22's core timing display ship on v1 (direct fields);
+the class-best flash and target time wait on these:
 
-1. **Reference / "target" time.** LMU shows a target (time to beat). v1 derives the
-   field/class best client-side by scanning `vehicles[]`; a v1.x `session` block or a
-   per-class reference time would give an authoritative target.
-2. **Live sector semantics.** v1 renders the most recent *completed* lap's
-   `sector_times`. A true hot-lap experience (sectors lighting up as they complete)
-   needs a v1.x "current lap in progress" field; the spec should also state explicitly
-   that `sector_times` is the last completed lap.
-3. **Explicit fastest-lap / class-best flag.** A per-vehicle flag would remove the
-   client-side class-best inference used for the race fire.
+1. **Lap notability — per-vehicle `notable` flags.** Extend each `vehicles[]` entry with
+   producer-set booleans whose meaning the producer owns, e.g.
+   `notable: { class_best_lap, session_best_lap, personal_best_lap }`. The overlay fires
+   #22's class-best flash when the subject's `notable.class_best_lap` turns true, and the
+   tower/ticker (#27, #28) can badge from the same flags. Forward-compatible: unknown
+   `notable` keys are ignored per the spec's tolerance ethos. Generalizes to "…or whatever
+   the producer deems notable" — new notability is a new flag, not new overlay logic.
+2. **Reference / "target" time — producer-provided.** The time-to-beat the overlay should
+   show (e.g. per-vehicle `target_lap` seconds, optionally `delta_to_target`). The producer
+   decides what "target" means (class pole, session best, a chosen reference); the overlay
+   just displays it — it does not scan the field to guess a target.
+3. **Live sector semantics.** State explicitly that `sector_times` is the last *completed*
+   lap, and add a "current lap in progress" representation for true hot-lap
+   sector-by-sector timing.
+
+The reference producer (`producers/mock`) gains these alongside the spec bump so #22's
+full behavior can be built and tested against it.
