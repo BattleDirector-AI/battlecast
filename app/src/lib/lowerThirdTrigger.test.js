@@ -28,6 +28,48 @@ describe('lowerThirdTrigger — dwell mode (default)', () => {
     expect(engine.shown).toBe(true)
   })
 
+  it('does not let a subject-less baseline consume the connect gate (real render sequence)', () => {
+    // The render pages start `snapshot = null`, so sync #1 is the empty baseline.
+    // With showOnConnect:false the first *active* subject must NOT fire — the null
+    // snapshot must not have consumed the connect event.
+    const { engine, changes } = makeEngine()
+    engine.sync({ subjectSlotId: null, active: false, showOnConnect: false })
+    expect(engine.shown).toBe(false)
+
+    engine.sync({ subjectSlotId: 'car-1', active: true, showOnConnect: false })
+    expect(engine.shown).toBe(false) // first active subject is the connect -> suppressed
+    expect(changes).toEqual([]) // never shown
+
+    // A later genuine cut to a different subject still fires.
+    engine.sync({ subjectSlotId: 'car-9', active: true, showOnConnect: false })
+    expect(engine.shown).toBe(true)
+  })
+
+  it('fires exactly once on the first active subject after a null baseline (showOnConnect)', () => {
+    const { engine, changes } = makeEngine()
+    engine.sync({ subjectSlotId: null, active: false }) // null pre-data snapshot
+    expect(engine.shown).toBe(false)
+    expect(changes).toEqual([]) // the baseline must not fire
+
+    engine.sync({ subjectSlotId: 'car-1', active: true }) // first real snapshot
+    expect(engine.shown).toBe(true)
+
+    // The same subject repeating must not re-fire (edge trigger).
+    engine.sync({ subjectSlotId: 'car-1', active: true })
+    expect(changes).toEqual([true]) // fired exactly once
+  })
+
+  it('hides on the same slot going inactive (subject drops out of the field)', () => {
+    const { engine } = makeEngine()
+    engine.sync({ subjectSlotId: 'car-1', active: true, dwellSeconds: 6 })
+    expect(engine.shown).toBe(true)
+
+    // Same slot_id, but the vehicle is no longer resolvable -> hide immediately,
+    // without waiting out the rest of the dwell.
+    engine.sync({ subjectSlotId: 'car-1', active: false, dwellSeconds: 6 })
+    expect(engine.shown).toBe(false)
+  })
+
   it('auto-hides after dwellSeconds even though the subject stays on camera', () => {
     const { engine } = makeEngine()
     engine.sync({ subjectSlotId: 'car-1', active: true, dwellSeconds: 6 })

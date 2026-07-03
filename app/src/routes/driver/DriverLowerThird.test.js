@@ -77,13 +77,41 @@ describe('DriverLowerThird — fire / dwell / switch behavior', () => {
     expect(card(container)).toBeNull() // dwell elapsed -> hidden
   })
 
-  it('does not fire on connect when showOnConnect is false', async () => {
-    const { container } = render(DriverLowerThird, {
-      snapshot: subjectA,
+  it('does not fire on connect when showOnConnect is false, across the real null→snapshot sequence', async () => {
+    // The render pages mount with snapshot=null and only later receive producer
+    // data, so exercise that exact sequence (the null baseline must not count as
+    // the connect fire).
+    const { container, rerender } = render(DriverLowerThird, {
+      snapshot: null,
       widget: { trigger: 'dwell', showOnConnect: false },
     })
     await tick()
     expect(card(container)).toBeNull()
+
+    // First real snapshot arrives: this is the connect event -> suppressed.
+    await rerender({ snapshot: subjectA, widget: { trigger: 'dwell', showOnConnect: false } })
+    await tick()
+    expect(card(container)).toBeNull()
+
+    // A later genuine camera cut still fires.
+    await rerender({ snapshot: subjectB, widget: { trigger: 'dwell', showOnConnect: false } })
+    await tick()
+    expect(card(container)).not.toBeNull()
+    expect(nameOf(container)).toBe('C. Leclerc')
+  })
+
+  it('fires once on the first real subject after the null baseline (showOnConnect default)', async () => {
+    const { container, rerender } = render(DriverLowerThird, {
+      snapshot: null,
+      widget: { trigger: 'dwell', dwellSeconds: 6 },
+    })
+    await tick()
+    expect(card(container)).toBeNull() // null baseline: nothing yet
+
+    await rerender({ snapshot: subjectA, widget: { trigger: 'dwell', dwellSeconds: 6 } })
+    await tick()
+    expect(card(container)).not.toBeNull()
+    expect(nameOf(container)).toBe('Hamilton')
   })
 
   it('re-fires and updates the card in place on a camera cut', async () => {

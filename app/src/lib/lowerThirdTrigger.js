@@ -92,34 +92,50 @@ export function createLowerThirdTrigger({ onChange } = {}) {
       return shown
     }
 
-    // --- dwell mode: edge-triggered on subject change (a camera cut) ---
+    // --- dwell mode: edge-triggered on a subject change (a camera cut). The card
+    // hides when the subject's slot_id changes AND on any `active: false` (idle /
+    // invalid) subject, regardless of slot change; persistent mode is level-only. ---
+
+    // A subject-less baseline (e.g. the initial `null` snapshot the render pages
+    // hold before any producer data) must NOT consume the connect gate: stay hidden
+    // and leave `started`/`prevKey` unset so the first *active* subject becomes the
+    // connect event and honors `showOnConnect`.
+    if (!started && !active) {
+      clearTimer()
+      emit(false)
+      return shown
+    }
+
     const isFirst = !started
     const changed = key !== prevKey
     started = true
     prevKey = key
 
-    // Unchanged subject repeated on a later snapshot: do nothing (leave the dwell
-    // running / the card as-is). This is the edge trigger — `A → A` never re-fires.
-    if (!changed && !isFirst) return shown
-
-    // On connect, only fire when opted in; still establish the baseline key above.
-    if (isFirst && !showOnConnect) return shown
-
-    if (active) {
-      // Fire (or re-fire): show immediately and (re)arm the dwell. Emitting `true`
-      // when already shown is a no-op, so a re-fire updates the card in place with
-      // no hide→show flicker.
-      clearTimer()
-      emit(true)
-      timer = setTimeout(() => {
-        timer = null
-        emit(false)
-      }, dwell * 1000)
-    } else {
-      // Cut to an idle/invalid subject: hide right away.
+    // Cut to an idle/invalid subject: hide right away — even if the slot_id is
+    // unchanged (e.g. the on-camera car's vehicle drops out of the field).
+    if (!active) {
       clearTimer()
       emit(false)
+      return shown
     }
+
+    // Unchanged active subject repeated on a later snapshot: do nothing (leave the
+    // dwell running / the card as-is). This is the edge trigger — `A → A` never
+    // re-fires.
+    if (!changed && !isFirst) return shown
+
+    // On connect, only fire when opted in; the baseline key is already established.
+    if (isFirst && !showOnConnect) return shown
+
+    // Fire (or re-fire): show immediately and (re)arm the dwell. Emitting `true`
+    // when already shown is a no-op, so a re-fire updates the card in place with no
+    // hide→show flicker.
+    clearTimer()
+    emit(true)
+    timer = setTimeout(() => {
+      timer = null
+      emit(false)
+    }, dwell * 1000)
     return shown
   }
 

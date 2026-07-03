@@ -7,10 +7,12 @@
   // Standalone driver lower-third Browser Source. Like /tower and /all it is driven
   // by the producer SSE feed; the widget self-manages fire/dwell/hide from the
   // resolved config's `driver` block (trigger / dwellSeconds / showOnConnect).
+  // config is always a normalized config (initial default, then loadConfig's
+  // normalized result), so its widgets carry the full field set.
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
   let snapshot = $state(null)
 
-  const widget = $derived(normalizeConfig(config).widgets.driver)
+  const widget = $derived(config.widgets.driver)
 
   onMount(() => {
     let cancelled = false
