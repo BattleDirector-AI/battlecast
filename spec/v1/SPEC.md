@@ -49,6 +49,13 @@ their SSE endpoint against this spec.
   smooth tower/battle-box rendering. Producers may emit faster or slower; consumers
   MUST NOT assume a fixed interval and should simply render the latest snapshot
   received. There is no required minimum or maximum rate in v1.
+- **Subject-change latency** (recommendation, non-normative): when `subject` changes —
+  a camera cut / driver snap — the producer SHOULD emit a `state` snapshot promptly
+  (target ≤ ~150 ms) rather than waiting for the next cadence tick. Subject-driven
+  widgets (the driver and qualifying lower-thirds — see
+  `docs/decisions/0002-lower-third-widgets.md`) fire on this change, so prompt emission
+  keeps them responsive to the cut. This changes no schema fields; a producer that only
+  ticks steadily still works, the lower-third just fires up to one tick late.
 
 ## Versioning policy
 
@@ -85,7 +92,36 @@ required-ness.
   Each entry has a stable `slot_id`, a `driver_name`, a `vehicle_class`, an integer
   `position` (1 = leader), and lap/sector timing (`last_lap`, `best_lap`,
   `sector_times`, all in seconds). Consumers sort by `position` to produce the running
-  order rendered in the standings tower.
+  order rendered in the standings tower. **`sector_times` is the vehicle's most recent
+  *completed* lap** — the per-sector split of the lap that produced `last_lap`, not a
+  lap currently in progress.
+
+  Each entry may also carry the following **OPTIONAL, ADDITIVE** producer-computed
+  fields (a minor v1 revision — see below). Per the *dumb overlay, smart producer*
+  principle in [`docs/decisions/0002-lower-third-widgets.md`](../../docs/decisions/0002-lower-third-widgets.md),
+  the producer holds authoritative race state and computes these facts; the consumer
+  only renders them and **MUST tolerate their absence**:
+
+  - **`notable`** (object) — Producer-set notability flags whose meaning the producer
+    owns, mirroring how `battle_intensity` is an opaque producer computation. Defined
+    keys are `class_best_lap` (holds the fastest `best_lap` in its `vehicle_class`),
+    `session_best_lap` (holds the overall fastest lap), and `personal_best_lap` (just
+    improved its own best). All are optional booleans; an absent or false flag means
+    "not notable". The object is open — unknown notability keys are ignored, so new
+    notability is a new flag, not new overlay logic. Consumers **MUST NOT** derive these
+    by scanning `vehicles[]`; they read the flag the producer set.
+  - **`target_lap`** (number, seconds) — A producer-provided reference "time to beat"
+    for the vehicle that an overlay should display. The producer decides what the target
+    references (class pole, session best, a chosen reference); the consumer just shows
+    it. **`delta_to_target`** (number, seconds) optionally accompanies it as
+    `best_lap` minus `target_lap` (negative = faster than target).
+
+  **Contract note — no `schemaVersion` bump.** These fields were added in a minor
+  revision of v1; `schemaVersion` stays `"1"`. That is permitted because `schemaVersion`
+  is reserved for *breaking* changes, and `schema.json` sets `additionalProperties: true`
+  at every level: a producer may emit these today and an older consumer that has never
+  heard of them simply ignores them, while a newer consumer tolerates their absence from
+  an older producer. See *Versioning policy* above.
 - **`subject`** (object) — The on-camera driver identity: a `slot_id` (which should
   reference one of the `vehicles` entries) and a `driver_name`. Widgets highlight this
   driver in the tower and center the battle box on them.

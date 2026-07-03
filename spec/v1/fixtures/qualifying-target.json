@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1",
+  "mode": "qualifying",
+  "vehicles": [
+    {
+      "slot_id": "car-16",
+      "driver_name": "Leclerc",
+      "vehicle_class": "GTP",
+      "position": 1,
+      "last_lap": 90.912,
+      "best_lap": 90.912,
+      "sector_times": [28.401, 31.002, 31.509],
+      "notable": {
+        "class_best_lap": true,
+        "session_best_lap": true,
+        "personal_best_lap": true
+      },
+      "target_lap": 90.912,
+      "delta_to_target": 0.0
+    },
+    {
+      "slot_id": "car-1",
+      "driver_name": "Verstappen",
+      "vehicle_class": "GTP",
+      "position": 2,
+      "last_lap": 91.204,
+      "best_lap": 91.088,
+      "sector_times": [28.512, 31.150, 31.426],
+      "notable": {
+        "class_best_lap": false,
+        "session_best_lap": false,
+        "personal_best_lap": false
+      },
+      "target_lap": 90.912,
+      "delta_to_target": 0.176
+    },
+    {
+      "slot_id": "car-4",
+      "driver_name": "Norris",
+      "vehicle_class": "GTP",
+      "position": 3,
+      "last_lap": 91.533,
+      "best_lap": 91.301,
+      "sector_times": [28.702, 31.257, 31.342],
+      "notable": {
+        "class_best_lap": false,
+        "session_best_lap": false,
+        "personal_best_lap": false
+      },
+      "target_lap": 90.912,
+      "delta_to_target": 0.389
+    }
+  ],
+  "subject": {
+    "slot_id": "car-1",
+    "driver_name": "Verstappen"
+  },
+  "relationship": {
+    "gap_ahead": 0.2,
+    "gap_behind": 0.2,
+    "battle_intensity": 0.74
+  }
+}

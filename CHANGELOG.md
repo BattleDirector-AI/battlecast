@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-03
+
+### Added
+
+- **Skewed bar-wipe reveal for the lower-thirds.** Both lower-third widgets — the
+  driver identity name-tag (#21) and the qualifying/sector timing bar (#22) — now
+  share a presentational shell (`app/src/lib/LowerThirdShell.svelte`) that owns the
+  smoked-glass plate frame, an angled mint shine bar, and a clipped content wrapper.
+  On a camera cut the plate skew-slides in and the content wipes in behind the raked
+  bar (~0.5s); on hide the content wipes out under the bar and the emptied plate
+  skews off (~0.6s, a Svelte `out:` transition). Each widget renders its own inner
+  layout through the shell, so all fire/dwell/hide and #22's class-best flash logic
+  is unchanged. Honors `prefers-reduced-motion`: reduced-motion viewers get a plain
+  quick fade in and an instant unmount (no lingering node).
+
+- **Spec v1.x — producer notability + target-lap fields (additive, no
+  `schemaVersion` bump).** A minor revision of spec v1 adds OPTIONAL, additive
+  per-vehicle fields the producer computes and the overlay renders (dumb overlay,
+  smart producer): `vehicles[].notable` — an open object of producer-set booleans
+  (`class_best_lap`, `session_best_lap`, `personal_best_lap`) — plus
+  `vehicles[].target_lap` (the reference "time to beat", seconds) and optional
+  `delta_to_target`. These gate #22's class-best flash. Because `schemaVersion` is
+  reserved for breaking changes and `schema.json` sets `additionalProperties: true`
+  at every level, the version string stays `"1"`: old consumers ignore the fields,
+  new consumers tolerate their absence. Documented in `spec/v1/schema.json` and
+  `spec/v1/SPEC.md`; new fixtures `spec/v1/fixtures/race-class-best.json` and
+  `qualifying-target.json`; the reference mock producer (`producers/mock/simulate.js`)
+  now emits them. See `docs/decisions/0002-lower-third-widgets.md`.
+- **Driver lower-third widget (#21)** — a broadcast-style identity name-tag for the
+  on-camera driver (`subject`): driver name, position, and class chip, rendered from
+  the resolved `vehicles[]` entry. It has its own `/driver` Browser Source route and
+  composes into `/all` as the new `driver` widget. Unlike the always-on tower/battle
+  widgets it is **subject-driven and edge-triggered** — it fires on a camera cut
+  rather than rendering continuously:
+  - **Trigger modes** (per-widget config): `dwell` (default) shows the card on each
+    subject change then auto-hides after `dwellSeconds` (default 6) even if the camera
+    stays; a new cut re-fires and **resets the dwell in place** (no hide→show flicker).
+    `persistent` shows whenever the subject is valid and hides when it isn't (no timer).
+  - **Fire-once on connect** (`showOnConnect`, default true) so opening the source
+    shows the current driver briefly; **edge-triggered** so an unchanged subject
+    repeated every snapshot never re-fires; `A → null → A` re-fires as a genuine cut.
+  - **Subject resolution**: valid (slot_id resolves to a vehicle → full card),
+    degraded (name only when the slot is unresolved), idle (no subject → renders
+    nothing). The overlay reacts only to producer state changes and its own dwell
+    timer — it computes nothing about the race.
+  - The fire/dwell/hide logic lives in a **reusable, unit-tested trigger module**
+    (`app/src/lib/lowerThirdTrigger.js`) that the qualifying/sector lower-third (#22)
+    will reuse. Config adds per-widget `trigger` / `dwellSeconds` / `showOnConnect`
+    (defaulted, additive — no `configVersion` bump), surfaced in the `/config` editor
+    for lower-third widgets.
+- **Qualifying / sector lower-third widget (#22)** — a broadcast timing bar for the
+  on-camera driver (`subject`): best & last lap, per-sector times (S1/S2/S3), and —
+  when the producer provides them — `target_lap` / `delta_to_target`, rendered from
+  the resolved `vehicles[]` entry. It has its own `/qualifying` Browser Source route
+  and composes into `/all` as the new `qualifying` widget (offset above the driver
+  name-tag so the two bottom lower-thirds don't overlap).
+  - **Mode-gating (Decision C):** by default the bar only shows/fires on a camera cut
+    when `mode ∈ {qualifying, practice}` (per-widget config `modes`); in other modes a
+    plain cut does not fire.
+  - **Class-best flash (Decision C extension):** independent of `modes`, when the
+    **producer** flips the subject's `notable.class_best_lap` flag false→true, the bar
+    flashes the "fastest lap" moment for a dwell (config `fireOnClassBest`, default on).
+    Per the dumb-overlay principle the overlay **only tracks whether that producer flag
+    changed vs. the previous snapshot** — it never scans lap times to compute a class
+    best — and it does not fire for a pre-existing flag on the baseline snapshot.
+  - **Reuses the #21 `lowerThirdTrigger`** (dwell / persistent / showOnConnect) via a
+    composite trigger key that changes on a mode-eligible cut OR a fresh class-best
+    edge; #21's module behavior and tests are unchanged. Config adds per-widget `modes`
+    and `fireOnClassBest` (defaulted, additive — no `configVersion` bump), surfaced in
+    the `/config` editor for the qualifying widget.
+- **Mock producer — prompt emit on camera cuts.** The reference simulator now
+  sub-steps and emits a `state` snapshot promptly on a `subject` change (within one
+  sub-step, ≤ ~150 ms) instead of only on the fixed cadence, honoring the spec's
+  non-normative latency SHOULD so the lower-thirds fire crisply against the live mock.
+  Total sim-time per real second and the director's (now time-based) on-camera dwell
+  are unchanged. New fixtures `spec/v1/fixtures/race-pre-class-best.json`,
+  `qualifying-sector-a.json`, and `qualifying-no-timing.json`.
+
+### Changed
+
+- The lower-third plate chrome (background, blur, border, radius, shadow,
+  `overflow:hidden`) moved out of `DriverLowerThird.svelte` /
+  `QualifyingLowerThird.svelte` into the shared `LowerThirdShell`; the widgets now
+  own only their inner card layout. No visual or behavioral change to the cards
+  themselves.
+
 ## [0.2.0] - 2026-07-03
 
 ### Added

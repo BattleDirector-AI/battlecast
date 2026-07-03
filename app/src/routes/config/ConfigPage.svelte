@@ -6,7 +6,7 @@
    * client-only authoring (export a config.json) when no server is running. */
   import { onMount } from 'svelte'
   import AllView from '../all/AllView.svelte'
-  import { DEFAULT_CONFIG, WIDGET_KEYS, normalizeConfig } from '../../lib/overlayConfig.js'
+  import { DEFAULT_CONFIG, WIDGET_KEYS, normalizeConfig, isLowerThird } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
@@ -96,6 +96,20 @@
   const setField = (key, field, value) => (config = editor.setWidgetField(config, key, field, value))
   const setVisible = (key, visible) => (config = editor.setWidgetVisible(config, key, visible))
   const setHideWhenIdle = (key, hide) => (config = editor.setWidgetHideWhenIdle(config, key, hide))
+  // Lower-third trigger knobs (only surfaced for lower-third widgets).
+  const setTrigger = (key, value) => (config = editor.setWidgetField(config, key, 'trigger', value))
+  const setDwellSeconds = (key, value) =>
+    (config = editor.setWidgetField(config, key, 'dwellSeconds', Number(value)))
+  // #22 qualifying-only knobs. `modes` are the session modes the timing bar dwells
+  // on every camera cut; `fireOnClassBest` toggles the producer-flag class-best flash.
+  const MODE_OPTIONS = ['practice', 'qualifying', 'race']
+  const setMode = (key, mode, checked) => {
+    const current = (config.widgets[key]?.modes || []).filter((m) => m !== mode)
+    if (checked) current.push(mode)
+    config = editor.setWidgetField(config, key, 'modes', current)
+  }
+  const setFireOnClassBest = (key, checked) =>
+    (config = editor.setWidgetField(config, key, 'fireOnClassBest', !!checked))
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
@@ -394,6 +408,64 @@
                 Hide when idle
               </label>
             {/if}
+            {#if isLowerThird(key)}
+              <!-- Lower-third fire behavior: `dwell` shows on each camera cut then
+                   auto-hides after N seconds; `persistent` stays while the subject
+                   is on camera. Dwell seconds only applies in dwell mode. -->
+              <div class="row trigger-row">
+                <label class="num">
+                  trigger
+                  <select
+                    data-testid="trigger-{key}"
+                    value={w.trigger}
+                    onchange={(e) => setTrigger(key, e.currentTarget.value)}
+                  >
+                    <option value="dwell">dwell</option>
+                    <option value="persistent">persistent</option>
+                  </select>
+                </label>
+                <label class="num">
+                  dwell secs
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    data-testid="dwell-{key}"
+                    value={w.dwellSeconds}
+                    disabled={w.trigger !== 'dwell'}
+                    oninput={(e) => setDwellSeconds(key, e.currentTarget.value)}
+                  />
+                </label>
+              </div>
+            {/if}
+            {#if key === 'qualifying'}
+              <!-- #22-only: which session modes the timing bar dwells on every
+                   camera cut, and whether the producer-flagged class-best lap fires
+                   the "fastest lap" flash independent of those modes. -->
+              <fieldset class="modes-row">
+                <legend>fires on cut in</legend>
+                {#each MODE_OPTIONS as mode (mode)}
+                  <label class="checkline">
+                    <input
+                      type="checkbox"
+                      data-testid="mode-{key}-{mode}"
+                      checked={w.modes?.includes(mode)}
+                      onchange={(e) => setMode(key, mode, e.currentTarget.checked)}
+                    />
+                    {mode}
+                  </label>
+                {/each}
+              </fieldset>
+              <label class="checkline" title="Flash the timing bar when the producer flags the on-camera driver's lap a class best (any mode)">
+                <input
+                  type="checkbox"
+                  data-testid="fire-class-best-{key}"
+                  checked={w.fireOnClassBest}
+                  onchange={(e) => setFireOnClassBest(key, e.currentTarget.checked)}
+                />
+                Fire on class-best lap
+              </label>
+            {/if}
           </fieldset>
         {/each}
       </section>
@@ -674,6 +746,29 @@
   }
   .checkline input {
     width: auto;
+  }
+  .trigger-row {
+    margin-top: 0.5rem;
+  }
+  .modes-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem 0.7rem;
+    margin: 0.5rem 0 0;
+    padding: 0.3rem 0.5rem 0.4rem;
+    border: 1px solid #2a3140;
+    border-radius: 6px;
+  }
+  .modes-row legend {
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    color: #9aa7ba;
+    letter-spacing: 0.05em;
+  }
+  .modes-row .checkline {
+    margin: 0;
+    text-transform: capitalize;
   }
   .logo-list {
     list-style: none;

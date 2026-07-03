@@ -45,18 +45,82 @@ export const DEFAULT_CONFIG = Object.freeze({
     // battle 440px) so the config editor's drag box lines up with what renders.
     // `hideWhenIdle` defaults off, so widgets that support it keep showing their
     // idle placeholder unless the broadcaster opts in.
-    tower: { visible: true, x: 24, y: 24, w: 380, h: 900, z: 1, hideWhenIdle: false },
-    battle: { visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false },
-    logos: { visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false },
+    // Every widget carries the full field set — geometry + `hideWhenIdle` + the
+    // lower-third trigger knobs (`trigger`, `dwellSeconds`, `showOnConnect`) — so
+    // the normalized shape matches this default exactly. Only the lower-third
+    // widgets (driver #21, qualifying #22) actually read the trigger knobs.
+    tower: {
+      visible: true, x: 24, y: 24, w: 380, h: 900, z: 1, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
+      modes: ['qualifying', 'practice'], fireOnClassBest: true,
+    },
+    battle: {
+      visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
+      modes: ['qualifying', 'practice'], fireOnClassBest: true,
+    },
+    logos: {
+      visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
+      modes: ['qualifying', 'practice'], fireOnClassBest: true,
+    },
+    // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
+    // the canvas. It self-manages fire/dwell/hide, so it renders nothing between
+    // camera cuts even while `visible`.
+    driver: {
+      visible: true, x: 48, y: 900, w: 620, h: 96, z: 4, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
+      modes: ['qualifying', 'practice'], fireOnClassBest: true,
+    },
+    // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
+    // subject (best/last lap, sectors, and target/delta when present). Offset
+    // vertically above the driver name-tag so the two bottom lower-thirds don't
+    // overlap. Mode-gated (`modes`) with an independent class-best flash
+    // (`fireOnClassBest`); it self-manages fire/dwell/hide like the driver card.
+    qualifying: {
+      visible: true, x: 48, y: 788, w: 840, h: 100, z: 5, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
+      modes: ['qualifying', 'practice'], fireOnClassBest: true,
+    },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   theme: {},
+})
+
+/** Lower-third trigger defaults (see docs/decisions/0002-lower-third-widgets.md).
+ *  Normalized onto every widget like `hideWhenIdle`, but only the lower-third
+ *  widgets (driver #21, qualifying #22) read them; the geometry-only widgets
+ *  ignore them. Additive + defaulted, so no `configVersion` bump. */
+export const LOWER_THIRD_DEFAULTS = Object.freeze({
+  trigger: 'dwell',
+  dwellSeconds: 6,
+  showOnConnect: true,
+})
+
+/** #22 qualifying/sector lower-third extras (see docs/decisions/0002-…). `modes`
+ *  are the session modes it dwells on every camera cut; `fireOnClassBest` toggles
+ *  the independent "fastest lap" flash the producer's `notable.class_best_lap`
+ *  flag drives. Normalized onto every widget (like the trigger knobs), but only the
+ *  qualifying widget reads them. */
+export const QUALIFYING_DEFAULTS = Object.freeze({
+  modes: Object.freeze(['qualifying', 'practice']),
+  fireOnClassBest: true,
 })
 
 /** Canonical widget keys in the layout contract, DERIVED from DEFAULT_CONFIG so it
  *  cannot drift from the real source of truth. `logos` is part of the contract for
  *  #33/#34 even though `/all` renders no logos component until #33 lands. */
 export const WIDGET_KEYS = Object.freeze(Object.keys(DEFAULT_CONFIG.widgets))
+
+/** Widgets that are subject-driven lower-thirds and therefore read the trigger
+ *  knobs (`trigger`, `dwellSeconds`, `showOnConnect`). Driver (#21) today; the
+ *  qualifying/sector lower-third (#22) joins here when it lands. */
+export const LOWER_THIRD_KEYS = Object.freeze(['driver', 'qualifying'])
+
+/** Whether a widget is a lower-third (so the config UI surfaces its trigger knobs). */
+export function isLowerThird(key) {
+  return LOWER_THIRD_KEYS.includes(key)
+}
 
 /** Deep clone that works in Node >=17 / happy-dom (structuredClone) with a JSON
  *  fallback. DEFAULT_CONFIG is frozen, so callers must clone before mutating. */
@@ -69,6 +133,15 @@ function clone(value) {
 function num(value, fallback) {
   const n = Number(value)
   return Number.isFinite(n) ? n : fallback
+}
+
+/** Coerce a `modes` value to a clean string array, falling back to `fallback`.
+ *  Accepts an array (trimmed non-empty strings) or a comma list; anything empty
+ *  or malformed yields a fresh copy of the fallback so gating still works. */
+function normalizeModes(value, fallback) {
+  const list = Array.isArray(value) ? value : value != null ? String(value).split(',') : []
+  const cleaned = list.map((s) => String(s).trim()).filter(Boolean)
+  return cleaned.length ? cleaned : [...fallback]
 }
 
 /** Split a comma list (`?hide=battle,logos`) into trimmed non-empty tokens. */
@@ -125,6 +198,29 @@ export function normalizeConfig(raw) {
       // in clear air). Defaults false, so existing profiles keep showing the idle
       // placeholder.
       hideWhenIdle: typeof w.hideWhenIdle === 'boolean' ? w.hideWhenIdle : d.hideWhenIdle ?? false,
+      // Lower-third trigger knobs — normalized onto every widget (like
+      // hideWhenIdle), but only the lower-third widgets read them. Applies the
+      // per-widget default first, then the shared LOWER_THIRD_DEFAULTS.
+      trigger:
+        w.trigger === 'dwell' || w.trigger === 'persistent'
+          ? w.trigger
+          : d.trigger ?? LOWER_THIRD_DEFAULTS.trigger,
+      dwellSeconds:
+        Number(w.dwellSeconds) > 0
+          ? num(w.dwellSeconds, d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds)
+          : d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds,
+      showOnConnect:
+        typeof w.showOnConnect === 'boolean'
+          ? w.showOnConnect
+          : d.showOnConnect ?? LOWER_THIRD_DEFAULTS.showOnConnect,
+      // #22 qualifying extras — `modes` (session modes it dwells on cuts) and
+      // `fireOnClassBest` (the producer-flag class-best flash). Only the qualifying
+      // widget reads them; normalized onto every widget for a uniform shape.
+      modes: normalizeModes(w.modes, d.modes ?? QUALIFYING_DEFAULTS.modes),
+      fireOnClassBest:
+        typeof w.fireOnClassBest === 'boolean'
+          ? w.fireOnClassBest
+          : d.fireOnClassBest ?? QUALIFYING_DEFAULTS.fireOnClassBest,
     }
   }
   out.widgets = normalizedWidgets

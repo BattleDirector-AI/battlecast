@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1",
+  "mode": "qualifying",
+  "vehicles": [
+    {
+      "slot_id": "car-16",
+      "driver_name": "Leclerc",
+      "vehicle_class": "gtp",
+      "position": 1
+    }
+  ],
+  "subject": {
+    "slot_id": "car-16",
+    "driver_name": "Leclerc"
+  },
+  "relationship": {
+    "gap_ahead": null,
+    "gap_behind": null,
+    "battle_intensity": 0
+  }
+}

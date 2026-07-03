@@ -141,6 +141,29 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(normalizeConfig({}).widgets.battle.hideWhenIdle).toBe(false)
     expect(normalizeConfig({ widgets: { battle: { hideWhenIdle: true } } }).widgets.battle.hideWhenIdle).toBe(true)
   })
+
+  it('defaults the lower-third trigger knobs and honors explicit values', () => {
+    // Defaults on every widget (mirrors hideWhenIdle); only lower-thirds read them.
+    const d = normalizeConfig({}).widgets.driver
+    expect(d.trigger).toBe('dwell')
+    expect(d.dwellSeconds).toBe(6)
+    expect(d.showOnConnect).toBe(true)
+
+    const custom = normalizeConfig({
+      widgets: { driver: { trigger: 'persistent', dwellSeconds: 10, showOnConnect: false } },
+    }).widgets.driver
+    expect(custom.trigger).toBe('persistent')
+    expect(custom.dwellSeconds).toBe(10)
+    expect(custom.showOnConnect).toBe(false)
+  })
+
+  it('rejects an invalid trigger / non-positive dwell, falling back to the defaults', () => {
+    const w = normalizeConfig({
+      widgets: { driver: { trigger: 'bogus', dwellSeconds: 0 } },
+    }).widgets.driver
+    expect(w.trigger).toBe('dwell')
+    expect(w.dwellSeconds).toBe(6)
+  })
 })
 
 describe('resolveWidgets — ordered render list', () => {
@@ -150,9 +173,11 @@ describe('resolveWidgets — ordered render list', () => {
         tower: { z: 5 },
         battle: { z: 1 },
         logos: { z: 3 },
+        driver: { z: 4 },
+        qualifying: { z: 6 },
       },
     }).map((w) => w.key)
-    expect(order).toEqual(['battle', 'logos', 'tower'])
+    expect(order).toEqual(['battle', 'logos', 'driver', 'tower', 'qualifying'])
   })
 })
 

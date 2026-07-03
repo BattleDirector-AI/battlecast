@@ -53,6 +53,15 @@ describe('App — full-bleed vs scaffold layout', () => {
     expect(document.body.style.background).toBe('transparent')
   })
 
+  it('makes the qualifying lower-third route transparent AND full-bleed (/qualifying)', async () => {
+    setPath('/qualifying')
+    render(App)
+    await tick()
+    expect(appEl.style.maxWidth).toBe('none')
+    expect(appEl.style.background).toBe('transparent')
+    expect(document.body.style.background).toBe('transparent')
+  })
+
   it('leaves the scaffold landing page constrained (no #app override)', async () => {
     setPath('/')
     render(App)
