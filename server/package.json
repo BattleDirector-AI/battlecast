@@ -1,0 +1,19 @@
+{
+  "name": "battlecast-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "battlecast companion server — serves the built overlay app with SPA fallback plus a small config/asset API (config profiles + logo uploads). Zero dependencies.",
+  "type": "module",
+  "main": "lib/createApp.js",
+  "bin": {
+    "battlecast-serve": "serve.js"
+  },
+  "scripts": {
+    "start": "node serve.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

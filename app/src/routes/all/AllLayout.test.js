@@ -1,0 +1,132 @@
+import { describe, it, expect, afterEach } from 'vitest'
+import { render, cleanup } from '@testing-library/svelte'
+import AllView from './AllView.svelte'
+import { normalizeConfig } from '../../lib/overlayConfig.js'
+import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
+import idleBattle from '../../../../spec/v1/fixtures/race-idle-battle.json'
+import lowerThird from './fixtures/profile-lower-third.json'
+import towerOnly from './fixtures/profile-tower-only.json'
+import withLogos from './fixtures/profile-with-logos.json'
+
+afterEach(() => cleanup())
+
+function slot(container, key) {
+  return container.querySelector(`[data-testid="widget-${key}"]`)
+}
+
+describe('AllView — config-driven layout (render side of #16)', () => {
+  it('places each widget at its configured position and size', () => {
+    const { container } = render(AllView, {
+      snapshot: closeBattle,
+      config: normalizeConfig(lowerThird),
+    })
+
+    const tower = slot(container, 'tower')
+    const battle = slot(container, 'battle')
+    expect(tower).not.toBeNull()
+    expect(battle).not.toBeNull()
+
+    // Assert the ACTUAL rendered geometry, not merely that both are in the DOM.
+    expect(tower.style.left).toBe('40px')
+    expect(tower.style.top).toBe('40px')
+    expect(tower.style.width).toBe('420px')
+    expect(tower.style.height).toBe('800px')
+
+    expect(battle.style.left).toBe('640px')
+    expect(battle.style.top).toBe('820px')
+    expect(battle.style.width).toBe('640px')
+    expect(battle.style.height).toBe('200px')
+  })
+
+  it('sizes the overlay stage to the configured canvas', () => {
+    const { container } = render(AllView, {
+      snapshot: closeBattle,
+      config: normalizeConfig({ canvas: { w: 1280, h: 720 } }),
+    })
+    const stage = container.querySelector('[data-testid="overlay-stage"]')
+    expect(stage.style.width).toBe('1280px')
+    expect(stage.style.height).toBe('720px')
+  })
+
+  it('defaults the overlay stage to 1920x1080 when no canvas is configured', () => {
+    const { container } = render(AllView, { snapshot: closeBattle })
+    const stage = container.querySelector('[data-testid="overlay-stage"]')
+    expect(stage.style.width).toBe('1920px')
+    expect(stage.style.height).toBe('1080px')
+  })
+
+  it('falls back to a sensible default side-by-side layout when no config is passed', () => {
+    const { container } = render(AllView, { snapshot: closeBattle })
+
+    const tower = slot(container, 'tower')
+    const battle = slot(container, 'battle')
+    expect(tower).not.toBeNull()
+    expect(battle).not.toBeNull()
+    // Default: tower in the left column, battle placed to its right (both visible).
+    expect(tower.style.left).toBe('24px')
+    expect(battle.style.left).toBe('428px')
+    // Existing /all content contract still holds inside the laid-out slots.
+    expect(container.textContent).toContain('Hamilton')
+  })
+
+  it('auto-hides a hideWhenIdle widget when idle, and shows it when active', () => {
+    const cfg = normalizeConfig({ widgets: { battle: { visible: true, hideWhenIdle: true } } })
+
+    // Clear air (both gaps null) -> battle box is idle -> removed from the DOM.
+    const idle = render(AllView, { snapshot: idleBattle, config: cfg })
+    expect(slot(idle.container, 'battle')).toBeNull()
+    cleanup()
+
+    // A real battle -> shown.
+    const active = render(AllView, { snapshot: closeBattle, config: cfg })
+    expect(slot(active.container, 'battle')).not.toBeNull()
+  })
+
+  it('keeps an idle widget when hideWhenIdle is off (shows the idle placeholder)', () => {
+    const cfg = normalizeConfig({ widgets: { battle: { visible: true, hideWhenIdle: false } } })
+    const { container } = render(AllView, { snapshot: idleBattle, config: cfg })
+    const battle = slot(container, 'battle')
+    expect(battle).not.toBeNull()
+    expect(battle.textContent).toContain('NO ACTIVE BATTLE')
+  })
+
+  it('omits a hidden widget from the DOM entirely (not just visually collapsed)', () => {
+    const { container } = render(AllView, {
+      snapshot: closeBattle,
+      config: normalizeConfig(towerOnly),
+    })
+
+    expect(slot(container, 'tower')).not.toBeNull()
+    expect(slot(container, 'battle')).toBeNull()
+    // The hidden battle box renders none of its content.
+    expect(container.textContent).not.toContain('BATTLE FOR POSITION')
+  })
+
+  it('composes the logos widget at its slot, driven by the logoRotation config (#33)', () => {
+    const { container } = render(AllView, {
+      snapshot: closeBattle,
+      config: normalizeConfig(withLogos),
+    })
+
+    const logos = slot(container, 'logos')
+    expect(logos).not.toBeNull()
+    // Placed at the configured geometry...
+    expect(logos.style.left).toBe('1560px')
+    expect(logos.style.top).toBe('900px')
+    // ...and showing the first configured sponsor image.
+    expect(logos.querySelector('[data-testid="logo-image"]').getAttribute('src')).toBe(
+      '/logos/sponsor-a.png',
+    )
+  })
+
+  it('honors z-order by painting widgets in ascending z (later = on top)', () => {
+    const { container } = render(AllView, {
+      snapshot: closeBattle,
+      config: normalizeConfig(lowerThird),
+    })
+    const tower = slot(container, 'tower')
+    const battle = slot(container, 'battle')
+    // lower-third: tower z=1, battle z=2 -> battle stacks above tower.
+    expect(Number(tower.style.zIndex)).toBeLessThan(Number(battle.style.zIndex))
+  })
+})
