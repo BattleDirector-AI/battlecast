@@ -9,6 +9,9 @@ dist/
 dist-ssr/
 *.local
 
+# Vite dev cache (created if the dev server runs outside app/)
+.vite/
+
 # Python virtual environments
 .venv/
 venv/
