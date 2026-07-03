@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import App from './App.svelte'
@@ -15,11 +15,23 @@ beforeEach(() => {
   appEl = document.createElement('div')
   appEl.id = 'app'
   document.body.appendChild(appEl)
+  // Mounting /all opens an SSE feed (EventSource) and may fetch a profile; happy-dom
+  // has no EventSource and no network. Stub both so App's onMount (the unit under
+  // test) runs without an unhandled rejection.
+  vi.stubGlobal(
+    'EventSource',
+    class {
+      addEventListener() {}
+      close() {}
+    },
+  )
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) })))
 })
 afterEach(() => {
   cleanup()
   appEl.remove()
   setPath('/')
+  vi.unstubAllGlobals()
 })
 
 describe('App — full-bleed vs scaffold layout', () => {
