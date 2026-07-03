@@ -33,6 +33,7 @@
   import { fmtName, fmtLapTime, fmtSector, fmtDelta } from '../../design/format.js'
   import { createLowerThirdTrigger, DEFAULT_DWELL_SECONDS } from '../../lib/lowerThirdTrigger.js'
   import { QUALIFYING_DEFAULTS } from '../../lib/overlayConfig.js'
+  import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
 
   // `widget` carries the per-widget lower-third config (trigger / dwellSeconds /
   // showOnConnect) plus the #22 knobs (`modes`, `fireOnClassBest`).
@@ -159,82 +160,76 @@
 </script>
 
 {#if shown && card}
-  <section
-    class="bc-qt"
-    class:bc-qt--flash={isFlash}
-    data-testid="qualifying-lower-third"
-    data-state={card.state}
-    aria-label="On-camera driver timing"
-  >
-    <span class="bc-qt__accent" aria-hidden="true"></span>
-    <div class="bc-qt__body">
-      <div class="bc-qt__head">
-        <span class="bc-qt__label" data-testid="qt-label">{isFlash ? 'CLASS BEST' : 'TIMING'}</span>
-        {#if card.position != null}
-          <span class="bc-qt__pos" data-testid="qt-pos">P{card.position}</span>
-        {/if}
-        <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
-        {#if card.carClass}
-          <ClassChip carClass={card.carClass} size="compact" />
-        {/if}
-      </div>
+  <LowerThirdShell>
+    <section
+      class="bc-qt"
+      class:bc-qt--flash={isFlash}
+      data-testid="qualifying-lower-third"
+      data-state={card.state}
+      aria-label="On-camera driver timing"
+    >
+      <span class="bc-qt__accent" aria-hidden="true"></span>
+      <div class="bc-qt__body">
+        <div class="bc-qt__head">
+          <span class="bc-qt__label" data-testid="qt-label">{isFlash ? 'CLASS BEST' : 'TIMING'}</span>
+          {#if card.position != null}
+            <span class="bc-qt__pos" data-testid="qt-pos">P{card.position}</span>
+          {/if}
+          <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
+          {#if card.carClass}
+            <ClassChip carClass={card.carClass} size="compact" />
+          {/if}
+        </div>
 
-      <div class="bc-qt__times">
-        <div class="bc-qt__cell bc-qt__cell--best">
-          <span class="bc-qt__cell-label">BEST</span>
-          <span class="bc-qt__cell-value" data-testid="qt-best">{fmtLapTime(card.best)}</span>
-        </div>
-        <div class="bc-qt__cell">
-          <span class="bc-qt__cell-label">LAST</span>
-          <span class="bc-qt__cell-value" data-testid="qt-last">{fmtLapTime(card.last)}</span>
-        </div>
-        <div class="bc-qt__sectors" data-testid="qt-sectors">
-          {#each ['S1', 'S2', 'S3'] as name, i (name)}
-            <div class="bc-qt__cell bc-qt__cell--sector">
-              <span class="bc-qt__cell-label">{name}</span>
-              <span class="bc-qt__cell-value" data-testid="qt-{name.toLowerCase()}"
-                >{fmtSector(card.sectors[i])}</span
-              >
+        <div class="bc-qt__times">
+          <div class="bc-qt__cell bc-qt__cell--best">
+            <span class="bc-qt__cell-label">BEST</span>
+            <span class="bc-qt__cell-value" data-testid="qt-best">{fmtLapTime(card.best)}</span>
+          </div>
+          <div class="bc-qt__cell">
+            <span class="bc-qt__cell-label">LAST</span>
+            <span class="bc-qt__cell-value" data-testid="qt-last">{fmtLapTime(card.last)}</span>
+          </div>
+          <div class="bc-qt__sectors" data-testid="qt-sectors">
+            {#each ['S1', 'S2', 'S3'] as name, i (name)}
+              <div class="bc-qt__cell bc-qt__cell--sector">
+                <span class="bc-qt__cell-label">{name}</span>
+                <span class="bc-qt__cell-value" data-testid="qt-{name.toLowerCase()}"
+                  >{fmtSector(card.sectors[i])}</span
+                >
+              </div>
+            {/each}
+          </div>
+          {#if hasTarget}
+            <div class="bc-qt__cell bc-qt__cell--target" data-testid="qt-target-cell">
+              <span class="bc-qt__cell-label">TARGET</span>
+              <span class="bc-qt__cell-value" data-testid="qt-target">{fmtLapTime(card.target)}</span>
             </div>
-          {/each}
+            <div
+              class="bc-qt__cell bc-qt__cell--delta"
+              class:bc-qt__cell--ahead={card.delta != null && card.delta <= 0}
+              data-testid="qt-delta-cell"
+            >
+              <span class="bc-qt__cell-label">Δ</span>
+              <span class="bc-qt__cell-value" data-testid="qt-delta">{fmtDelta(card.delta)}</span>
+            </div>
+          {/if}
         </div>
-        {#if hasTarget}
-          <div class="bc-qt__cell bc-qt__cell--target" data-testid="qt-target-cell">
-            <span class="bc-qt__cell-label">TARGET</span>
-            <span class="bc-qt__cell-value" data-testid="qt-target">{fmtLapTime(card.target)}</span>
-          </div>
-          <div
-            class="bc-qt__cell bc-qt__cell--delta"
-            class:bc-qt__cell--ahead={card.delta != null && card.delta <= 0}
-            data-testid="qt-delta-cell"
-          >
-            <span class="bc-qt__cell-label">Δ</span>
-            <span class="bc-qt__cell-value" data-testid="qt-delta">{fmtDelta(card.delta)}</span>
-          </div>
-        {/if}
       </div>
-    </div>
-  </section>
+    </section>
+  </LowerThirdShell>
 {/if}
 
 <style>
+  /* The plate chrome and the entrance/exit motion now live in LowerThirdShell;
+     this owns only the timing bar's inner layout. */
   .bc-qt {
-    position: relative;
     box-sizing: border-box;
     display: flex;
     align-items: stretch;
     gap: var(--bc-space-3);
     padding: var(--bc-space-3) var(--bc-space-4);
-    background: var(--bc-plate-dense);
-    backdrop-filter: var(--bc-blur);
-    -webkit-backdrop-filter: var(--bc-blur);
-    border: 1px solid var(--bc-hairline);
-    border-radius: var(--bc-radius);
-    box-shadow: var(--bc-shadow-plate);
     color: var(--bc-text);
-    overflow: hidden;
-    /* The card only mounts while firing, so this replays on every fire. */
-    animation: bc-qt-in var(--bc-dur-reorder) var(--bc-ease);
   }
 
   .bc-qt__accent {
@@ -343,16 +338,5 @@
 
   .bc-qt__cell--delta.bc-qt__cell--ahead .bc-qt__cell-value {
     color: var(--bc-up, #7cffb2);
-  }
-
-  @keyframes bc-qt-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 </style>

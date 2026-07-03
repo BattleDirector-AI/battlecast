@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Skewed bar-wipe reveal for the lower-thirds.** Both lower-third widgets — the
+  driver identity name-tag (#21) and the qualifying/sector timing bar (#22) — now
+  share a presentational shell (`app/src/lib/LowerThirdShell.svelte`) that owns the
+  smoked-glass plate frame, an angled mint shine bar, and a clipped content wrapper.
+  On a camera cut the plate skew-slides in and the content wipes in behind the raked
+  bar (~0.5s); on hide the content wipes out under the bar and the emptied plate
+  skews off (~0.6s, a Svelte `out:` transition). Each widget renders its own inner
+  layout through the shell, so all fire/dwell/hide and #22's class-best flash logic
+  is unchanged. Honors `prefers-reduced-motion`: reduced-motion viewers get a plain
+  quick fade in and an instant unmount (no lingering node).
+
 - **Spec v1.x — producer notability + target-lap fields (additive, no
   `schemaVersion` bump).** A minor revision of spec v1 adds OPTIONAL, additive
   per-vehicle fields the producer computes and the overlay renders (dumb overlay,
@@ -71,6 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Total sim-time per real second and the director's (now time-based) on-camera dwell
   are unchanged. New fixtures `spec/v1/fixtures/race-pre-class-best.json`,
   `qualifying-sector-a.json`, and `qualifying-no-timing.json`.
+
+### Changed
+
+- The lower-third plate chrome (background, blur, border, radius, shadow,
+  `overflow:hidden`) moved out of `DriverLowerThird.svelte` /
+  `QualifyingLowerThird.svelte` into the shared `LowerThirdShell`; the widgets now
+  own only their inner card layout. No visual or behavioral change to the cards
+  themselves.
 
 ## [0.2.0] - 2026-07-03
 
