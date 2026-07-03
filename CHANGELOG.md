@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Spec v1.x — producer notability + target-lap fields (additive, no
+  `schemaVersion` bump).** A minor revision of spec v1 adds OPTIONAL, additive
+  per-vehicle fields the producer computes and the overlay renders (dumb overlay,
+  smart producer): `vehicles[].notable` — an open object of producer-set booleans
+  (`class_best_lap`, `session_best_lap`, `personal_best_lap`) — plus
+  `vehicles[].target_lap` (the reference "time to beat", seconds) and optional
+  `delta_to_target`. These gate #22's class-best flash. Because `schemaVersion` is
+  reserved for breaking changes and `schema.json` sets `additionalProperties: true`
+  at every level, the version string stays `"1"`: old consumers ignore the fields,
+  new consumers tolerate their absence. Documented in `spec/v1/schema.json` and
+  `spec/v1/SPEC.md`; new fixtures `spec/v1/fixtures/race-class-best.json` and
+  `qualifying-target.json`; the reference mock producer (`producers/mock/simulate.js`)
+  now emits them. See `docs/decisions/0002-lower-third-widgets.md`.
+
 ## [0.2.0] - 2026-07-03
 
 ### Added

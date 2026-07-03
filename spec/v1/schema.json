@@ -65,10 +65,37 @@
         },
         "sector_times": {
           "type": "array",
-          "description": "Per-sector times for the vehicle's current reference lap, in seconds, ordered by sector index (element 0 = sector 1). Length matches the track's sector count. May be empty if no sector data is available.",
+          "description": "Per-sector times for the vehicle's most recently COMPLETED lap, in seconds, ordered by sector index (element 0 = sector 1). Length matches the track's sector count. May be empty if no lap has been completed yet.",
           "items": {
             "type": ["number", "null"]
           }
+        },
+        "notable": {
+          "type": "object",
+          "description": "Optional producer-computed notability flags for this vehicle's timing. Each flag is a fact the producer derives from authoritative race state and the consumer merely renders (dumb overlay, smart producer — see docs/decisions/0002-lower-third-widgets.md). Every flag is OPTIONAL; an absent or false flag means 'not notable'. The object is intentionally open (additionalProperties: true) so future notability keys can be added without a schema break — consumers ignore keys they don't recognize.",
+          "additionalProperties": true,
+          "properties": {
+            "class_best_lap": {
+              "type": "boolean",
+              "description": "True when this vehicle currently holds the fastest `best_lap` within its `vehicle_class` this session. The producer owns this judgment; consumers must not derive it by scanning `vehicles[]`."
+            },
+            "session_best_lap": {
+              "type": "boolean",
+              "description": "True when this vehicle currently holds the fastest `best_lap` across the entire session (all classes) — the overall fastest lap."
+            },
+            "personal_best_lap": {
+              "type": "boolean",
+              "description": "True when this vehicle just improved its own `best_lap` on its most recently completed lap (a new personal best in this state snapshot)."
+            }
+          }
+        },
+        "target_lap": {
+          "type": ["number", "null"],
+          "description": "Optional producer-provided reference 'time to beat' for this vehicle, in seconds — the target an overlay should display (e.g. the class-best or session-best lap, or a chosen reference). The producer decides what 'target' means; consumers just display it and must tolerate its absence."
+        },
+        "delta_to_target": {
+          "type": ["number", "null"],
+          "description": "Optional difference, in seconds, between this vehicle's `best_lap` (or reference lap) and its `target_lap` (best_lap minus target_lap). Negative means faster than the target. Meaning is defined by the producer alongside `target_lap`."
         }
       }
     },
