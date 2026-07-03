@@ -21,7 +21,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 
 const DEFAULTS = {
   host: process.env.HOST || '127.0.0.1',
-  port: Number(process.env.PORT) || 5397, // mirrors rF2's :5397 control-panel port
+  // 7397 stays in the sim control-panel "_397" family (rF2 :5397, LMU :6397) but
+  // sits above both so we never collide with the game we run alongside — rF2 holds
+  // :5397 itself, so binding there fails with EACCES on a real broadcast machine.
+  port: Number(process.env.PORT) || 7397,
   dataDir: process.env.DATA_DIR || path.resolve(process.cwd(), 'data'),
   distDir: process.env.DIST_DIR || path.resolve(HERE, '..', 'app', 'dist'),
 }
@@ -47,7 +50,7 @@ const HELP = `battlecast serve — companion server (static app + config/asset A
 
 Options:
   --host <ip>        interface to bind (default 127.0.0.1; use 0.0.0.0 for remote)
-  --port <n>         port to listen on (default 5397)
+  --port <n>         port to listen on (default 7397)
   --data-dir <path>  where profiles/ and logos/ are stored (default ./data)
   --dist-dir <path>  built app to serve (default ../app/dist)
   -h, --help         show this help

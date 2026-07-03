@@ -213,7 +213,12 @@
           <input data-testid="profile-name" bind:value={profileName} />
         </label>
         <div class="row">
-          <button data-testid="save" onclick={saveProfile} disabled={!serverUp}>Save</button>
+          <button
+            data-testid="save"
+            onclick={saveProfile}
+            disabled={!serverUp}
+            title={serverUp ? 'Save this profile to the server' : 'Start the companion server (make dev) to save profiles — or use Export JSON'}
+          >Save</button>
           <button data-testid="export" onclick={exportJson}>Export JSON</button>
         </div>
         {#if profiles.length}
@@ -273,7 +278,7 @@
 
       <section class="panel__group">
         <h2>Logo rotation</h2>
-        <label>
+        <label title={serverUp ? '' : 'Start the companion server (make dev) to upload logos'}>
           Upload image
           <input type="file" accept="image/*" data-testid="upload" multiple onchange={onUpload} disabled={!serverUp} />
         </label>
