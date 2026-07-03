@@ -15,23 +15,23 @@ It has **zero dependencies** — pure Node built-ins, Node ≥ 22 (same stack as
 ```sh
 # from the repo root, after building the app (cd app && npm run build):
 node server/serve.js
-# → http://127.0.0.1:5397
+# → http://127.0.0.1:7397
 ```
 
 Then point an OBS Browser Source at:
 
 ```
-http://localhost:5397/all?profile=<name>&src=<producerUrl>
+http://localhost:7397/all?profile=<name>&src=<producerUrl>
 ```
 
-and open the config UI at `http://localhost:5397/config`.
+and open the config UI at `http://localhost:7397/config`.
 
 ### Options
 
 | Flag / env         | Default          | Purpose                                            |
 | ------------------ | ---------------- | -------------------------------------------------- |
 | `--host` / `HOST`  | `127.0.0.1`      | Interface to bind. Use `0.0.0.0` for remote access. |
-| `--port` / `PORT`  | `5397`           | Listen port (mirrors rF2's control-panel port).    |
+| `--port` / `PORT`  | `7397`           | Listen port. In the sim `_397` family (rF2 :5397, LMU :6397) but above both, so it doesn't collide with rF2 — which occupies :5397 on the same machine. |
 | `--data-dir` / `DATA_DIR` | `./data`  | Where `profiles/` and `logos/` are stored.         |
 | `--dist-dir` / `DIST_DIR` | `../app/dist` | Built app to serve.                           |
 

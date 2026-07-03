@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **One-command dev stack** — `make dev` runs the app, the reference mock producer,
+  and the companion server together under one prefixed log (Ctrl+C stops all of
+  them); `make help` lists every target, with `dev-app` / `dev-mock` / `dev-server`
+  to run a piece on its own. Backed by a zero-dependency launcher
+  (`scripts/dev.mjs`).
 - **Config UI — the overlay editor at `/config` (#34, part 2 of 2)** — a WYSIWYG
   editor to arrange the overlay without touching code or CSS, completing epic #19.
   A live 1920×1080 preview (the real `/all` render) with **drag-to-move and
@@ -52,3 +57,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   fixed 1920×1080 canvas, `logoRotation`, `producer`, `theme`) that #33 and #34
   build against. Widgets can be positioned, sized, hidden, and z-ordered; `?show=`/
   `?hide=` URL params toggle a widget without editing the profile.
+
+### Fixed
+
+- **Companion server no longer collides with rF2.** The default port moved from
+  `5397` to **`7397`**. rFactor 2 runs its own control panel on `5397`, so on a real
+  broadcast machine `battlecast serve` failed to bind it (`EACCES`) — the very
+  reason the config UI often had no server to talk to. `7397` keeps the sim `_397`
+  mnemonic (rF2 `5397`, LMU `6397`) but sits above both. Override with `--port` /
+  `PORT` as before. (If you saved an OBS Browser Source URL with `:5397`, update the
+  port.)
+- **`/config` Save and logo upload now work in dev.** Vite dev now proxies `/api`
+  and `/logos/` to the companion server, so the editor reaches the config/asset API
+  on `localhost:5173` instead of leaving **Save** and **Upload** permanently
+  disabled. Both controls now also carry a tooltip explaining they need the
+  companion server (run `make dev`) when it isn't reachable. The bare `/logos`
+  overlay route is unaffected — only `/logos/<file>` asset requests are proxied.
