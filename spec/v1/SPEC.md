@@ -49,6 +49,13 @@ their SSE endpoint against this spec.
   smooth tower/battle-box rendering. Producers may emit faster or slower; consumers
   MUST NOT assume a fixed interval and should simply render the latest snapshot
   received. There is no required minimum or maximum rate in v1.
+- **Subject-change latency** (recommendation, non-normative): when `subject` changes —
+  a camera cut / driver snap — the producer SHOULD emit a `state` snapshot promptly
+  (target ≤ ~150 ms) rather than waiting for the next cadence tick. Subject-driven
+  widgets (the driver and qualifying lower-thirds — see
+  `docs/decisions/0002-lower-third-widgets.md`) fire on this change, so prompt emission
+  keeps them responsive to the cut. This changes no schema fields; a producer that only
+  ticks steadily still works, the lower-third just fires up to one tick late.
 
 ## Versioning policy
 
