@@ -40,7 +40,16 @@ const FIXTURES_DIR = path.resolve(__dirname, "..", "..", "spec", "v1", "fixtures
 // Fixtures replayed in `fixtures` mode, in cycle order. These are the source
 // of truth for test data; the server does not synthesise payloads of its own
 // in this mode.
-const FIXTURE_FILES = ["race-close-battle.json", "race-no-battle.json", "race-idle-battle.json"];
+const FIXTURE_FILES = [
+  "race-close-battle.json",
+  "race-no-battle.json",
+  "race-idle-battle.json",
+  "race-pre-class-best.json",
+  "race-class-best.json",
+  "qualifying-target.json",
+  "qualifying-sector-a.json",
+  "qualifying-no-timing.json",
+];
 
 function loadFixtures() {
   return FIXTURE_FILES.map((name) => {
@@ -90,14 +99,41 @@ function openSse(res) {
 // ---- simulate mode: one shared race, broadcast to every connected client ----
 function runSimulateMode() {
   const simulator = createSimulator();
-  let latest = simulator.step(SIM_DT_SECONDS);
+
+  // Sub-step the simulator several times per cadence interval and broadcast on a
+  // subject change AS SOON as it happens, rather than only on the fixed interval.
+  // This honors the spec's non-normative latency SHOULD (spec/v1/SPEC.md): on a
+  // camera cut the producer emits promptly (here within one sub-step, ≤ ~150 ms)
+  // so battlecast's lower-thirds fire crisply against the live mock. Steady state
+  // still emits at ~INTERVAL_MS; the total sim-time advanced per real second is
+  // unchanged (SUBSTEPS × STEP_DT === SIM_DT_SECONDS), and the director's on-camera
+  // dwell is time-based in simulate.js, so cut frequency is unchanged too.
+  const SUBSTEPS = Math.max(1, Math.ceil(INTERVAL_MS / 150));
+  const STEP_MS = Math.max(1, Math.round(INTERVAL_MS / SUBSTEPS));
+  const STEP_DT = SIM_DT_SECONDS / SUBSTEPS;
+
+  let latest = simulator.step(STEP_DT);
+  let lastSubject = latest.subject && latest.subject.slot_id != null ? latest.subject.slot_id : null;
+  let msSinceEmit = 0;
   const clients = new Set();
 
-  setInterval(() => {
-    latest = simulator.step(SIM_DT_SECONDS);
+  const broadcast = () => {
     const payload = frame(latest);
     for (const res of clients) res.write(payload);
-  }, INTERVAL_MS);
+  };
+
+  setInterval(() => {
+    latest = simulator.step(STEP_DT);
+    msSinceEmit += STEP_MS;
+    const subject = latest.subject && latest.subject.slot_id != null ? latest.subject.slot_id : null;
+    const cut = subject !== lastSubject;
+    // Emit on a camera cut immediately, or once the cadence interval has elapsed.
+    if (cut || msSinceEmit >= INTERVAL_MS) {
+      lastSubject = subject;
+      msSinceEmit = 0;
+      broadcast();
+    }
+  }, STEP_MS);
 
   startServer((req, res) => {
     if (rejectNonSse(req, res)) return;
@@ -113,7 +149,8 @@ function runSimulateMode() {
   });
 
   console.log(
-    `[mock] mode: simulate — one live multi-class race, ${SIM_DT_SECONDS}s of race time per ${INTERVAL_MS}ms tick`,
+    `[mock] mode: simulate — one live multi-class race, ${SIM_DT_SECONDS}s of race time per ${INTERVAL_MS}ms tick ` +
+      `(sub-stepped ${SUBSTEPS}× every ${STEP_MS}ms; emits promptly on a subject change)`,
   );
 }
 

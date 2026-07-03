@@ -41,7 +41,11 @@ const GRID = [
 
 const LAP_UNIT = 1; // one arbitrary "distance around the lap" unit
 const CLOSE_BATTLE_WINDOW = 1.5; // seconds — matches the design system's intensity formula
-const SUBJECT_MIN_DWELL_TICKS = 16; // ~12s of sim time before the "director" will cut away
+// Minimum on-camera dwell before the "director" will cut away, expressed in SIM
+// SECONDS (not ticks) so it is invariant to step granularity — the server may
+// sub-step the simulator to push camera cuts promptly without changing how long a
+// car actually stays on camera. 32 sim-seconds ≈ the previous 16 ticks × 2s/tick.
+const SUBJECT_MIN_DWELL_SECONDS = 32;
 const SUBJECT_SWITCH_MARGIN = 0.4; // seconds — a new battle must be meaningfully tighter to steal the cut
 
 function classPace(classKey) {
@@ -86,15 +90,17 @@ function createSimulator() {
   });
 
   let clock = 0;
-  let tick = 0;
   let subjectSlotId = null;
-  let subjectSinceTick = 0;
+  let subjectSinceClock = 0;
 
   function step(dtSeconds) {
     clock += dtSeconds;
-    tick += 1;
 
     for (const car of cars) {
+      // Reset the per-step "just set a personal best" flag; only a lap
+      // completed on THIS step that beats the prior best sets it true.
+      car.improvedBestThisStep = false;
+
       // Slow random-walk pace fluctuation so gaps ebb and flow organically
       // instead of separating (or converging) monotonically.
       car.noiseVelocity = clamp(car.noiseVelocity + (Math.random() - 0.5) * 0.0015, -0.008, 0.008);
@@ -106,9 +112,27 @@ function createSimulator() {
         const lap = clock - car.lastLapClock;
         car.lastLapClock = clock;
         car.last_lap = Math.round(lap * 1000) / 1000;
-        car.best_lap = car.best_lap == null ? car.last_lap : Math.min(car.best_lap, car.last_lap);
+        const prevBest = car.best_lap;
+        if (prevBest == null || car.last_lap < prevBest) {
+          car.best_lap = car.last_lap;
+          car.improvedBestThisStep = true;
+        }
         car.sector_times = splitSectors(car.last_lap);
       }
+    }
+
+    // Producer-computed notability (dumb overlay, smart producer — see
+    // docs/decisions/0002-lower-third-widgets.md). We hold authoritative sim
+    // state, so we derive these facts here; the consumer only renders them.
+    // Fastest best_lap overall (session best) and per class (class best); the
+    // class-best time doubles as each car's `target_lap` (the time to beat).
+    const classBest = new Map(); // vehicle_class -> fastest best_lap in that class
+    let sessionBest = null;
+    for (const car of cars) {
+      if (car.best_lap == null) continue;
+      const cb = classBest.get(car.vehicle_class);
+      if (cb == null || car.best_lap < cb) classBest.set(car.vehicle_class, car.best_lap);
+      if (sessionBest == null || car.best_lap < sessionBest) sessionBest = car.best_lap;
     }
 
     // Overall running order is by total distance covered — correct for
@@ -154,12 +178,12 @@ function createSimulator() {
 
     if (subjectSlotId == null) {
       subjectSlotId = bestSlotId;
-      subjectSinceTick = tick;
-    } else if (tick - subjectSinceTick >= SUBJECT_MIN_DWELL_TICKS && bestSlotId !== subjectSlotId) {
+      subjectSinceClock = clock;
+    } else if (clock - subjectSinceClock >= SUBJECT_MIN_DWELL_SECONDS && bestSlotId !== subjectSlotId) {
       const currentGap = closestGapFor(subjectSlotId);
       if (bestGap < currentGap - SUBJECT_SWITCH_MARGIN) {
         subjectSlotId = bestSlotId;
-        subjectSinceTick = tick;
+        subjectSinceClock = clock;
       }
     }
 
@@ -172,15 +196,26 @@ function createSimulator() {
     return {
       schemaVersion: "1",
       mode: "race",
-      vehicles: order.map((car) => ({
-        slot_id: car.slot_id,
-        driver_name: car.driver_name,
-        vehicle_class: car.vehicle_class,
-        position: car.position,
-        last_lap: car.last_lap,
-        best_lap: car.best_lap,
-        sector_times: car.sector_times,
-      })),
+      vehicles: order.map((car) => {
+        const target = car.best_lap == null ? null : classBest.get(car.vehicle_class);
+        return {
+          slot_id: car.slot_id,
+          driver_name: car.driver_name,
+          vehicle_class: car.vehicle_class,
+          position: car.position,
+          last_lap: car.last_lap,
+          best_lap: car.best_lap,
+          sector_times: car.sector_times,
+          notable: {
+            class_best_lap: car.best_lap != null && car.best_lap === classBest.get(car.vehicle_class),
+            session_best_lap: car.best_lap != null && car.best_lap === sessionBest,
+            personal_best_lap: car.improvedBestThisStep === true,
+          },
+          target_lap: target ?? null,
+          delta_to_target:
+            car.best_lap != null && target != null ? Math.round((car.best_lap - target) * 1000) / 1000 : null,
+        };
+      }),
       subject: {
         slot_id: subjectCar.slot_id,
         driver_name: subjectCar.driver_name,

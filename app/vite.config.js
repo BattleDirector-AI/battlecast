@@ -22,6 +22,7 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     globals: true,
+    setupFiles: ['./src/test-setup.js'],
   },
   // Resolve Svelte to its browser build under Vitest so components mount in the
   // happy-dom environment (client, not SSR).
