@@ -50,6 +50,15 @@ export async function saveProfile(name, config, { fetchImpl } = {}) {
   return asJson(res, 'save profile')
 }
 
+/** Delete a saved profile. Resolves true if deleted, false if it didn't exist. */
+export async function deleteProfile(name, { fetchImpl } = {}) {
+  const res = await resolveFetch(fetchImpl)(`/api/profiles/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok && res.status !== 404) throw new Error(`delete profile failed (${res.status})`)
+  return res.ok
+}
+
 export async function listLogos({ fetchImpl } = {}) {
   const data = await asJson(await resolveFetch(fetchImpl)('/api/logos'), 'list logos')
   return data.logos

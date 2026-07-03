@@ -11,6 +11,7 @@ vi.mock('../../lib/configApi.js', () => ({
   getProfile: vi.fn(),
   saveProfile: vi.fn(async () => ({ saved: true })),
   deleteLogo: vi.fn(async () => true),
+  deleteProfile: vi.fn(async () => true),
 }))
 
 import ConfigPage from './ConfigPage.svelte'
@@ -61,4 +62,24 @@ it('deletes a logo from the server (not just the rotation) and refreshes the lis
   expect(api.deleteLogo).toHaveBeenCalledWith('old.png')
   // The server-logos list refreshed to empty, so the delete button is gone.
   expect(queryByTestId('delete-server-logo')).toBeNull()
+})
+
+it('deletes the current profile and refreshes the list', async () => {
+  // Present on mount so the delete button is enabled (profiles.includes(name)),
+  // then gone after the post-delete refresh.
+  vi.mocked(api.listProfiles).mockResolvedValueOnce(['default']).mockResolvedValueOnce([])
+  vi.stubGlobal('confirm', vi.fn(() => true))
+
+  const { getByTestId } = render(ConfigPage)
+  for (let i = 0; i < 5; i++) await tick()
+
+  const del = getByTestId('delete-profile')
+  expect(del.disabled).toBe(false)
+
+  await fireEvent.click(del)
+  await tick()
+  await tick()
+
+  expect(api.deleteProfile).toHaveBeenCalledWith('default')
+  expect(getByTestId('delete-profile').disabled).toBe(true) // no longer in the list
 })

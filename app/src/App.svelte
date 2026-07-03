@@ -15,14 +15,40 @@
   const rawPath = typeof window !== 'undefined' ? window.location.pathname : '/'
   const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
   const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos']
+  // Real app routes are full-bleed; only the Vite scaffold landing (the `{:else}`
+  // branch) keeps the constrained column.
+  const FULL_BLEED_ROUTES = [...OVERLAY_ROUTES, '/config']
 
-  // Overlay routes composite over live video in OBS, so the page background
-  // must be transparent — unlike the default Vite/Svelte scaffold below,
-  // which keeps its themed light/dark background.
   onMount(() => {
-    if (!OVERLAY_ROUTES.includes(path) || typeof document === 'undefined') return
-    document.documentElement.style.background = 'transparent'
-    document.body.style.background = 'transparent'
+    if (typeof document === 'undefined') return
+
+    // The scaffold styles `#app` as a centered 1126px column with side borders and
+    // `text-align: center`. That offsets and boxes-in a real route: on `/all` it
+    // pushed the overlay ~400px right (past the viewport) and drew the border lines.
+    // Overlays and `/config` must fill the window, so neutralize that constraint.
+    if (FULL_BLEED_ROUTES.includes(path)) {
+      const appEl = document.getElementById('app')
+      if (appEl) {
+        Object.assign(appEl.style, {
+          width: '100%',
+          maxWidth: 'none',
+          margin: '0',
+          padding: '0',
+          border: 'none',
+          textAlign: 'initial',
+        })
+      }
+    }
+
+    // Overlay routes composite over live video in OBS, so the page background must
+    // be transparent — unlike the scaffold's themed light/dark background.
+    if (OVERLAY_ROUTES.includes(path)) {
+      document.documentElement.style.background = 'transparent'
+      document.body.style.background = 'transparent'
+      document.body.style.margin = '0'
+      const appEl = document.getElementById('app')
+      if (appEl) appEl.style.background = 'transparent'
+    }
   })
 </script>
 
