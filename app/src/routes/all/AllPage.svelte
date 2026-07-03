@@ -2,17 +2,18 @@
   import { onMount } from 'svelte'
   import AllView from './AllView.svelte'
   import { connect } from '../tower/sseClient.js'
-  import { loadConfig, pickProducerSrc, DEFAULT_CONFIG, OVERLAY_CANVAS } from '../../lib/overlayConfig.js'
+  import { loadConfig, pickProducerSrc, DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
 
   let config = $state(DEFAULT_CONFIG)
   let snapshot = $state(null)
   let stageScale = $state(1)
 
-  // Scale the fixed 1920x1080 canvas uniformly to fit the Browser Source viewport,
-  // so the configured layout holds its proportions at any output size.
+  // Scale the configured canvas uniformly to fit the Browser Source viewport, so
+  // the layout holds its proportions at any output size.
   function fitStage() {
     if (typeof window === 'undefined') return
-    const s = Math.min(window.innerWidth / OVERLAY_CANVAS.w, window.innerHeight / OVERLAY_CANVAS.h)
+    const { w, h } = config.canvas ?? { w: 1920, h: 1080 }
+    const s = Math.min(window.innerWidth / w, window.innerHeight / h)
     stageScale = Number.isFinite(s) && s > 0 ? s : 1
   }
 
@@ -28,6 +29,7 @@
     loadConfig(window.location.search).then((resolved) => {
       if (cancelled) return
       config = resolved
+      fitStage() // re-fit: the resolved profile may set a different canvas size
       const src = pickProducerSrc(window.location.search, resolved)
       disconnect = connect(src, (next) => {
         snapshot = next

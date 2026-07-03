@@ -37,6 +37,23 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(battle.style.height).toBe('200px')
   })
 
+  it('sizes the overlay stage to the configured canvas', () => {
+    const { container } = render(AllView, {
+      snapshot: closeBattle,
+      config: normalizeConfig({ canvas: { w: 1280, h: 720 } }),
+    })
+    const stage = container.querySelector('[data-testid="overlay-stage"]')
+    expect(stage.style.width).toBe('1280px')
+    expect(stage.style.height).toBe('720px')
+  })
+
+  it('defaults the overlay stage to 1920x1080 when no canvas is configured', () => {
+    const { container } = render(AllView, { snapshot: closeBattle })
+    const stage = container.querySelector('[data-testid="overlay-stage"]')
+    expect(stage.style.width).toBe('1920px')
+    expect(stage.style.height).toBe('1080px')
+  })
+
   it('falls back to a sensible default side-by-side layout when no config is passed', () => {
     const { container } = render(AllView, { snapshot: closeBattle })
 
@@ -46,7 +63,7 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(battle).not.toBeNull()
     // Default: tower in the left column, battle placed to its right (both visible).
     expect(tower.style.left).toBe('24px')
-    expect(battle.style.left).toBe('408px')
+    expect(battle.style.left).toBe('428px')
     // Existing /all content contract still holds inside the laid-out slots.
     expect(container.textContent).toContain('Hamilton')
   })

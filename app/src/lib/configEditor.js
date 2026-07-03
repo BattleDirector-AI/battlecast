@@ -3,18 +3,18 @@
  * and stay reactive, and so the logic is trivially unit-testable without a DOM.
  * The config shape is the contract from app/src/lib/overlayConfig.js. */
 
-import { normalizeConfig, OVERLAY_CANVAS } from './overlayConfig.js'
+import { normalizeConfig, MIN_CANVAS } from './overlayConfig.js'
 
-/** Clamp a widget's geometry so it stays a sane, on-canvas box. */
-function clampGeometry(w) {
-  const width = Math.max(16, Math.min(w.w, OVERLAY_CANVAS.w))
-  const height = Math.max(16, Math.min(w.h, OVERLAY_CANVAS.h))
+/** Clamp a widget's geometry so it stays a sane box within the given canvas. */
+function clampGeometry(w, canvas) {
+  const width = Math.max(16, Math.min(w.w, canvas.w))
+  const height = Math.max(16, Math.min(w.h, canvas.h))
   return {
     ...w,
     w: width,
     h: height,
-    x: Math.max(0, Math.min(w.x, OVERLAY_CANVAS.w - width)),
-    y: Math.max(0, Math.min(w.y, OVERLAY_CANVAS.h - height)),
+    x: Math.max(0, Math.min(w.x, canvas.w - width)),
+    y: Math.max(0, Math.min(w.y, canvas.h - height)),
   }
 }
 
@@ -22,7 +22,7 @@ function clampGeometry(w) {
 export function setWidgetField(config, key, field, value) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
-  next.widgets[key] = clampGeometry({ ...next.widgets[key], [field]: value })
+  next.widgets[key] = clampGeometry({ ...next.widgets[key], [field]: value }, next.canvas)
   return next
 }
 
@@ -30,7 +30,7 @@ export function setWidgetField(config, key, field, value) {
 export function moveWidget(config, key, x, y) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
-  next.widgets[key] = clampGeometry({ ...next.widgets[key], x, y })
+  next.widgets[key] = clampGeometry({ ...next.widgets[key], x, y }, next.canvas)
   return next
 }
 
@@ -38,7 +38,26 @@ export function moveWidget(config, key, x, y) {
 export function resizeWidget(config, key, w, h) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
-  next.widgets[key] = clampGeometry({ ...next.widgets[key], w, h })
+  next.widgets[key] = clampGeometry({ ...next.widgets[key], w, h }, next.canvas)
+  return next
+}
+
+/** Resize the canvas (patch `{ w?, h? }`), then re-clamp every widget so nothing
+ *  is left hanging off a now-smaller canvas. */
+export function setCanvas(config, patch) {
+  const next = normalizeConfig(config)
+  const toEdge = (v, fallback) => {
+    const n = Number(v)
+    return Math.max(MIN_CANVAS, Math.round(Number.isFinite(n) ? n : fallback))
+  }
+  const canvas = {
+    w: toEdge(patch?.w, next.canvas.w),
+    h: toEdge(patch?.h, next.canvas.h),
+  }
+  next.canvas = canvas
+  for (const key of Object.keys(next.widgets)) {
+    next.widgets[key] = clampGeometry(next.widgets[key], canvas)
+  }
   return next
 }
 

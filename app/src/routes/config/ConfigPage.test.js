@@ -10,6 +10,7 @@ import snapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 /** Capture what `/all` actually renders for each widget slot: geometry + logo. */
@@ -89,5 +90,53 @@ describe('ConfigPage editor wiring', () => {
     expect(getByTestId('rotation-empty')).toBeTruthy()
     // Enabling logos + a producer doesn't add images; rotation stays empty.
     expect(queryByTestId('remove-logo')).toBeNull()
+  })
+
+  it('editing the canvas size resizes the preview stage and re-fits widgets', async () => {
+    const { container, getByTestId } = render(ConfigPage)
+    await tick()
+
+    await fireEvent.input(getByTestId('canvas-w'), { target: { value: '1280' } })
+    await fireEvent.input(getByTestId('canvas-h'), { target: { value: '720' } })
+    await tick()
+
+    // The preview's inner canvas is sized to the configured canvas.
+    expect(getByTestId('preview-stage').firstElementChild.style.width).toBe('1280px')
+    // A widget that used to sit off a 1280-wide canvas is pulled back on.
+    const tower = container.querySelector('[data-testid="widget-tower"]')
+    const left = parseFloat(tower.style.left)
+    const width = parseFloat(tower.style.width)
+    expect(left + width).toBeLessThanOrEqual(1280)
+  })
+
+  it('offers a preset canvas button', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    await fireEvent.input(getByTestId('canvas-w'), { target: { value: '800' } })
+    await tick()
+    await fireEvent.click(getByTestId('canvas-720'))
+    await tick()
+    expect(getByTestId('canvas-w').value).toBe('1280')
+    expect(getByTestId('canvas-h').value).toBe('720')
+  })
+
+  it('always shows the Load control, disabled when there are no profiles', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    const load = getByTestId('load')
+    expect(load).toBeTruthy()
+    expect(load.disabled).toBe(true) // no server / no saved profiles in this test
+  })
+
+  it('copies the OBS URL to the clipboard on click', async () => {
+    const writeText = vi.fn().mockResolvedValue()
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+
+    await fireEvent.click(getByTestId('obs-url'))
+    await tick()
+    expect(writeText).toHaveBeenCalledWith(getByTestId('obs-url').textContent.trim())
+    expect(getByTestId('copy-hint').textContent).toContain('Copied')
   })
 })

@@ -24,8 +24,13 @@ import { DEFAULT_SRC } from '../routes/tower/sseClient.js'
  *  spec `schemaVersion`. */
 export const CONFIG_VERSION = '1'
 
-/** The fixed layout canvas. Widget geometry is absolute px within this box. */
+/** The DEFAULT layout canvas (LMU's documented resolution). Widget geometry is
+ *  absolute px within the canvas. The canvas size is configurable per profile
+ *  (`config.canvas`), defaulting to this; render pages scale it to the viewport. */
 export const OVERLAY_CANVAS = Object.freeze({ w: 1920, h: 1080 })
+
+/** Smallest sensible canvas edge — guards the scale math against zero/absurd sizes. */
+export const MIN_CANVAS = 320
 
 /** Built-in default layout — reproduces today's side-by-side `/all` arrangement
  *  (tower in the left column, battle box as an upper band to its right) so existing
@@ -34,9 +39,12 @@ export const DEFAULT_CONFIG = Object.freeze({
   configVersion: CONFIG_VERSION,
   name: 'default',
   producer: { src: DEFAULT_SRC },
+  canvas: { w: OVERLAY_CANVAS.w, h: OVERLAY_CANVAS.h },
   widgets: {
-    tower: { visible: true, x: 24, y: 24, w: 360, h: 900, z: 1 },
-    battle: { visible: true, x: 408, y: 24, w: 640, h: 220, z: 2 },
+    // Default widget widths match each component's intrinsic width (tower 380px,
+    // battle 440px) so the config editor's drag box lines up with what renders.
+    tower: { visible: true, x: 24, y: 24, w: 380, h: 900, z: 1 },
+    battle: { visible: true, x: 428, y: 24, w: 440, h: 220, z: 2 },
     logos: { visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3 },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
@@ -89,6 +97,12 @@ export function normalizeConfig(raw) {
   }
   if (src.theme && typeof src.theme === 'object') {
     out.theme = { ...out.theme, ...src.theme }
+  }
+
+  const canvasSrc = src.canvas && typeof src.canvas === 'object' ? src.canvas : {}
+  out.canvas = {
+    w: Math.max(MIN_CANVAS, Math.round(num(canvasSrc.w, OVERLAY_CANVAS.w))),
+    h: Math.max(MIN_CANVAS, Math.round(num(canvasSrc.h, OVERLAY_CANVAS.h))),
   }
 
   const widgets = src.widgets && typeof src.widgets === 'object' ? src.widgets : {}

@@ -6,7 +6,7 @@
    * client-only authoring (export a config.json) when no server is running. */
   import { onMount } from 'svelte'
   import AllView from '../all/AllView.svelte'
-  import { DEFAULT_CONFIG, OVERLAY_CANVAS, WIDGET_KEYS, normalizeConfig } from '../../lib/overlayConfig.js'
+  import { DEFAULT_CONFIG, WIDGET_KEYS, normalizeConfig } from '../../lib/overlayConfig.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
   import sampleSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
@@ -19,7 +19,9 @@
   let status = $state('Not connected to a server — changes can be exported as config.json.')
   let previewScale = $state(0.4)
   let previewWrap = $state(null)
+  let copied = $state(false)
 
+  const canvas = $derived(config.canvas)
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const obsUrl = $derived(
     editor.buildObsUrl({ origin, profileName, producerSrc: config.producer?.src || '' }),
@@ -35,6 +37,7 @@
       // Also drop any in-flight drag listeners so unmounting mid-drag can't leak them.
       window.removeEventListener('pointermove', onDrag)
       window.removeEventListener('pointerup', endDrag)
+      clearTimeout(copyResetTimer)
     }
   })
 
@@ -52,8 +55,13 @@
 
   function fitPreview() {
     const avail = previewWrap?.clientWidth || 800
-    previewScale = Math.max(0.15, Math.min(avail / OVERLAY_CANVAS.w, 0.6))
+    previewScale = Math.max(0.1, Math.min(avail / canvas.w, 0.6))
   }
+  // Re-fit whenever the canvas width changes (e.g. the user edits canvas size).
+  $effect(() => {
+    void canvas.w
+    fitPreview()
+  })
 
   // ---- drag / resize on the live preview -----------------------------------
   let drag = null
@@ -79,6 +87,9 @@
     window.removeEventListener('pointermove', onDrag)
     window.removeEventListener('pointerup', endDrag)
   }
+
+  // ---- canvas ---------------------------------------------------------------
+  const setCanvas = (patch) => (config = editor.setCanvas(config, patch))
 
   // ---- widget field editing -------------------------------------------------
   const setField = (key, field, value) => (config = editor.setWidgetField(config, key, field, value))
@@ -110,6 +121,21 @@
   const removeFromRotation = (url) => (config = editor.removeLogoImage(config, url))
   const moveRotation = (i, delta) => (config = editor.moveLogoImage(config, i, delta))
   const setRotation = (patch) => (config = editor.setLogoRotation(config, patch))
+
+  // Delete a logo from the server entirely (not just this rotation), then drop it
+  // from the rotation too so we don't point at a now-missing asset.
+  async function deleteServerLogo(logo) {
+    if (!serverUp) return
+    if (typeof window !== 'undefined' && !window.confirm(`Delete "${logo.name}" from the server?`)) return
+    try {
+      await api.deleteLogo(logo.name)
+      config = editor.removeLogoImage(config, logo.url)
+      serverLogos = await api.listLogos()
+      status = `Deleted "${logo.name}".`
+    } catch (err) {
+      status = `Delete failed: ${err.message}`
+    }
+  }
 
   // ---- profiles -------------------------------------------------------------
   async function saveProfile() {
@@ -152,6 +178,29 @@
     a.click()
     URL.revokeObjectURL(a.href)
   }
+
+  // ---- OBS URL copy ---------------------------------------------------------
+  let copyResetTimer = null
+  async function copyObsUrl() {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(obsUrl)
+      } else if (typeof document !== 'undefined') {
+        // Fallback for non-secure contexts where the async Clipboard API is absent.
+        const ta = document.createElement('textarea')
+        ta.value = obsUrl
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        ta.remove()
+      }
+      copied = true
+      clearTimeout(copyResetTimer)
+      copyResetTimer = setTimeout(() => (copied = false), 1500)
+    } catch (err) {
+      status = `Copy failed: ${err.message}`
+    }
+  }
 </script>
 
 <div class="config">
@@ -166,11 +215,11 @@
       <div
         class="preview__stage"
         data-testid="preview-stage"
-        style="width: {OVERLAY_CANVAS.w * previewScale}px; height: {OVERLAY_CANVAS.h * previewScale}px;"
+        style="width: {canvas.w * previewScale}px; height: {canvas.h * previewScale}px;"
       >
         <div
           class="preview__canvas"
-          style="width: {OVERLAY_CANVAS.w}px; height: {OVERLAY_CANVAS.h}px; transform: scale({previewScale});"
+          style="width: {canvas.w}px; height: {canvas.h}px; transform: scale({previewScale});"
         >
           <AllView snapshot={sampleSnapshot} {config} />
 
@@ -220,17 +269,52 @@
           </span>
           <button data-testid="export" onclick={exportJson}>Export JSON</button>
         </div>
-        {#if profiles.length}
-          <label>
-            Load
-            <select data-testid="load" onchange={(e) => loadProfile(e.currentTarget.value)}>
-              <option value="">— pick a profile —</option>
-              {#each profiles as p (p)}
-                <option value={p}>{p}</option>
-              {/each}
-            </select>
+        <label>
+          Load
+          <select
+            data-testid="load"
+            disabled={!profiles.length}
+            onchange={(e) => loadProfile(e.currentTarget.value)}
+          >
+            <option value="">
+              {profiles.length ? '— pick a profile —' : serverUp ? '— no saved profiles —' : '— server not connected —'}
+            </option>
+            {#each profiles as p (p)}
+              <option value={p}>{p}</option>
+            {/each}
+          </select>
+        </label>
+      </section>
+
+      <section class="panel__group">
+        <h2>Canvas size</h2>
+        <p class="hint">Output resolution the layout is designed against (default 1920×1080).</p>
+        <div class="row">
+          <label class="num">
+            width
+            <input
+              type="number"
+              min="320"
+              data-testid="canvas-w"
+              value={canvas.w}
+              oninput={(e) => setCanvas({ w: Number(e.currentTarget.value) })}
+            />
           </label>
-        {/if}
+          <label class="num">
+            height
+            <input
+              type="number"
+              min="320"
+              data-testid="canvas-h"
+              value={canvas.h}
+              oninput={(e) => setCanvas({ h: Number(e.currentTarget.value) })}
+            />
+          </label>
+        </div>
+        <div class="row">
+          <button data-testid="canvas-1080" onclick={() => setCanvas({ w: 1920, h: 1080 })}>1920×1080</button>
+          <button data-testid="canvas-720" onclick={() => setCanvas({ w: 1280, h: 720 })}>1280×720</button>
+        </div>
       </section>
 
       <section class="panel__group">
@@ -288,6 +372,13 @@
             {#each serverLogos as logo (logo.name)}
               <li>
                 <button class="link" onclick={() => addLogoToRotation(logo.url)}>+ {logo.name}</button>
+                <button
+                  class="danger"
+                  aria-label="delete {logo.name} from server"
+                  data-testid="delete-server-logo"
+                  title="Delete from server"
+                  onclick={() => deleteServerLogo(logo)}
+                >✕</button>
               </li>
             {/each}
           </ul>
@@ -348,7 +439,14 @@
 
       <section class="panel__group">
         <h2>OBS Browser Source URL</h2>
-        <code class="obs-url" data-testid="obs-url">{obsUrl}</code>
+        <button
+          type="button"
+          class="obs-url"
+          data-testid="obs-url"
+          title="Click to copy"
+          onclick={copyObsUrl}
+        >{obsUrl}</button>
+        <span class="copy-hint" data-testid="copy-hint">{copied ? 'Copied to clipboard ✓' : 'Click the URL to copy'}</span>
       </section>
     </aside>
   </div>
@@ -360,6 +458,11 @@
     background: #12151c;
     color: #e7ecf3;
     font-family: var(--bc-font-ui, system-ui, sans-serif);
+  }
+  /* Border-box everywhere so full-width inputs (padding + border) never spill past
+     their container's right edge. */
+  .config :global(*) {
+    box-sizing: border-box;
   }
   .config__bar {
     display: flex;
@@ -467,11 +570,18 @@
   .row {
     display: flex;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
   .grid4 {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 0.4rem;
+  }
+  /* min-width:0 lets these flex/grid children shrink instead of forcing the
+     container wider than the panel (grid/flex items default to min-width:auto). */
+  .num,
+  .row > * {
+    min-width: 0;
   }
   .num {
     font-size: 0.7rem;
@@ -491,13 +601,21 @@
     cursor: not-allowed;
   }
   button.link {
+    flex: 1;
     background: none;
     border: none;
     color: #2ed9a6;
     padding: 0.1rem 0;
     text-align: left;
   }
+  button.danger {
+    padding: 0.1rem 0.4rem;
+    color: #ff8a8a;
+    border-color: #5a2a2a;
+    background: #241a1a;
+  }
   .widget-row {
+    min-width: 0;
     border: 1px solid #2a3140;
     border-radius: 6px;
     padding: 0.4rem 0.6rem 0.6rem;
@@ -530,13 +648,27 @@
     font-size: 0.75rem;
     margin: 0.3rem 0;
   }
-  .obs-url {
+  button.obs-url {
     display: block;
+    width: 100%;
+    text-align: left;
     word-break: break-all;
+    font-family: var(--bc-font-mono, ui-monospace, monospace);
     font-size: 0.75rem;
     color: #2ed9a6;
     background: #0e1118;
+    border: 1px solid #2a3140;
     padding: 0.4rem 0.5rem;
     border-radius: 5px;
+    cursor: pointer;
+  }
+  button.obs-url:hover {
+    border-color: #2ed9a6;
+  }
+  .copy-hint {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    color: #6f7c90;
   }
 </style>
