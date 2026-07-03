@@ -41,6 +41,26 @@ v1 deliberately ships exactly **two widgets**:
 v1 is **not** a general-purpose overlay platform — just these two widgets, fed by a
 contract any producer can implement.
 
+## Development
+
+```sh
+make install   # install app dependencies (server + mock are zero-dependency)
+make dev       # run the whole stack under one prefixed log
+```
+
+`make dev` starts three processes and streams their output together:
+
+| Process  | URL                             | What it is                              |
+| -------- | ------------------------------- | --------------------------------------- |
+| `app`    | http://localhost:5173           | Vite dev server — overlays and `/config`|
+| `mock`   | http://localhost:8080/events    | Reference SSE producer (simulated race) |
+| `server` | http://127.0.0.1:7397           | Companion config/asset API              |
+
+Vite proxies `/api` and `/logos/` to the companion server, so the `/config`
+editor's **Save** and logo **upload** work in dev (they need the server; without
+it they stay disabled and you can still **Export JSON**). `make help` lists all
+targets, including `dev-app` / `dev-mock` / `dev-server` to run a piece on its own.
+
 ## Layout
 
 | Path                 | Purpose                                                        |
@@ -49,6 +69,8 @@ contract any producer can implement.
 | `spec/v1/`           | The v1 protocol: `SPEC.md`, `schema.json`, fixtures.          |
 | `spec/v1/compliance/`| Compliance harness for third-party producers.                 |
 | `producers/mock/`    | Reference mock producer that replays fixtures over SSE.       |
+| `server/`            | Companion server (`battlecast serve`) — static app + config API. |
+| `scripts/dev.mjs`    | Dev-stack launcher used by `make dev`.                        |
 
 ## License
 
