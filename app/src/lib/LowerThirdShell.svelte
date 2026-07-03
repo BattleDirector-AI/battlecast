@@ -25,6 +25,22 @@
     node.classList.add('lt3--exit')
     return { duration: 620 }
   }
+
+  /**
+   * Svelte in-transition, paired with `lowerThirdOut`. Its only job is to strip a
+   * stale `.lt3--exit` off the plate whenever the block toggles back on. When a
+   * camera re-cut re-shows the widget DURING the ~620ms exit, Svelte cancels the
+   * outro and REUSES the same DOM node — so the exit class (whose `lt3-plate-out`
+   * `both`-fill keyframe pins the plate to opacity:0 / off-screen) would otherwise
+   * linger and leave the re-shown graphic stuck invisible. Removing the class here
+   * also lets the CSS-on-mount entrance re-fire on the reused node. Duration 0 so
+   * there is no JS-driven intro (the entrance is pure CSS); on the very first mount
+   * Svelte skips intros entirely, so the CSS entrance is unaffected.
+   */
+  export function lowerThirdIn(node) {
+    node.classList.remove('lt3--exit')
+    return { duration: 0 }
+  }
 </script>
 
 <script>
@@ -38,7 +54,7 @@
   let { children } = $props()
 </script>
 
-<div class="lt3" out:lowerThirdOut>
+<div class="lt3" in:lowerThirdIn out:lowerThirdOut>
   <div class="lt3__inner">
     {@render children?.()}
   </div>
