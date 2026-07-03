@@ -136,6 +136,11 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
   it('clamps an absurdly small canvas to the minimum edge', () => {
     expect(normalizeConfig({ canvas: { w: 10, h: -5 } }).canvas).toEqual({ w: 320, h: 320 })
   })
+
+  it('defaults hideWhenIdle to false and honors an explicit value', () => {
+    expect(normalizeConfig({}).widgets.battle.hideWhenIdle).toBe(false)
+    expect(normalizeConfig({ widgets: { battle: { hideWhenIdle: true } } }).widgets.battle.hideWhenIdle).toBe(true)
+  })
 })
 
 describe('resolveWidgets — ordered render list', () => {

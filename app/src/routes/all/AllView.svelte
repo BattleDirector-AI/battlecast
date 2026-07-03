@@ -3,17 +3,23 @@
   import BattleBox from '../battle/BattleBox.svelte'
   import LogoRotation from '../logos/LogoRotation.svelte'
   import { DEFAULT_CONFIG, normalizeConfig, resolveWidgets } from '../../lib/overlayConfig.js'
+  import { isWidgetIdle } from '../../lib/widgetIdle.js'
 
   let { snapshot = null, config = DEFAULT_CONFIG } = $props()
 
   // Config-driven layout: each widget is absolutely placed on the configured
   // canvas per its {x, y, w, h, z}. Only widgets that are `visible` AND have a
   // component are rendered — a hidden widget is absent from the DOM, not just
-  // visually collapsed.
+  // visually collapsed. A widget that opted into `hideWhenIdle` also drops out
+  // while it has nothing to show (e.g. the battle box in clear air).
   const normalized = $derived(normalizeConfig(config))
   const canvas = $derived(normalized.canvas)
   const RENDERABLE = new Set(['tower', 'battle', 'logos'])
-  const widgets = $derived(resolveWidgets(normalized).filter((w) => w.visible && RENDERABLE.has(w.key)))
+  const widgets = $derived(
+    resolveWidgets(normalized)
+      .filter((w) => w.visible && RENDERABLE.has(w.key))
+      .filter((w) => !(w.hideWhenIdle && isWidgetIdle(w.key, { snapshot, config: normalized }))),
+  )
 </script>
 
 <div
