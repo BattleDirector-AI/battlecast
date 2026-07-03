@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-03
+
 ### Added
 
 - **Skewed bar-wipe reveal for the lower-thirds.** Both lower-third widgets — the
