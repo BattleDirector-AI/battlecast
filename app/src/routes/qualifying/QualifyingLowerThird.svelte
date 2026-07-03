@@ -57,109 +57,143 @@
   )
   const showOnConnect = $derived(widget?.showOnConnect !== false)
 
-  // --- class-best flash edge detection (presentation only, never derivation) ---
-  // The overlay ONLY tracks whether the producer's `notable.class_best_lap` flag
-  // for the CURRENT subject changed vs. the previous snapshot. It fires on the
-  // false→true transition; it never scans lap times to decide what a class best is
-  // (dumb overlay, smart producer — docs/decisions/0002-lower-third-widgets.md).
+  /** Freeze a resolved subject + vehicle into a flat, self-contained card so a
+   *  class-best flash can keep showing the driver who EARNED the lap even after the
+   *  camera cuts away (sectors are copied, not referenced). */
+  function cardFrom(res, veh) {
+    return {
+      state: res.state,
+      name: fmtName(res.name),
+      position: veh?.position,
+      carClass: veh?.vehicle_class,
+      best: veh?.best_lap,
+      last: veh?.last_lap,
+      sectors: Array.isArray(veh?.sector_times) ? [...veh.sector_times] : [],
+      target: veh?.target_lap,
+      delta: veh?.delta_to_target,
+    }
+  }
+
+  // The two fire paths are INDEPENDENT signals, so each gets its OWN trigger engine
+  // (both plain instances of the shared, unmodified lowerThirdTrigger):
   //
-  // A fresh edge bumps `cbToken`, which feeds the composite trigger key below so the
-  // shared engine fires a dwell. Instance-local (not $state) so mutating it inside
-  // the effect can't loop. A `NO_SLOT` sentinel distinguishes "never synced".
+  //  1. mode-dwell — the qualifying/practice "fire on a camera cut" timing bar. Keyed
+  //     purely on the subject slot and gated by `active && eligible`, so entering a
+  //     gated-out mode cleanly HIDES (no spurious edge) and a plain race cut never
+  //     fires. Renders the LIVE current subject — correct for a live timing bar.
+  //  2. class-best flash — keyed ONLY on a class-best edge token, in ANY mode. A
+  //     subject cut alone never changes the token; only a producer false→true
+  //     `notable.class_best_lap` edge bumps it. Renders a FROZEN snapshot of the
+  //     earning driver so a later cut can't re-badge someone else.
+  //
+  // The overlay only ever tracks whether that producer flag changed vs. the previous
+  // snapshot — it never scans lap times to derive a class best (dumb overlay, smart
+  // producer — docs/decisions/0002-lower-third-widgets.md).
+  let modeShown = $state(false)
+  let flashShown = $state(false)
+  const modeDwell = createLowerThirdTrigger({ onChange: (v) => (modeShown = v) })
+  const flash = createLowerThirdTrigger({ onChange: (v) => (flashShown = v) })
+  onDestroy(() => {
+    modeDwell.stop()
+    flash.stop()
+  })
+
+  // Class-best edge state (instance-local, not $state, so mutating inside the effect
+  // can't loop). `NO_SLOT` distinguishes "never synced" from a real `null` slot.
   const NO_SLOT = Symbol('unset')
   let cbToken = 0
   let prevCbSlot = NO_SLOT
   let prevCbFlag = false
-
-  let shown = $state(false)
-  const engine = createLowerThirdTrigger({ onChange: (v) => (shown = v) })
-  onDestroy(() => engine.stop())
+  // The frozen earning-driver card for the current flash (reactive so the render
+  // updates when a fresh edge re-captures it).
+  let flashCard = $state(null)
 
   $effect(() => {
     const slotId = resolved.slotId
     const curFlag = vehicle?.notable?.class_best_lap === true
 
-    // Edge-detect the class-best flag. On the first snapshot AND whenever the
-    // subject changes, (re)establish the baseline WITHOUT firing — so a pre-existing
-    // flag (or cutting to a car that already holds a class best) never flashes.
+    // Edge-detect the class-best flag. On the first snapshot AND whenever the subject
+    // changes, (re)establish the baseline WITHOUT firing — so a pre-existing flag (or
+    // cutting to a car that already holds a class best) never flashes.
     if (prevCbSlot !== slotId) {
       prevCbSlot = slotId
       prevCbFlag = curFlag
+    } else if (fireOnClassBest && curFlag && !prevCbFlag) {
+      cbToken += 1
+      flashCard = cardFrom(resolved, vehicle) // freeze the driver who earned it
+      prevCbFlag = curFlag
     } else {
-      if (fireOnClassBest && curFlag && !prevCbFlag) cbToken += 1
       prevCbFlag = curFlag
     }
 
-    // Composite trigger key: in an eligible session mode it changes on a subject
-    // cut (normal dwell-on-cut); in any mode it changes on a fresh class-best edge
-    // (the independent flash). In a gated-out mode the cut part is constant, so a
-    // plain race cut alone does NOT fire — only a class-best does.
-    const cutPart = eligible ? (slotId ?? 'none') : 'gated'
-    const key = `${cutPart}#${cbToken}`
-
-    engine.sync({
-      subjectSlotId: key,
-      active,
+    // Mode-dwell: fire on a camera cut only in an eligible session mode; hide cleanly
+    // when gated out (active === false). Uses the widget's own trigger/showOnConnect.
+    modeDwell.sync({
+      subjectSlotId: eligible ? slotId : null,
+      active: active && eligible,
       trigger,
       dwellSeconds,
-      // Connect / persistent display is mode-gated; the class-best flash bypasses it
-      // via the key above (a non-first key change fires regardless of showOnConnect).
-      showOnConnect: showOnConnect && eligible,
+      showOnConnect,
+    })
+
+    // Class-best flash: keyed on the edge token only, always a dwell, never fires on
+    // connect (showOnConnect: false) so a baseline / pre-existing flag can't flash.
+    // `active: true` keeps the dwell running for its full duration independent of any
+    // subsequent camera cut (the frozen card stays on the earning driver).
+    flash.sync({
+      subjectSlotId: `cb#${cbToken}`,
+      active: true,
+      trigger: 'dwell',
+      dwellSeconds,
+      showOnConnect: false,
     })
   })
 
-  const displayName = $derived(fmtName(resolved.name))
-  const carClass = $derived(vehicle?.vehicle_class)
-  const position = $derived(vehicle?.position)
-  const bestLap = $derived(vehicle?.best_lap)
-  const lastLap = $derived(vehicle?.last_lap)
-  const sectors = $derived(Array.isArray(vehicle?.sector_times) ? vehicle.sector_times : [])
-  const targetLap = $derived(vehicle?.target_lap)
-  const deltaToTarget = $derived(vehicle?.delta_to_target)
-  const hasTarget = $derived(targetLap != null || deltaToTarget != null)
-  // A class-best flash is on screen when we're firing in a mode that wouldn't
-  // otherwise show the bar (used only to badge the card).
-  const classBestFlash = $derived(shown && !eligible)
+  // The flash takes visual precedence (it's the fastest-lap moment). When it's up we
+  // render the FROZEN earning-driver card; otherwise the LIVE current subject.
+  const liveCard = $derived(cardFrom(resolved, vehicle))
+  const isFlash = $derived(flashShown && flashCard != null)
+  const shown = $derived(modeShown || isFlash)
+  const card = $derived(isFlash ? flashCard : liveCard)
+  const hasTarget = $derived(card && (card.target != null || card.delta != null))
 </script>
 
-{#if shown}
+{#if shown && card}
   <section
     class="bc-qt"
-    class:bc-qt--flash={classBestFlash}
+    class:bc-qt--flash={isFlash}
     data-testid="qualifying-lower-third"
-    data-state={resolved.state}
+    data-state={card.state}
     aria-label="On-camera driver timing"
   >
     <span class="bc-qt__accent" aria-hidden="true"></span>
     <div class="bc-qt__body">
       <div class="bc-qt__head">
-        <span class="bc-qt__label" data-testid="qt-label"
-          >{classBestFlash ? 'CLASS BEST' : 'TIMING'}</span
-        >
-        {#if position != null}
-          <span class="bc-qt__pos" data-testid="qt-pos">P{position}</span>
+        <span class="bc-qt__label" data-testid="qt-label">{isFlash ? 'CLASS BEST' : 'TIMING'}</span>
+        {#if card.position != null}
+          <span class="bc-qt__pos" data-testid="qt-pos">P{card.position}</span>
         {/if}
-        <span class="bc-qt__name" data-testid="qt-name">{displayName}</span>
-        {#if carClass}
-          <ClassChip {carClass} size="compact" />
+        <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
+        {#if card.carClass}
+          <ClassChip carClass={card.carClass} size="compact" />
         {/if}
       </div>
 
       <div class="bc-qt__times">
         <div class="bc-qt__cell bc-qt__cell--best">
           <span class="bc-qt__cell-label">BEST</span>
-          <span class="bc-qt__cell-value" data-testid="qt-best">{fmtLapTime(bestLap)}</span>
+          <span class="bc-qt__cell-value" data-testid="qt-best">{fmtLapTime(card.best)}</span>
         </div>
         <div class="bc-qt__cell">
           <span class="bc-qt__cell-label">LAST</span>
-          <span class="bc-qt__cell-value" data-testid="qt-last">{fmtLapTime(lastLap)}</span>
+          <span class="bc-qt__cell-value" data-testid="qt-last">{fmtLapTime(card.last)}</span>
         </div>
         <div class="bc-qt__sectors" data-testid="qt-sectors">
           {#each ['S1', 'S2', 'S3'] as name, i (name)}
             <div class="bc-qt__cell bc-qt__cell--sector">
               <span class="bc-qt__cell-label">{name}</span>
               <span class="bc-qt__cell-value" data-testid="qt-{name.toLowerCase()}"
-                >{fmtSector(sectors[i])}</span
+                >{fmtSector(card.sectors[i])}</span
               >
             </div>
           {/each}
@@ -167,15 +201,15 @@
         {#if hasTarget}
           <div class="bc-qt__cell bc-qt__cell--target" data-testid="qt-target-cell">
             <span class="bc-qt__cell-label">TARGET</span>
-            <span class="bc-qt__cell-value" data-testid="qt-target">{fmtLapTime(targetLap)}</span>
+            <span class="bc-qt__cell-value" data-testid="qt-target">{fmtLapTime(card.target)}</span>
           </div>
           <div
             class="bc-qt__cell bc-qt__cell--delta"
-            class:bc-qt__cell--ahead={deltaToTarget != null && deltaToTarget <= 0}
+            class:bc-qt__cell--ahead={card.delta != null && card.delta <= 0}
             data-testid="qt-delta-cell"
           >
             <span class="bc-qt__cell-label">Δ</span>
-            <span class="bc-qt__cell-value" data-testid="qt-delta">{fmtDelta(deltaToTarget)}</span>
+            <span class="bc-qt__cell-value" data-testid="qt-delta">{fmtDelta(card.delta)}</span>
           </div>
         {/if}
       </div>
@@ -214,8 +248,8 @@
 
   /* Class-best flash: warm accent to read as a "fastest lap" moment. */
   .bc-qt--flash .bc-qt__accent {
-    background: var(--bc-intensity-hot, var(--bc-up, #7CFFB2));
-    box-shadow: 0 0 12px var(--bc-intensity-hot, var(--bc-up, #7CFFB2));
+    background: var(--bc-intensity-hot, var(--bc-up, #7cffb2));
+    box-shadow: 0 0 12px var(--bc-intensity-hot, var(--bc-up, #7cffb2));
   }
 
   .bc-qt__body {
@@ -244,7 +278,7 @@
   }
 
   .bc-qt--flash .bc-qt__label {
-    color: var(--bc-intensity-hot, var(--bc-up, #7CFFB2));
+    color: var(--bc-intensity-hot, var(--bc-up, #7cffb2));
   }
 
   .bc-qt__pos {

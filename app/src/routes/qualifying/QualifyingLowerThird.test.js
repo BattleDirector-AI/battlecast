@@ -129,6 +129,63 @@ describe('QualifyingLowerThird — class-best flash (Decision C extension)', () 
     expect(card(container)).toBeNull()
   })
 
+  it('does not flash or fire when the mode flips out of an eligible mode on the same driver', async () => {
+    // Regression: a session mode flip (qualifying → race) on the SAME on-camera
+    // driver must NOT be mistaken for a class-best edge and spuriously flash.
+    const { container, rerender } = render(QualifyingLowerThird, {
+      snapshot: qualSectorA, // qualifying, car-16 Leclerc, class_best false
+      widget: { trigger: 'dwell', dwellSeconds: 6 },
+    })
+    await tick()
+    expect(card(container)).not.toBeNull() // connect fire in qualifying...
+    expect(txt(container, 'qt-label')).toBe('TIMING') // ...as plain TIMING, not a flash
+
+    // Session flips to race with the SAME driver still on camera, no class best.
+    await rerender({
+      snapshot: { ...qualSectorA, mode: 'race' },
+      widget: { trigger: 'dwell', dwellSeconds: 6 },
+    })
+    await tick()
+    // Mode-gated out -> the bar hides cleanly; it must NOT flash "CLASS BEST".
+    expect(card(container)).toBeNull()
+  })
+
+  it('keeps the flash on the EARNING driver when the camera cuts away mid-dwell', async () => {
+    // Regression: a camera cut during a race class-best dwell must not re-badge the
+    // new on-camera driver — the fastest-lap graphic shows who set the lap.
+    const { container, rerender } = render(QualifyingLowerThird, {
+      snapshot: racePreClassBest, // race, car-14 Alonso, class_best false
+      widget: { trigger: 'dwell', dwellSeconds: 6, fireOnClassBest: true },
+    })
+    await tick()
+    expect(card(container)).toBeNull()
+
+    // Alonso sets a class best -> flash fires for Alonso.
+    await rerender({
+      snapshot: raceClassBest,
+      widget: { trigger: 'dwell', dwellSeconds: 6, fireOnClassBest: true },
+    })
+    await tick()
+    expect(txt(container, 'qt-name')).toBe('Alonso')
+    expect(txt(container, 'qt-label')).toBe('CLASS BEST')
+
+    // Mid-dwell the camera cuts to Albon (car-23, no class best of his own).
+    await vi.advanceTimersByTimeAsync(2000)
+    await rerender({
+      snapshot: { ...raceClassBest, subject: { slot_id: 'car-23', driver_name: 'Albon' } },
+      widget: { trigger: 'dwell', dwellSeconds: 6, fireOnClassBest: true },
+    })
+    await tick()
+    // The flash still shows the driver who EARNED it — Albon is never badged.
+    expect(txt(container, 'qt-name')).toBe('Alonso')
+    expect(txt(container, 'qt-label')).toBe('CLASS BEST')
+
+    // After the full dwell the flash clears (Albon, race + no class best, shows nothing).
+    await vi.advanceTimersByTimeAsync(4000)
+    await tick()
+    expect(card(container)).toBeNull()
+  })
+
   it('does not flash when fireOnClassBest is disabled', async () => {
     const { container, rerender } = render(QualifyingLowerThird, {
       snapshot: racePreClassBest,
