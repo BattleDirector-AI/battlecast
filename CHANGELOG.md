@@ -22,6 +22,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `spec/v1/SPEC.md`; new fixtures `spec/v1/fixtures/race-class-best.json` and
   `qualifying-target.json`; the reference mock producer (`producers/mock/simulate.js`)
   now emits them. See `docs/decisions/0002-lower-third-widgets.md`.
+- **Driver lower-third widget (#21)** — a broadcast-style identity name-tag for the
+  on-camera driver (`subject`): driver name, position, and class chip, rendered from
+  the resolved `vehicles[]` entry. It has its own `/driver` Browser Source route and
+  composes into `/all` as the new `driver` widget. Unlike the always-on tower/battle
+  widgets it is **subject-driven and edge-triggered** — it fires on a camera cut
+  rather than rendering continuously:
+  - **Trigger modes** (per-widget config): `dwell` (default) shows the card on each
+    subject change then auto-hides after `dwellSeconds` (default 6) even if the camera
+    stays; a new cut re-fires and **resets the dwell in place** (no hide→show flicker).
+    `persistent` shows whenever the subject is valid and hides when it isn't (no timer).
+  - **Fire-once on connect** (`showOnConnect`, default true) so opening the source
+    shows the current driver briefly; **edge-triggered** so an unchanged subject
+    repeated every snapshot never re-fires; `A → null → A` re-fires as a genuine cut.
+  - **Subject resolution**: valid (slot_id resolves to a vehicle → full card),
+    degraded (name only when the slot is unresolved), idle (no subject → renders
+    nothing). The overlay reacts only to producer state changes and its own dwell
+    timer — it computes nothing about the race.
+  - The fire/dwell/hide logic lives in a **reusable, unit-tested trigger module**
+    (`app/src/lib/lowerThirdTrigger.js`) that the qualifying/sector lower-third (#22)
+    will reuse. Config adds per-widget `trigger` / `dwellSeconds` / `showOnConnect`
+    (defaulted, additive — no `configVersion` bump), surfaced in the `/config` editor
+    for lower-third widgets.
 
 ## [0.2.0] - 2026-07-03
 

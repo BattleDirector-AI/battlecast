@@ -11,6 +11,7 @@
  * decision can never disagree with what the widget would draw. */
 
 import { isActiveBattle } from '../routes/battle/BattleBox.svelte'
+import { isDriverSubjectIdle } from '../routes/driver/DriverLowerThird.svelte'
 
 /** Valid (non-blank) rotation images — mirrors LogoRotation's own filtering. */
 function validLogoImages(config) {
@@ -22,6 +23,11 @@ function validLogoImages(config) {
 export const IDLE_PREDICATES = Object.freeze({
   battle: ({ snapshot }) => !isActiveBattle(snapshot?.relationship),
   logos: ({ config }) => validLogoImages(config).length === 0,
+  // Driver lower-third is idle when there's no valid/degraded subject to show. This
+  // keeps persistent-mode auto-hide and the config surfacing consistent; note the
+  // dwell-mode fire/hide timing is handled IN the component, not by this stateless
+  // predicate (AllView always mounts the slot when visible so dwell can run).
+  driver: ({ snapshot }) => isDriverSubjectIdle(snapshot),
 })
 
 /** Whether a widget offers the "hide when idle" behavior (i.e. has a predicate). */

@@ -6,7 +6,7 @@
    * client-only authoring (export a config.json) when no server is running. */
   import { onMount } from 'svelte'
   import AllView from '../all/AllView.svelte'
-  import { DEFAULT_CONFIG, WIDGET_KEYS, normalizeConfig } from '../../lib/overlayConfig.js'
+  import { DEFAULT_CONFIG, WIDGET_KEYS, normalizeConfig, isLowerThird } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
@@ -96,6 +96,10 @@
   const setField = (key, field, value) => (config = editor.setWidgetField(config, key, field, value))
   const setVisible = (key, visible) => (config = editor.setWidgetVisible(config, key, visible))
   const setHideWhenIdle = (key, hide) => (config = editor.setWidgetHideWhenIdle(config, key, hide))
+  // Lower-third trigger knobs (only surfaced for lower-third widgets).
+  const setTrigger = (key, value) => (config = editor.setWidgetField(config, key, 'trigger', value))
+  const setDwellSeconds = (key, value) =>
+    (config = editor.setWidgetField(config, key, 'dwellSeconds', Number(value)))
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
@@ -394,6 +398,36 @@
                 Hide when idle
               </label>
             {/if}
+            {#if isLowerThird(key)}
+              <!-- Lower-third fire behavior: `dwell` shows on each camera cut then
+                   auto-hides after N seconds; `persistent` stays while the subject
+                   is on camera. Dwell seconds only applies in dwell mode. -->
+              <div class="row trigger-row">
+                <label class="num">
+                  trigger
+                  <select
+                    data-testid="trigger-{key}"
+                    value={w.trigger}
+                    onchange={(e) => setTrigger(key, e.currentTarget.value)}
+                  >
+                    <option value="dwell">dwell</option>
+                    <option value="persistent">persistent</option>
+                  </select>
+                </label>
+                <label class="num">
+                  dwell secs
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    data-testid="dwell-{key}"
+                    value={w.dwellSeconds}
+                    disabled={w.trigger !== 'dwell'}
+                    oninput={(e) => setDwellSeconds(key, e.currentTarget.value)}
+                  />
+                </label>
+              </div>
+            {/if}
           </fieldset>
         {/each}
       </section>
@@ -674,6 +708,9 @@
   }
   .checkline input {
     width: auto;
+  }
+  .trigger-row {
+    margin-top: 0.5rem;
   }
   .logo-list {
     list-style: none;
