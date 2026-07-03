@@ -174,9 +174,10 @@ describe('resolveWidgets — ordered render list', () => {
         battle: { z: 1 },
         logos: { z: 3 },
         driver: { z: 4 },
+        qualifying: { z: 6 },
       },
     }).map((w) => w.key)
-    expect(order).toEqual(['battle', 'logos', 'driver', 'tower'])
+    expect(order).toEqual(['battle', 'logos', 'driver', 'tower', 'qualifying'])
   })
 })
 

@@ -12,6 +12,7 @@
 
 import { isActiveBattle } from '../routes/battle/BattleBox.svelte'
 import { isDriverSubjectIdle } from '../routes/driver/DriverLowerThird.svelte'
+import { isQualifyingIdle } from '../routes/qualifying/QualifyingLowerThird.svelte'
 
 /** Valid (non-blank) rotation images — mirrors LogoRotation's own filtering. */
 function validLogoImages(config) {
@@ -28,6 +29,10 @@ export const IDLE_PREDICATES = Object.freeze({
   // dwell-mode fire/hide timing is handled IN the component, not by this stateless
   // predicate (AllView always mounts the slot when visible so dwell can run).
   driver: ({ snapshot }) => isDriverSubjectIdle(snapshot),
+  // Qualifying/sector lower-third is idle when there's no valid subject or no
+  // timing to show. Mode-gating and the dwell/class-best fire timing live IN the
+  // component (stateless predicates can't see them), matching the driver widget.
+  qualifying: ({ snapshot }) => isQualifyingIdle(snapshot),
 })
 
 /** Whether a widget offers the "hide when idle" behavior (i.e. has a predicate). */

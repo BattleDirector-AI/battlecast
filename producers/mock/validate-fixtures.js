@@ -16,7 +16,10 @@ const FIXTURE_FILES = [
   "race-no-battle.json",
   "race-idle-battle.json",
   "race-class-best.json",
+  "race-pre-class-best.json",
   "qualifying-target.json",
+  "qualifying-sector-a.json",
+  "qualifying-no-timing.json",
 ];
 
 let failed = 0;

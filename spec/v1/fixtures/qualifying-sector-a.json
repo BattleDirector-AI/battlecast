@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1",
+  "mode": "qualifying",
+  "vehicles": [
+    {
+      "slot_id": "car-16",
+      "driver_name": "Leclerc",
+      "vehicle_class": "gtp",
+      "position": 1,
+      "last_lap": 89.204,
+      "best_lap": 88.912,
+      "sector_times": [27.401, 30.002, 31.509],
+      "notable": {
+        "class_best_lap": false,
+        "session_best_lap": false,
+        "personal_best_lap": false
+      }
+    },
+    {
+      "slot_id": "car-4",
+      "driver_name": "Norris",
+      "vehicle_class": "gtp",
+      "position": 2,
+      "last_lap": 89.533,
+      "best_lap": 89.301,
+      "sector_times": [27.702, 30.257, 31.342],
+      "notable": {
+        "class_best_lap": false,
+        "session_best_lap": false,
+        "personal_best_lap": false
+      }
+    }
+  ],
+  "subject": {
+    "slot_id": "car-16",
+    "driver_name": "Leclerc"
+  },
+  "relationship": {
+    "gap_ahead": null,
+    "gap_behind": 0.4,
+    "battle_intensity": 0.2
+  }
+}
