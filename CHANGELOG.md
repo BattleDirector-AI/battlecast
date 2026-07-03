@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Full results / standings slide (#23).** A full-screen, opaque takeover board
+  (`app/src/routes/results/ResultsSlide.svelte` + `ResultsPage.svelte`) on its own
+  `/results` route, for showing end- or mid-session results. Every vehicle is
+  listed strictly in `position` order with its class chip, driver name, and best
+  lap. A `?class=<VClass>` URL knob narrows the board to a single class
+  (case-insensitive; absent = all classes), mirroring the `?show=` / `?hide=`
+  convention. Explicit idle states — "Waiting for results…" with no snapshot, and
+  a distinct "No cars in this class" when a class filter matches nothing — so the
+  board never blanks.
+
 ## [0.3.0] - 2026-07-03
 
 ### Added
