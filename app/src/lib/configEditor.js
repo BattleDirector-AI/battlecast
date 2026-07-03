@@ -68,6 +68,11 @@ export function setWidgetVisible(config, key, visible) {
   return setWidgetField(config, key, 'visible', !!visible)
 }
 
+/** Toggle a widget's opt-in auto-hide (only meaningful for widgets that support it). */
+export function setWidgetHideWhenIdle(config, key, hide) {
+  return setWidgetField(config, key, 'hideWhenIdle', !!hide)
+}
+
 /** Patch the logoRotation block (perSlotSeconds, order, images). */
 export function setLogoRotation(config, patch) {
   const next = normalizeConfig(config)

@@ -66,6 +66,28 @@ describe('ConfigPage editor wiring', () => {
     expect(container.querySelector('[data-testid="widget-battle"]')).toBeNull()
   })
 
+  it('offers "hide when idle" only for widgets that support it', async () => {
+    const { getByTestId, queryByTestId } = render(ConfigPage)
+    await tick()
+    // battle + logos support auto-hide; the tower (always meaningful) does not.
+    expect(getByTestId('hide-idle-battle')).toBeTruthy()
+    expect(getByTestId('hide-idle-logos')).toBeTruthy()
+    expect(queryByTestId('hide-idle-tower')).toBeNull()
+  })
+
+  it('toggling "hide when idle" hides the battle box once it goes idle', async () => {
+    // Preview uses a close-battle sample (active), so the box stays visible after
+    // the toggle; the hide only takes effect on an idle snapshot (covered in AllView
+    // tests). Here we assert the toggle wires through without error.
+    const { container, getByTestId } = render(ConfigPage)
+    await tick()
+    await fireEvent.click(getByTestId('hide-idle-battle'))
+    await tick()
+    // Sample snapshot is an active battle, so the box remains in the preview.
+    expect(container.querySelector('[data-testid="widget-battle"]')).not.toBeNull()
+    expect(getByTestId('hide-idle-battle').checked).toBe(true)
+  })
+
   it('editing a widget coordinate moves it in the preview', async () => {
     const { container, getByTestId } = render(ConfigPage)
     await tick()

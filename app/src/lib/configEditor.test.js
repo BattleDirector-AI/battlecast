@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   setWidgetVisible,
+  setWidgetHideWhenIdle,
   setWidgetField,
   moveWidget,
   resizeWidget,
@@ -19,6 +20,12 @@ describe('configEditor — widget geometry/visibility', () => {
     const next = setWidgetVisible(DEFAULT_CONFIG, 'battle', false)
     expect(next.widgets.battle.visible).toBe(false)
     expect(next.widgets.tower.visible).toBe(true)
+  })
+
+  it('toggles a widget hideWhenIdle without disturbing geometry', () => {
+    const next = setWidgetHideWhenIdle(DEFAULT_CONFIG, 'battle', true)
+    expect(next.widgets.battle.hideWhenIdle).toBe(true)
+    expect(next.widgets.battle).toMatchObject({ x: 428, w: 440 })
   })
 
   it('moves a widget and clamps it onto the 1920x1080 canvas', () => {

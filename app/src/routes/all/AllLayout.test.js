@@ -3,6 +3,7 @@ import { render, cleanup } from '@testing-library/svelte'
 import AllView from './AllView.svelte'
 import { normalizeConfig } from '../../lib/overlayConfig.js'
 import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
+import idleBattle from '../../../../spec/v1/fixtures/race-idle-battle.json'
 import lowerThird from './fixtures/profile-lower-third.json'
 import towerOnly from './fixtures/profile-tower-only.json'
 import withLogos from './fixtures/profile-with-logos.json'
@@ -66,6 +67,27 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(battle.style.left).toBe('428px')
     // Existing /all content contract still holds inside the laid-out slots.
     expect(container.textContent).toContain('Hamilton')
+  })
+
+  it('auto-hides a hideWhenIdle widget when idle, and shows it when active', () => {
+    const cfg = normalizeConfig({ widgets: { battle: { visible: true, hideWhenIdle: true } } })
+
+    // Clear air (both gaps null) -> battle box is idle -> removed from the DOM.
+    const idle = render(AllView, { snapshot: idleBattle, config: cfg })
+    expect(slot(idle.container, 'battle')).toBeNull()
+    cleanup()
+
+    // A real battle -> shown.
+    const active = render(AllView, { snapshot: closeBattle, config: cfg })
+    expect(slot(active.container, 'battle')).not.toBeNull()
+  })
+
+  it('keeps an idle widget when hideWhenIdle is off (shows the idle placeholder)', () => {
+    const cfg = normalizeConfig({ widgets: { battle: { visible: true, hideWhenIdle: false } } })
+    const { container } = render(AllView, { snapshot: idleBattle, config: cfg })
+    const battle = slot(container, 'battle')
+    expect(battle).not.toBeNull()
+    expect(battle.textContent).toContain('NO ACTIVE BATTLE')
   })
 
   it('omits a hidden widget from the DOM entirely (not just visually collapsed)', () => {

@@ -7,6 +7,7 @@
   import { onMount } from 'svelte'
   import AllView from '../all/AllView.svelte'
   import { DEFAULT_CONFIG, WIDGET_KEYS, normalizeConfig } from '../../lib/overlayConfig.js'
+  import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
   import sampleSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
@@ -94,6 +95,7 @@
   // ---- widget field editing -------------------------------------------------
   const setField = (key, field, value) => (config = editor.setWidgetField(config, key, field, value))
   const setVisible = (key, visible) => (config = editor.setWidgetVisible(config, key, visible))
+  const setHideWhenIdle = (key, hide) => (config = editor.setWidgetHideWhenIdle(config, key, hide))
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
@@ -381,6 +383,17 @@
                 />
               </label>
             </div>
+            {#if widgetSupportsAutoHide(key)}
+              <label class="checkline" title="Remove this widget from the overlay while it has nothing to show">
+                <input
+                  type="checkbox"
+                  data-testid="hide-idle-{key}"
+                  checked={w.hideWhenIdle}
+                  onchange={(e) => setHideWhenIdle(key, e.currentTarget.checked)}
+                />
+                Hide when idle
+              </label>
+            {/if}
           </fieldset>
         {/each}
       </section>
@@ -650,6 +663,17 @@
   .widget-row legend {
     text-transform: uppercase;
     font-size: 0.8rem;
+  }
+  .checkline {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0.5rem 0 0;
+    font-size: 0.72rem;
+    color: #9aa7ba;
+  }
+  .checkline input {
+    width: auto;
   }
   .logo-list {
     list-style: none;

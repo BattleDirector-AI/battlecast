@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Per-widget "hide when idle"** — a widget can be configured to drop out of the
+  overlay while it has nothing meaningful to show, instead of rendering an idle
+  placeholder. Opt-in per widget (`config.widgets.<key>.hideWhenIdle`, default off)
+  and only offered for widgets that define an idle predicate: the **battle box**
+  (hidden in clear air — no car ahead or behind the on-camera driver) and the
+  **logo rotation** (hidden when no images are configured). The spec stays a pure
+  data feed — this is a consumer/config presentation choice, driven by the same
+  `relationship` data the battle box already renders from.
 - **Delete profiles** — the companion server now supports `DELETE /api/profiles/<name>`,
   and the `/config` editor has a Delete button that removes the named profile from
   the server (with a confirm).

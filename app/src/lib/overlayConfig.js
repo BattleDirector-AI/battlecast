@@ -43,9 +43,11 @@ export const DEFAULT_CONFIG = Object.freeze({
   widgets: {
     // Default widget widths match each component's intrinsic width (tower 380px,
     // battle 440px) so the config editor's drag box lines up with what renders.
-    tower: { visible: true, x: 24, y: 24, w: 380, h: 900, z: 1 },
-    battle: { visible: true, x: 428, y: 24, w: 440, h: 220, z: 2 },
-    logos: { visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3 },
+    // `hideWhenIdle` defaults off, so widgets that support it keep showing their
+    // idle placeholder unless the broadcaster opts in.
+    tower: { visible: true, x: 24, y: 24, w: 380, h: 900, z: 1, hideWhenIdle: false },
+    battle: { visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false },
+    logos: { visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   theme: {},
@@ -118,6 +120,11 @@ export function normalizeConfig(raw) {
       w: num(w.w, d.w),
       h: num(w.h, d.h),
       z: num(w.z, d.z),
+      // Opt-in: when true, a widget that supports it (see widgetIdle.js) is removed
+      // from the render while it has nothing meaningful to show (e.g. the battle box
+      // in clear air). Defaults false, so existing profiles keep showing the idle
+      // placeholder.
+      hideWhenIdle: typeof w.hideWhenIdle === 'boolean' ? w.hideWhenIdle : d.hideWhenIdle ?? false,
     }
   }
   out.widgets = normalizedWidgets
