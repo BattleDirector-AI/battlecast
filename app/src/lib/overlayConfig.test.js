@@ -127,6 +127,15 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     // Absent => default.
     expect(normalizeConfig({}).configVersion).toBe(CONFIG_VERSION)
   })
+
+  it('fills a default 1920x1080 canvas and honors a profile-declared one', () => {
+    expect(normalizeConfig({}).canvas).toEqual({ w: 1920, h: 1080 })
+    expect(normalizeConfig({ canvas: { w: '1280', h: 720 } }).canvas).toEqual({ w: 1280, h: 720 })
+  })
+
+  it('clamps an absurdly small canvas to the minimum edge', () => {
+    expect(normalizeConfig({ canvas: { w: 10, h: -5 } }).canvas).toEqual({ w: 320, h: 320 })
+  })
 })
 
 describe('resolveWidgets — ordered render list', () => {

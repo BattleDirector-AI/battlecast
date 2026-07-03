@@ -14,10 +14,12 @@ vi.mock('../../lib/configApi.js', () => ({
 }))
 
 import ConfigPage from './ConfigPage.svelte'
+import * as api from '../../lib/configApi.js'
 
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.unstubAllGlobals()
 })
 
 it('uploads a logo, adds it to the rotation, and clears the input (no currentTarget bug)', async () => {
@@ -38,4 +40,25 @@ it('uploads a logo, adds it to the rotation, and clears the input (no currentTar
     '/logos/sponsor.png',
   )
   expect(input.value).toBe('')
+})
+
+it('deletes a logo from the server (not just the rotation) and refreshes the list', async () => {
+  const logo = { name: 'old.png', url: '/logos/old.png' }
+  // Present on mount, then gone after the delete refresh.
+  vi.mocked(api.listLogos).mockResolvedValueOnce([logo]).mockResolvedValueOnce([])
+  vi.stubGlobal('confirm', vi.fn(() => true))
+
+  const { getByTestId, queryByTestId } = render(ConfigPage)
+  // refreshFromServer awaits serverAvailable -> listProfiles -> listLogos.
+  for (let i = 0; i < 5; i++) await tick()
+
+  expect(getByTestId('delete-server-logo')).toBeTruthy()
+
+  await fireEvent.click(getByTestId('delete-server-logo'))
+  await tick()
+  await tick()
+
+  expect(api.deleteLogo).toHaveBeenCalledWith('old.png')
+  // The server-logos list refreshed to empty, so the delete button is gone.
+  expect(queryByTestId('delete-server-logo')).toBeNull()
 })

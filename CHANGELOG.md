@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Configurable canvas size** — the overlay config now carries a `canvas` size
+  (`{ w, h }`, default 1920×1080). The `/config` editor exposes a Canvas Size
+  control (width/height + 1920×1080 / 1280×720 presets), the `/all` render scales
+  the configured canvas to the Browser Source, and widgets re-clamp onto a smaller
+  canvas. Lets you tighten the canvas so `/all` isn't a mostly-empty 1920-wide area.
 - **One-command dev stack** — `make dev` runs the app, the reference mock producer,
   and the companion server together under one prefixed log (Ctrl+C stops all of
   them); `make help` lists every target, with `dev-app` / `dev-mock` / `dev-server`
@@ -60,6 +65,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **`/config` editor polish.** The Load-profile dropdown is always visible (disabled
+  with a reason when there are no saved profiles), so you can pick a profile to load
+  as easily as you save one. Panel inputs no longer overflow past the right edge
+  (border-box sizing + non-blowout flex/grid children). Widget drag boxes now match
+  what renders: widgets fill their configured slot width, and the default widget
+  widths match each component's intrinsic size (tower 380px, battle 440px) instead of
+  a 640px box that dwarfed the battle widget. Server-side logos can be deleted from
+  the server (not just removed from the rotation). Clicking the OBS Browser Source
+  URL copies it to the clipboard.
 - **Companion server no longer collides with rF2.** The default port moved from
   `5397` to **`7397`**. rFactor 2 runs its own control panel on `5397`, so on a real
   broadcast machine `battlecast serve` failed to bind it (`EACCES`) — the very

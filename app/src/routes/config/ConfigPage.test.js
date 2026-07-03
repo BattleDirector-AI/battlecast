@@ -10,6 +10,7 @@ import snapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 /** Capture what `/all` actually renders for each widget slot: geometry + logo. */
@@ -89,5 +90,63 @@ describe('ConfigPage editor wiring', () => {
     expect(getByTestId('rotation-empty')).toBeTruthy()
     // Enabling logos + a producer doesn't add images; rotation stays empty.
     expect(queryByTestId('remove-logo')).toBeNull()
+  })
+
+  it('editing the canvas size (on change) resizes the preview stage without collapsing widgets', async () => {
+    const { container, getByTestId } = render(ConfigPage)
+    await tick()
+
+    // Committed on `change`, not per-keystroke — a full value in one event.
+    await fireEvent.change(getByTestId('canvas-w'), { target: { value: '1280' } })
+    await fireEvent.change(getByTestId('canvas-h'), { target: { value: '720' } })
+    await tick()
+
+    // The preview's inner canvas is sized to the configured canvas.
+    expect(getByTestId('preview-stage').firstElementChild.style.width).toBe('1280px')
+    // Regression: a valid resize must NOT shrink widgets — the tower keeps its
+    // width (the per-keystroke oninput bug collapsed everything to 320px/x0).
+    const tower = container.querySelector('[data-testid="widget-tower"]')
+    expect(tower.style.width).toBe('380px')
+    expect(tower.style.left).toBe('24px')
+  })
+
+  it('ignores a blank canvas field instead of snapping to the minimum', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    await fireEvent.change(getByTestId('canvas-w'), { target: { value: '1280' } })
+    await tick()
+    // Clearing the field commits blank — must keep the last good width, not 320.
+    await fireEvent.change(getByTestId('canvas-w'), { target: { value: '' } })
+    await tick()
+    expect(getByTestId('preview-stage').firstElementChild.style.width).toBe('1280px')
+  })
+
+  it('offers a preset canvas button', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    await fireEvent.click(getByTestId('canvas-720'))
+    await tick()
+    expect(getByTestId('canvas-w').value).toBe('1280')
+    expect(getByTestId('canvas-h').value).toBe('720')
+  })
+
+  it('always shows the Load control, disabled when there are no profiles', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    const load = getByTestId('load')
+    expect(load).toBeTruthy()
+    expect(load.disabled).toBe(true) // no server / no saved profiles in this test
+  })
+
+  it('copies the OBS URL to the clipboard on click', async () => {
+    const writeText = vi.fn().mockResolvedValue()
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+
+    await fireEvent.click(getByTestId('obs-url'))
+    await tick()
+    expect(writeText).toHaveBeenCalledWith(getByTestId('obs-url').textContent.trim())
+    expect(getByTestId('copy-hint').textContent).toContain('Copied')
   })
 })

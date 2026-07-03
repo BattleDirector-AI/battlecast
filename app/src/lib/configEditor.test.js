@@ -4,6 +4,7 @@ import {
   setWidgetField,
   moveWidget,
   resizeWidget,
+  setCanvas,
   addLogoImage,
   removeLogoImage,
   moveLogoImage,
@@ -66,6 +67,39 @@ describe('configEditor — logo rotation', () => {
     const cfg = setLogoRotation(DEFAULT_CONFIG, { perSlotSeconds: 4, order: 'shuffle' })
     expect(cfg.logoRotation.perSlotSeconds).toBe(4)
     expect(cfg.logoRotation.order).toBe('shuffle')
+  })
+})
+
+describe('configEditor — canvas', () => {
+  it('resizes the canvas and clamps the value to the minimum edge', () => {
+    expect(setCanvas(DEFAULT_CONFIG, { w: 1280, h: 720 }).canvas).toEqual({ w: 1280, h: 720 })
+    expect(setCanvas(DEFAULT_CONFIG, { w: 10 }).canvas.w).toBe(320)
+  })
+
+  it('re-clamps widgets that no longer fit after the canvas shrinks', () => {
+    // battle default sits at x:428 w:440 (right edge 868); a 640-wide canvas must
+    // pull it back onto the canvas rather than leave it hanging off the edge.
+    const next = setCanvas(DEFAULT_CONFIG, { w: 640, h: 480 })
+    const b = next.widgets.battle
+    expect(b.x + b.w).toBeLessThanOrEqual(640)
+    expect(b.y + b.h).toBeLessThanOrEqual(480)
+  })
+
+  it('leaves the untouched dimension unchanged when patching one edge', () => {
+    const next = setCanvas(DEFAULT_CONFIG, { h: 720 })
+    expect(next.canvas.w).toBe(DEFAULT_CONFIG.canvas.w)
+    expect(next.canvas.h).toBe(720)
+  })
+
+  it('treats a blank edge as "keep current", not zero', () => {
+    // A cleared input commits '' — must not collapse the canvas to the minimum.
+    const next = setCanvas(DEFAULT_CONFIG, { w: '' })
+    expect(next.canvas.w).toBe(DEFAULT_CONFIG.canvas.w)
+  })
+
+  it('does not shrink widgets when the canvas stays large enough', () => {
+    const next = setCanvas(DEFAULT_CONFIG, { w: 1280, h: 720 })
+    expect(next.widgets.tower).toMatchObject({ x: 24, w: 380 })
   })
 })
 
