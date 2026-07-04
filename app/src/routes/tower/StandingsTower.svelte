@@ -1,14 +1,94 @@
 <script>
   import ClassChip from '../../design/ClassChip.svelte'
-  import { classColor } from '../../design/classMeta.js'
+  import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName } from '../../design/format.js'
 
-  let { snapshot = null, label = 'RUNNING ORDER' } = $props()
+  // Class-aware standings tower (#28). Presentational: renders whatever snapshot it
+  // is handed. Two layouts, selected by `classDisplay`:
+  //   inline  — one list in overall `position` order, each row badged with its rank
+  //             within its class (e.g. '1/7').
+  //   grouped — per-class sections in class-registry order (mirrors the grid/results
+  //             slides), with positions restarting within each class.
+  // `?class=` narrows to a single class (case-insensitive). All SSE wiring + URL
+  // parsing lives in the pages (TowerPage / AllView).
+  let {
+    snapshot = null,
+    label = 'RUNNING ORDER',
+    classDisplay = 'inline',
+    classFilter = null,
+  } = $props()
 
   const subjectSlot = $derived(snapshot?.subject?.slot_id ?? null)
-  const rows = $derived(
+
+  // Session-mode header: derive from `snapshot.mode` (RACE / QUALIFYING / PRACTICE),
+  // tolerating unknown strings by uppercasing them. Falls back to `label`
+  // ('RUNNING ORDER' by default) when the snapshot carries no mode.
+  const header = $derived(
+    snapshot?.mode != null && String(snapshot.mode).trim()
+      ? String(snapshot.mode).trim().toUpperCase()
+      : label,
+  )
+
+  // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
+  // => show every class.
+  const filterKey = $derived(
+    classFilter != null && String(classFilter).trim()
+      ? String(classFilter).trim().toLowerCase()
+      : null,
+  )
+  const matchesFilter = (v) =>
+    filterKey === null || String(v.vehicle_class ?? '').toLowerCase() === filterKey
+
+  // Full field in overall running order — the basis for both layouts and for each
+  // car's rank within its class. Never mutate the source array — copy before sort.
+  const allSorted = $derived(
     [...(snapshot?.vehicles ?? [])].sort((a, b) => a.position - b.position),
   )
+
+  // Class rank + class size, computed once from the full field's running order so a
+  // car's 'GTP 3/7' is stable regardless of the ?class= filter. Plain objects keyed
+  // by slot / lowercased class (no Map — the component lint rule bans it).
+  const classInfo = $derived.by(() => {
+    const rank = {}
+    const total = {}
+    for (const v of allSorted) {
+      const key = String(v.vehicle_class ?? '').toLowerCase()
+      const next = (total[key] ?? 0) + 1
+      total[key] = next
+      rank[v.slot_id] = next
+    }
+    return { rank, total }
+  })
+  const classRankOf = (v) => classInfo.rank[v.slot_id] ?? 0
+  const classTotalOf = (v) =>
+    classInfo.total[String(v.vehicle_class ?? '').toLowerCase()] ?? 0
+
+  // inline: overall order, filtered.
+  const inlineRows = $derived(allSorted.filter(matchesFilter))
+
+  // grouped: per-class sections. Bucket the filtered field by class, ordered by the
+  // class registry `order` (alphabetical tiebreak for unknown classes) — the same
+  // sequence the grid/results slides group by. Positions restart within each class.
+  const groups = $derived.by(() => {
+    const byClass = {}
+    for (const v of allSorted.filter(matchesFilter)) {
+      const raw = String(v.vehicle_class ?? '')
+      const key = raw.toLowerCase()
+      if (!byClass[key]) {
+        byClass[key] = { key, carClass: raw, order: classMeta(raw).order, cars: [] }
+      }
+      byClass[key].cars.push(v)
+    }
+    return Object.values(byClass).sort(
+      (a, b) => a.order - b.order || a.key.localeCompare(b.key),
+    )
+  })
+
+  const grouped = $derived(classDisplay === 'grouped')
+  const hasRows = $derived(grouped ? groups.length > 0 : inlineRows.length > 0)
+  // A class filter that matches nothing is a distinct, explicit state from "no
+  // snapshot at all" — surface which so the tower never blanks silently.
+  const emptyReason = $derived(snapshot?.vehicles?.length ? 'no-match' : 'no-state')
 
   /** Lap seconds -> broadcast readout (m:ss.mmm, or ss.mmm under a minute). */
   function fmtLapTime(seconds) {
@@ -19,48 +99,93 @@
   }
 </script>
 
-<section class="tower" data-testid="standings-tower">
-  <header class="tower__header">{label}</header>
+<!-- One row renderer shared by both layouts, so the #68 on-cam flash overlay +
+     reduced-motion gating are identical in inline and grouped. `positionText` is the
+     overall position (inline) or the within-class rank (grouped); `classBadge` is the
+     inline-only 'rank/total' chip. -->
+{#snippet towerRow(v, positionText, zebra, classBadge)}
+  {@const oncam = v.slot_id === subjectSlot}
+  <li
+    class="row"
+    class:row--oncam={oncam}
+    class:row--zebra={zebra}
+    data-testid="tower-row"
+    data-slot={v.slot_id}
+    data-position={v.position}
+    data-oncam={oncam ? 'true' : 'false'}
+    aria-current={oncam ? 'true' : undefined}
+  >
+    {#if oncam}
+      <!-- Re-cut reveal (#64/#68): a fresh, subject-keyed flash overlay mounts only
+           for the on-camera row, so switching the highlight to a NEW driver always
+           mounts a NEW node and its mint glow-in animation replays. Gated to
+           no-preference (below); under reduced motion it is inert and the static
+           `.row--oncam` styling carries the highlight instantly. -->
+      {#key subjectSlot}
+        <span class="row__oncam-flash" data-testid="row-oncam-flash" aria-hidden="true"></span>
+      {/key}
+    {/if}
+    <span
+      class="row__classbar"
+      style:background={classColor(v.vehicle_class)}
+      aria-hidden="true"
+    ></span>
+    <span class="row__pos">{positionText}</span>
+    <ClassChip carClass={v.vehicle_class} size="compact" />
+    {#if classBadge}
+      <span class="row__classpos" data-testid="class-pos">{classBadge}</span>
+    {/if}
+    <span class="row__name" data-testid="driver-name">{fmtName(v.driver_name)}</span>
+    <!-- Placeholder: `last_lap` stands in for the design's gap-to-class-leader
+         column, which needs the richer telemetry from spec #20 and will replace this
+         once that lands. Do not invent gap numbers here. -->
+    <span class="row__lap">{fmtLapTime(v.last_lap)}</span>
+  </li>
+{/snippet}
 
-  {#if rows.length === 0}
-    <div class="tower__empty" data-testid="tower-empty">Waiting for state…</div>
+<section
+  class="tower"
+  data-testid="standings-tower"
+  data-class-display={classDisplay}
+>
+  <header class="tower__header" data-testid="tower-header">
+    {header}
+    {#if filterKey !== null}
+      <span class="tower__filter" data-testid="tower-filter">
+        <ClassChip carClass={filterKey} size="compact" />
+      </span>
+    {/if}
+  </header>
+
+  {#if !hasRows}
+    <div class="tower__empty" data-testid="tower-empty" data-reason={emptyReason}>
+      {emptyReason === 'no-match' ? 'No cars in this class' : 'Waiting for state…'}
+    </div>
+  {:else if grouped}
+    <div class="tower__groups">
+      {#each groups as group (group.key)}
+        <section class="group" data-testid="tower-group" data-class={group.carClass}>
+          <header class="group__head">
+            <span
+              class="group__bar"
+              style:background={classColor(group.carClass)}
+              aria-hidden="true"
+            ></span>
+            <ClassChip carClass={group.carClass} size="compact" />
+            <span class="group__count">{group.cars.length} cars</span>
+          </header>
+          <ol class="tower__rows">
+            {#each group.cars as v, i (v.slot_id)}
+              {@render towerRow(v, i + 1, i % 2 === 1, null)}
+            {/each}
+          </ol>
+        </section>
+      {/each}
+    </div>
   {:else}
     <ol class="tower__rows">
-      {#each rows as v, i (v.slot_id)}
-        {@const oncam = v.slot_id === subjectSlot}
-        <li
-          class="row"
-          class:row--oncam={oncam}
-          class:row--zebra={i % 2 === 1}
-          data-testid="tower-row"
-          data-slot={v.slot_id}
-          data-position={v.position}
-          data-oncam={oncam ? 'true' : 'false'}
-          aria-current={oncam ? 'true' : undefined}
-        >
-          {#if oncam}
-            <!-- Re-cut reveal (#64/#68): a fresh, subject-keyed flash overlay mounts
-                 only for the on-camera row, so switching the highlight to a NEW driver
-                 always mounts a NEW node and its mint glow-in animation replays. The
-                 old approach put `animation: row-oncam-in` on the persistent, slot-keyed
-                 `.row--oncam` node and relied on a class ADD to restart the keyframe —
-                 unreliable, and it never re-fired when the highlight moved. Gated to
-                 no-preference (below); under reduced motion it is inert and the static
-                 `.row--oncam` styling carries the highlight instantly. -->
-            {#key subjectSlot}
-              <span class="row__oncam-flash" data-testid="row-oncam-flash" aria-hidden="true"></span>
-            {/key}
-          {/if}
-          <span
-            class="row__classbar"
-            style:background={classColor(v.vehicle_class)}
-            aria-hidden="true"
-          ></span>
-          <span class="row__pos">{v.position}</span>
-          <ClassChip carClass={v.vehicle_class} size="compact" />
-          <span class="row__name" data-testid="driver-name">{fmtName(v.driver_name)}</span>
-          <span class="row__lap">{fmtLapTime(v.last_lap)}</span>
-        </li>
+      {#each inlineRows as v, i (v.slot_id)}
+        {@render towerRow(v, v.position, i % 2 === 1, `${classRankOf(v)}/${classTotalOf(v)}`)}
       {/each}
     </ol>
   {/if}
@@ -84,6 +209,7 @@
     height: var(--bc-widget-header);
     display: flex;
     align-items: center;
+    gap: var(--bc-space-2);
     padding: 0 var(--bc-space-3);
     background: var(--bc-header);
     border-bottom: 1px solid var(--bc-hairline);
@@ -93,6 +219,12 @@
     letter-spacing: var(--bc-track-title);
     text-transform: uppercase;
     color: var(--bc-text-2);
+  }
+
+  .tower__filter {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
   }
 
   .tower__empty {
@@ -108,6 +240,35 @@
     list-style: none;
     margin: 0;
     padding: 0;
+  }
+
+  /* Grouped layout: a class header per section, then that class's rows. */
+  .group__head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--bc-space-2);
+    height: var(--bc-widget-header);
+    padding: 0 var(--bc-space-3) 0 var(--bc-space-4);
+    background: var(--bc-header);
+    border-bottom: 1px solid var(--bc-hairline);
+  }
+  /* Class-colored strip on the group header's left edge (matches the row classbar). */
+  .group__bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--bc-classbar);
+  }
+  .group__count {
+    margin-left: auto;
+    font-family: var(--bc-font-ui);
+    font-size: var(--bc-size-label);
+    font-weight: var(--bc-weight-label);
+    letter-spacing: var(--bc-track-label);
+    text-transform: uppercase;
+    color: var(--bc-text-3);
   }
 
   .row {
@@ -149,6 +310,18 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Inline-only class-position badge (e.g. '1/7') — the car's rank within its class,
+     shown alongside the class chip so a multi-class field reads at a glance. */
+  .row__classpos {
+    flex: 0 0 auto;
+    font-family: var(--bc-font-mono);
+    font-size: var(--bc-size-chip-compact);
+    font-weight: var(--bc-weight-num);
+    color: var(--bc-text-3);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--bc-track-label);
+  }
+
   .row__name {
     flex: 1 1 auto;
     min-width: 0;
@@ -183,12 +356,10 @@
 
   /* Re-cut reveal (#64/#68): the mint glow-in plays on a FRESH, subject-keyed flash
      overlay (see markup) rendered only for the on-camera row, so it reliably replays
-     every time the highlight moves to a new driver — a class ADD on the persistent,
-     slot-keyed row never restarted the keyframe when the highlight switched. The
-     overlay sits behind the text and animates a left-edge accent bar + accent glow
-     that fades back out, leaving the static `.row--oncam` shadow as the steady state.
-     Gated to no-preference; under reduced motion it is inert (no box-shadow), so the
-     highlight is instant. */
+     every time the highlight moves to a new driver. The overlay sits behind the text
+     and animates a left-edge accent bar + accent glow that fades back out, leaving
+     the static `.row--oncam` shadow as the steady state. Gated to no-preference;
+     under reduced motion it is inert (no box-shadow), so the highlight is instant. */
   .row__oncam-flash {
     position: absolute;
     inset: 0;

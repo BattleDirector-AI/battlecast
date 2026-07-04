@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Class-aware standings tower (#28, spec-v1 scope).** The standings tower
+  (`app/src/routes/tower/StandingsTower.svelte`) now understands a multi-class
+  field. A new additive per-widget knob **`classDisplay: 'inline' | 'grouped'`
+  (default `'inline'`)** selects the layout: **inline** keeps the single
+  overall-position list but badges each row with its position within its class
+  (e.g. `1/7`); **grouped** splits the field into per-class sections in
+  class-registry order (like the grid/results slides), with positions restarting
+  within each class. The header now reflects the session — derived from
+  `snapshot.mode` (RACE / QUALIFYING / PRACTICE, unknown modes uppercased),
+  falling back to the `label` prop when absent. A `?class=<VClass>` URL knob
+  narrows the tower to one class (case-insensitive; absent = all), mirroring the
+  slides — read by `TowerPage` and `AllView`, with a distinct "No cars in this
+  class" empty state. `classDisplay` is surfaced in the `/config` editor for the
+  tower widget and round-trips through saved profiles (no `configVersion` bump).
+  The on-camera re-cut flash (#68) and reduced-motion gating are preserved in both
+  layouts. The `last_lap` column is a placeholder for the gap-to-class-leader
+  column, which is deferred to spec #20.
+
 - **Full results / standings slide (#23).** A full-screen, opaque takeover board
   (`app/src/routes/results/ResultsSlide.svelte` + `ResultsPage.svelte`) on its own
   `/results` route, for showing end- or mid-session results. Every vehicle is

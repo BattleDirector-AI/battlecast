@@ -9,6 +9,15 @@
 
   let { snapshot = null, config = DEFAULT_CONFIG } = $props()
 
+  // Class filter is a per-Browser-Source knob, read from the URL like ?src= / ?show=
+  // elsewhere: `?class=<VClass>` (case-insensitive; absent = all classes). The tower
+  // is the only widget that honors it today; mirrors GridPage / ResultsPage / the
+  // standalone TowerPage.
+  const classFilter =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('class')
+      : null
+
   // Config-driven layout: each widget is absolutely placed on the configured
   // canvas per its {x, y, w, h, z}. Only widgets that are `visible` AND have a
   // component are rendered — a hidden widget is absent from the DOM, not just
@@ -37,7 +46,11 @@
       style="left: {w.x}px; top: {w.y}px; width: {w.w}px; height: {w.h}px; z-index: {w.z};"
     >
       {#if w.key === 'tower'}
-        <StandingsTower {snapshot} />
+        <StandingsTower
+          {snapshot}
+          {classFilter}
+          classDisplay={normalized.widgets.tower?.classDisplay}
+        />
       {:else if w.key === 'battle'}
         <BattleBox
           subject={snapshot?.subject ?? {}}
