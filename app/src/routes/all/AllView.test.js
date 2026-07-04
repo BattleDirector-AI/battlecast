@@ -6,6 +6,7 @@ import { normalizeConfig } from '../../lib/overlayConfig.js'
 import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
 import idleBattle from '../../../../spec/v1/fixtures/race-idle-battle.json'
 import noSubject from '../../../../spec/v1/fixtures/driver-no-subject.json'
+import multiClass from '../../../../spec/v1/fixtures/grid-multiclass.json'
 
 afterEach(() => cleanup())
 
@@ -73,5 +74,20 @@ describe('AllView — standings tower + battle box from one snapshot', () => {
     const { container } = render(AllView, { snapshot: noSubject, config: cfg })
     await tick()
     expect(container.querySelector('[data-testid="widget-driver"]')).toBeNull()
+  })
+
+  it('drives the tower layout from the config classDisplay (grouped)', () => {
+    // Default config keeps the tower inline (one overall-order list, no sections).
+    const inline = render(AllView, { snapshot: multiClass })
+    expect(inline.container.querySelectorAll('[data-testid="tower-group"]')).toHaveLength(0)
+    inline.unmount()
+
+    // A profile that selects grouped renders per-class sections in the composed view.
+    const cfg = normalizeConfig({ widgets: { tower: { classDisplay: 'grouped' } } })
+    const { container } = render(AllView, { snapshot: multiClass, config: cfg })
+    const groups = Array.from(
+      container.querySelectorAll('[data-testid="tower-group"]'),
+    ).map((g) => g.getAttribute('data-class'))
+    expect(groups).toEqual(['GTP', 'LMP2', 'GT3'])
   })
 })

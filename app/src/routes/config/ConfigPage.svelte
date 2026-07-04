@@ -110,6 +110,11 @@
   }
   const setFireOnClassBest = (key, checked) =>
     (config = editor.setWidgetField(config, key, 'fireOnClassBest', !!checked))
+  // #28 tower-only: how the standings tower lays out a multi-class field — a single
+  // overall-order list with class-position badges (`inline`) or per-class sections
+  // with positions restarting per class (`grouped`).
+  const setClassDisplay = (key, value) =>
+    (config = editor.setWidgetField(config, key, 'classDisplay', value))
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
@@ -466,6 +471,23 @@
                 Fire on class-best lap
               </label>
             {/if}
+            {#if key === 'tower'}
+              <!-- #28-only: how the standings tower lays out a multi-class field.
+                   `inline` keeps one overall-order list, each row badged with its
+                   class position; `grouped` splits into per-class sections (registry
+                   order) with positions restarting per class. -->
+              <label class="num class-display-row">
+                class display
+                <select
+                  data-testid="class-display-{key}"
+                  value={w.classDisplay}
+                  onchange={(e) => setClassDisplay(key, e.currentTarget.value)}
+                >
+                  <option value="inline">inline</option>
+                  <option value="grouped">grouped</option>
+                </select>
+              </label>
+            {/if}
           </fieldset>
         {/each}
       </section>
@@ -748,6 +770,9 @@
     width: auto;
   }
   .trigger-row {
+    margin-top: 0.5rem;
+  }
+  .class-display-row {
     margin-top: 0.5rem;
   }
   .modes-row {
