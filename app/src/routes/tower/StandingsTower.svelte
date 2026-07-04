@@ -38,6 +38,19 @@
           data-oncam={oncam ? 'true' : 'false'}
           aria-current={oncam ? 'true' : undefined}
         >
+          {#if oncam}
+            <!-- Re-cut reveal (#64/#68): a fresh, subject-keyed flash overlay mounts
+                 only for the on-camera row, so switching the highlight to a NEW driver
+                 always mounts a NEW node and its mint glow-in animation replays. The
+                 old approach put `animation: row-oncam-in` on the persistent, slot-keyed
+                 `.row--oncam` node and relied on a class ADD to restart the keyframe —
+                 unreliable, and it never re-fired when the highlight moved. Gated to
+                 no-preference (below); under reduced motion it is inert and the static
+                 `.row--oncam` styling carries the highlight instantly. -->
+            {#key subjectSlot}
+              <span class="row__oncam-flash" data-testid="row-oncam-flash" aria-hidden="true"></span>
+            {/key}
+          {/if}
           <span
             class="row__classbar"
             style:background={classColor(v.vehicle_class)}
@@ -99,6 +112,9 @@
 
   .row {
     position: relative;
+    /* Own stacking context so the on-camera flash overlay can sit at z-index -1 —
+       above the row's background, below the text/chips. */
+    isolation: isolate;
     height: var(--bc-row-standard);
     display: flex;
     align-items: center;
@@ -165,23 +181,27 @@
     font-weight: var(--bc-weight-leader);
   }
 
-  /* Re-cut reveal (#64): when a camera cut moves the on-camera highlight to a new
-     driver, that row GAINS `.row--oncam` on the persistent (slot-keyed) node, so a
-     CSS animation on the class fires exactly once — a mint accent glow-in in the
-     shell's motion language (`--bc-up` / `--bc-accent-glow`). The row LOSING the
-     class just returns to normal (no exit needed). `both` fill settles on the
-     static on-cam shadow, so a steadily on-camera row looks identical afterward.
-     Gated to no-preference so reduced-motion viewers get an instant highlight. */
+  /* Re-cut reveal (#64/#68): the mint glow-in plays on a FRESH, subject-keyed flash
+     overlay (see markup) rendered only for the on-camera row, so it reliably replays
+     every time the highlight moves to a new driver — a class ADD on the persistent,
+     slot-keyed row never restarted the keyframe when the highlight switched. The
+     overlay sits behind the text and animates a left-edge accent bar + accent glow
+     that fades back out, leaving the static `.row--oncam` shadow as the steady state.
+     Gated to no-preference; under reduced motion it is inert (no box-shadow), so the
+     highlight is instant. */
+  .row__oncam-flash {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
   @media (prefers-reduced-motion: no-preference) {
-    .row--oncam {
-      animation: row-oncam-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-    .row--oncam .row__name {
-      animation: row-oncam-name 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    .row__oncam-flash {
+      animation: row-oncam-flash 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
   }
 
-  @keyframes row-oncam-in {
+  @keyframes row-oncam-flash {
     0% {
       box-shadow: none;
     }
@@ -191,20 +211,9 @@
         inset 3px 0 0 0 var(--bc-up, #7cffb2),
         0 0 28px var(--bc-accent-glow, rgba(31, 224, 196, 0.35));
     }
-    /* …then settles to the standing on-camera shadow. */
+    /* …then fades out, leaving the static on-camera shadow as the steady state. */
     100% {
-      box-shadow: var(--bc-oncam-shadow);
-    }
-  }
-  @keyframes row-oncam-name {
-    0% {
-      text-shadow: none;
-    }
-    45% {
-      text-shadow: 0 0 14px var(--bc-accent-glow, rgba(31, 224, 196, 0.45));
-    }
-    100% {
-      text-shadow: none;
+      box-shadow: none;
     }
   }
 </style>
