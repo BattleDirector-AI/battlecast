@@ -30,6 +30,16 @@ function animationNameFor(selectorRe) {
   return rule ? rule[1] : null
 }
 
+/** Body of an `@keyframes <name> { … }` block, normalized (whitespace stripped)
+ *  so two blocks can be compared frame-for-frame. Matches one level of nested
+ *  braces (the per-offset frame blocks). */
+function keyframesBody(name) {
+  const m = new RegExp(
+    String.raw`@keyframes\s+${name}\s*\{((?:[^{}]|\{[^{}]*\})*)\}`,
+  ).exec(source)
+  return m ? m[1].replace(/\s+/g, '') : null
+}
+
 describe('LowerThirdShell — exit shine bar replays (distinct keyframe)', () => {
   const entranceBar = animationNameFor(/\.lt3__bar/)
   const exitBar = animationNameFor(/\.lt3:global\(\.lt3--exit\)\s*\.lt3__bar/)
@@ -46,5 +56,16 @@ describe('LowerThirdShell — exit shine bar replays (distinct keyframe)', () =>
 
   it('defines the exit @keyframes it references', () => {
     expect(new RegExp(String.raw`@keyframes\s+${exitBar}\b`).test(source)).toBe(true)
+  })
+
+  // The exit sweep must LOOK identical to the entrance sweep — only the keyframe
+  // NAME differs (so the browser restarts it). The two blocks are hand-duplicated
+  // because CSS cannot alias @keyframes, so guard against silent frame drift.
+  it('keeps the entrance and exit shine frames identical (only the name differs)', () => {
+    const entranceFrames = keyframesBody(entranceBar)
+    const exitFrames = keyframesBody(exitBar)
+    expect(entranceFrames).toBeTruthy()
+    expect(exitFrames).toBeTruthy()
+    expect(exitFrames).toBe(entranceFrames)
   })
 })
