@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   a distinct "No cars in this class" when a class filter matches nothing — so the
   board never blanks.
 
+- **Starting-order / grid slide (#24).** A full-screen, opaque takeover board
+  (`app/src/routes/grid/GridSlide.svelte` + `GridPage.svelte`) on its own `/grid`
+  route, for showing the pre-race starting grid. Cars are grouped per class (in
+  class-registry order) and laid out in a conventional staggered two-column grid,
+  strictly in `position` order within each class, each cell showing its class bar,
+  grid position, and driver. A `?class=<VClass>` URL knob narrows the board to a
+  single class (case-insensitive; absent = all classes grouped), mirroring the
+  `?show=` / `?hide=` convention. Explicit idle states — "Waiting for grid…" with
+  no snapshot, and a distinct "No cars in this class" when a class filter matches
+  nothing — so the board never blanks.
+
 ## [0.3.0] - 2026-07-03
 
 ### Added

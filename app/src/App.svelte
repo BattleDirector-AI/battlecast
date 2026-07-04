@@ -11,6 +11,7 @@
   import DriverPage from './routes/driver/DriverPage.svelte'
   import QualifyingPage from './routes/qualifying/QualifyingPage.svelte'
   import ResultsPage from './routes/results/ResultsPage.svelte'
+  import GridPage from './routes/grid/GridPage.svelte'
   import ConfigPage from './routes/config/ConfigPage.svelte'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
@@ -21,8 +22,9 @@
   // Real app routes are full-bleed; only the Vite scaffold landing (the `{:else}`
   // branch) keeps the constrained column. `/results` is a full-screen takeover
   // slide with an opaque board background, so it is full-bleed but NOT an overlay
-  // route (it must not force a transparent page background).
-  const FULL_BLEED_ROUTES = [...OVERLAY_ROUTES, '/config', '/results']
+  // route (it must not force a transparent page background). `/grid` is the same
+  // kind of opaque takeover slide (the pre-race starting grid).
+  const FULL_BLEED_ROUTES = [...OVERLAY_ROUTES, '/config', '/results', '/grid']
 
   onMount(() => {
     if (typeof document === 'undefined') return
@@ -71,6 +73,8 @@
   <QualifyingPage />
 {:else if path === '/results'}
   <ResultsPage />
+{:else if path === '/grid'}
+  <GridPage />
 {:else if path === '/config'}
   <ConfigPage />
 {:else}
