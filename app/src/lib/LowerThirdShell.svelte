@@ -19,6 +19,12 @@
    * it for the exit choreography's full duration (~0.6s). Under reduced motion,
    * return duration 0 — an instant, synchronous unmount — so no node lingers and
    * the overlay stays usable. Exported so it is directly unit-testable.
+   *
+   * Applied as `out:lowerThirdOut|global` (#68): the shell is torn down by the
+   * PARENT widget's `{#if shown}` / `{#key slot}` block, and a *local* out only
+   * plays when its own block is destroyed — not on ancestor teardown — so a plain
+   * hide skipped the wipe-out entirely. `|global` makes it fire whenever the node
+   * is removed, however far up the removal originates.
    */
   export function lowerThirdOut(node) {
     if (reduceMotion()) return { duration: 0 }
@@ -54,7 +60,7 @@
   let { children } = $props()
 </script>
 
-<div class="lt3" in:lowerThirdIn out:lowerThirdOut>
+<div class="lt3" in:lowerThirdIn out:lowerThirdOut|global>
   <div class="lt3__inner">
     {@render children?.()}
   </div>

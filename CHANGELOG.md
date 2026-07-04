@@ -58,6 +58,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   an on-brand mint glow-in as it lands on the newly-selected row. Reduced-motion
   viewers keep an instant swap.
 
+### Fixed
+
+- **Lower-third exit and tower highlight now animate under real motion (#68).** Two
+  shipped animations never fired for viewers with `prefers-reduced-motion:
+  no-preference`. (1) The lower-third's skewed bar-wipe **exit** was skipped — the
+  plate just vanished — because the shell's `out:` transition was local while the
+  plate is torn down by the parent widget's `{#if}` / `{#key}` block, and a local
+  out does not play on ancestor teardown; it is now `out:…|global`, so a plain hide
+  wipes out and a driver change plays wipe-out → wipe-in. (2) The standings tower's
+  on-camera **glow-in never replayed** when the highlight moved to a new driver,
+  because it relied on a CSS animation restarting when a persistent, re-sorted row
+  merely gained `.row--oncam`; the reveal now plays on a fresh, subject-keyed flash
+  overlay rendered only for the on-camera row, so it replays on every switch.
+  Reduced-motion behavior is unchanged (instant, no motion). New tests exercise the
+  real-motion (`no-preference`) path, which the suite's global reduced-motion stub
+  had previously left unexercised.
+
 ## [0.3.0] - 2026-07-03
 
 ### Added
