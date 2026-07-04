@@ -12,17 +12,21 @@
 // /events we open a text/event-stream and emit `state` events.
 //
 // Two modes:
-//   simulate (default) — one continuously evolving multi-class race, shared
+//   simulate (default) — one continuously evolving multi-class session, shared
 //     by every connected client (like a real broadcast), driven by
-//     simulate.js. Running order, gaps, and battles emerge and change over
-//     time instead of replaying a handful of fixed scenarios.
+//     simulate.js. It auto-cycles through qualifying → grid → race → results →
+//     (loop): running order, gaps, and battles emerge and change over time, and
+//     each phase classifies the field on its own terms, instead of replaying a
+//     handful of fixed scenarios. Phase transitions are logged below.
 //   fixtures — the original deterministic behavior: each connection
 //     independently cycles through the spec-v1 fixtures in
 //     spec/v1/fixtures/, which remain the source of truth for the app's
 //     behavioral tests (see CONTRIBUTING.md).
 //
 // Env overrides: PORT (default 8080), INTERVAL_MS (default 750),
-// SIM_DT_SECONDS (default 2 — sim-seconds of race time advanced per tick).
+// SIM_DT_SECONDS (default 2 — sim-seconds of race time advanced per tick), and
+// the per-phase durations in SIM seconds QUALI_SECONDS (300), GRID_SECONDS (30),
+// RACE_SECONDS (300), RESULTS_SECONDS (30) — see simulate.js / README.md.
 
 const http = require("http");
 const fs = require("fs");
@@ -98,7 +102,14 @@ function openSse(res) {
 
 // ---- simulate mode: one shared race, broadcast to every connected client ----
 function runSimulateMode() {
-  const simulator = createSimulator();
+  const simulator = createSimulator({
+    // Log every phase transition (and the opening phase) on the mock's prefixed
+    // stdout so a tester watching the overlay can see qualifying → grid → race →
+    // results boundaries as they happen.
+    onPhaseChange: (phase, simClock) => {
+      console.log(`[mock] phase → ${phase} (sim-clock ${simClock}s)`);
+    },
+  });
 
   // Sub-step the simulator several times per cadence interval and broadcast on a
   // subject change AS SOON as it happens, rather than only on the fixed interval.
@@ -114,6 +125,7 @@ function runSimulateMode() {
 
   let latest = simulator.step(STEP_DT);
   let lastSubject = latest.subject && latest.subject.slot_id != null ? latest.subject.slot_id : null;
+  let lastMode = latest.mode;
   let msSinceEmit = 0;
   const clients = new Set();
 
@@ -126,10 +138,14 @@ function runSimulateMode() {
     latest = simulator.step(STEP_DT);
     msSinceEmit += STEP_MS;
     const subject = latest.subject && latest.subject.slot_id != null ? latest.subject.slot_id : null;
-    const cut = subject !== lastSubject;
+    // A camera cut OR a phase transition (mode change) is a meaningful change
+    // worth emitting promptly, so the new phase's first snapshot and the re-cut
+    // it carries reach the overlay within one sub-step rather than a full tick.
+    const cut = subject !== lastSubject || latest.mode !== lastMode;
     // Emit on a camera cut immediately, or once the cadence interval has elapsed.
     if (cut || msSinceEmit >= INTERVAL_MS) {
       lastSubject = subject;
+      lastMode = latest.mode;
       msSinceEmit = 0;
       broadcast();
     }
@@ -149,8 +165,9 @@ function runSimulateMode() {
   });
 
   console.log(
-    `[mock] mode: simulate — one live multi-class race, ${SIM_DT_SECONDS}s of race time per ${INTERVAL_MS}ms tick ` +
-      `(sub-stepped ${SUBSTEPS}× every ${STEP_MS}ms; emits promptly on a subject change)`,
+    `[mock] mode: simulate — one live multi-class session cycling qualifying → grid → race → results, ` +
+      `${SIM_DT_SECONDS}s of race time per ${INTERVAL_MS}ms tick ` +
+      `(sub-stepped ${SUBSTEPS}× every ${STEP_MS}ms; emits promptly on a subject or phase change)`,
   );
 }
 

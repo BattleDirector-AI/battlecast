@@ -32,6 +32,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Reference mock producer auto-cycles the session phases (#66, dev tooling).** The
+  zero-dependency mock producer's `simulate` mode
+  (`producers/mock/simulate.js` / `server.js`) no longer emits one endless green-flag
+  race; it now loops through a full session — **qualifying → grid → race → results** —
+  so a single live mock exercises the whole overlay set. Each phase classifies
+  `position` on its own terms (qualifying by best lap, grid frozen to the qualifying
+  result, race by distance, results frozen to the final order), the director keeps
+  cutting the on-camera `subject` throughout so the lower-thirds fire in every phase,
+  and qualifying surfaces `notable.class_best_lap` false→true edges. Every tick of
+  every phase stays spec-v1 valid (`schemaVersion:"1"`; no schema change — `mode` is a
+  free string). Phase durations are env-configurable (`QUALI_SECONDS`, `GRID_SECONDS`,
+  `RACE_SECONDS`, `RESULTS_SECONDS`); transitions are logged to stdout;
+  `validate-simulator` now asserts every phase is visited and validated. Producer-only;
+  no app or spec change. See `producers/mock/README.md`.
+
 - **Re-cut reveal for lower-thirds and the standings tower (#64).** When the camera
   cuts to a new on-camera driver while a lower-third is already up, the plate now
   replays the full skewed bar-wipe — the old driver's plate plays its exit and the
