@@ -30,6 +30,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   no snapshot, and a distinct "No cars in this class" when a class filter matches
   nothing — so the board never blanks.
 
+### Changed
+
+- **Re-cut reveal for lower-thirds and the standings tower (#64).** When the camera
+  cuts to a new on-camera driver while a lower-third is already up, the plate now
+  replays the full skewed bar-wipe — the old driver's plate plays its exit and the
+  new driver's plays its entrance — instead of silently swapping the name in place.
+  The driver name-tag (#21) keys its shell on the on-camera `slot_id`; the
+  qualifying/sector timing bar (#22) keys on the displayed card identity so both a
+  camera cut and a fresh class-best flash re-reveal (the class-best flash still
+  freezes the earning driver). The standings tower's on-camera highlight now plays
+  an on-brand mint glow-in as it lands on the newly-selected row. Reduced-motion
+  viewers keep an instant swap.
+
 ## [0.3.0] - 2026-07-03
 
 ### Added

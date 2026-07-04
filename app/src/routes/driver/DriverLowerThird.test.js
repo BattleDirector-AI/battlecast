@@ -16,6 +16,7 @@ afterEach(() => {
 const card = (c) => c.querySelector('[data-testid="driver-lower-third"]')
 const nameOf = (c) => c.querySelector('[data-testid="driver-lt-name"]')?.textContent.trim()
 const posOf = (c) => c.querySelector('[data-testid="driver-lt-pos"]')?.textContent.trim()
+const recutKey = (c) => card(c)?.getAttribute('data-recut-key')
 
 describe('DriverLowerThird — rendered identity card (#21)', () => {
   it('renders name, position and class for a valid on-camera subject', async () => {
@@ -133,6 +134,50 @@ describe('DriverLowerThird — fire / dwell / switch behavior', () => {
     await vi.advanceTimersByTimeAsync(4000)
     await tick()
     expect(card(container)).not.toBeNull()
+  })
+
+  it('re-cut reveal: a camera cut remounts on the new identity and shows the new driver (#64)', async () => {
+    // The re-cut reveal keys the shell on `subject.slot_id`, so a cut to a new
+    // on-camera driver mid-dwell renders the NEW driver's content and advances the
+    // recut key (the mechanism that remounts the shell to replay the reveal). Under
+    // the test's reduced-motion default the remount is an instant, deterministic swap.
+    const { container, rerender } = render(DriverLowerThird, {
+      snapshot: subjectA,
+      widget: { trigger: 'dwell', dwellSeconds: 6 },
+    })
+    await tick()
+    expect(nameOf(container)).toBe('Hamilton')
+    const keyA = recutKey(container)
+    expect(keyA).toBe('car-44') // subjectA is Hamilton / car-44
+
+    await vi.advanceTimersByTimeAsync(2000)
+    await rerender({ snapshot: subjectB, widget: { trigger: 'dwell', dwellSeconds: 6 } })
+    await tick()
+    // New driver's content is rendered and the recut key advanced to the new slot.
+    expect(nameOf(container)).toBe('C. Leclerc')
+    expect(posOf(container)).toBe('P3')
+    expect(recutKey(container)).toBe('car-16') // subjectB is Leclerc / car-16
+    expect(recutKey(container)).not.toBe(keyA)
+  })
+
+  it('re-cut reveal: rapid A→B→A cuts leave exactly one card on the latest subject (#64)', async () => {
+    // A→B→A within a dwell must not strand or stack orphan plates — keyed remounts
+    // must resolve to a single card on the final subject.
+    const { container, rerender } = render(DriverLowerThird, {
+      snapshot: subjectA,
+      widget: { trigger: 'dwell', dwellSeconds: 6 },
+    })
+    await tick()
+    await rerender({ snapshot: subjectB, widget: { trigger: 'dwell', dwellSeconds: 6 } })
+    await tick()
+    await rerender({ snapshot: subjectA, widget: { trigger: 'dwell', dwellSeconds: 6 } })
+    await tick()
+
+    expect(
+      container.querySelectorAll('[data-testid="driver-lower-third"]'),
+    ).toHaveLength(1)
+    expect(nameOf(container)).toBe('Hamilton')
+    expect(recutKey(container)).toBe('car-44')
   })
 
   it('persistent mode stays shown while the subject is on camera (no dwell timeout)', async () => {
