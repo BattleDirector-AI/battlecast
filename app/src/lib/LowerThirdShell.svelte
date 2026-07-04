@@ -140,8 +140,15 @@
     .lt3:global(.lt3--exit) .lt3__inner {
       animation: lt3-wipe-out 0.3s var(--ease-in) both;
     }
+    /* The exit sweep MUST use a keyframe name distinct from the entrance's
+       `lt3-bar` (below). The entrance bar animation finishes pinned at its 100%
+       frame (`both` fill); if the exit merely re-timed the SAME animation-name,
+       the browser treats it as the same, already-finished animation and never
+       restarts it — so the shine would not sweep on the way out (the plate/wipe
+       replay fine because they already use distinct `*-out` names). See
+       tmp/lower-third-wipe-bench.html for the isolated repro. */
     .lt3:global(.lt3--exit) .lt3__bar {
-      animation: lt3-bar 0.34s linear both;
+      animation: lt3-bar-out 0.34s linear both;
     }
   }
 
@@ -175,6 +182,25 @@
     }
   }
   @keyframes lt3-bar {
+    0% {
+      transform: translateX(-160%) skewX(-13deg);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    85% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(165%) skewX(-13deg);
+      opacity: 0;
+    }
+  }
+  /* Exit sweep — frames identical to `lt3-bar`; the DISTINCT NAME is the point,
+     so the browser starts a fresh animation on exit instead of leaving the
+     entrance one parked at its end. Keep in sync with `lt3-bar` above. */
+  @keyframes lt3-bar-out {
     0% {
       transform: translateX(-160%) skewX(-13deg);
       opacity: 0;
