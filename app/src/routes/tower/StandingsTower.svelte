@@ -164,4 +164,47 @@
     color: var(--bc-oncam-text);
     font-weight: var(--bc-weight-leader);
   }
+
+  /* Re-cut reveal (#64): when a camera cut moves the on-camera highlight to a new
+     driver, that row GAINS `.row--oncam` on the persistent (slot-keyed) node, so a
+     CSS animation on the class fires exactly once — a mint accent glow-in in the
+     shell's motion language (`--bc-up` / `--bc-accent-glow`). The row LOSING the
+     class just returns to normal (no exit needed). `both` fill settles on the
+     static on-cam shadow, so a steadily on-camera row looks identical afterward.
+     Gated to no-preference so reduced-motion viewers get an instant highlight. */
+  @media (prefers-reduced-motion: no-preference) {
+    .row--oncam {
+      animation: row-oncam-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .row--oncam .row__name {
+      animation: row-oncam-name 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+  }
+
+  @keyframes row-oncam-in {
+    0% {
+      box-shadow: none;
+    }
+    /* The mint accent lands: a bright left-edge bar + accent glow sweeps in… */
+    35% {
+      box-shadow:
+        inset 3px 0 0 0 var(--bc-up, #7cffb2),
+        0 0 28px var(--bc-accent-glow, rgba(31, 224, 196, 0.35));
+    }
+    /* …then settles to the standing on-camera shadow. */
+    100% {
+      box-shadow: var(--bc-oncam-shadow);
+    }
+  }
+  @keyframes row-oncam-name {
+    0% {
+      text-shadow: none;
+    }
+    45% {
+      text-shadow: 0 0 14px var(--bc-accent-glow, rgba(31, 224, 196, 0.45));
+    }
+    100% {
+      text-shadow: none;
+    }
+  }
 </style>

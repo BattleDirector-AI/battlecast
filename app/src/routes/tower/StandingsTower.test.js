@@ -78,6 +78,24 @@ describe('StandingsTower — on-camera highlight', () => {
       document.querySelectorAll('[data-testid="tower-row"][data-oncam="true"]'),
     ).toHaveLength(1)
   })
+
+  it('re-cut reveal: highlight lands on the new subject row after a camera cut (#64)', async () => {
+    // The rows are slot-keyed and persistent; on a camera cut the newly-selected
+    // row GAINS `row--oncam` (the class add is what fires the mint glow-in animation)
+    // and the previous row cleanly returns to normal — exactly one row highlighted.
+    const { rerender } = render(StandingsTower, { snapshot: closeBattle })
+    expect(rowFor('car-1').classList.contains('row--oncam')).toBe(true) // Verstappen on cam
+
+    // Cut to Hamilton (car-44): highlight moves off car-1 and onto car-44.
+    await rerender({
+      snapshot: { ...closeBattle, subject: { slot_id: 'car-44', driver_name: 'Hamilton' } },
+    })
+    expect(rowFor('car-44').classList.contains('row--oncam')).toBe(true)
+    expect(rowFor('car-1').classList.contains('row--oncam')).toBe(false)
+    expect(
+      document.querySelectorAll('[data-testid="tower-row"][data-oncam="true"]'),
+    ).toHaveLength(1)
+  })
 })
 
 describe('StandingsTower — rendering details', () => {

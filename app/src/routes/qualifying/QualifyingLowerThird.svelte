@@ -157,67 +157,83 @@
   const shown = $derived(modeShown || isFlash)
   const card = $derived(isFlash ? flashCard : liveCard)
   const hasTarget = $derived(card && (card.target != null || card.delta != null))
+
+  // Re-cut reveal (#64): the key that remounts the shell so a card change replays
+  // the entrance/exit reveal instead of swapping content in place. Two fire paths
+  // mean we key on the DISPLAYED card identity, not just the slot:
+  //  - live (mode-dwell): the on-camera subject's slot_id — a camera cut to a new
+  //    driver re-reveals the timing bar.
+  //  - flash (class-best): the FROZEN earning-driver card object — a fresh class-best
+  //    edge captures a new `flashCard`, so its identity changes and re-reveals even if
+  //    the same driver, and a mid-flash camera cut (same frozen card) does NOT.
+  // Under reduced motion the exit is duration 0, so this stays an instant swap.
+  const recutKey = $derived(isFlash ? flashCard : resolved.slotId)
 </script>
 
 {#if shown && card}
-  <LowerThirdShell>
-    <section
-      class="bc-qt"
-      class:bc-qt--flash={isFlash}
-      data-testid="qualifying-lower-third"
-      data-state={card.state}
-      aria-label="On-camera driver timing"
-    >
-      <span class="bc-qt__accent" aria-hidden="true"></span>
-      <div class="bc-qt__body">
-        <div class="bc-qt__head">
-          <span class="bc-qt__label" data-testid="qt-label">{isFlash ? 'CLASS BEST' : 'TIMING'}</span>
-          {#if card.position != null}
-            <span class="bc-qt__pos" data-testid="qt-pos">P{card.position}</span>
-          {/if}
-          <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
-          {#if card.carClass}
-            <ClassChip carClass={card.carClass} size="compact" />
-          {/if}
-        </div>
+  {#key recutKey}
+    <LowerThirdShell>
+      <section
+        class="bc-qt"
+        class:bc-qt--flash={isFlash}
+        data-testid="qualifying-lower-third"
+        data-state={card.state}
+        data-recut-key={isFlash ? `flash-${cbToken}` : (resolved.slotId ?? 'none')}
+        aria-label="On-camera driver timing"
+      >
+        <span class="bc-qt__accent" aria-hidden="true"></span>
+        <div class="bc-qt__body">
+          <div class="bc-qt__head">
+            <span class="bc-qt__label" data-testid="qt-label">{isFlash ? 'CLASS BEST' : 'TIMING'}</span>
+            {#if card.position != null}
+              <span class="bc-qt__pos" data-testid="qt-pos">P{card.position}</span>
+            {/if}
+            <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
+            {#if card.carClass}
+              <ClassChip carClass={card.carClass} size="compact" />
+            {/if}
+          </div>
 
-        <div class="bc-qt__times">
-          <div class="bc-qt__cell bc-qt__cell--best">
-            <span class="bc-qt__cell-label">BEST</span>
-            <span class="bc-qt__cell-value" data-testid="qt-best">{fmtLapTime(card.best)}</span>
-          </div>
-          <div class="bc-qt__cell">
-            <span class="bc-qt__cell-label">LAST</span>
-            <span class="bc-qt__cell-value" data-testid="qt-last">{fmtLapTime(card.last)}</span>
-          </div>
-          <div class="bc-qt__sectors" data-testid="qt-sectors">
-            {#each ['S1', 'S2', 'S3'] as name, i (name)}
-              <div class="bc-qt__cell bc-qt__cell--sector">
-                <span class="bc-qt__cell-label">{name}</span>
-                <span class="bc-qt__cell-value" data-testid="qt-{name.toLowerCase()}"
-                  >{fmtSector(card.sectors[i])}</span
+          <div class="bc-qt__times">
+            <div class="bc-qt__cell bc-qt__cell--best">
+              <span class="bc-qt__cell-label">BEST</span>
+              <span class="bc-qt__cell-value" data-testid="qt-best">{fmtLapTime(card.best)}</span>
+            </div>
+            <div class="bc-qt__cell">
+              <span class="bc-qt__cell-label">LAST</span>
+              <span class="bc-qt__cell-value" data-testid="qt-last">{fmtLapTime(card.last)}</span>
+            </div>
+            <div class="bc-qt__sectors" data-testid="qt-sectors">
+              {#each ['S1', 'S2', 'S3'] as name, i (name)}
+                <div class="bc-qt__cell bc-qt__cell--sector">
+                  <span class="bc-qt__cell-label">{name}</span>
+                  <span class="bc-qt__cell-value" data-testid="qt-{name.toLowerCase()}"
+                    >{fmtSector(card.sectors[i])}</span
+                  >
+                </div>
+              {/each}
+            </div>
+            {#if hasTarget}
+              <div class="bc-qt__cell bc-qt__cell--target" data-testid="qt-target-cell">
+                <span class="bc-qt__cell-label">TARGET</span>
+                <span class="bc-qt__cell-value" data-testid="qt-target"
+                  >{fmtLapTime(card.target)}</span
                 >
               </div>
-            {/each}
+              <div
+                class="bc-qt__cell bc-qt__cell--delta"
+                class:bc-qt__cell--ahead={card.delta != null && card.delta <= 0}
+                data-testid="qt-delta-cell"
+              >
+                <span class="bc-qt__cell-label">Δ</span>
+                <span class="bc-qt__cell-value" data-testid="qt-delta">{fmtDelta(card.delta)}</span>
+              </div>
+            {/if}
           </div>
-          {#if hasTarget}
-            <div class="bc-qt__cell bc-qt__cell--target" data-testid="qt-target-cell">
-              <span class="bc-qt__cell-label">TARGET</span>
-              <span class="bc-qt__cell-value" data-testid="qt-target">{fmtLapTime(card.target)}</span>
-            </div>
-            <div
-              class="bc-qt__cell bc-qt__cell--delta"
-              class:bc-qt__cell--ahead={card.delta != null && card.delta <= 0}
-              data-testid="qt-delta-cell"
-            >
-              <span class="bc-qt__cell-label">Δ</span>
-              <span class="bc-qt__cell-value" data-testid="qt-delta">{fmtDelta(card.delta)}</span>
-            </div>
-          {/if}
         </div>
-      </div>
-    </section>
-  </LowerThirdShell>
+      </section>
+    </LowerThirdShell>
+  {/key}
 {/if}
 
 <style>
