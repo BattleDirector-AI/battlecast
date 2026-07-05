@@ -33,10 +33,13 @@ describe('AllView — standings tower + battle box from one snapshot', () => {
     expect(container.textContent).toContain('+1.8')
   })
 
-  it('renders both widgets in their empty/idle states when there is no snapshot yet', () => {
+  it('shows the tower empty state and no battle box when there is no snapshot yet', () => {
     const { container } = render(AllView, { snapshot: null })
     expect(container.querySelector('[data-testid="tower-empty"]')).not.toBeNull()
-    expect(container.textContent).toContain('NO ACTIVE BATTLE')
+    // The battle box is a race widget: with no snapshot there is no racing mode, so it
+    // draws nothing (its slot may remain, but no battle content). #81
+    expect(container.querySelector('.bc-battle')).toBeNull()
+    expect(container.textContent).not.toContain('NO ACTIVE BATTLE')
   })
 
   it('keeps the battle box idle for a lone car even though the tower has a row', () => {

@@ -20,6 +20,16 @@
     const hasBehind = typeof gap_behind === 'number' && !Number.isNaN(gap_behind)
     return hasAhead || hasBehind
   }
+
+  // --- Racing-mode gate ------------------------------------------------------
+  // "Battle for position" is a green-flag RACE concept. In qualifying/practice cars
+  // run solo flying laps, and grid/results are frozen boards — there is no on-track
+  // fight to show, even though the producer may still emit gap_ahead/gap_behind. So
+  // the battle box is gated to racing modes and renders nothing elsewhere. Kept
+  // tolerant: a race `replay` counts; other/unknown modes do not.
+  export function isRacingMode(mode) {
+    return mode === 'race' || mode === 'replay'
+  }
 </script>
 
 <script>
@@ -27,8 +37,9 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import IntensityMeter from '../../design/IntensityMeter.svelte'
 
-  let { subject = {}, relationship = {}, vehicles = [] } = $props()
+  let { subject = {}, relationship = {}, vehicles = [], mode = null } = $props()
 
+  const racing = $derived(isRacingMode(mode))
   const active = $derived(isActiveBattle(relationship))
   const intensity = $derived(
     typeof relationship?.battle_intensity === 'number' ? relationship.battle_intensity : 0
@@ -53,6 +64,7 @@
   )
 </script>
 
+{#if racing}
 <section
   class="bc-battle"
   class:bc-battle--idle={!active}
@@ -96,9 +108,11 @@
     </div>
   {/if}
 </section>
+{/if}
 
 <style>
   .bc-battle {
+    position: relative;
     width: var(--bc-battle-width);
     box-sizing: border-box;
     background: var(--bc-plate-dense);
@@ -111,7 +125,18 @@
     color: var(--bc-text);
   }
 
-  .bc-battle--hot {
+  /* Intensifying border: the pulsing red ring is drawn on an overlay that sits
+     ABOVE the header, so it wraps the whole widget. Painting it (as bc-pulse's
+     inset shadow) on the section itself let the header's opaque background cover
+     the ring along the top edge — the border then appeared to hug only the body.
+     inset:0 + the plate's overflow:hidden clip the ring to the rounded frame. */
+  .bc-battle--hot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 3;
     animation: bc-pulse var(--bc-dur-pulse) var(--bc-ease) infinite;
   }
 

@@ -1,17 +1,23 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
-import BattleBox, { isActiveBattle } from './BattleBox.svelte'
+import BattleBox, { isActiveBattle, isRacingMode } from './BattleBox.svelte'
+// Component source, for the CSS-contract assertion on the intensifying border
+// (happy-dom runs no CSS, so the ::after overlay can only be checked in source).
+import source from './BattleBox.svelte?raw'
 
 import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
 import noBattle from '../../../../spec/v1/fixtures/race-no-battle.json'
 import idleBattle from '../../../../spec/v1/fixtures/race-idle-battle.json'
 
+// The battle box is gated to racing modes; the race-* fixtures carry mode "race",
+// so thread it through (an absent mode renders nothing — see the mode-gate suite).
 function renderFixture(fixture) {
   return render(BattleBox, {
     props: {
       subject: fixture.subject,
       relationship: fixture.relationship,
       vehicles: fixture.vehicles,
+      mode: fixture.mode,
     },
   })
 }
@@ -73,6 +79,7 @@ describe('BattleBox — idle (no active battle)', () => {
       subject: idleBattle.subject,
       relationship: idleBattle.relationship,
       vehicles: idleBattle.vehicles,
+      mode: idleBattle.mode,
     })
 
     const text = container.textContent
@@ -97,5 +104,46 @@ describe('isActiveBattle heuristic', () => {
 
   it('is inactive for a missing relationship', () => {
     expect(isActiveBattle(undefined)).toBe(false)
+  })
+})
+
+describe('BattleBox — racing-mode gate (#81)', () => {
+  it('isRacingMode is true only for race/replay', () => {
+    expect(isRacingMode('race')).toBe(true)
+    expect(isRacingMode('replay')).toBe(true)
+    for (const m of ['qualifying', 'practice', 'grid', 'results', 'unknown', null, undefined]) {
+      expect(isRacingMode(m)).toBe(false)
+    }
+  })
+
+  it('renders NOTHING outside a racing mode, even with an active-battle relationship', () => {
+    // Qualifying still emits gap_ahead/gap_behind, but a "battle for position" is a
+    // race concept — the box must not appear.
+    const { container } = render(BattleBox, {
+      props: {
+        subject: closeBattle.subject,
+        relationship: closeBattle.relationship,
+        vehicles: closeBattle.vehicles,
+        mode: 'qualifying',
+      },
+    })
+    expect(container.querySelector('.bc-battle')).toBeNull()
+    expect(container.textContent.trim()).toBe('')
+  })
+
+  it('renders the box in a racing mode', () => {
+    const { container } = renderFixture(closeBattle) // mode "race"
+    expect(container.querySelector('.bc-battle')).not.toBeNull()
+  })
+})
+
+describe('BattleBox — intensifying border wraps the whole widget (#80)', () => {
+  // The pulsing ring must be drawn on an overlay ABOVE the header, not as an inset
+  // shadow on the section (which the header's opaque background covered along the
+  // top). Assert the source draws the pulse on a `.bc-battle--hot::after` overlay
+  // and NOT on the bare `.bc-battle--hot` element. Red on the pre-fix source.
+  it('animates bc-pulse on the ::after overlay, not the section itself', () => {
+    expect(/\.bc-battle--hot::after\s*\{[^}]*animation:\s*bc-pulse/s.test(source)).toBe(true)
+    expect(/\.bc-battle--hot\s*\{[^}]*animation:\s*bc-pulse/s.test(source)).toBe(false)
   })
 })
