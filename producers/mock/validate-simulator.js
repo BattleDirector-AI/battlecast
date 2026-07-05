@@ -11,8 +11,16 @@
 // `notable.class_best_lap` flag, so the class-best edge the #22 widget relies on
 // is exercised. Exits non-zero on any failure.
 
-const { createSimulator, PHASES } = require("./simulate.js");
+const { createSimulator, PHASES, classPace } = require("./simulate.js");
 const { validate } = require("./validate.js");
+
+// Lap-time realism band, as a fraction of a class's base pace. A completed lap far
+// below the class pace means a car is out-lapping its own class (the absolute-noise
+// bug: slower classes posting sub-pace laps); far above means an inflated multi-lap
+// "out lap". Per-car skill offset (±0.5s) plus the ±4% pace noise keep real laps
+// comfortably inside [0.9x, 1.5x]; the pre-fix code produced laps down to ~0.55x.
+const LAP_MIN_FACTOR = 0.9;
+const LAP_MAX_FACTOR = 1.5;
 
 const TICKS = Number(process.env.VALIDATE_TICKS) || 3000;
 const DT_SECONDS = Number(process.env.SIM_DT_SECONDS) || 2;
@@ -28,12 +36,29 @@ const simulator = createSimulator({
 let failed = 0;
 const ticksByMode = new Map();
 let qualiClassBestSeen = false;
+const lapBandViolations = [];
 
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
   ticksByMode.set(payload.mode, (ticksByMode.get(payload.mode) || 0) + 1);
   if (payload.mode === "qualifying" && payload.vehicles.some((v) => v.notable && v.notable.class_best_lap)) {
     qualiClassBestSeen = true;
+  }
+
+  // Lap-time realism: every completed lap must sit within a sane band of its class
+  // base pace. Catches the absolute-noise regression (sub-pace laps / cross-class
+  // inversion) and inflated out-laps. Sampled once per (car, lap) via last_lap.
+  for (const v of payload.vehicles) {
+    if (v.last_lap == null) continue;
+    const base = classPace(v.vehicle_class);
+    if (v.last_lap < base * LAP_MIN_FACTOR || v.last_lap > base * LAP_MAX_FACTOR) {
+      if (lapBandViolations.length < 10) {
+        lapBandViolations.push(
+          `tick ${i} (${payload.mode}): ${v.driver_name} [${v.vehicle_class}] last_lap=${v.last_lap.toFixed(1)}s ` +
+            `= ${(v.last_lap / base).toFixed(2)}x base ${base}s`,
+        );
+      }
+    }
   }
 
   const errors = validate(payload);
@@ -66,6 +91,15 @@ if (!qualiClassBestSeen) {
   process.exit(1);
 }
 
+if (lapBandViolations.length > 0) {
+  console.error(
+    `\nImplausible lap times (outside [${LAP_MIN_FACTOR}x, ${LAP_MAX_FACTOR}x] of class base pace):`,
+  );
+  for (const v of lapBandViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
 console.log(`All ${TICKS} simulated ticks valid against spec/v1 required-field contract.`);
 console.log(`Phases covered: ${PHASES.map((m) => `${m} (${ticksByMode.get(m)} ticks)`).join(", ")}.`);
 console.log("Qualifying surfaced a notable.class_best_lap flag (class-best edge exercised).");
+console.log(`Lap times within [${LAP_MIN_FACTOR}x, ${LAP_MAX_FACTOR}x] of class base pace.`);

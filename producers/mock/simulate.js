@@ -144,20 +144,28 @@ function gapToLeaderMap(order, byLap) {
   return map;
 }
 
-/** A fresh, session-start field: no timing yet, staggered on the grid. */
-function makeCars() {
+/** A fresh, session-start field: no timing yet, staggered on the grid. `startClock`
+ *  seeds each car's lap-timing baseline to the CURRENT sim clock — critical when the
+ *  session loops back to qualifying at a non-zero clock, or the first completed lap
+ *  would be measured against clock 0 and report the entire elapsed session as one
+ *  enormous "lap". */
+function makeCars(startClock = 0) {
   return GRID.map((entry, i) => {
     const skillOffset = ((i * 37) % 11) / 10 - 0.5; // deterministic spread, -0.5..+0.5s
+    // Stagger the starting grid so the field doesn't begin perfectly bunched.
+    const distance = -i * (LAP_UNIT / GRID.length) * 2;
     return {
       slot_id: `car-${entry.number}`,
       driver_name: entry.driver,
       vehicle_class: entry.classKey,
       pace: classPace(entry.classKey) + skillOffset,
-      noiseVelocity: 0,
-      // Stagger the starting grid so the field doesn't begin perfectly bunched.
-      distance: -i * (LAP_UNIT / GRID.length) * 2,
-      lapStartDistance: 0,
-      lastLapClock: 0,
+      noiseFactor: 0,
+      distance,
+      // Measure the first lap from the car's own staggered start (not 0), so the
+      // opening lap is a normal flying lap rather than an inflated multi-lap "out
+      // lap" for cars that start further back.
+      lapStartDistance: distance,
+      lastLapClock: startClock,
       last_lap: null,
       best_lap: null,
       sector_times: [],
@@ -169,11 +177,15 @@ function makeCars() {
 
 /** Advance one car's distance and, on a completed lap, its lap/sector timing. */
 function advanceCar(car, dtSeconds, clock) {
-  // Slow random-walk pace fluctuation so gaps ebb and flow organically
-  // instead of separating (or converging) monotonically.
-  car.noiseVelocity = clamp(car.noiseVelocity + (Math.random() - 0.5) * 0.0015, -0.008, 0.008);
+  // Slow random-walk pace fluctuation so gaps ebb and flow organically instead of
+  // separating (or converging) monotonically. It is a fraction of the car's OWN
+  // base speed (a ±4% band), not an absolute term: an absolute term is a huge
+  // fraction of the slower classes' speed and produced implausible lap times and
+  // cross-class pace inversion (a GT3 out-lapping a GTP). ±4% keeps lap times within
+  // a realistic band of the car's pace while still shuffling intra-class order.
+  car.noiseFactor = clamp(car.noiseFactor + (Math.random() - 0.5) * 0.01, -0.04, 0.04);
   const baseSpeed = 1 / car.pace;
-  car.distance += (baseSpeed + car.noiseVelocity) * dtSeconds;
+  car.distance += baseSpeed * (1 + car.noiseFactor) * dtSeconds;
 
   if (car.distance - car.lapStartDistance >= LAP_UNIT) {
     car.lapStartDistance += LAP_UNIT;
@@ -251,7 +263,7 @@ function createSimulator(config = {}) {
       car.last_lap = null;
       car.best_lap = null;
       car.sector_times = [];
-      car.noiseVelocity = 0;
+      car.noiseFactor = 0;
       car.improvedBestThisStep = false;
     });
   }
@@ -263,8 +275,10 @@ function createSimulator(config = {}) {
     // firing the lower-thirds against the new classification.
     subjectSlotId = null;
     if (p === "qualifying") {
-      // Loop back to a clean session: a fresh field with no timing.
-      cars = makeCars();
+      // Loop back to a clean session: a fresh field with no timing. Seed lap timing
+      // to the current clock so the first lap of a looped-back session isn't measured
+      // against clock 0 (which would report the whole prior session as one lap).
+      cars = makeCars(clock);
       frozenOrder = null;
     } else if (p === "grid") {
       // Grid = the qualifying result, frozen as the starting order.
@@ -452,4 +466,4 @@ function createSimulator(config = {}) {
   return { step };
 }
 
-module.exports = { createSimulator, PHASES };
+module.exports = { createSimulator, PHASES, classPace };
