@@ -171,7 +171,7 @@ describe('LogoRotation — reveal confined to the logo, sweeps full width, and e
 
   it('sweeps the shine bar fully across and off the right edge', () => {
     // The 34%-wide bar (left:-20%) must translate far enough to clear the right
-    // edge, not stall mid-box at the old 165%. -20% + 0.34·300% > 100%.
+    // edge, not stall mid-box at the old 165%. At 360%: -20% + 0.34·360% = 102.4% > 100%.
     const bar = /@keyframes\s+bc-logo-bar\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(source)?.[1] || ''
     const end = /100%\s*\{[^}]*translateX\(\s*(\d+)%/.exec(bar)
     expect(end).toBeTruthy()
@@ -230,6 +230,38 @@ describe('LogoRotation — reveal confined to the logo, sweeps full width, and e
     await tick()
     expect(queryByTestId('logo-leaving')).toBeNull()
     expect(shownSrc(getByTestId)).toBe('/logos/b.png')
+  })
+
+  it('a second switch within the exit window re-targets the leaving layer (no stale teardown)', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: false,
+      addEventListener() {},
+      removeEventListener() {},
+    }))
+    // perSlotSeconds 0.2s (200ms) < EXIT_MS (340ms), so switches arrive faster than a
+    // leaving layer's teardown — the controller must cancel the prior teardown timer
+    // and re-target `leaving`, or the departing logo vanishes early / a stale timer
+    // nulls the wrong image.
+    const { getByTestId } = render(LogoRotation, {
+      rotation: { images: ['/logos/a.png', '/logos/b.png'], perSlotSeconds: 0.2 },
+    })
+    await tick()
+    expect(shownSrc(getByTestId)).toBe('/logos/a.png')
+
+    await vi.advanceTimersByTimeAsync(200) // A -> B; A leaves (teardown armed @540ms)
+    await tick()
+    expect(getByTestId('logo-leaving').getAttribute('src')).toBe('/logos/a.png')
+
+    await vi.advanceTimersByTimeAsync(200) // B -> A @400ms; must cancel A's teardown, B now leaves
+    await tick()
+    expect(shownSrc(getByTestId)).toBe('/logos/a.png')
+    expect(getByTestId('logo-leaving').getAttribute('src')).toBe('/logos/b.png')
+
+    // At 550ms the FIRST switch's teardown (540ms) would have fired if it were not
+    // cancelled, nulling the current (B) leaving layer early. It must still be present.
+    await vi.advanceTimersByTimeAsync(150)
+    await tick()
+    expect(getByTestId('logo-leaving').getAttribute('src')).toBe('/logos/b.png')
   })
 
   it('reduced motion swaps instantly — no exit layer', async () => {

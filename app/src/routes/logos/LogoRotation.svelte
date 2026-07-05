@@ -110,9 +110,15 @@
       return () => clearTimeout(t)
     })
   })
+
+  // What the entrance layer paints. `shown` is only assigned inside the effect above
+  // (post-mount), so falling back to `current` keeps the FIRST paint correct — without
+  // it the widget would briefly render the idle "NO SPONSORS" state before the effect
+  // seeds `shown`. Once seeded they are equal.
+  const displayed = $derived(shown ?? current)
 </script>
 
-{#if shown}
+{#if current}
   <div class="bc-logos" data-testid="logos-widget">
     <!-- Exit layer: the outgoing logo wipes OUT under the raked mint bar before the
          incoming one appears. Translate/clip only — never skewed, so the mark is not
@@ -134,9 +140,9 @@
          wipe-in back until the exit above has finished. Same bar-wipe vocabulary the
          lower-thirds use (mirrors LowerThirdShell). -->
     <div class="bc-logos__layer">
-      {#key shown}
+      {#key displayed}
         <div class="bc-logos__reveal" style="--enter-delay: {enterDelay}ms">
-          <img class="bc-logos__img" data-testid="logo-image" src={shown} alt="" />
+          <img class="bc-logos__img" data-testid="logo-image" src={displayed} alt="" />
           <span class="bc-logos__shine" aria-hidden="true"></span>
         </div>
       {/key}
@@ -233,7 +239,13 @@
 
     /* Exit (the leaving layer): the logo wipes OUT under the bar while the bar sweeps
        across again. Distinct `*-out` keyframe names so the browser restarts them
-       instead of leaving the entrance ones parked at their end frame. */
+       instead of leaving the entrance ones parked at their end frame.
+       The leaving wrapper matches `.bc-logos__reveal` above, so without this it would
+       REPLAY the entrance `bc-logo-slide` (fade/slide IN from the left) while its image
+       wipes out — contradictory motion. Hold it static so only the wipe + shine play. */
+    .bc-logos__reveal--leaving {
+      animation: none;
+    }
     .bc-logos__reveal--leaving .bc-logos__img {
       animation: bc-logo-wipe-out 0.3s var(--ease-in) both;
     }
