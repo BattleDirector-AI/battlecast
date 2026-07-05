@@ -62,8 +62,16 @@
 
 {#if current}
   <div class="bc-logos" data-testid="logos-widget">
+    <!-- Re-keyed on each image change so the reveal replays on switch. The wrapper
+         is the "plate" that skew-slides in; the image is the clipped content that
+         wipes in behind the raked mint bar — the same skewed bar-wipe reveal the
+         lower-thirds use (mirrors LowerThirdShell), so every widget switches with one
+         motion vocabulary. -->
     {#key current}
-      <img class="bc-logos__img" data-testid="logo-image" src={current} alt="" />
+      <div class="bc-logos__reveal">
+        <img class="bc-logos__img" data-testid="logo-image" src={current} alt="" />
+        <span class="bc-logos__shine" aria-hidden="true"></span>
+      </div>
     {/key}
   </div>
 {:else}
@@ -82,13 +90,70 @@
     overflow: hidden;
   }
 
+  /* The reveal wrapper is the skewed-bar-wipe "plate": it clips the raked shine bar
+     and the content wipe to its own box, and skew-slides in on each switch. */
+  .bc-logos__reveal {
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
   .bc-logos__img {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    /* Re-keyed on each image change, so the animation replays as a fade-in — a
-       lightweight crossfade without leaving a second element in the DOM. */
-    animation: bc-logo-fade var(--bc-dur-reorder) var(--bc-ease);
+  }
+
+  /* Bright mint shine bar, raked ~13°, sweeping across on the way in — identical
+     visual language to the lower-third reveal (LowerThirdShell) and the tower
+     re-cut, so it reads as light passing over the graphic. */
+  .bc-logos__shine {
+    position: absolute;
+    top: -25%;
+    left: -20%;
+    width: 34%;
+    height: 150%;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--bc-up, #7cffb2) 45%,
+      var(--bc-oncam-text, #eafffb) 55%,
+      transparent 100%
+    );
+    mix-blend-mode: screen;
+    filter: blur(3px);
+    box-shadow: 0 0 24px var(--bc-accent-glow, rgba(31, 224, 196, 0.28));
+  }
+
+  /* Entrance: wrapper skew-slides in, the logo wipes in behind the raked bar. Gated
+     to no-preference so reduced-motion viewers skip the sweep for a plain fade. */
+  @media (prefers-reduced-motion: no-preference) {
+    .bc-logos__reveal {
+      animation: bc-logo-slide 0.42s var(--ease-out) both;
+    }
+    .bc-logos__img {
+      animation: bc-logo-wipe 0.36s var(--ease-out) 0.12s both;
+    }
+    .bc-logos__shine {
+      animation: bc-logo-bar 0.4s linear 0.12s both;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bc-logos__img {
+      animation: bc-logo-fade 0.16s linear both;
+    }
+    .bc-logos__shine {
+      display: none;
+    }
   }
 
   .bc-logos--idle {
@@ -105,6 +170,44 @@
     letter-spacing: var(--bc-track-label);
     text-transform: uppercase;
     color: var(--bc-text-3);
+  }
+
+  /* Reveal keyframes mirror LowerThirdShell's lt3-plate-in / lt3-wipe-in / lt3-bar,
+     so the logo carousel switches with the exact same skewed bar-wipe as the rest of
+     the overlay. Keep the values in sync with that component. */
+  @keyframes bc-logo-slide {
+    from {
+      opacity: 0;
+      transform: translateX(-46%) skewX(-15deg);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) skewX(0deg);
+    }
+  }
+  @keyframes bc-logo-wipe {
+    from {
+      clip-path: polygon(0 0, 0% 0, -18% 100%, 0 100%);
+    }
+    to {
+      clip-path: polygon(0 0, 118% 0, 100% 100%, 0 100%);
+    }
+  }
+  @keyframes bc-logo-bar {
+    0% {
+      transform: translateX(-160%) skewX(-13deg);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    85% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(165%) skewX(-13deg);
+      opacity: 0;
+    }
   }
 
   @keyframes bc-logo-fade {
