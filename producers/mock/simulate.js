@@ -107,6 +107,42 @@ function round1(n) {
   return Math.round(n * 10) / 10;
 }
 
+function round3(n) {
+  return Math.round(n * 1000) / 1000;
+}
+
+/**
+ * Gap in seconds from each car to the OVERALL classification leader (order[0]),
+ * keyed by slot_id, for the spec-v1 `gap_to_leader` field. In a lap-classified
+ * phase (qualifying / grid) the gap is the car's best-lap delta to the leader; in
+ * a distance-classified phase (race / results) it is the on-track time gap,
+ * accumulated from the adjacent pair deltas along the running order (the same
+ * distance→seconds conversion used for the subject's gap_ahead/gap_behind). The
+ * leader is 0; a car with no comparable timing yet is null.
+ */
+function gapToLeaderMap(order, byLap) {
+  const map = new Map();
+  if (order.length === 0) return map;
+  const leader = order[0];
+  if (byLap) {
+    const lead = leader.best_lap;
+    for (const car of order) {
+      map.set(car.slot_id, lead != null && car.best_lap != null ? round3(car.best_lap - lead) : null);
+    }
+  } else {
+    let cum = 0;
+    map.set(leader.slot_id, 0);
+    for (let i = 1; i < order.length; i++) {
+      const ahead = order[i - 1];
+      const car = order[i];
+      const avgSpeed = (1 / car.pace + 1 / ahead.pace) / 2;
+      cum += (ahead.distance - car.distance) / avgSpeed;
+      map.set(car.slot_id, round3(cum));
+    }
+  }
+  return map;
+}
+
 /** A fresh, session-start field: no timing yet, staggered on the grid. */
 function makeCars() {
   return GRID.map((entry, i) => {
@@ -374,6 +410,10 @@ function createSimulator(config = {}) {
       car.position = i + 1;
     });
 
+    // Gap to the overall leader for each car — lap-delta in the lap-classified
+    // phases, on-track time gap in the distance-classified ones.
+    const gapToLeader = gapToLeaderMap(order, phase === "qualifying" || phase === "grid");
+
     const { subjectCar, relationship } = running ? runningDirector(order) : staticDirector(order);
 
     return {
@@ -389,6 +429,7 @@ function createSimulator(config = {}) {
           last_lap: car.last_lap,
           best_lap: car.best_lap,
           sector_times: car.sector_times,
+          gap_to_leader: gapToLeader.get(car.slot_id) ?? null,
           notable: {
             class_best_lap: car.best_lap != null && car.best_lap === classBest.get(car.vehicle_class),
             session_best_lap: car.best_lap != null && car.best_lap === sessionBest,

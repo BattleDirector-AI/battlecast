@@ -40,6 +40,9 @@ function groupClasses() {
 const headerText = () =>
   document.querySelector('[data-testid="tower-header"]').textContent.trim()
 
+const gapFor = (slotId) =>
+  rowFor(slotId)?.querySelector('[data-testid="row-gap"]')?.textContent.trim()
+
 describe('StandingsTower — running order', () => {
   it('renders driver names in position order (close-battle fixture)', () => {
     render(StandingsTower, { snapshot: closeBattle })
@@ -279,5 +282,46 @@ describe('StandingsTower — class filter', () => {
     const empty = document.querySelector('[data-testid="tower-empty"]')
     expect(empty.getAttribute('data-reason')).toBe('no-state')
     expect(empty.textContent.trim()).toBe('Waiting for state…')
+  })
+})
+
+describe('StandingsTower — gap to leader (#28)', () => {
+  it('inline: the leader reads LEADER, others show the gap to the overall leader', () => {
+    render(StandingsTower, { snapshot: closeBattle })
+    // race-close-battle: Hamilton P1 (LEADER), then the field by gap_to_leader.
+    expect(gapFor('car-44')).toBe('LEADER')
+    expect(gapFor('car-1')).toBe('+0.400')
+    expect(gapFor('car-16')).toBe('+2.200')
+    expect(gapFor('car-4')).toBe('+3.700')
+  })
+
+  it('grouped: each class restarts at LEADER; gaps are to the CLASS leader', () => {
+    render(StandingsTower, { snapshot: multiClass, classDisplay: 'grouped' })
+    // GTP: Verstappen (also the overall leader) leads the class; Hamilton +0.128.
+    expect(gapFor('car-1')).toBe('LEADER')
+    expect(gapFor('car-44')).toBe('+0.128')
+    // LMP2: Rossi leads its class; Bourdais +0.475 to Rossi (7.243 − 6.768), NOT
+    // his +7.243 gap to the overall leader — the class-leader subtraction.
+    expect(gapFor('car-8')).toBe('LEADER')
+    expect(gapFor('car-31')).toBe('+0.475')
+    // GT3: Alonso leads its class; Albon +0.656 (15.000 − 14.344).
+    expect(gapFor('car-14')).toBe('LEADER')
+    expect(gapFor('car-23')).toBe('+0.656')
+  })
+
+  it('tolerates an older producer that omits gap_to_leader (renders an em dash)', () => {
+    // Additive field: strip it to mimic a producer that never sends it. The leader
+    // still reads LEADER (position-based); a non-leader with no gap shows '—'.
+    const stripped = {
+      ...closeBattle,
+      vehicles: closeBattle.vehicles.map((v) => {
+        const clone = { ...v }
+        delete clone.gap_to_leader
+        return clone
+      }),
+    }
+    render(StandingsTower, { snapshot: stripped })
+    expect(gapFor('car-44')).toBe('LEADER')
+    expect(gapFor('car-1')).toBe('—')
   })
 })
