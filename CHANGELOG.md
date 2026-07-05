@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-05
+
 ### Added
 
 - **Class-aware standings tower (#28, spec-v1 scope).** The standings tower
