@@ -7,6 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Class-aware standings tower (#28, spec-v1 scope).** The standings tower
+  (`app/src/routes/tower/StandingsTower.svelte`) now understands a multi-class
+  field. A new additive per-widget knob **`classDisplay: 'inline' | 'grouped'`
+  (default `'inline'`)** selects the layout: **inline** keeps the single
+  overall-position list but badges each row with its position within its class
+  (e.g. `1/7`); **grouped** splits the field into per-class sections in
+  class-registry order (like the grid/results slides), with positions restarting
+  within each class. The header now reflects the session — derived from
+  `snapshot.mode` (RACE / QUALIFYING / PRACTICE, unknown modes uppercased),
+  falling back to the `label` prop when absent. A `?class=<VClass>` URL knob
+  narrows the tower to one class (case-insensitive; absent = all), mirroring the
+  slides — read by `TowerPage` and `AllView`, with a distinct "No cars in this
+  class" empty state. `classDisplay` is surfaced in the `/config` editor for the
+  tower widget and round-trips through saved profiles (no `configVersion` bump).
+  The on-camera re-cut flash (#68) and reduced-motion gating are preserved in both
+  layouts. Each row's timing column now reads its **gap to the leader** (#28, via
+  the additive spec-#20 `gap_to_leader` field) — to the overall leader in the inline
+  layout and to the class leader in the grouped layout (`LEADER` on top, `—` when
+  undetermined) — replacing the former last-lap placeholder.
+
+- **Full results / standings slide (#23).** A full-screen, opaque takeover board
+  (`app/src/routes/results/ResultsSlide.svelte` + `ResultsPage.svelte`) on its own
+  `/results` route, for showing end- or mid-session results. Every vehicle is
+  listed strictly in `position` order with its class chip, driver name, and best
+  lap. A `?class=<VClass>` URL knob narrows the board to a single class
+  (case-insensitive; absent = all classes), mirroring the `?show=` / `?hide=`
+  convention. Explicit idle states — "Waiting for results…" with no snapshot, and
+  a distinct "No cars in this class" when a class filter matches nothing — so the
+  board never blanks.
+
+- **Starting-order / grid slide (#24).** A full-screen, opaque takeover board
+  (`app/src/routes/grid/GridSlide.svelte` + `GridPage.svelte`) on its own `/grid`
+  route, for showing the pre-race starting grid. Cars are grouped per class (in
+  class-registry order) and laid out in a conventional staggered two-column grid,
+  strictly in `position` order within each class, each cell showing its class bar,
+  grid position, and driver. A `?class=<VClass>` URL knob narrows the board to a
+  single class (case-insensitive; absent = all classes grouped), mirroring the
+  `?show=` / `?hide=` convention. Explicit idle states — "Waiting for grid…" with
+  no snapshot, and a distinct "No cars in this class" when a class filter matches
+  nothing — so the board never blanks.
+
+### Changed
+
+- **Reference mock producer auto-cycles the session phases (#66, dev tooling).** The
+  zero-dependency mock producer's `simulate` mode
+  (`producers/mock/simulate.js` / `server.js`) no longer emits one endless green-flag
+  race; it now loops through a full session — **qualifying → grid → race → results** —
+  so a single live mock exercises the whole overlay set. Each phase classifies
+  `position` on its own terms (qualifying by best lap, grid frozen to the qualifying
+  result, race by distance, results frozen to the final order), the director keeps
+  cutting the on-camera `subject` throughout so the lower-thirds fire in every phase,
+  and qualifying surfaces `notable.class_best_lap` false→true edges. Every tick of
+  every phase stays spec-v1 valid (`schemaVersion:"1"`; no schema change — `mode` is a
+  free string). Phase durations are env-configurable (`QUALI_SECONDS`, `GRID_SECONDS`,
+  `RACE_SECONDS`, `RESULTS_SECONDS`); transitions are logged to stdout;
+  `validate-simulator` now asserts every phase is visited and validated. Producer-only;
+  no app or spec change. See `producers/mock/README.md`.
+
+- **Re-cut reveal for lower-thirds and the standings tower (#64).** When the camera
+  cuts to a new on-camera driver while a lower-third is already up, the plate now
+  replays the full skewed bar-wipe — the old driver's plate plays its exit and the
+  new driver's plays its entrance — instead of silently swapping the name in place.
+  The driver name-tag (#21) keys its shell on the on-camera `slot_id`; the
+  qualifying/sector timing bar (#22) keys on the displayed card identity so both a
+  camera cut and a fresh class-best flash re-reveal (the class-best flash still
+  freezes the earning driver). The standings tower's on-camera highlight now sweeps
+  an on-brand mint shine — a raked bar-wipe, not the original box-shadow glow (#73) —
+  across the newly-selected row. Reduced-motion viewers keep an instant swap.
+
+- **Logo / sponsor carousel switches with the bar-wipe reveal (#82).** The logo
+  rotation widget (`app/src/routes/logos/LogoRotation.svelte`) no longer cross-fades
+  between sponsors — it now uses the same skewed bar-wipe vocabulary as the
+  lower-thirds and tower re-cut: the outgoing logo wipes **out** under a raked mint
+  shine bar, then the incoming one wipes **in**. The reveal is confined to the logo
+  box — not the full slot, so the shine never sweeps empty space beside a smaller
+  mark — and its bar sweeps the full width; the wrapper translates only (never skews)
+  so a brand mark is never sheared (#85). Reduced-motion viewers keep a plain fade
+  with no shine.
+
+- **Reference mock producer emits realistic lap times (#76, dev tooling).** The
+  mock's simulated lap times now derive from per-class pace baselines plus relative
+  per-driver noise instead of uniform placeholder values, so the timing columns and
+  gap-to-leader readouts exercise plausible data. Producer-only; no app or spec
+  change.
+
+### Fixed
+
+- **Lower-third exit and tower highlight now animate under real motion (#68).** Two
+  shipped animations never fired for viewers with `prefers-reduced-motion:
+  no-preference`. (1) The lower-third's skewed bar-wipe **exit** was skipped — the
+  plate just vanished — because the shell's `out:` transition was local while the
+  plate is torn down by the parent widget's `{#if}` / `{#key}` block, and a local
+  out does not play on ancestor teardown; it is now `out:…|global`, so a plain hide
+  wipes out and a driver change plays wipe-out → wipe-in. (2) The standings tower's
+  on-camera **glow-in never replayed** when the highlight moved to a new driver,
+  because it relied on a CSS animation restarting when a persistent, re-sorted row
+  merely gained `.row--oncam`; the reveal now plays on a fresh, subject-keyed flash
+  overlay rendered only for the on-camera row, so it replays on every switch.
+  Reduced-motion behavior is unchanged (instant, no motion). New tests exercise the
+  real-motion (`no-preference`) path, which the suite's global reduced-motion stub
+  had previously left unexercised.
+
+- **Lower-third shine bar sweeps on exit, not just entrance (#71).** The skewed mint
+  shine that sweeps across a lower-third on entrance now also sweeps on the exit
+  wipe-out; previously the plate's content wiped out but the bar stayed parked at its
+  entrance end-frame (a `both`-fill animation is not restarted under the same name),
+  so the exit read as a plain wipe. A distinct exit keyframe restarts the sweep.
+
+- **Battle box: intensifying border wraps the whole widget and is gated to racing
+  modes (#80, #81).** The proximity-driven intensifying border now frames the entire
+  battle box instead of an inner element, and no longer renders in known non-racing
+  sessions (qualifying / practice / grid / results), where "fighting for position"
+  has no meaning — a denylist, so custom/unknown race modes still show it and a
+  blank/absent mode shows nothing.
+
 ## [0.3.0] - 2026-07-03
 
 ### Added

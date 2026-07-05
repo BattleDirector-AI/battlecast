@@ -63,3 +63,18 @@ jobs:
       # Zero runtime/dev dependencies — nothing to install; the built-in test
       # runner (`node --test`) drives the suite directly.
       - run: npm test
+
+  mock:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: producers/mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Zero dependencies — plain-node validators check the fixtures and a 3000-tick
+      # simulator run against the spec-v1 required-field contract (and lap-time
+      # realism). Guards the reference producer, which app/spec/server CI never load.
+      - run: npm test

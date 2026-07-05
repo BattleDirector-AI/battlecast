@@ -18,6 +18,7 @@ afterEach(() => {
 
 const card = (c) => c.querySelector('[data-testid="qualifying-lower-third"]')
 const txt = (c, id) => c.querySelector(`[data-testid="${id}"]`)?.textContent.trim()
+const recutKey = (c) => card(c)?.getAttribute('data-recut-key')
 
 describe('QualifyingLowerThird — rendered timing bar (#22)', () => {
   it('renders best, last and sector times for the on-camera subject', async () => {
@@ -200,6 +201,62 @@ describe('QualifyingLowerThird — class-best flash (Decision C extension)', () 
     })
     await tick()
     expect(card(container)).toBeNull() // flash suppressed
+  })
+})
+
+describe('QualifyingLowerThird — re-cut reveal (#64)', () => {
+  it('a camera cut in an eligible mode re-reveals on the new subject and advances the recut key', async () => {
+    // Live (mode-dwell) path: the shell keys on the on-camera slot_id, so a cut to a
+    // new driver renders the NEW timing bar and advances the recut key that remounts
+    // the reveal. Reduced-motion default makes the remount an instant, deterministic swap.
+    const { container, rerender } = render(QualifyingLowerThird, {
+      snapshot: qualSectorA, // qualifying, Leclerc / car-16
+      widget: { trigger: 'dwell', dwellSeconds: 6 },
+    })
+    await tick()
+    expect(txt(container, 'qt-name')).toBe('Leclerc')
+    expect(recutKey(container)).toBe('car-16')
+
+    await vi.advanceTimersByTimeAsync(2000)
+    await rerender({ snapshot: qualTarget, widget: { trigger: 'dwell', dwellSeconds: 6 } })
+    await tick()
+    expect(txt(container, 'qt-name')).toBe('Verstappen')
+    expect(recutKey(container)).toBe('car-1') // qualifying-target subject is car-1
+  })
+
+  it('a fresh class-best flash re-reveals with a flash-scoped recut key on the frozen earning driver', async () => {
+    // Flash path: keyed on the frozen earning-driver card, so a class-best edge
+    // re-reveals with a distinct flash-scoped key AND keeps the earning driver even
+    // when the camera cuts away mid-dwell.
+    const { container, rerender } = render(QualifyingLowerThird, {
+      snapshot: racePreClassBest, // race, Alonso / car-14, no class best
+      widget: { trigger: 'dwell', dwellSeconds: 6, fireOnClassBest: true },
+    })
+    await tick()
+    expect(card(container)).toBeNull()
+
+    // Alonso sets a class best -> flash fires; recut key is flash-scoped (not a slot).
+    await rerender({
+      snapshot: raceClassBest,
+      widget: { trigger: 'dwell', dwellSeconds: 6, fireOnClassBest: true },
+    })
+    await tick()
+    expect(txt(container, 'qt-name')).toBe('Alonso')
+    expect(txt(container, 'qt-label')).toBe('CLASS BEST')
+    expect(recutKey(container)).toMatch(/^flash-/)
+
+    // A mid-dwell cut to another driver keeps the FROZEN earning driver — no re-badge,
+    // and exactly one card on screen (no stranded plate from the keyed remount).
+    await vi.advanceTimersByTimeAsync(2000)
+    await rerender({
+      snapshot: { ...raceClassBest, subject: { slot_id: 'car-23', driver_name: 'Albon' } },
+      widget: { trigger: 'dwell', dwellSeconds: 6, fireOnClassBest: true },
+    })
+    await tick()
+    expect(txt(container, 'qt-name')).toBe('Alonso')
+    expect(
+      container.querySelectorAll('[data-testid="qualifying-lower-third"]'),
+    ).toHaveLength(1)
   })
 })
 

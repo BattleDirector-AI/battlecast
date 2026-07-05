@@ -30,14 +30,25 @@
   --bc-dur-pulse: 1300ms;
 }
 
-/* Pulsing red border for the intensifying battle box (intensity >= 0.67) */
-@keyframes bc-pulse {
+/* Pulsing red border for the intensifying battle box (intensity >= 0.67), split so
+   the ring can be drawn on an ::after overlay ABOVE the widget header (wrapping the
+   whole plate) while the outer glow stays on the section itself. An element's own
+   box-shadow escapes its `overflow:hidden`; a child's does not — so the glow must
+   ride the section to bloom outside the frame, and it carries the static plate
+   shadow with it so that depth isn't lost mid-pulse. */
+@keyframes bc-pulse-ring {
   0%, 100% {
-    box-shadow: inset 0 0 0 1.5px rgba(255, 69, 54, 0.25),
-                0 0 0 rgba(255, 69, 54, 0);
+    box-shadow: inset 0 0 0 1.5px rgba(255, 69, 54, 0.25);
   }
   50% {
-    box-shadow: inset 0 0 0 2px rgba(255, 69, 54, 0.95),
-                0 0 26px rgba(255, 69, 54, 0.45);
+    box-shadow: inset 0 0 0 2px rgba(255, 69, 54, 0.95);
+  }
+}
+@keyframes bc-pulse-glow {
+  0%, 100% {
+    box-shadow: var(--bc-shadow-plate), 0 0 0 rgba(255, 69, 54, 0);
+  }
+  50% {
+    box-shadow: var(--bc-shadow-plate), 0 0 26px rgba(255, 69, 54, 0.45);
   }
 }

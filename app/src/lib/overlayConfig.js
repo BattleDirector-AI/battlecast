@@ -53,16 +53,19 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 24, y: 24, w: 380, h: 900, z: 1, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline',
     },
     battle: {
       visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline',
     },
     logos: {
       visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline',
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
     // the canvas. It self-manages fire/dwell/hide, so it renders nothing between
@@ -71,6 +74,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 900, w: 620, h: 96, z: 4, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline',
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
     // subject (best/last lap, sectors, and target/delta when present). Offset
@@ -81,6 +85,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 788, w: 840, h: 100, z: 5, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline',
     },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
@@ -106,6 +111,26 @@ export const QUALIFYING_DEFAULTS = Object.freeze({
   modes: Object.freeze(['qualifying', 'practice']),
   fireOnClassBest: true,
 })
+
+/** #28 standings-tower extra: `classDisplay` selects how the tower lays out a
+ *  multi-class field — `'inline'` (one overall-position list, each row badged with
+ *  its class position) or `'grouped'` (per-class sections in registry order, with
+ *  positions restarting within each class). Normalized onto every widget for a
+ *  uniform shape, but only the tower reads it. Additive + defaulted, so no
+ *  `configVersion` bump. */
+export const TOWER_DEFAULTS = Object.freeze({
+  classDisplay: 'inline',
+})
+
+/** Widgets whose class-aware layout the config UI surfaces a `classDisplay` control
+ *  for. Just the standings tower today. */
+export const TOWER_KEYS = Object.freeze(['tower'])
+
+/** Whether a widget is the class-aware standings tower (so the config UI surfaces
+ *  its `classDisplay` control). */
+export function isTower(key) {
+  return TOWER_KEYS.includes(key)
+}
 
 /** Canonical widget keys in the layout contract, DERIVED from DEFAULT_CONFIG so it
  *  cannot drift from the real source of truth. `logos` is part of the contract for
@@ -221,6 +246,14 @@ export function normalizeConfig(raw) {
         typeof w.fireOnClassBest === 'boolean'
           ? w.fireOnClassBest
           : d.fireOnClassBest ?? QUALIFYING_DEFAULTS.fireOnClassBest,
+      // #28 tower class-aware layout — only the standings tower reads it, but it's
+      // normalized onto every widget (like the trigger knobs) for a uniform shape.
+      // An unknown value falls back to the default so a stale/typo'd profile still
+      // renders a valid layout.
+      classDisplay:
+        w.classDisplay === 'inline' || w.classDisplay === 'grouped'
+          ? w.classDisplay
+          : d.classDisplay ?? TOWER_DEFAULTS.classDisplay,
     }
   }
   out.widgets = normalizedWidgets

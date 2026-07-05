@@ -85,6 +85,29 @@ describe('ConfigPage editor wiring', () => {
     expect(queryByTestId('dwell-battle')).toBeNull()
   })
 
+  it('exposes the class-display control only for the tower widget', async () => {
+    const { getByTestId, queryByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('class-display-tower')).toBeTruthy()
+    expect(queryByTestId('class-display-battle')).toBeNull()
+    expect(queryByTestId('class-display-driver')).toBeNull()
+  })
+
+  it('switching the tower class-display updates the live preview', async () => {
+    const { container, getByTestId } = render(ConfigPage)
+    await tick()
+    const towerEl = () =>
+      container.querySelector('[data-testid="widget-tower"] [data-testid="standings-tower"]')
+    // Defaults to the inline layout.
+    expect(getByTestId('class-display-tower').value).toBe('inline')
+    expect(towerEl().getAttribute('data-class-display')).toBe('inline')
+
+    await fireEvent.change(getByTestId('class-display-tower'), { target: { value: 'grouped' } })
+    await tick()
+    expect(getByTestId('class-display-tower').value).toBe('grouped')
+    expect(towerEl().getAttribute('data-class-display')).toBe('grouped')
+  })
+
   it('switching the driver trigger to persistent disables the dwell input', async () => {
     const { getByTestId } = render(ConfigPage)
     await tick()

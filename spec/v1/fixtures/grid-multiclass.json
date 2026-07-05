@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-1",
+      "driver_name": "Verstappen",
+      "vehicle_class": "GTP",
+      "position": 1,
+      "last_lap": null,
+      "best_lap": 91.744,
+      "sector_times": [],
+      "gap_to_leader": 0
+    },
+    {
+      "slot_id": "car-14",
+      "driver_name": "Alonso",
+      "vehicle_class": "GT3",
+      "position": 2,
+      "last_lap": null,
+      "best_lap": 106.088,
+      "sector_times": [],
+      "gap_to_leader": 14.344
+    },
+    {
+      "slot_id": "car-44",
+      "driver_name": "Hamilton",
+      "vehicle_class": "GTP",
+      "position": 3,
+      "last_lap": null,
+      "best_lap": 91.872,
+      "sector_times": [],
+      "gap_to_leader": 0.128
+    },
+    {
+      "slot_id": "car-8",
+      "driver_name": "Rossi",
+      "vehicle_class": "LMP2",
+      "position": 4,
+      "last_lap": null,
+      "best_lap": 98.512,
+      "sector_times": [],
+      "gap_to_leader": 6.768
+    },
+    {
+      "slot_id": "car-23",
+      "driver_name": "Albon",
+      "vehicle_class": "GT3",
+      "position": 5,
+      "last_lap": null,
+      "best_lap": 106.744,
+      "sector_times": [],
+      "gap_to_leader": 15.0
+    },
+    {
+      "slot_id": "car-31",
+      "driver_name": "Bourdais",
+      "vehicle_class": "LMP2",
+      "position": 6,
+      "last_lap": null,
+      "best_lap": 98.987,
+      "sector_times": [],
+      "gap_to_leader": 7.243
+    }
+  ],
+  "subject": {
+    "slot_id": "car-1",
+    "driver_name": "Verstappen"
+  },
+  "relationship": {
+    "gap_ahead": null,
+    "gap_behind": null,
+    "battle_intensity": 0.0
+  }
+}

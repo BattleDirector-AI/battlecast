@@ -96,6 +96,10 @@
         "delta_to_target": {
           "type": ["number", "null"],
           "description": "Optional difference, in seconds, between this vehicle's `best_lap` (or reference lap) and its `target_lap` (best_lap minus target_lap). Negative means faster than the target. Meaning is defined by the producer alongside `target_lap`."
+        },
+        "gap_to_leader": {
+          "type": ["number", "null"],
+          "description": "Optional producer-computed time gap, in seconds, from this vehicle to the OVERALL classification leader (`position` 1) — the interval a broadcast tower shows against each row. 0 for the leader itself; null or absent when not yet determined (e.g. no laps completed). The producer owns the metric (a lap-time delta in a qualifying-style session, an on-track time gap in a race); consumers MUST NOT derive it by scanning `vehicles[]`, but MAY compute a gap-to-CLASS-leader for a grouped view by subtracting the class leader's `gap_to_leader` from a car's own (exact arithmetic on producer values, not a re-derivation)."
         }
       }
     },

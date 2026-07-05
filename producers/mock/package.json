@@ -9,7 +9,8 @@
     "start": "node server.js simulate",
     "start:fixtures": "node server.js fixtures",
     "validate-fixtures": "node validate-fixtures.js",
-    "validate-simulator": "node validate-simulator.js"
+    "validate-simulator": "node validate-simulator.js",
+    "test": "node validate-fixtures.js && node validate-simulator.js"
   },
   "engines": {
     "node": ">=22"
