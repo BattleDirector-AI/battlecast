@@ -164,6 +164,33 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(w.trigger).toBe('dwell')
     expect(w.dwellSeconds).toBe(6)
   })
+
+  it('defaults the tower classDisplay to inline and honors an explicit value', () => {
+    // Normalized onto every widget (mirrors the trigger knobs); only the tower reads it.
+    expect(normalizeConfig({}).widgets.tower.classDisplay).toBe('inline')
+    expect(
+      normalizeConfig({ widgets: { tower: { classDisplay: 'grouped' } } }).widgets.tower
+        .classDisplay,
+    ).toBe('grouped')
+  })
+
+  it('rejects an invalid classDisplay, falling back to inline', () => {
+    expect(
+      normalizeConfig({ widgets: { tower: { classDisplay: 'bogus' } } }).widgets.tower
+        .classDisplay,
+    ).toBe('inline')
+  })
+
+  it('round-trips a grouped classDisplay through a serialized profile', () => {
+    // A saved profile is JSON on disk — prove the knob survives the serialize/parse
+    // + normalize cycle the config UI and loader put it through.
+    const authored = normalizeConfig({
+      name: 'multiclass',
+      widgets: { tower: { classDisplay: 'grouped' } },
+    })
+    const roundTripped = normalizeConfig(JSON.parse(JSON.stringify(authored)))
+    expect(roundTripped.widgets.tower.classDisplay).toBe('grouped')
+  })
 })
 
 describe('resolveWidgets — ordered render list', () => {

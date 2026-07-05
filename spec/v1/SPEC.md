@@ -115,6 +115,15 @@ required-ness.
     references (class pole, session best, a chosen reference); the consumer just shows
     it. **`delta_to_target`** (number, seconds) optionally accompanies it as
     `best_lap` minus `target_lap` (negative = faster than target).
+  - **`gap_to_leader`** (number, seconds) — The time gap from this vehicle to the
+    **overall** classification leader (`position` 1) — the interval a broadcast tower
+    prints against each row. `0` for the leader; null or absent until it can be
+    determined (e.g. before any lap is completed). The producer owns what the metric
+    measures (a lap-time delta in a qualifying-style session, an on-track time gap in a
+    race), so consumers just render it. A grouped-by-class tower MAY show a
+    **gap-to-class-leader** by subtracting the class leader's `gap_to_leader` from a
+    car's own — that is exact arithmetic on producer-authored values, not a forbidden
+    re-derivation of the gap itself.
 
   **Contract note — no `schemaVersion` bump.** These fields were added in a minor
   revision of v1; `schemaVersion` stays `"1"`. That is permitted because `schemaVersion`

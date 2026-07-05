@@ -79,29 +79,39 @@
 </script>
 
 {#if shown}
-  <LowerThirdShell>
-    <section
-      class="bc-lt"
-      class:bc-lt--degraded={resolved.state === 'degraded'}
-      data-testid="driver-lower-third"
-      data-state={resolved.state}
-      aria-label="On-camera driver"
-    >
-      <span class="bc-lt__accent" aria-hidden="true"></span>
-      <div class="bc-lt__body">
-        <div class="bc-lt__meta">
-          <span class="bc-lt__label">ON CAMERA</span>
-          {#if position != null}
-            <span class="bc-lt__pos" data-testid="driver-lt-pos">P{position}</span>
-          {/if}
-          {#if carClass}
-            <ClassChip {carClass} size="compact" />
-          {/if}
+  <!-- Re-cut reveal (#64): key the shell on the on-camera identity so a camera cut
+       to a NEW driver while the card is already up REMOUNTS the plate — the old
+       driver plays its `out:lowerThirdOut` exit and the new plays its entrance
+       reveal. Without this the trigger's in-place re-fire (which correctly keeps
+       `shown` true across the cut) never toggles `{#if}`, so the reveal never
+       replays and the name would silently swap. Under reduced motion the exit is
+       duration 0, so this stays an instant swap. -->
+  {#key resolved.slotId}
+    <LowerThirdShell>
+      <section
+        class="bc-lt"
+        class:bc-lt--degraded={resolved.state === 'degraded'}
+        data-testid="driver-lower-third"
+        data-state={resolved.state}
+        data-recut-key={resolved.slotId ?? 'none'}
+        aria-label="On-camera driver"
+      >
+        <span class="bc-lt__accent" aria-hidden="true"></span>
+        <div class="bc-lt__body">
+          <div class="bc-lt__meta">
+            <span class="bc-lt__label">ON CAMERA</span>
+            {#if position != null}
+              <span class="bc-lt__pos" data-testid="driver-lt-pos">P{position}</span>
+            {/if}
+            {#if carClass}
+              <ClassChip {carClass} size="compact" />
+            {/if}
+          </div>
+          <span class="bc-lt__name" data-testid="driver-lt-name">{displayName}</span>
         </div>
-        <span class="bc-lt__name" data-testid="driver-lt-name">{displayName}</span>
-      </div>
-    </section>
-  </LowerThirdShell>
+      </section>
+    </LowerThirdShell>
+  {/key}
 {/if}
 
 <style>

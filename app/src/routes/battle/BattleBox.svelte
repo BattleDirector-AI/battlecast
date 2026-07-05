@@ -20,6 +20,24 @@
     const hasBehind = typeof gap_behind === 'number' && !Number.isNaN(gap_behind)
     return hasAhead || hasBehind
   }
+
+  // --- Racing-mode gate ------------------------------------------------------
+  // "Battle for position" is a green-flag RACE concept. In qualifying/practice cars
+  // run solo flying laps, and grid/results are frozen boards — there is no on-track
+  // fight to show, even though the producer may still emit gap_ahead/gap_behind. So
+  // the battle box hides in those KNOWN non-racing sessions.
+  //
+  // This is a DENYLIST, not an allowlist: the spec (schema.json `mode`) tells
+  // consumers to "tolerate unknown strings (best-effort render)", so an unrecognized
+  // mode (e.g. a producer's `sprint`/`feature`/`heat`) renders the box rather than
+  // vanishing during a real fight. Matching is case/whitespace-insensitive. An
+  // absent/blank mode (no snapshot yet) shows nothing.
+  const NON_RACING_MODES = new Set(['qualifying', 'practice', 'grid', 'results'])
+  export function isRacingMode(mode) {
+    const m = mode == null ? '' : String(mode).trim().toLowerCase()
+    if (!m) return false
+    return !NON_RACING_MODES.has(m)
+  }
 </script>
 
 <script>
@@ -27,8 +45,9 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import IntensityMeter from '../../design/IntensityMeter.svelte'
 
-  let { subject = {}, relationship = {}, vehicles = [] } = $props()
+  let { subject = {}, relationship = {}, vehicles = [], mode = null } = $props()
 
+  const racing = $derived(isRacingMode(mode))
   const active = $derived(isActiveBattle(relationship))
   const intensity = $derived(
     typeof relationship?.battle_intensity === 'number' ? relationship.battle_intensity : 0
@@ -53,6 +72,7 @@
   )
 </script>
 
+{#if racing}
 <section
   class="bc-battle"
   class:bc-battle--idle={!active}
@@ -96,9 +116,11 @@
     </div>
   {/if}
 </section>
+{/if}
 
 <style>
   .bc-battle {
+    position: relative;
     width: var(--bc-battle-width);
     box-sizing: border-box;
     background: var(--bc-plate-dense);
@@ -111,8 +133,36 @@
     color: var(--bc-text);
   }
 
-  .bc-battle--hot {
-    animation: bc-pulse var(--bc-dur-pulse) var(--bc-ease) infinite;
+  /* Intensifying border. The pulsing red RING is drawn on this overlay, which sits
+     ABOVE the header (z-index:3) so it wraps the whole widget — painting the inset
+     ring on the section itself let the header's opaque background cover it along the
+     top edge, so the border appeared to hug only the body. inset:0 + the plate's
+     overflow:hidden clip the ring to the rounded frame. The outer GLOW rides the
+     section instead (see below), because a child's shadow can't escape the clip. */
+  .bc-battle--hot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .bc-battle--hot {
+      animation: bc-pulse-glow var(--bc-dur-pulse) var(--bc-ease) infinite;
+    }
+    .bc-battle--hot::after {
+      animation: bc-pulse-ring var(--bc-dur-pulse) var(--bc-ease) infinite;
+    }
+  }
+
+  /* Reduced motion: a steady red ring (no pulse, no bloom) still marks the
+     intensifying state without animation. */
+  @media (prefers-reduced-motion: reduce) {
+    .bc-battle--hot::after {
+      box-shadow: inset 0 0 0 2px rgba(255, 69, 54, 0.9);
+    }
   }
 
   .bc-battle--idle {

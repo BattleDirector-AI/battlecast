@@ -32,28 +32,59 @@ snapshot in its `data:` field.
 
 ### Configuration
 
-| Env var          | Default | Meaning                                            |
-| ---------------- | ------- | --------------------------------------------------- |
-| `PORT`           | `8080`  | TCP port to listen on                                |
-| `INTERVAL_MS`    | `750`   | Interval between `state` events (≈1.3 Hz)            |
-| `SIM_DT_SECONDS` | `2`     | Sim-seconds of race time advanced per tick (`simulate` mode only) |
+| Env var           | Default | Meaning                                                             |
+| ----------------- | ------- | ------------------------------------------------------------------- |
+| `PORT`            | `8080`  | TCP port to listen on                                                |
+| `INTERVAL_MS`     | `750`   | Interval between `state` events (≈1.3 Hz)                            |
+| `SIM_DT_SECONDS`  | `2`     | Sim-seconds of race time advanced per tick (`simulate` mode only)   |
+| `QUALI_SECONDS`   | `300`   | Duration of the **qualifying** phase, in sim-seconds (`simulate`)   |
+| `GRID_SECONDS`    | `30`    | Duration of the **grid / pre-race** phase, in sim-seconds           |
+| `RACE_SECONDS`    | `300`   | Duration of the **race** phase, in sim-seconds                      |
+| `RESULTS_SECONDS` | `30`    | Duration of the **results** phase, in sim-seconds                   |
+
+Phase durations are in **sim-seconds** (race time), not wall-clock. At the default
+cadence (`SIM_DT_SECONDS=2` every `INTERVAL_MS=750`, ≈2.7 sim-s per real second) the
+default session cycles in ~4 real minutes. A lap is ~92–107 sim-seconds at these
+paces, so the ~300 s qualifying/race defaults give each car several flying/racing
+laps; shorten them (e.g. `QUALI_SECONDS=60`) to cycle the phases faster during a
+quick overlay test, at the cost of fewer completed laps per phase.
 
 ## Modes
 
-### `simulate` (default) — a live, continuously evolving race
+### `simulate` (default) — a live session cycling through the broadcast phases
 
 ```sh
 npm start
 ```
 
-One shared 14-car, 3-class (GTP/LMP2/GT3) race, broadcast identically to every
+One shared 14-car, 3-class (GTP/LMP2/GT3) session, broadcast identically to every
 connected client — open `/tower`, `/battle`, and `/all` at once and they all reflect
-the same live race, the way separate OBS Browser Sources pointed at one real producer
-would. Each car runs at a per-class base pace plus a per-car skill offset and a slow
-random-walk pace fluctuation, so running order, gaps, and on-track battles emerge and
-change continuously instead of replaying a handful of fixed scenarios. The on-camera
-`subject` is chosen like a broadcast director would — whichever battle is currently
-tightest — with hysteresis so the cut doesn't change every tick.
+the same live session, the way separate OBS Browser Sources pointed at one real
+producer would. Each car runs at a per-class base pace plus a per-car skill offset and
+a slow random-walk pace fluctuation, so lap times, running order, gaps, and on-track
+battles emerge and change continuously instead of replaying a handful of fixed
+scenarios.
+
+Rather than an endless green flag, the simulator **auto-cycles through a full session**
+so a single live mock exercises the whole overlay set. It loops forever:
+
+| Phase | `mode` | Classification (`position`) | Exercises |
+| ----- | ------ | --------------------------- | --------- |
+| **Qualifying** | `"qualifying"` | by **best lap** (cars without a lap yet sort last) | qualifying lower-third (#22) + driver lower-third (#21) + tower; `best_lap`/`last_lap`/`sector_times` populate and improve, and the class-best holder changes hands (a `notable.class_best_lap` false→true edge → the CLASS BEST flash / re-cut reveal) |
+| **Grid / pre-race** | `"grid"` | **frozen to the qualifying result** (the starting grid) | the `/grid` starting-order slide (#24) — a real grid, not mid-race order |
+| **Race** | `"race"` | by **distance** covered (the original rolling-race logic) | tower + battle box; emergent battles, class-best edges, the tightest-battle director |
+| **Results** | `"results"` | **frozen to the final race order** | the `/results` end-of-session board (#23) |
+
+Positions are always the **overall** running order (multi-class independent), as in a
+real multi-class session. Each transition is logged to stdout, e.g.
+`[mock] phase → grid (sim-clock 312s)`. Phase durations are configurable — see
+[Configuration](#configuration).
+
+The on-camera `subject` keeps cutting in **every** phase so the subject-driven
+lower-thirds fire throughout: in the running phases (qualifying, race) it is chosen
+like a broadcast director would — whichever battle is currently tightest — with
+hysteresis so the cut doesn't change every tick; in the parked phases (grid, results)
+it simply rotates through the field on a short cadence while the takeover board is up.
 
 **Prompt emit on camera cuts.** Per the spec's non-normative latency SHOULD
 ([`spec/v1/SPEC.md`](../../spec/v1/SPEC.md)), when the director cuts to a new
@@ -112,6 +143,10 @@ npm run validate-simulator   # steps the simulator for thousands of ticks and ch
 
 Both check against the same required-field contract in
 [`spec/v1/schema.json`](../../spec/v1/schema.json) ([`validate.js`](validate.js)).
+`validate-simulator` drives the phase machine with short durations so a bounded run
+visits **every** phase, and asserts that each of qualifying / grid / race / results was
+observed and validated (not just the race), and that qualifying surfaced a
+`notable.class_best_lap` flag so the class-best edge is exercised.
 
 ## Requirements
 

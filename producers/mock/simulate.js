@@ -1,12 +1,20 @@
 // battlecast mock producer — live race simulator.
 //
 // Produces a continuously evolving spec-v1 `state` snapshot instead of
-// replaying a handful of fixed scenarios: cars run at a per-class base pace
-// plus a per-car skill offset and a slow random-walk pace fluctuation, so
-// running order, gaps, and on-track battles emerge and change over time.
-// The on-camera `subject` is picked the way a broadcast director would —
-// whichever battle is currently tightest — with hysteresis so the cut
-// doesn't change every tick.
+// replaying a handful of fixed scenarios. Rather than a single endless green
+// flag, the simulator auto-cycles through a full broadcast session so a live
+// mock exercises the whole overlay set:
+//
+//   qualifying → grid → race → results → (loop)
+//
+// Cars run at a per-class base pace plus a per-car skill offset and a slow
+// random-walk pace fluctuation, so lap times, running order, gaps, and on-track
+// battles emerge and change over time. Each phase classifies the field on its
+// own terms — qualifying by best lap, the grid frozen to the qualifying result,
+// the race by distance covered, the results frozen to the final race order —
+// and the on-camera `subject` keeps cutting throughout so the subject-driven
+// lower-thirds fire in every phase. The race phase is the original continuous
+// green-flag simulation, unchanged, just scoped to one leg of the cycle.
 //
 // This is a dev/demo tool. The fixtures in spec/v1/fixtures/ remain the
 // source of truth for behavioral tests (see CONTRIBUTING.md); nothing here
@@ -47,6 +55,35 @@ const CLOSE_BATTLE_WINDOW = 1.5; // seconds — matches the design system's inte
 // car actually stays on camera. 32 sim-seconds ≈ the previous 16 ticks × 2s/tick.
 const SUBJECT_MIN_DWELL_SECONDS = 32;
 const SUBJECT_SWITCH_MARGIN = 0.4; // seconds — a new battle must be meaningfully tighter to steal the cut
+// In the static phases (grid, results) there is no on-track battle to chase, so
+// the director simply rotates the on-camera subject on this shorter cadence to
+// keep the lower-thirds firing while a takeover board is up.
+const SUBJECT_STATIC_DWELL_SECONDS = 10;
+
+// The broadcast session, in cycle order. `mode` is a free-form string in the
+// spec (schema.json documents "race"/"qualifying"/... as examples and requires
+// consumers to tolerate unknowns), so "grid" and "results" are valid session
+// intents that no schema change is needed to express. The /grid and /results
+// slides are standalone routes, not mode-gated, so freezing the classification
+// per phase is all that is required to make them show a real grid / results
+// board.
+const PHASES = ["qualifying", "grid", "race", "results"];
+
+// Default phase durations in SIM seconds (race-time), overridable via env so a
+// tester can cycle faster or slower. Qualifying and race are long enough for
+// cars to complete several flying/racing laps (a lap is ~92–107 sim-seconds at
+// these paces) so best laps populate, improve, and change class-best hands;
+// the grid and results legs are short takeover-board interludes. See README.md.
+function envSeconds(name, def) {
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v > 0 ? v : def;
+}
+const DEFAULT_PHASE_SECONDS = {
+  qualifying: envSeconds("QUALI_SECONDS", 300),
+  grid: envSeconds("GRID_SECONDS", 30),
+  race: envSeconds("RACE_SECONDS", 300),
+  results: envSeconds("RESULTS_SECONDS", 30),
+};
 
 function classPace(classKey) {
   return CLASSES.find((c) => c.key === classKey).basePace;
@@ -70,78 +107,194 @@ function round1(n) {
   return Math.round(n * 10) / 10;
 }
 
-function createSimulator() {
-  const cars = GRID.map((entry, i) => {
+function round3(n) {
+  return Math.round(n * 1000) / 1000;
+}
+
+/**
+ * Gap in seconds from each car to the OVERALL classification leader (order[0]),
+ * keyed by slot_id, for the spec-v1 `gap_to_leader` field. In a lap-classified
+ * phase (qualifying / grid) the gap is the car's best-lap delta to the leader; in
+ * a distance-classified phase (race / results) it is the on-track time gap,
+ * accumulated from the adjacent pair deltas along the running order (the same
+ * distance→seconds conversion used for the subject's gap_ahead/gap_behind). The
+ * leader is 0 once it has comparable timing (else null — e.g. a qualifying leader
+ * before any lap is set); a trailing car with no comparable timing is null.
+ */
+function gapToLeaderMap(order, byLap) {
+  const map = new Map();
+  if (order.length === 0) return map;
+  const leader = order[0];
+  if (byLap) {
+    const lead = leader.best_lap;
+    for (const car of order) {
+      map.set(car.slot_id, lead != null && car.best_lap != null ? round3(car.best_lap - lead) : null);
+    }
+  } else {
+    let cum = 0;
+    map.set(leader.slot_id, 0);
+    for (let i = 1; i < order.length; i++) {
+      const ahead = order[i - 1];
+      const car = order[i];
+      const avgSpeed = (1 / car.pace + 1 / ahead.pace) / 2;
+      cum += (ahead.distance - car.distance) / avgSpeed;
+      map.set(car.slot_id, round3(cum));
+    }
+  }
+  return map;
+}
+
+/** A fresh, session-start field: no timing yet, staggered on the grid. `startClock`
+ *  seeds each car's lap-timing baseline to the CURRENT sim clock — critical when the
+ *  session loops back to qualifying at a non-zero clock, or the first completed lap
+ *  would be measured against clock 0 and report the entire elapsed session as one
+ *  enormous "lap". */
+function makeCars(startClock = 0) {
+  return GRID.map((entry, i) => {
     const skillOffset = ((i * 37) % 11) / 10 - 0.5; // deterministic spread, -0.5..+0.5s
+    // Stagger the starting grid so the field doesn't begin perfectly bunched.
+    const distance = -i * (LAP_UNIT / GRID.length) * 2;
     return {
       slot_id: `car-${entry.number}`,
       driver_name: entry.driver,
       vehicle_class: entry.classKey,
       pace: classPace(entry.classKey) + skillOffset,
-      noiseVelocity: 0,
-      // Stagger the starting grid so the field doesn't begin perfectly bunched.
-      distance: -i * (LAP_UNIT / GRID.length) * 2,
-      lapStartDistance: 0,
-      lastLapClock: 0,
+      noiseFactor: 0,
+      distance,
+      // Measure the first lap from the car's own staggered start (not 0), so the
+      // opening lap is a normal flying lap rather than an inflated multi-lap "out
+      // lap" for cars that start further back.
+      lapStartDistance: distance,
+      lastLapClock: startClock,
       last_lap: null,
       best_lap: null,
       sector_times: [],
+      improvedBestThisStep: false,
+      position: i + 1,
     };
   });
+}
 
+/** Advance one car's distance and, on a completed lap, its lap/sector timing. */
+function advanceCar(car, dtSeconds, clock) {
+  // Slow random-walk pace fluctuation so gaps ebb and flow organically instead of
+  // separating (or converging) monotonically. It is a fraction of the car's OWN
+  // base speed (a ±4% band), not an absolute term: an absolute term is a huge
+  // fraction of the slower classes' speed and produced implausible lap times and
+  // cross-class pace inversion (a GT3 out-lapping a GTP). ±4% keeps lap times within
+  // a realistic band of the car's pace while still shuffling intra-class order.
+  car.noiseFactor = clamp(car.noiseFactor + (Math.random() - 0.5) * 0.01, -0.04, 0.04);
+  const baseSpeed = 1 / car.pace;
+  car.distance += baseSpeed * (1 + car.noiseFactor) * dtSeconds;
+
+  if (car.distance - car.lapStartDistance >= LAP_UNIT) {
+    car.lapStartDistance += LAP_UNIT;
+    const lap = clock - car.lastLapClock;
+    car.lastLapClock = clock;
+    car.last_lap = Math.round(lap * 1000) / 1000;
+    const prevBest = car.best_lap;
+    if (prevBest == null || car.last_lap < prevBest) {
+      car.best_lap = car.last_lap;
+      car.improvedBestThisStep = true;
+    }
+    car.sector_times = splitSectors(car.last_lap);
+  }
+}
+
+/**
+ * Qualifying classification: fastest best_lap first. Cars without a lap yet sort
+ * last (among themselves by distance so the order is stable), which is what
+ * seeds the eventual starting grid.
+ */
+function byBestLap(a, b) {
+  if (a.best_lap == null && b.best_lap == null) return b.distance - a.distance;
+  if (a.best_lap == null) return 1;
+  if (b.best_lap == null) return -1;
+  if (a.best_lap !== b.best_lap) return a.best_lap - b.best_lap;
+  return b.distance - a.distance;
+}
+
+/** Race classification: farthest total distance covered first (multi-class independent). */
+function byDistance(a, b) {
+  return b.distance - a.distance;
+}
+
+function createSimulator(config = {}) {
+  const phaseSeconds = { ...DEFAULT_PHASE_SECONDS, ...(config.phaseSeconds || {}) };
+  const onPhaseChange = typeof config.onPhaseChange === "function" ? config.onPhaseChange : null;
+
+  let cars = makeCars();
   let clock = 0;
+
+  let phase = PHASES[0]; // "qualifying"
+  let phaseElapsed = 0;
+  let announced = false;
+  // For the static (grid / results) phases: the frozen running order captured on
+  // entry, as an array of slot_ids in classified order.
+  let frozenOrder = null;
+
   let subjectSlotId = null;
   let subjectSinceClock = 0;
 
-  function step(dtSeconds) {
-    clock += dtSeconds;
+  function announce(p) {
+    if (onPhaseChange) onPhaseChange(p, Math.round(clock));
+  }
 
-    for (const car of cars) {
-      // Reset the per-step "just set a personal best" flag; only a lap
-      // completed on THIS step that beats the prior best sets it true.
-      car.improvedBestThisStep = false;
-
-      // Slow random-walk pace fluctuation so gaps ebb and flow organically
-      // instead of separating (or converging) monotonically.
-      car.noiseVelocity = clamp(car.noiseVelocity + (Math.random() - 0.5) * 0.0015, -0.008, 0.008);
-      const baseSpeed = 1 / car.pace;
-      car.distance += (baseSpeed + car.noiseVelocity) * dtSeconds;
-
-      if (car.distance - car.lapStartDistance >= LAP_UNIT) {
-        car.lapStartDistance += LAP_UNIT;
-        const lap = clock - car.lastLapClock;
-        car.lastLapClock = clock;
-        car.last_lap = Math.round(lap * 1000) / 1000;
-        const prevBest = car.best_lap;
-        if (prevBest == null || car.last_lap < prevBest) {
-          car.best_lap = car.last_lap;
-          car.improvedBestThisStep = true;
-        }
-        car.sector_times = splitSectors(car.last_lap);
-      }
-    }
-
-    // Producer-computed notability (dumb overlay, smart producer — see
-    // docs/decisions/0002-lower-third-widgets.md). We hold authoritative sim
-    // state, so we derive these facts here; the consumer only renders them.
-    // Fastest best_lap overall (session best) and per class (class best); the
-    // class-best time doubles as each car's `target_lap` (the time to beat).
-    const classBest = new Map(); // vehicle_class -> fastest best_lap in that class
-    let sessionBest = null;
-    for (const car of cars) {
-      if (car.best_lap == null) continue;
-      const cb = classBest.get(car.vehicle_class);
-      if (cb == null || car.best_lap < cb) classBest.set(car.vehicle_class, car.best_lap);
-      if (sessionBest == null || car.best_lap < sessionBest) sessionBest = car.best_lap;
-    }
-
-    // Overall running order is by total distance covered — correct for
-    // multi-class racing, where classification is independent of class.
-    const order = [...cars].sort((a, b) => b.distance - a.distance);
+  // Freeze the current classification (using `sortFn`) as the phase's fixed
+  // order — used entering grid (qualifying result) and results (final race).
+  function freezeOrder(sortFn) {
+    const order = [...cars].sort(sortFn);
     order.forEach((car, i) => {
       car.position = i + 1;
     });
+    frozenOrder = order.map((car) => car.slot_id);
+  }
 
+  // Re-stagger the field for a standing start in grid order and reset race
+  // timing so the race sets its own fresh best laps (and thus its own
+  // class-best edges), independent of the qualifying session.
+  function startRaceFromGrid() {
+    const n = cars.length;
+    frozenOrder.forEach((slotId, i) => {
+      const car = cars.find((c) => c.slot_id === slotId);
+      car.distance = -i * (LAP_UNIT / n) * 2;
+      car.lapStartDistance = car.distance;
+      car.lastLapClock = clock;
+      car.last_lap = null;
+      car.best_lap = null;
+      car.sector_times = [];
+      car.noiseFactor = 0;
+      car.improvedBestThisStep = false;
+    });
+  }
+
+  function enterPhase(p) {
+    phase = p;
+    phaseElapsed = 0;
+    // Reset the on-camera subject so the first frame of the new phase re-cuts,
+    // firing the lower-thirds against the new classification.
+    subjectSlotId = null;
+    if (p === "qualifying") {
+      // Loop back to a clean session: a fresh field with no timing. Seed lap timing
+      // to the current clock so the first lap of a looped-back session isn't measured
+      // against clock 0 (which would report the whole prior session as one lap).
+      cars = makeCars(clock);
+      frozenOrder = null;
+    } else if (p === "grid") {
+      // Grid = the qualifying result, frozen as the starting order.
+      freezeOrder(byBestLap);
+    } else if (p === "race") {
+      startRaceFromGrid();
+    } else if (p === "results") {
+      // Results = the final race classification, frozen.
+      freezeOrder(byDistance);
+    }
+    announce(p);
+  }
+
+  // Running phases (qualifying, race): pick the tightest on-track battle with
+  // hysteresis and derive the subject's gaps/intensity from track proximity.
+  function runningDirector(order) {
     // Gap to the car immediately ahead/behind, converted from a distance
     // delta to seconds via the pair's average speed.
     const gapAhead = new Map();
@@ -164,8 +317,6 @@ function createSimulator() {
       return Math.min(gapAhead.get(slotId) ?? Infinity, gapBehind.get(slotId) ?? Infinity);
     }
 
-    // "Director" subject pick: whichever battle is tightest right now, with
-    // hysteresis so the on-camera car doesn't cut every tick.
     let bestSlotId = order[0].slot_id;
     let bestGap = closestGapFor(bestSlotId);
     for (const car of order) {
@@ -187,15 +338,102 @@ function createSimulator() {
       }
     }
 
-    const subjectCar = cars.find((c) => c.slot_id === subjectSlotId);
     const subjectClosest = closestGapFor(subjectSlotId);
     const intensity = Number.isFinite(subjectClosest)
       ? clamp(1 - subjectClosest / CLOSE_BATTLE_WINDOW, 0, 1)
       : 0;
 
     return {
+      subjectCar: cars.find((c) => c.slot_id === subjectSlotId),
+      relationship: {
+        gap_ahead: gapAhead.has(subjectSlotId) ? round1(gapAhead.get(subjectSlotId)) : null,
+        gap_behind: gapBehind.has(subjectSlotId) ? round1(gapBehind.get(subjectSlotId)) : null,
+        battle_intensity: Math.round(intensity * 100) / 100,
+      },
+    };
+  }
+
+  // Static phases (grid, results): the field is parked, so there is no battle to
+  // chase — just rotate the on-camera subject through the frozen order on a
+  // short cadence so the lower-thirds keep firing while the board is up.
+  function staticDirector(order) {
+    const stillOnCamera = subjectSlotId != null && order.some((c) => c.slot_id === subjectSlotId);
+    if (!stillOnCamera) {
+      subjectSlotId = order[0].slot_id;
+      subjectSinceClock = clock;
+    } else if (clock - subjectSinceClock >= SUBJECT_STATIC_DWELL_SECONDS) {
+      const idx = order.findIndex((c) => c.slot_id === subjectSlotId);
+      subjectSlotId = order[(idx + 1) % order.length].slot_id;
+      subjectSinceClock = clock;
+    }
+    return {
+      subjectCar: cars.find((c) => c.slot_id === subjectSlotId),
+      relationship: { gap_ahead: null, gap_behind: null, battle_intensity: 0 },
+    };
+  }
+
+  function step(dtSeconds) {
+    // Announce the opening phase once so a tester sees it before any transition.
+    if (!announced) {
+      announced = true;
+      announce(phase);
+    }
+
+    clock += dtSeconds;
+    phaseElapsed += dtSeconds;
+    if (phaseElapsed >= phaseSeconds[phase]) {
+      const next = PHASES[(PHASES.indexOf(phase) + 1) % PHASES.length];
+      enterPhase(next);
+    }
+
+    const running = phase === "qualifying" || phase === "race";
+    for (const car of cars) {
+      // Reset the per-step "just set a personal best" flag; only a lap completed
+      // on THIS step in a running phase can set it true.
+      car.improvedBestThisStep = false;
+      if (running) advanceCar(car, dtSeconds, clock);
+    }
+
+    // Producer-computed notability (dumb overlay, smart producer — see
+    // docs/decisions/0002-lower-third-widgets.md). We hold authoritative sim
+    // state, so we derive these facts here; the consumer only renders them.
+    // Fastest best_lap overall (session best) and per class (class best); the
+    // class-best time doubles as each car's `target_lap` (the time to beat). As
+    // cars improve their laps in qualifying/race, the class-best holder changes
+    // hands, which is exactly the false→true `class_best_lap` edge the #22
+    // widget's CLASS BEST flash and re-cut reveal are built to catch.
+    const classBest = new Map(); // vehicle_class -> fastest best_lap in that class
+    let sessionBest = null;
+    for (const car of cars) {
+      if (car.best_lap == null) continue;
+      const cb = classBest.get(car.vehicle_class);
+      if (cb == null || car.best_lap < cb) classBest.set(car.vehicle_class, car.best_lap);
+      if (sessionBest == null || car.best_lap < sessionBest) sessionBest = car.best_lap;
+    }
+
+    // Running order, classified on the phase's own terms.
+    let order;
+    if (phase === "qualifying") {
+      order = [...cars].sort(byBestLap);
+    } else if (phase === "race") {
+      order = [...cars].sort(byDistance);
+    } else {
+      // grid / results — the frozen classification captured on phase entry.
+      order = frozenOrder.map((slotId) => cars.find((c) => c.slot_id === slotId));
+    }
+    order.forEach((car, i) => {
+      car.position = i + 1;
+    });
+
+    // Gap to the overall leader for each car — lap-delta in the lap-classified
+    // phases, on-track time gap in the distance-classified ones.
+    const gapToLeader = gapToLeaderMap(order, phase === "qualifying" || phase === "grid");
+
+    const { subjectCar, relationship } = running ? runningDirector(order) : staticDirector(order);
+
+    return {
       schemaVersion: "1",
-      mode: "race",
+      mode: phase,
       vehicles: order.map((car) => {
         const target = car.best_lap == null ? null : classBest.get(car.vehicle_class);
         return {
@@ -206,6 +444,7 @@ function createSimulator() {
           last_lap: car.last_lap,
           best_lap: car.best_lap,
           sector_times: car.sector_times,
+          gap_to_leader: gapToLeader.get(car.slot_id) ?? null,
           notable: {
             class_best_lap: car.best_lap != null && car.best_lap === classBest.get(car.vehicle_class),
             session_best_lap: car.best_lap != null && car.best_lap === sessionBest,
@@ -220,15 +459,11 @@ function createSimulator() {
         slot_id: subjectCar.slot_id,
         driver_name: subjectCar.driver_name,
       },
-      relationship: {
-        gap_ahead: gapAhead.has(subjectSlotId) ? round1(gapAhead.get(subjectSlotId)) : null,
-        gap_behind: gapBehind.has(subjectSlotId) ? round1(gapBehind.get(subjectSlotId)) : null,
-        battle_intensity: Math.round(intensity * 100) / 100,
-      },
+      relationship,
     };
   }
 
   return { step };
 }
 
-module.exports = { createSimulator };
+module.exports = { createSimulator, PHASES, classPace };

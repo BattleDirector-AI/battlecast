@@ -19,7 +19,8 @@
     subject={snapshot.subject}
     relationship={snapshot.relationship}
     vehicles={snapshot.vehicles ?? []}
+    mode={snapshot.mode ?? null}
   />
 {:else}
-  <BattleBox subject={{}} relationship={{}} vehicles={[]} />
+  <BattleBox subject={{}} relationship={{}} vehicles={[]} mode={null} />
 {/if}
