@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-05
+
 ### Added
 
 - **Class-aware standings tower (#28, spec-v1 scope).** The standings tower
@@ -24,8 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   class" empty state. `classDisplay` is surfaced in the `/config` editor for the
   tower widget and round-trips through saved profiles (no `configVersion` bump).
   The on-camera re-cut flash (#68) and reduced-motion gating are preserved in both
-  layouts. The `last_lap` column is a placeholder for the gap-to-class-leader
-  column, which is deferred to spec #20.
+  layouts. Each row's timing column now reads its **gap to the leader** (#28, via
+  the additive spec-#20 `gap_to_leader` field) — to the overall leader in the inline
+  layout and to the class leader in the grouped layout (`LEADER` on top, `—` when
+  undetermined) — replacing the former last-lap placeholder.
 
 - **Full results / standings slide (#23).** A full-screen, opaque takeover board
   (`app/src/routes/results/ResultsSlide.svelte` + `ResultsPage.svelte`) on its own
@@ -72,9 +76,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   The driver name-tag (#21) keys its shell on the on-camera `slot_id`; the
   qualifying/sector timing bar (#22) keys on the displayed card identity so both a
   camera cut and a fresh class-best flash re-reveal (the class-best flash still
-  freezes the earning driver). The standings tower's on-camera highlight now plays
-  an on-brand mint glow-in as it lands on the newly-selected row. Reduced-motion
-  viewers keep an instant swap.
+  freezes the earning driver). The standings tower's on-camera highlight now sweeps
+  an on-brand mint shine — a raked bar-wipe, not the original box-shadow glow (#73) —
+  across the newly-selected row. Reduced-motion viewers keep an instant swap.
+
+- **Logo / sponsor carousel switches with the bar-wipe reveal (#82).** The logo
+  rotation widget (`app/src/routes/logos/LogoRotation.svelte`) no longer cross-fades
+  between sponsors — it now uses the same skewed bar-wipe vocabulary as the
+  lower-thirds and tower re-cut: the outgoing logo wipes **out** under a raked mint
+  shine bar, then the incoming one wipes **in**. The reveal is confined to the logo
+  box — not the full slot, so the shine never sweeps empty space beside a smaller
+  mark — and its bar sweeps the full width; the wrapper translates only (never skews)
+  so a brand mark is never sheared (#85). Reduced-motion viewers keep a plain fade
+  with no shine.
+
+- **Reference mock producer emits realistic lap times (#76, dev tooling).** The
+  mock's simulated lap times now derive from per-class pace baselines plus relative
+  per-driver noise instead of uniform placeholder values, so the timing columns and
+  gap-to-leader readouts exercise plausible data. Producer-only; no app or spec
+  change.
 
 ### Fixed
 
@@ -92,6 +112,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Reduced-motion behavior is unchanged (instant, no motion). New tests exercise the
   real-motion (`no-preference`) path, which the suite's global reduced-motion stub
   had previously left unexercised.
+
+- **Lower-third shine bar sweeps on exit, not just entrance (#71).** The skewed mint
+  shine that sweeps across a lower-third on entrance now also sweeps on the exit
+  wipe-out; previously the plate's content wiped out but the bar stayed parked at its
+  entrance end-frame (a `both`-fill animation is not restarted under the same name),
+  so the exit read as a plain wipe. A distinct exit keyframe restarts the sweep.
+
+- **Battle box: intensifying border wraps the whole widget and is gated to racing
+  modes (#80, #81).** The proximity-driven intensifying border now frames the entire
+  battle box instead of an inner element, and no longer renders in known non-racing
+  sessions (qualifying / practice / grid / results), where "fighting for position"
+  has no meaning — a denylist, so custom/unknown race modes still show it and a
+  blank/absent mode shows nothing.
 
 ## [0.3.0] - 2026-07-03
 
