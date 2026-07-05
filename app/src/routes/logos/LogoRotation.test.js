@@ -10,6 +10,7 @@ beforeEach(() => vi.useFakeTimers())
 afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   cleanup()
 })
 
@@ -153,5 +154,98 @@ describe('LogoRotation — switch uses the skewed bar-wipe reveal (#82)', () => 
     for (const kf of ['bc-logo-slide', 'bc-logo-wipe', 'bc-logo-bar']) {
       expect(new RegExp(String.raw`@keyframes\s+${kf}\b`).test(source)).toBe(true)
     }
+  })
+})
+
+describe('LogoRotation — reveal confined to the logo, sweeps full width, and exits (#85)', () => {
+  // The test env (happy-dom) runs no CSS animations, so the geometry fixes are only
+  // checkable against the source; the exit hand-off is observable in the DOM.
+
+  it('sizes the reveal to the image (fit-content), not the full slot', () => {
+    // Confining the reveal to the logo box is what keeps the shine/wipe off the
+    // empty slot space beside a small logo. Pre-fix this rule was `width: 100%`.
+    const reveal = /\.bc-logos__reveal\s*\{([^}]*)\}/.exec(source)?.[1] || ''
+    expect(reveal).toMatch(/\bwidth:\s*fit-content/)
+    expect(reveal).not.toMatch(/(?<![a-z-])width:\s*100%/)
+  })
+
+  it('sweeps the shine bar fully across and off the right edge', () => {
+    // The 34%-wide bar (left:-20%) must translate far enough to clear the right
+    // edge, not stall mid-box at the old 165%. -20% + 0.34·300% > 100%.
+    const bar = /@keyframes\s+bc-logo-bar\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(source)?.[1] || ''
+    const end = /100%\s*\{[^}]*translateX\(\s*(\d+)%/.exec(bar)
+    expect(end).toBeTruthy()
+    expect(Number(end[1])).toBeGreaterThanOrEqual(300)
+  })
+
+  it('defines and wires the exit (wipe-out + bar-out) keyframes under no-preference', () => {
+    for (const kf of ['bc-logo-wipe-out', 'bc-logo-bar-out']) {
+      expect(new RegExp(String.raw`@keyframes\s+${kf}\b`).test(source)).toBe(true)
+    }
+    const noPref = /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
+      source,
+    )?.[1]
+    expect(noPref).toBeTruthy()
+    expect(noPref).toMatch(
+      /\.bc-logos__reveal--leaving\s+\.bc-logos__img\s*\{[^}]*animation:\s*bc-logo-wipe-out/s,
+    )
+    expect(noPref).toMatch(
+      /\.bc-logos__reveal--leaving\s+\.bc-logos__shine--out\s*\{[^}]*animation:\s*bc-logo-bar-out/s,
+    )
+  })
+
+  it('plays an exit: on switch the previous logo wipes out on its own layer while the new one enters', async () => {
+    // happy-dom reports `prefers-reduced-motion: reduce` as true by default, which
+    // would take the instant-swap path — force real motion so the exit choreography
+    // (the thing under test) actually runs.
+    vi.stubGlobal('matchMedia', () => ({
+      matches: false,
+      addEventListener() {},
+      removeEventListener() {},
+    }))
+    const { getByTestId, queryByTestId, container } = render(LogoRotation, {
+      rotation: { images: ['/logos/a.png', '/logos/b.png'], perSlotSeconds: 5 },
+    })
+    await tick()
+    // First paint: no exit layer, and the entrance is not held back.
+    expect(shownSrc(getByTestId)).toBe('/logos/a.png')
+    expect(queryByTestId('logo-leaving')).toBeNull()
+    expect(
+      container.querySelector('.bc-logos__reveal:not(.bc-logos__reveal--leaving)').getAttribute('style'),
+    ).toMatch(/--enter-delay:\s*0ms/)
+
+    await vi.advanceTimersByTimeAsync(5000)
+    await tick()
+    // The incoming logo is shown at once (so it reflects the carousel), while the
+    // OUTGOING one lingers on the leaving layer playing its wipe-out...
+    expect(shownSrc(getByTestId)).toBe('/logos/b.png')
+    expect(getByTestId('logo-leaving').getAttribute('src')).toBe('/logos/a.png')
+    // ...and the entrance is held back until that exit finishes.
+    expect(
+      container.querySelector('.bc-logos__reveal:not(.bc-logos__reveal--leaving)').getAttribute('style'),
+    ).toMatch(/--enter-delay:\s*[1-9]\d*ms/)
+
+    // Once the exit window elapses, the leaving layer is torn down.
+    await vi.advanceTimersByTimeAsync(400)
+    await tick()
+    expect(queryByTestId('logo-leaving')).toBeNull()
+    expect(shownSrc(getByTestId)).toBe('/logos/b.png')
+  })
+
+  it('reduced motion swaps instantly — no exit layer', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener() {},
+      removeEventListener() {},
+    }))
+    const { getByTestId, queryByTestId } = render(LogoRotation, {
+      rotation: { images: ['/logos/a.png', '/logos/b.png'], perSlotSeconds: 4 },
+    })
+    await tick()
+    await vi.advanceTimersByTimeAsync(4000)
+    await tick()
+    // The new logo is shown, but nothing wipes out — the swap is a plain fallback.
+    expect(shownSrc(getByTestId)).toBe('/logos/b.png')
+    expect(queryByTestId('logo-leaving')).toBeNull()
   })
 })
