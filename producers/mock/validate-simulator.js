@@ -19,6 +19,10 @@ const { validate } = require("./validate.js");
 // bug: slower classes posting sub-pace laps); far above means an inflated multi-lap
 // "out lap". Per-car skill offset (±0.5s) plus the ±4% pace noise keep real laps
 // comfortably inside [0.9x, 1.5x]; the pre-fix code produced laps down to ~0.55x.
+// The band is probabilistic (unseeded Math.random) but the 0.9x floor keeps a
+// deliberate ~0.05 margin over the observed worst legitimate lap (~0.95x), so the
+// check is stable in practice; tightening the band or widening the noise clamp
+// would erode that margin.
 const LAP_MIN_FACTOR = 0.9;
 const LAP_MAX_FACTOR = 1.5;
 
@@ -37,6 +41,9 @@ let failed = 0;
 const ticksByMode = new Map();
 let qualiClassBestSeen = false;
 const lapBandViolations = [];
+// last_lap persists for the ~50 ticks between a car's laps, so dedup per
+// (car, lap) to keep the report from filling with copies of one bad lap.
+const seenLapKeys = new Set();
 
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
@@ -52,6 +59,9 @@ for (let i = 0; i < TICKS; i++) {
     if (v.last_lap == null) continue;
     const base = classPace(v.vehicle_class);
     if (v.last_lap < base * LAP_MIN_FACTOR || v.last_lap > base * LAP_MAX_FACTOR) {
+      const key = `${v.slot_id}:${v.last_lap}`;
+      if (seenLapKeys.has(key)) continue;
+      seenLapKeys.add(key);
       if (lapBandViolations.length < 10) {
         lapBandViolations.push(
           `tick ${i} (${payload.mode}): ${v.driver_name} [${v.vehicle_class}] last_lap=${v.last_lap.toFixed(1)}s ` +
