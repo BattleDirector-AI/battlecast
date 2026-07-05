@@ -118,7 +118,8 @@ function round3(n) {
  * a distance-classified phase (race / results) it is the on-track time gap,
  * accumulated from the adjacent pair deltas along the running order (the same
  * distance→seconds conversion used for the subject's gap_ahead/gap_behind). The
- * leader is 0; a car with no comparable timing yet is null.
+ * leader is 0 once it has comparable timing (else null — e.g. a qualifying leader
+ * before any lap is set); a trailing car with no comparable timing is null.
  */
 function gapToLeaderMap(order, byLap) {
   const map = new Map();

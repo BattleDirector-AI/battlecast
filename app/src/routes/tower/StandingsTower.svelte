@@ -97,7 +97,11 @@
   // leader row reads 'LEADER'; a car without a determined gap reads '—'.
   // `gap_to_leader` is optional/additive, so tolerate its absence.
   const gapCell = (seconds) =>
-    seconds == null || Number.isNaN(seconds) ? '—' : `+${seconds.toFixed(3)}`
+    seconds == null || Number.isNaN(seconds)
+      ? '—'
+      : // gaps are 0/positive per the spec; guard the sign so a contract-violating
+        // negative never renders as '+-0.400'.
+        `${seconds < 0 ? '' : '+'}${seconds.toFixed(3)}`
 
   /** Inline layout: interval to the overall leader (position 1 reads LEADER). */
   function overallGap(v) {
