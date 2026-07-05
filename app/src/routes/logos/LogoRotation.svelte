@@ -63,10 +63,11 @@
 {#if current}
   <div class="bc-logos" data-testid="logos-widget">
     <!-- Re-keyed on each image change so the reveal replays on switch. The wrapper
-         is the "plate" that skew-slides in; the image is the clipped content that
-         wipes in behind the raked mint bar — the same skewed bar-wipe reveal the
-         lower-thirds use (mirrors LowerThirdShell), so every widget switches with one
-         motion vocabulary. -->
+         slides in while the image wipes in behind the raked mint bar — the same
+         bar-wipe reveal the lower-thirds use (mirrors LowerThirdShell), so every
+         widget switches with one motion vocabulary. The rake lives in the wipe's
+         angled clip edge and the skewed shine bar; the wrapper itself does NOT skew,
+         so a sponsor's logo is never sheared/distorted mid-reveal. -->
     {#key current}
       <div class="bc-logos__reveal">
         <img class="bc-logos__img" data-testid="logo-image" src={current} alt="" />
@@ -90,8 +91,10 @@
     overflow: hidden;
   }
 
-  /* The reveal wrapper is the skewed-bar-wipe "plate": it clips the raked shine bar
-     and the content wipe to its own box, and skew-slides in on each switch. */
+  /* The reveal wrapper is the bar-wipe "plate": it clips the raked shine bar and the
+     content wipe to its own box, and slides in on each switch. It translates only —
+     no skew — so the sponsor logo it wraps is never sheared (the rake reads from the
+     wipe's angled edge and the raked shine, not from distorting the mark). */
   .bc-logos__reveal {
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
@@ -133,8 +136,8 @@
     box-shadow: 0 0 24px var(--bc-accent-glow, rgba(31, 224, 196, 0.28));
   }
 
-  /* Entrance: wrapper skew-slides in, the logo wipes in behind the raked bar. Gated
-     to no-preference so reduced-motion viewers skip the sweep for a plain fade. */
+  /* Entrance: wrapper slides in, the logo wipes in behind the raked bar. Gated to
+     no-preference so reduced-motion viewers skip the sweep for a plain fade. */
   @media (prefers-reduced-motion: no-preference) {
     .bc-logos__reveal {
       animation: bc-logo-slide 0.42s var(--ease-out) both;
@@ -172,17 +175,19 @@
     color: var(--bc-text-3);
   }
 
-  /* Reveal keyframes mirror LowerThirdShell's lt3-plate-in / lt3-wipe-in / lt3-bar,
-     so the logo carousel switches with the exact same skewed bar-wipe as the rest of
-     the overlay. Keep the values in sync with that component. */
+  /* Reveal keyframes track LowerThirdShell's lt3-wipe-in / lt3-bar (keep in sync).
+     bc-logo-slide intentionally DROPS the shell plate-in's skewX: the shell skews an
+     opaque plate, but here the wrapper directly holds the sponsor image, so skewing
+     it would shear the brand mark. A plain translate keeps the slide-in while the
+     rake still reads from the wipe edge and the (skewed) shine bar. */
   @keyframes bc-logo-slide {
     from {
       opacity: 0;
-      transform: translateX(-46%) skewX(-15deg);
+      transform: translateX(-46%);
     }
     to {
       opacity: 1;
-      transform: translateX(0) skewX(0deg);
+      transform: translateX(0);
     }
   }
   @keyframes bc-logo-wipe {

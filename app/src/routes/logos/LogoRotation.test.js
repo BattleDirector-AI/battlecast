@@ -129,16 +129,17 @@ describe('LogoRotation — switch uses the skewed bar-wipe reveal (#82)', () => 
     expect(reveal.querySelector('.bc-logos__shine')).not.toBeNull()
   })
 
-  it('animates the skew-slide + clip-wipe + shine on switch, not a plain fade', () => {
-    // No-preference path drives the three reveal keyframes; the plain fade is only the
+  it('binds slide→wrapper, wipe→image, bar→shine on switch (not a plain fade)', () => {
+    // No-preference path drives the three reveal keyframes, each on its OWN element
+    // (a mis-wire — e.g. slide on the img — must fail). The plain fade is only the
     // reduced-motion fallback. Red on the pre-fix source (which faded the image in).
     const noPref = /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
       source,
     )?.[1]
     expect(noPref).toBeTruthy()
-    expect(noPref).toMatch(/animation:\s*bc-logo-slide/)
-    expect(noPref).toMatch(/animation:\s*bc-logo-wipe/)
-    expect(noPref).toMatch(/animation:\s*bc-logo-bar/)
+    expect(noPref).toMatch(/\.bc-logos__reveal\s*\{[^}]*animation:\s*bc-logo-slide/s)
+    expect(noPref).toMatch(/\.bc-logos__img\s*\{[^}]*animation:\s*bc-logo-wipe/s)
+    expect(noPref).toMatch(/\.bc-logos__shine\s*\{[^}]*animation:\s*bc-logo-bar/s)
     // The old behaviour (fading the image in on every switch) must be gone; the fade
     // survives only inside the reduced-motion block.
     const reduce = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
