@@ -45,10 +45,18 @@ describe('StandingsTower — on-camera re-cut is a shine sweep, not a glow (#73)
   })
 
   it('gates the sweep to no-preference so reduced motion stays instant', () => {
-    // The ::before that carries the shine must live inside the no-preference block,
-    // so reduced-motion viewers generate no sweeping element at all.
-    const noPref =
-      /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{([\s\S]*)$/.exec(source)?.[1] ?? ''
-    expect(noPref).toMatch(/\.row__oncam-flash::before/)
+    // The ::before that carries the shine (incl. its `content`) must live INSIDE the
+    // no-preference block, so reduced-motion viewers generate no sweeping element at
+    // all. Capture the BALANCED media-block body (one level of nested rule braces)
+    // rather than everything to EOF, so moving the rule out of the gate trips this.
+    const body = (
+      /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
+        source,
+      ) || []
+    )[1]
+    expect(body).toBeTruthy()
+    expect(body).toMatch(/\.row__oncam-flash::before/)
+    // The generated element itself must be gated, not just its animation.
+    expect(body).toMatch(/content:/)
   })
 })
