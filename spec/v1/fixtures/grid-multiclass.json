@@ -9,7 +9,8 @@
       "position": 1,
       "last_lap": null,
       "best_lap": 91.744,
-      "sector_times": []
+      "sector_times": [],
+      "gap_to_leader": 0
     },
     {
       "slot_id": "car-14",
@@ -18,7 +19,8 @@
       "position": 2,
       "last_lap": null,
       "best_lap": 106.088,
-      "sector_times": []
+      "sector_times": [],
+      "gap_to_leader": 14.344
     },
     {
       "slot_id": "car-44",
@@ -27,7 +29,8 @@
       "position": 3,
       "last_lap": null,
       "best_lap": 91.872,
-      "sector_times": []
+      "sector_times": [],
+      "gap_to_leader": 0.128
     },
     {
       "slot_id": "car-8",
@@ -36,7 +39,8 @@
       "position": 4,
       "last_lap": null,
       "best_lap": 98.512,
-      "sector_times": []
+      "sector_times": [],
+      "gap_to_leader": 6.768
     },
     {
       "slot_id": "car-23",
@@ -45,7 +49,8 @@
       "position": 5,
       "last_lap": null,
       "best_lap": 106.744,
-      "sector_times": []
+      "sector_times": [],
+      "gap_to_leader": 15.0
     },
     {
       "slot_id": "car-31",
@@ -54,7 +59,8 @@
       "position": 6,
       "last_lap": null,
       "best_lap": 98.987,
-      "sector_times": []
+      "sector_times": [],
+      "gap_to_leader": 7.243
     }
   ],
   "subject": {

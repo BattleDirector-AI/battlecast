@@ -90,12 +90,31 @@
   // snapshot at all" — surface which so the tower never blanks silently.
   const emptyReason = $derived(snapshot?.vehicles?.length ? 'no-match' : 'no-state')
 
-  /** Lap seconds -> broadcast readout (m:ss.mmm, or ss.mmm under a minute). */
-  function fmtLapTime(seconds) {
-    if (seconds == null || Number.isNaN(seconds)) return '—'
-    const m = Math.floor(seconds / 60)
-    const s = seconds - m * 60
-    return m > 0 ? `${m}:${s.toFixed(3).padStart(6, '0')}` : s.toFixed(3)
+  // Gap-to-leader readout (#28). Each row shows its interval to the leader, from the
+  // producer's `gap_to_leader` (gap to the OVERALL leader). The grouped layout shows
+  // gap to the CLASS leader — exact arithmetic: a car's `gap_to_leader` minus its
+  // class leader's — which the spec explicitly permits (see spec/v1/SPEC.md). The
+  // leader row reads 'LEADER'; a car without a determined gap reads '—'.
+  // `gap_to_leader` is optional/additive, so tolerate its absence.
+  const gapCell = (seconds) =>
+    seconds == null || Number.isNaN(seconds)
+      ? '—'
+      : // gaps are 0/positive per the spec; guard the sign so a contract-violating
+        // negative never renders as '+-0.400'.
+        `${seconds < 0 ? '' : '+'}${seconds.toFixed(3)}`
+
+  /** Inline layout: interval to the overall leader (position 1 reads LEADER). */
+  function overallGap(v) {
+    return v.position === 1 ? { leader: true } : { leader: false, seconds: v.gap_to_leader ?? null }
+  }
+
+  /** Grouped layout: interval to the class leader (first row in the group). */
+  function classGap(group, v, i) {
+    if (i === 0) return { leader: true }
+    const lead = group.cars[0]?.gap_to_leader
+    const own = v.gap_to_leader
+    const seconds = own != null && lead != null ? Math.max(0, own - lead) : null
+    return { leader: false, seconds }
   }
 </script>
 
@@ -103,7 +122,7 @@
      reduced-motion gating are identical in inline and grouped. `positionText` is the
      overall position (inline) or the within-class rank (grouped); `classBadge` is the
      inline-only 'rank/total' chip. -->
-{#snippet towerRow(v, positionText, zebra, classBadge)}
+{#snippet towerRow(v, positionText, zebra, classBadge, gap)}
   {@const oncam = v.slot_id === subjectSlot}
   <li
     class="row"
@@ -136,10 +155,14 @@
       <span class="row__classpos" data-testid="class-pos">{classBadge}</span>
     {/if}
     <span class="row__name" data-testid="driver-name">{fmtName(v.driver_name)}</span>
-    <!-- Placeholder: `last_lap` stands in for the design's gap-to-class-leader
-         column, which needs the richer telemetry from spec #20 and will replace this
-         once that lands. Do not invent gap numbers here. -->
-    <span class="row__lap">{fmtLapTime(v.last_lap)}</span>
+    <!-- Interval to the leader — overall leader in the inline layout, class leader in
+         the grouped layout — from the producer's `gap_to_leader`. The leader reads
+         LEADER; an undetermined gap reads '—'. -->
+    {#if gap.leader}
+      <span class="row__gap row__gap--leader" data-testid="row-gap">LEADER</span>
+    {:else}
+      <span class="row__gap" data-testid="row-gap">{gapCell(gap.seconds)}</span>
+    {/if}
   </li>
 {/snippet}
 
@@ -176,7 +199,7 @@
           </header>
           <ol class="tower__rows">
             {#each group.cars as v, i (v.slot_id)}
-              {@render towerRow(v, i + 1, i % 2 === 1, null)}
+              {@render towerRow(v, i + 1, i % 2 === 1, null, classGap(group, v, i))}
             {/each}
           </ol>
         </section>
@@ -185,7 +208,7 @@
   {:else}
     <ol class="tower__rows">
       {#each inlineRows as v, i (v.slot_id)}
-        {@render towerRow(v, v.position, i % 2 === 1, `${classRankOf(v)}/${classTotalOf(v)}`)}
+        {@render towerRow(v, v.position, i % 2 === 1, `${classRankOf(v)}/${classTotalOf(v)}`, overallGap(v))}
       {/each}
     </ol>
   {/if}
@@ -333,12 +356,22 @@
     text-overflow: ellipsis;
   }
 
-  .row__lap {
+  .row__gap {
     font-family: var(--bc-font-mono);
     font-size: var(--bc-size-gap);
     font-weight: var(--bc-weight-num);
     color: var(--bc-text-2);
     font-variant-numeric: tabular-nums;
+  }
+  /* The leader's row reads a 'LEADER' word, not a number — set it as an uppercase
+     label so it reads as a status, not a time. Cyan is reserved for the on-camera
+     driver, so this stays a neutral text tone. */
+  .row__gap--leader {
+    font-family: var(--bc-font-ui);
+    font-size: var(--bc-size-label);
+    font-weight: var(--bc-weight-label);
+    letter-spacing: var(--bc-track-label);
+    color: var(--bc-text-3);
   }
 
   /* On-camera driver — cyan accent is reserved exclusively for this. */
