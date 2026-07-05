@@ -108,12 +108,27 @@ describe('isActiveBattle heuristic', () => {
 })
 
 describe('BattleBox — racing-mode gate (#81)', () => {
-  it('isRacingMode is true only for race/replay', () => {
-    expect(isRacingMode('race')).toBe(true)
-    expect(isRacingMode('replay')).toBe(true)
-    for (const m of ['qualifying', 'practice', 'grid', 'results', 'unknown', null, undefined]) {
+  it('hides only KNOWN non-racing modes; renders race/replay/unknown, case-insensitively', () => {
+    // Denylist: unknown modes render (the spec says tolerate unknowns — best-effort),
+    // known non-racing sessions hide. Matching is case/whitespace-insensitive.
+    for (const m of ['race', 'replay', 'sprint', 'feature', 'Race', ' race ', 'RACE']) {
+      expect(isRacingMode(m)).toBe(true)
+    }
+    for (const m of ['qualifying', 'practice', 'grid', 'results', 'Qualifying', ' GRID ', null, undefined, '', '  ']) {
       expect(isRacingMode(m)).toBe(false)
     }
+  })
+
+  it('renders the box for a replay (racing) mode', () => {
+    const { container } = render(BattleBox, {
+      props: {
+        subject: closeBattle.subject,
+        relationship: closeBattle.relationship,
+        vehicles: closeBattle.vehicles,
+        mode: 'replay',
+      },
+    })
+    expect(container.querySelector('.bc-battle')).not.toBeNull()
   })
 
   it('renders NOTHING outside a racing mode, even with an active-battle relationship', () => {
@@ -138,12 +153,26 @@ describe('BattleBox — racing-mode gate (#81)', () => {
 })
 
 describe('BattleBox — intensifying border wraps the whole widget (#80)', () => {
-  // The pulsing ring must be drawn on an overlay ABOVE the header, not as an inset
-  // shadow on the section (which the header's opaque background covered along the
-  // top). Assert the source draws the pulse on a `.bc-battle--hot::after` overlay
-  // and NOT on the bare `.bc-battle--hot` element. Red on the pre-fix source.
-  it('animates bc-pulse on the ::after overlay, not the section itself', () => {
-    expect(/\.bc-battle--hot::after\s*\{[^}]*animation:\s*bc-pulse/s.test(source)).toBe(true)
-    expect(/\.bc-battle--hot\s*\{[^}]*animation:\s*bc-pulse/s.test(source)).toBe(false)
+  // The pulsing RING must be drawn on an overlay ABOVE the header (so the header's
+  // opaque background can't cover it along the top), gated to no-preference; the
+  // outer glow rides the section. Assert the ring animates on `.bc-battle--hot::after`
+  // under no-preference and NOT on the bare `.bc-battle--hot`. Red on the pre-fix
+  // source (which pulsed the bare section, ungated).
+  const noPref = /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
+    source,
+  )?.[1]
+  const reduce = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
+    source,
+  )?.[1]
+
+  it('animates the ring on the ::after overlay under no-preference, not the bare section', () => {
+    expect(noPref).toBeTruthy()
+    expect(noPref).toMatch(/\.bc-battle--hot::after\s*\{[^}]*animation:\s*bc-pulse-ring/s)
+    expect(/\.bc-battle--hot\s*\{[^}]*animation:\s*bc-pulse-ring/s.test(source)).toBe(false)
+  })
+
+  it('keeps a static ring under reduced motion (no pulse)', () => {
+    expect(reduce).toBeTruthy()
+    expect(reduce).toMatch(/\.bc-battle--hot::after\s*\{[^}]*box-shadow/s)
   })
 })
