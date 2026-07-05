@@ -56,6 +56,7 @@
           subject={snapshot?.subject ?? {}}
           relationship={snapshot?.relationship ?? {}}
           vehicles={snapshot?.vehicles ?? []}
+          mode={snapshot?.mode ?? null}
         />
       {:else if w.key === 'logos'}
         <LogoRotation rotation={normalized.logoRotation} />

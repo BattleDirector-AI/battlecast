@@ -20,6 +20,13 @@ describe('widgetIdle — idle predicates', () => {
     expect(isWidgetIdle('battle', { snapshot: closeBattle })).toBe(false)
   })
 
+  it('battle is idle outside a racing mode even with an active battle (#81)', () => {
+    // The race-close-battle relationship in a qualifying snapshot: battle-for-position
+    // has no meaning there, so the widget auto-hides.
+    expect(isWidgetIdle('battle', { snapshot: { ...closeBattle, mode: 'qualifying' } })).toBe(true)
+    expect(isWidgetIdle('battle', { snapshot: { ...closeBattle, mode: 'race' } })).toBe(false)
+  })
+
   it('logos is idle with no valid rotation images', () => {
     expect(isWidgetIdle('logos', { config: { logoRotation: { images: [] } } })).toBe(true)
     expect(isWidgetIdle('logos', { config: { logoRotation: { images: ['  ', ''] } } })).toBe(true)
