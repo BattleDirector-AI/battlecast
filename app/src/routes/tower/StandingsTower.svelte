@@ -118,7 +118,7 @@
     {#if oncam}
       <!-- Re-cut reveal (#64/#68): a fresh, subject-keyed flash overlay mounts only
            for the on-camera row, so switching the highlight to a NEW driver always
-           mounts a NEW node and its mint glow-in animation replays. Gated to
+           mounts a NEW node and its raked shine sweep replays. Gated to
            no-preference (below); under reduced motion it is inert and the static
            `.row--oncam` styling carries the highlight instantly. -->
       {#key subjectSlot}
@@ -354,37 +354,60 @@
     font-weight: var(--bc-weight-leader);
   }
 
-  /* Re-cut reveal (#64/#68): the mint glow-in plays on a FRESH, subject-keyed flash
-     overlay (see markup) rendered only for the on-camera row, so it reliably replays
-     every time the highlight moves to a new driver. The overlay sits behind the text
-     and animates a left-edge accent bar + accent glow that fades back out, leaving
-     the static `.row--oncam` shadow as the steady state. Gated to no-preference;
-     under reduced motion it is inert (no box-shadow), so the highlight is instant. */
+  /* Re-cut reveal (#64/#68/#73): a raked mint SHINE sweeps across the on-camera row,
+     the same reveal language as the lower-third bar-wipe — replacing the earlier
+     box-shadow glow, which read as a static "grow" rather than a wipe. It plays on a
+     FRESH, subject-keyed flash overlay (see markup) rendered only for the on-camera
+     row, so it reliably replays every time the highlight moves to a new driver. The
+     overlay clips the sweep to the row and sits behind the text; the static
+     `.row--oncam` cyan highlight is the steady state. Gated to no-preference; under
+     reduced motion the ::before is never generated, so the highlight is instant. */
   .row__oncam-flash {
     position: absolute;
     inset: 0;
     z-index: -1;
     pointer-events: none;
+    overflow: hidden;
   }
   @media (prefers-reduced-motion: no-preference) {
-    .row__oncam-flash {
-      animation: row-oncam-flash 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    /* The shine itself — a bright, blurred, raked mint bar, screen-blended so it
+       reads as light passing over the row. `content` lives inside this media block
+       so reduced-motion viewers get no sweeping element at all. */
+    .row__oncam-flash::before {
+      content: '';
+      position: absolute;
+      top: -25%;
+      left: -20%;
+      width: 26%;
+      height: 150%;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--bc-up, #7cffb2) 45%,
+        var(--bc-oncam-text, #eafffb) 55%,
+        transparent 100%
+      );
+      mix-blend-mode: screen;
+      filter: blur(2px);
+      box-shadow: 0 0 20px var(--bc-accent-glow, rgba(31, 224, 196, 0.35));
+      animation: row-oncam-shine 0.6s linear both;
     }
   }
 
-  @keyframes row-oncam-flash {
+  @keyframes row-oncam-shine {
     0% {
-      box-shadow: none;
+      transform: translateX(-180%) skewX(-13deg);
+      opacity: 0;
     }
-    /* The mint accent lands: a bright left-edge bar + accent glow sweeps in… */
-    35% {
-      box-shadow:
-        inset 3px 0 0 0 var(--bc-up, #7cffb2),
-        0 0 28px var(--bc-accent-glow, rgba(31, 224, 196, 0.35));
+    12% {
+      opacity: 1;
     }
-    /* …then fades out, leaving the static on-camera shadow as the steady state. */
+    82% {
+      opacity: 1;
+    }
     100% {
-      box-shadow: none;
+      transform: translateX(520%) skewX(-13deg);
+      opacity: 0;
     }
   }
 </style>
