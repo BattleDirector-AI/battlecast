@@ -4,6 +4,7 @@ import AllView from './AllView.svelte'
 import { normalizeConfig } from '../../lib/overlayConfig.js'
 import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
 import idleBattle from '../../../../spec/v1/fixtures/race-idle-battle.json'
+import raceSessionFcy from '../../../../spec/v1/fixtures/race-session-fcy.json'
 import lowerThird from './fixtures/profile-lower-third.json'
 import towerOnly from './fixtures/profile-tower-only.json'
 import withLogos from './fixtures/profile-with-logos.json'
@@ -117,6 +118,31 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(logos.querySelector('[data-testid="logo-image"]').getAttribute('src')).toBe(
       '/logos/sponsor-a.png',
     )
+  })
+
+  it('composes the session status widget from snapshot.session without disturbing other widgets (#25)', () => {
+    const { container } = render(AllView, { snapshot: raceSessionFcy })
+
+    const session = slot(container, 'session')
+    expect(session).not.toBeNull()
+    expect(session.textContent).toContain('YELLOW FLAG')
+    expect(session.textContent).toContain('FULL COURSE YELLOW')
+    expect(session.textContent).toContain('SAFETY CAR')
+
+    // Existing widgets keep rendering their own content unaffected (tower shows the
+    // fixture's running order; battle shows the on-camera subject).
+    const tower = slot(container, 'tower')
+    const battle = slot(container, 'battle')
+    expect(tower).not.toBeNull()
+    expect(battle).not.toBeNull()
+    expect(container.textContent).toContain('Hamilton')
+    expect(container.textContent).toContain('Verstappen')
+  })
+
+  it('omits the session widget from the DOM when hidden via config', () => {
+    const cfg = normalizeConfig({ widgets: { session: { visible: false } } })
+    const { container } = render(AllView, { snapshot: raceSessionFcy, config: cfg })
+    expect(slot(container, 'session')).toBeNull()
   })
 
   it('honors z-order by painting widgets in ascending z (later = on top)', () => {
