@@ -139,6 +139,60 @@ required-ness.
   running order; null or absent when the subject leads or trails the field), and
   `battle_intensity` (a number in `[0, 1]` describing how close/contested the battle
   is — 0 is clear air, 1 is maximally contested). This drives the battle box.
+- **`session`** (object, **OPTIONAL, ADDITIVE**) — Session-level broadcast state
+  driving the session status overlay. Like the vehicle-level optional fields above,
+  every field is producer-computed per the *dumb overlay, smart producer* principle in
+  [`docs/decisions/0002-lower-third-widgets.md`](../../docs/decisions/0002-lower-third-widgets.md):
+  the producer holds authoritative session state, and the consumer only renders what it
+  is handed and **MUST tolerate its absence**. A payload with **no** `session` still
+  validates and every existing widget still renders. The object is open, so unknown
+  session keys are ignored.
+
+  - **`flag`** (string) — the current session flag: commonly `"green"`, `"yellow"`,
+    `"red"`, `"checkered"`, `"white"`, or `"none"`, but **free-form** — the producer
+    owns the flag state and consumers tolerate unknown values. A `"yellow"` here is a
+    local/sector flag; a session-wide caution is `full_course_yellow`.
+  - **`full_course_yellow`** (boolean) — the whole course is under caution, distinct
+    from a local `yellow` `flag`. Absent or false means no FCY.
+  - **`safety_car`** (boolean) — a safety/pace car is deployed. Independent of
+    `full_course_yellow` (either may be set without the other). Absent or false means
+    none.
+  - **`time_remaining`** / **`session_length`** (number, seconds) — the countdown clock
+    and total length of a **timed** session; `session_length` is the progress
+    denominator. Null or absent in a lap-limited session.
+  - **`laps_remaining`** / **`total_laps`** / **`current_lap`** (integer) — the lap state
+    of a **lap-limited** session. `current_lap` is the **producer-owned** lap the leader
+    is on (the X) and `total_laps` the scheduled total (the Y), so the widget renders
+    `"LAP X OF Y"` **verbatim** — it MUST NOT derive the current lap from
+    `total_laps` − `laps_remaining`, because the counting convention (does the lap in
+    progress count? how is the final lap numbered?) is the producer's judgment, not the
+    overlay's. When `current_lap` is absent the consumer shows `laps_remaining` /
+    `total_laps` as given (e.g. `"12 LAPS REMAINING"`) rather than inventing a lap number.
+    All null or absent in a timed session.
+  - **`basis`** (string) — an optional explicit `"time"` \| `"laps"` override of the
+    progress mode.
+
+  **Timed vs lap-limited — automatic selection.** The consumer infers which progress
+  readout to draw; the producer only disambiguates the endurance case via `basis`:
+
+  1. If `basis` is set, honor it (`"time"` → clock, `"laps"` → lap counter).
+  2. Else if `time_remaining` is non-null → session clock.
+  3. Else if `laps_remaining` / `total_laps` / `current_lap` is non-null → lap counter.
+  4. Else → hide the progress readout (flag / FCY / SC can still show).
+
+  The endurance "time-certain + N laps" case — where both `time_remaining` and
+  `laps_remaining` are briefly non-null near the end — is resolved by the **producer**,
+  not the widget: on the final timed lap the producer sets `basis:"laps"` and populates
+  `laps_remaining`, so the widget flips clock → lap counter automatically. The widget
+  carries no endurance-specific logic; it just obeys `basis`.
+
+  **Contract note — no `schemaVersion` bump.** `session` was added in a minor revision
+  of v1; `schemaVersion` stays `"1"`. As with the vehicle-level optional fields above,
+  this is permitted because `schemaVersion` is reserved for *breaking* changes and
+  `schema.json` sets `additionalProperties: true` at every level: a producer may emit
+  `session` today and an older consumer that has never heard of it simply ignores it,
+  while a newer consumer tolerates its absence from an older producer. See *Versioning
+  policy* above.
 
 ## Fixtures and compliance
 

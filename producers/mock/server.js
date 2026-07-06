@@ -53,6 +53,8 @@ const FIXTURE_FILES = [
   "qualifying-target.json",
   "qualifying-sector-a.json",
   "qualifying-no-timing.json",
+  "race-session-fcy.json",
+  "race-session-partial.json",
 ];
 
 function loadFixtures() {
