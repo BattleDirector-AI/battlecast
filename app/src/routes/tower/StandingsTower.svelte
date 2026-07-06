@@ -1,7 +1,7 @@
 <script>
   import ClassChip from '../../design/ClassChip.svelte'
   import { classColor, classMeta } from '../../design/classMeta.js'
-  import { fmtName } from '../../design/format.js'
+  import { fmtName, fmtLapTime } from '../../design/format.js'
 
   // Class-aware standings tower (#28). Presentational: renders whatever snapshot it
   // is handed. Two layouts, selected by `classDisplay`:
@@ -27,6 +27,14 @@
     snapshot?.mode != null && String(snapshot.mode).trim()
       ? String(snapshot.mode).trim().toUpperCase()
       : label,
+  )
+
+  // Lap-timed sessions (qualifying / practice) are a lap-time board: the leader's
+  // cell shows their best lap — the pole/benchmark time every delta is measured
+  // against — rather than the word LEADER, while the field still shows deltas. In a
+  // race the leader is about track position, so it keeps reading LEADER.
+  const lapTimed = $derived(
+    ['qualifying', 'practice'].includes(String(snapshot?.mode ?? '').trim().toLowerCase()),
   )
 
   // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
@@ -103,14 +111,18 @@
         // negative never renders as '+-0.400'.
         `${seconds < 0 ? '' : '+'}${seconds.toFixed(3)}`
 
-  /** Inline layout: interval to the overall leader (position 1 reads LEADER). */
+  /** Inline layout: interval to the overall leader. The leader reads LEADER, or —
+   *  in a lap-timed session — its best lap (the pole time) when it has one. */
   function overallGap(v) {
-    return v.position === 1 ? { leader: true } : { leader: false, seconds: v.gap_to_leader ?? null }
+    if (v.position === 1) return { leader: true, lap: lapTimed ? (v.best_lap ?? null) : null }
+    return { leader: false, seconds: v.gap_to_leader ?? null }
   }
 
-  /** Grouped layout: interval to the class leader (first row in the group). */
+  /** Grouped layout: interval to the class leader (first row in the group). The
+   *  class leader reads LEADER, or its best lap (the class pole) in a lap-timed
+   *  session. */
   function classGap(group, v, i) {
-    if (i === 0) return { leader: true }
+    if (i === 0) return { leader: true, lap: lapTimed ? (v.best_lap ?? null) : null }
     const lead = group.cars[0]?.gap_to_leader
     const own = v.gap_to_leader
     const seconds = own != null && lead != null ? Math.max(0, own - lead) : null
@@ -158,7 +170,10 @@
     <!-- Interval to the leader — overall leader in the inline layout, class leader in
          the grouped layout — from the producer's `gap_to_leader`. The leader reads
          LEADER; an undetermined gap reads '—'. -->
-    {#if gap.leader}
+    {#if gap.leader && gap.lap != null}
+      <!-- Lap-timed session: the leader's cell is its pole/benchmark lap time. -->
+      <span class="row__gap row__gap--leadlap" data-testid="row-gap">{fmtLapTime(gap.lap)}</span>
+    {:else if gap.leader}
       <span class="row__gap row__gap--leader" data-testid="row-gap">LEADER</span>
     {:else}
       <span class="row__gap" data-testid="row-gap">{gapCell(gap.seconds)}</span>
@@ -372,6 +387,12 @@
     font-weight: var(--bc-weight-label);
     letter-spacing: var(--bc-track-label);
     color: var(--bc-text-3);
+  }
+  /* Lap-timed sessions: the leader's cell is the pole/benchmark lap time. It keeps
+     the mono/tabular numeric look of .row__gap and is brightened, since it is the
+     reference every delta below it is measured against. */
+  .row__gap--leadlap {
+    color: var(--bc-text);
   }
 
   /* On-camera driver — cyan accent is reserved exclusively for this. */
