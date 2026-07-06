@@ -182,6 +182,31 @@ describe('StandingsTower — session-mode header', () => {
   })
 })
 
+describe('StandingsTower — session progress in the header (Session Info)', () => {
+  it('shows a compact session clock when the producer sends timed progress', () => {
+    render(StandingsTower, {
+      snapshot: { ...closeBattle, session: { time_remaining: 272, session_length: 300 } },
+    })
+    const s = document.querySelector('[data-testid="tower-session"]')
+    expect(s).not.toBeNull()
+    expect(s.textContent.trim()).toBe('4:32')
+  })
+
+  it('shows the producer-owned lap counter for a lap-limited session', () => {
+    render(StandingsTower, {
+      snapshot: { ...closeBattle, session: { current_lap: 47, total_laps: 58 } },
+    })
+    expect(document.querySelector('[data-testid="tower-session"]').textContent.trim()).toBe(
+      'LAP 47 OF 58',
+    )
+  })
+
+  it('renders no session element when the producer sends no session', () => {
+    render(StandingsTower, { snapshot: closeBattle })
+    expect(document.querySelector('[data-testid="tower-session"]')).toBeNull()
+  })
+})
+
 describe('StandingsTower — inline class positions (default)', () => {
   // race-class-best overall order: 1 Verstappen/GTP, 2 Hamilton/GTP,
   //                                3 Alonso/GT3, 4 Albon/GT3.

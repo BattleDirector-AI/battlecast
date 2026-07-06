@@ -2,6 +2,7 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName, fmtLapTime } from '../../design/format.js'
+  import { sessionProgressText } from '../../design/sessionProgress.js'
 
   // Class-aware standings tower (#28). Presentational: renders whatever snapshot it
   // is handed. Two layouts, selected by `classDisplay`:
@@ -28,6 +29,12 @@
       ? String(snapshot.mode).trim().toUpperCase()
       : label,
   )
+
+  // Session progress in the header — the session countdown clock or lap counter,
+  // the native "Session Info" element (distinct from the flag/FCY/SC status widget
+  // and the per-car rows). Null when the producer sends no session progress, so the
+  // header then shows just the mode. See app/src/design/sessionProgress.js.
+  const sessionProgress = $derived(sessionProgressText(snapshot?.session))
 
   // Lap-timed sessions (qualifying / practice) are a lap-time board: the leader's
   // cell shows their best lap — the pole/benchmark time every delta is measured
@@ -187,10 +194,19 @@
   data-class-display={classDisplay}
 >
   <header class="tower__header" data-testid="tower-header">
-    {header}
-    {#if filterKey !== null}
-      <span class="tower__filter" data-testid="tower-filter">
-        <ClassChip carClass={filterKey} size="compact" />
+    <span class="tower__mode">{header}</span>
+    {#if sessionProgress || filterKey !== null}
+      <span class="tower__meta">
+        {#if sessionProgress}
+          <!-- Session countdown / lap counter ("Session Info") — distinct from the
+               per-car rows and the flag/FCY/SC status widget. -->
+          <span class="tower__session" data-testid="tower-session">{sessionProgress}</span>
+        {/if}
+        {#if filterKey !== null}
+          <span class="tower__filter" data-testid="tower-filter">
+            <ClassChip carClass={filterKey} size="compact" />
+          </span>
+        {/if}
       </span>
     {/if}
   </header>
@@ -259,10 +275,27 @@
     color: var(--bc-text-2);
   }
 
+  /* Right-aligned header group: session clock + optional class-filter chip. */
+  .tower__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--bc-space-2);
+    margin-left: auto;
+  }
+
+  .tower__session {
+    font-family: var(--bc-font-mono);
+    font-size: var(--bc-size-label);
+    font-weight: var(--bc-weight-num);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--bc-track-label);
+    color: var(--bc-text-2);
+    white-space: nowrap;
+  }
+
   .tower__filter {
     display: inline-flex;
     align-items: center;
-    margin-left: auto;
   }
 
   .tower__empty {

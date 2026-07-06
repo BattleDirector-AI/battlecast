@@ -1,5 +1,12 @@
 <script module>
-  // --- Flag resolution --------------------------------------------------------
+  // Session STATUS indicators — flag, Full Course Yellow, Safety Car. Native
+  // rF2/LMU expose these as their own "Status indicators" element, distinct from
+  // the per-car timing tower and from the session-clock "Session Info" (see
+  // docs/research/native-overlays.md). battlecast follows that split: this widget
+  // is the flag/FCY/SC strip; the session clock / lap counter lives in the
+  // standings tower header (see app/src/design/sessionProgress.js). Driving these
+  // from producer state is the reliability win of #25 — in LMU they are manual-only.
+  //
   // `flag` is free-form per the spec ("commonly green/yellow/red/checkered/white/
   // none, but free-form — the producer owns the flag state and consumers tolerate
   // unknown values"). `none`/absent/blank means "no flag shown"; anything else we
@@ -21,98 +28,20 @@
     // Unknown flag string: tolerate it, render a neutral chip with the raw label.
     return { key, label: `${key.toUpperCase()} FLAG`, color: 'var(--bc-text-3)' }
   }
-
-  // --- Timed vs lap-limited auto-selection (#25 / #90 contract) ---------------
-  // This is the ONLY judgment the widget makes; every other field is rendered
-  // as-is. Mirrors spec/v1/SPEC.md "Timed vs lap-limited — automatic selection":
-  //   1. `basis` set -> honor it.
-  //   2. else `time_remaining` non-null -> clock.
-  //   3. else `laps_remaining` / `total_laps` non-null -> lap counter.
-  //   4. else -> hide the progress readout.
-  // The widget carries no endurance-specific logic; the producer disambiguates
-  // the "time-certain + N laps" case by setting `basis:"laps"` itself.
-  export function selectProgressMode(session) {
-    if (!session || typeof session !== 'object') return 'none'
-
-    const basis = typeof session.basis === 'string' ? session.basis.trim().toLowerCase() : null
-    if (basis === 'time') return 'time'
-    if (basis === 'laps') return 'laps'
-
-    const hasTime =
-      session.time_remaining != null && !Number.isNaN(Number(session.time_remaining))
-    if (hasTime) return 'time'
-
-    const hasLaps =
-      (session.laps_remaining != null && !Number.isNaN(Number(session.laps_remaining))) ||
-      (session.total_laps != null && !Number.isNaN(Number(session.total_laps))) ||
-      (session.current_lap != null && !Number.isNaN(Number(session.current_lap)))
-    if (hasLaps) return 'laps'
-
-    return 'none'
-  }
-
-  /** seconds -> 'M:SS' (or 'H:MM:SS' once an hour is crossed). */
-  function fmtDuration(totalSeconds) {
-    const s = Math.max(0, Math.floor(Number(totalSeconds)))
-    const h = Math.floor(s / 3600)
-    const m = Math.floor((s % 3600) / 60)
-    const sec = s % 60
-    const ss = String(sec).padStart(2, '0')
-    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${ss}`
-    return `${m}:${ss}`
-  }
-
-  /** Session clock readout: 'M:SS' remaining, or 'M:SS / M:SS' when a total
-   *  `session_length` (the progress denominator) is also known. */
-  export function formatClock(timeRemaining, sessionLength) {
-    if (timeRemaining == null || Number.isNaN(Number(timeRemaining))) return '—'
-    const remaining = fmtDuration(timeRemaining)
-    if (sessionLength == null || Number.isNaN(Number(sessionLength))) return remaining
-    return `${remaining} / ${fmtDuration(sessionLength)}`
-  }
-
-  /** Lap-limited readout. Renders the PRODUCER-OWNED lap position verbatim — the
-   *  widget never derives a lap number from `total_laps` − `laps_remaining`; that
-   *  counting convention is the producer's (see spec/v1/SPEC.md 'session'). Shows
-   *  'LAP X OF Y' when `current_lap` (X) and `total_laps` (Y) are known, 'LAP X'
-   *  with only `current_lap`, else falls back to the raw laps the producer did
-   *  send ('N LAPS REMAINING' / 'Y LAPS'), else a dash. */
-  export function formatLaps(currentLap, totalLaps, lapsRemaining) {
-    const cur =
-      currentLap != null && !Number.isNaN(Number(currentLap)) ? Number(currentLap) : null
-    const total =
-      totalLaps != null && !Number.isNaN(Number(totalLaps)) ? Number(totalLaps) : null
-    const remaining =
-      lapsRemaining != null && !Number.isNaN(Number(lapsRemaining)) ? Number(lapsRemaining) : null
-
-    if (cur != null && total != null) return `LAP ${cur} OF ${total}`
-    if (cur != null) return `LAP ${cur}`
-    if (remaining != null) return `${remaining} LAP${remaining === 1 ? '' : 'S'} REMAINING`
-    if (total != null) return `${total} LAP${total === 1 ? '' : 'S'}`
-    return '—'
-  }
 </script>
 
 <script>
   // Dumb overlay, smart producer (docs/decisions/0002-lower-third-widgets.md): every
   // field here is producer-computed. `session` may be null/undefined/partial — this
-  // component MUST tolerate that and never throw; when there is nothing at all worth
+  // component MUST tolerate that and never throw; when there is no flag/FCY/SC worth
   // showing it renders nothing rather than an empty plate.
   let { session = null, mode = null } = $props()
 
   const flag = $derived(resolveFlag(session?.flag))
   const fcy = $derived(!!session?.full_course_yellow)
   const sc = $derived(!!session?.safety_car)
-  const progressMode = $derived(selectProgressMode(session))
-  const progressText = $derived(
-    progressMode === 'time'
-      ? formatClock(session?.time_remaining, session?.session_length)
-      : progressMode === 'laps'
-        ? formatLaps(session?.current_lap, session?.total_laps, session?.laps_remaining)
-        : null,
-  )
   const caution = $derived(fcy || sc)
-  const hasContent = $derived(!!flag || fcy || sc || progressMode !== 'none')
+  const hasContent = $derived(!!flag || fcy || sc)
 </script>
 
 {#if hasContent}
@@ -123,65 +52,58 @@
   data-mode={mode ?? ''}
   aria-label="Session status"
 >
-  <header class="bc-session__header">
-    <span class="bc-session__title">SESSION</span>
-    {#if flag}
-      <div class="bc-session__flag" data-testid="session-flag" data-flag={flag.key}>
-        <span
-          class="bc-session__swatch"
-          data-flag={flag.key}
-          style:background={flag.color ?? undefined}
-        ></span>
-        <span class="bc-session__flag-label">{flag.label}</span>
-      </div>
-    {/if}
-  </header>
+  <span class="bc-session__title">SESSION</span>
 
-  <div class="bc-session__body">
-    <div class="bc-session__badges">
-      {#if fcy}
-        <span class="bc-session__badge bc-session__badge--fcy" data-testid="session-fcy">
-          FULL COURSE YELLOW
-        </span>
-      {/if}
-      {#if sc}
-        <span class="bc-session__badge bc-session__badge--sc" data-testid="session-sc">
-          SAFETY CAR
-        </span>
-      {/if}
+  {#if flag}
+    <div class="bc-session__flag" data-testid="session-flag" data-flag={flag.key}>
+      <span
+        class="bc-session__swatch"
+        data-flag={flag.key}
+        style:background={flag.color ?? undefined}
+      ></span>
+      <span class="bc-session__flag-label">{flag.label}</span>
     </div>
+  {/if}
 
-    {#if progressMode !== 'none'}
-      <div
-        class="bc-session__readout"
-        data-testid="session-progress"
-        data-progress-mode={progressMode}
-      >
-        {progressText}
-      </div>
+  <div class="bc-session__badges">
+    {#if fcy}
+      <span class="bc-session__badge bc-session__badge--fcy" data-testid="session-fcy">
+        FULL COURSE YELLOW
+      </span>
+    {/if}
+    {#if sc}
+      <span class="bc-session__badge bc-session__badge--sc" data-testid="session-sc">
+        SAFETY CAR
+      </span>
     {/if}
   </div>
 </section>
 {/if}
 
 <style>
+  /* A single-row status strip: SESSION | flag | FCY | SC. */
   .bc-session {
     position: relative;
     width: 100%;
     box-sizing: border-box;
-    background: var(--bc-plate-dense);
-    backdrop-filter: var(--bc-blur);
-    -webkit-backdrop-filter: var(--bc-blur);
+    display: flex;
+    align-items: center;
+    gap: var(--bc-space-3);
+    height: var(--bc-widget-header);
+    padding: 0 var(--bc-space-3);
+    background: var(--bc-header);
     border: 1px solid var(--bc-hairline);
     border-radius: var(--bc-radius);
     box-shadow: var(--bc-shadow-plate);
+    backdrop-filter: var(--bc-blur);
+    -webkit-backdrop-filter: var(--bc-blur);
     overflow: hidden;
     color: var(--bc-text);
   }
 
   /* Cautionary ring, same construction as BattleBox's intensifying border: drawn on
-     an ::after overlay ABOVE the header (z-index 3) so it wraps the whole plate
-     rather than being clipped along the top edge by the header's opaque fill. */
+     an ::after overlay ABOVE the content (z-index 3) so it wraps the whole strip
+     rather than being clipped by the plate fill. */
   .bc-session--caution::after {
     content: '';
     position: absolute;
@@ -226,17 +148,6 @@
     50% {
       box-shadow: var(--bc-shadow-plate), 0 0 24px rgba(255, 194, 71, 0.45);
     }
-  }
-
-  .bc-session__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--bc-space-3);
-    height: var(--bc-widget-header);
-    padding: 0 var(--bc-space-3);
-    background: var(--bc-header);
-    border-bottom: 1px solid var(--bc-hairline);
   }
 
   .bc-session__title {
@@ -288,20 +199,14 @@
     text-overflow: ellipsis;
   }
 
-  .bc-session__body {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--bc-space-3);
-    padding: var(--bc-space-3);
-  }
-
+  /* FCY / SC badges sit at the trailing edge of the strip. */
   .bc-session__badges {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--bc-space-2);
     min-width: 0;
+    margin-left: auto;
   }
 
   .bc-session__badge {
@@ -326,15 +231,5 @@
     color: var(--bc-intensity-mid);
     background: transparent;
     border-color: var(--bc-intensity-mid);
-  }
-
-  .bc-session__readout {
-    flex: 0 0 auto;
-    font-family: var(--bc-font-mono);
-    font-size: var(--bc-size-battle-name);
-    font-weight: var(--bc-weight-num);
-    font-variant-numeric: tabular-nums;
-    color: var(--bc-text);
-    white-space: nowrap;
   }
 </style>
