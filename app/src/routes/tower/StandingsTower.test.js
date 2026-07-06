@@ -324,4 +324,29 @@ describe('StandingsTower — gap to leader (#28)', () => {
     expect(gapFor('car-44')).toBe('LEADER')
     expect(gapFor('car-1')).toBe('—')
   })
+
+  it('qualifying: the leader shows its pole lap time, not LEADER (inline)', () => {
+    // qualifying-sector-a (mode: qualifying): car-16 on pole with best_lap 88.912.
+    render(StandingsTower, { snapshot: qualifying })
+    expect(gapFor('car-16')).toBe('1:28.912')
+  })
+
+  it('qualifying: the class leader shows its pole lap time (grouped)', () => {
+    render(StandingsTower, { snapshot: qualifying, classDisplay: 'grouped' })
+    expect(gapFor('car-16')).toBe('1:28.912')
+  })
+
+  it('qualifying: a leader with no best lap falls back to LEADER', () => {
+    const noLap = {
+      ...qualifying,
+      vehicles: qualifying.vehicles.map((v) => {
+        if (v.position !== 1) return v
+        const clone = { ...v }
+        delete clone.best_lap
+        return clone
+      }),
+    }
+    render(StandingsTower, { snapshot: noLap })
+    expect(gapFor('car-16')).toBe('LEADER')
+  })
 })
