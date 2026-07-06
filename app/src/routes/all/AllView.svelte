@@ -91,4 +91,11 @@
     width: 100%;
     box-sizing: border-box;
   }
+
+  /* The session status pill is a content-sized indicator, not a plate that should
+     stretch to a slot — let it keep its intrinsic (compact) width, anchored at the
+     slot's left edge. Its slot width is just the editor drag box. */
+  .widget-slot[data-widget='session'] > :global(*) {
+    width: auto;
+  }
 </style>

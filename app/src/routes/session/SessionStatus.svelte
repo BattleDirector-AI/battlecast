@@ -52,8 +52,6 @@
   data-mode={mode ?? ''}
   aria-label="Session status"
 >
-  <span class="bc-session__title">SESSION</span>
-
   {#if flag}
     <div class="bc-session__flag" data-testid="session-flag" data-flag={flag.key}>
       <span
@@ -65,32 +63,36 @@
     </div>
   {/if}
 
-  <div class="bc-session__badges">
-    {#if fcy}
-      <span class="bc-session__badge bc-session__badge--fcy" data-testid="session-fcy">
-        FULL COURSE YELLOW
-      </span>
-    {/if}
-    {#if sc}
-      <span class="bc-session__badge bc-session__badge--sc" data-testid="session-sc">
-        SAFETY CAR
-      </span>
-    {/if}
-  </div>
+  {#if fcy || sc}
+    <div class="bc-session__badges">
+      {#if fcy}
+        <span class="bc-session__badge bc-session__badge--fcy" data-testid="session-fcy">
+          FULL COURSE YELLOW
+        </span>
+      {/if}
+      {#if sc}
+        <span class="bc-session__badge bc-session__badge--sc" data-testid="session-sc">
+          SAFETY CAR
+        </span>
+      {/if}
+    </div>
+  {/if}
 </section>
 {/if}
 
 <style>
-  /* A single-row status strip: SESSION | flag | FCY | SC. */
+  /* A compact, content-sized status pill: [ ■ FLAG ] plus FCY / SC chips only when
+     those fire. Sized to its content (not stretched to a bar) so green-flag — the
+     common case — is a small box; it grows only when there's a caution to show. */
   .bc-session {
     position: relative;
-    width: 100%;
-    box-sizing: border-box;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: var(--bc-space-3);
-    height: var(--bc-widget-header);
-    padding: 0 var(--bc-space-3);
+    gap: var(--bc-space-2);
+    width: fit-content;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: var(--bc-space-2) var(--bc-space-3);
     background: var(--bc-header);
     border: 1px solid var(--bc-hairline);
     border-radius: var(--bc-radius);
@@ -150,16 +152,6 @@
     }
   }
 
-  .bc-session__title {
-    font-family: var(--bc-font-ui);
-    font-size: var(--bc-size-label);
-    font-weight: var(--bc-weight-label);
-    letter-spacing: var(--bc-track-title);
-    text-transform: uppercase;
-    color: var(--bc-text-2);
-    white-space: nowrap;
-  }
-
   .bc-session__flag {
     display: flex;
     align-items: center;
@@ -169,9 +161,9 @@
 
   .bc-session__swatch {
     flex: 0 0 auto;
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
   }
 
@@ -199,14 +191,13 @@
     text-overflow: ellipsis;
   }
 
-  /* FCY / SC badges sit at the trailing edge of the strip. */
+  /* FCY / SC chips sit inline after the flag, extending the pill only when active. */
   .bc-session__badges {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--bc-space-2);
     min-width: 0;
-    margin-left: auto;
   }
 
   .bc-session__badge {
