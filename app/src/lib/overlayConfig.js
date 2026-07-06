@@ -94,7 +94,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     // for this widget — carried only for a uniform widget shape. It renders
     // whenever visible and there is session content, in every mode.
     session: {
-      visible: true, x: 900, y: 24, w: 760, h: 64, z: 6, hideWhenIdle: false,
+      visible: true, x: 900, y: 24, w: 360, h: 44, z: 6, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline',
