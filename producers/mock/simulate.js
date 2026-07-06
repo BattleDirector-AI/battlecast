@@ -112,6 +112,115 @@ function round3(n) {
 }
 
 /**
+ * Producer-owned session status for the spec-v1 `session` object (flag / Full
+ * Course Yellow / Safety Car / progress readout). Dumb overlay, smart producer:
+ * the widget renders exactly what we hand it, so every judgment — the caution
+ * windows and the timed-vs-lap progress `basis` — is made here, not in the
+ * consumer. Across the phase cycle this exercises the whole session overlay: a
+ * timed race leg, a lap-limited race leg, an FCY window, a Safety-Car window,
+ * the endurance `basis:"laps"` flip on the final timed lap, and the checkered
+ * flag at results. Every field is optional in the schema; nulls stand in for
+ * "not applicable to this session type". `timedRaceLeg` alternates the race
+ * phase between a timed and a lap-limited leg on successive cycles.
+ */
+function buildSession(phase, elapsed, total, timedRaceLeg) {
+  const frac = total > 0 ? clamp(elapsed / total, 0, 1) : 0;
+
+  if (phase === "qualifying") {
+    // Timed qualifying: a green-flag countdown clock, no lap limit.
+    return {
+      flag: "green",
+      full_course_yellow: false,
+      safety_car: false,
+      time_remaining: round1(total - elapsed),
+      session_length: total,
+      laps_remaining: null,
+      total_laps: null,
+      current_lap: null,
+      basis: null,
+    };
+  }
+
+  if (phase === "grid") {
+    // Pre-race formation: field parked, no live progress readout yet.
+    return {
+      flag: "none",
+      full_course_yellow: false,
+      safety_car: false,
+      time_remaining: null,
+      session_length: null,
+      laps_remaining: null,
+      total_laps: null,
+      current_lap: null,
+      basis: null,
+    };
+  }
+
+  if (phase === "results") {
+    // Race over: checkered flag, no live progress readout.
+    return {
+      flag: "checkered",
+      full_course_yellow: false,
+      safety_car: false,
+      time_remaining: null,
+      session_length: null,
+      laps_remaining: null,
+      total_laps: null,
+      current_lap: null,
+      basis: null,
+    };
+  }
+
+  // phase === "race". Model a caution window mid-leg: a Full Course Yellow from
+  // 25%–40% of the leg, with a Safety Car deployed under it from 30%–40%; green
+  // otherwise. `flag` carries the local flag colour; `full_course_yellow` is the
+  // distinct session-wide caution.
+  const fcy = frac >= 0.25 && frac < 0.4;
+  const sc = frac >= 0.3 && frac < 0.4;
+  const flag = fcy ? "yellow" : "green";
+
+  if (timedRaceLeg) {
+    // Timed race leg: a countdown clock (auto-selected via non-null
+    // time_remaining), laps null — EXCEPT the endurance "time-certain + N laps"
+    // flip. On the final timed lap (last 10%) the producer sets basis:"laps" and
+    // populates laps_remaining so the widget flips clock → lap counter with no
+    // endurance logic of its own; both time_remaining and laps_remaining are
+    // briefly non-null here, and `basis` breaks the tie.
+    const flipping = frac >= 0.9;
+    return {
+      flag,
+      full_course_yellow: fcy,
+      safety_car: sc,
+      time_remaining: round1(total - elapsed),
+      session_length: total,
+      laps_remaining: flipping ? Math.max(1, Math.ceil((1 - frac) / 0.05)) : null,
+      total_laps: null,
+      current_lap: null,
+      basis: flipping ? "laps" : null,
+    };
+  }
+
+  // Lap-limited race leg: a lap counter (auto-selected via non-null laps with
+  // null time), counting down from total_laps across the leg. The producer owns
+  // the "lap X of Y" counting convention — it emits `current_lap` directly (the
+  // lap the leader is on) so the widget renders it verbatim rather than deriving
+  // it; here that is total_laps − laps_remaining + 1.
+  const totalLaps = 20;
+  const lapsRemaining = clamp(Math.ceil(totalLaps * (1 - frac)), 1, totalLaps);
+  return {
+    flag,
+    full_course_yellow: fcy,
+    safety_car: sc,
+    time_remaining: null,
+    session_length: null,
+    laps_remaining: lapsRemaining,
+    total_laps: totalLaps,
+    current_lap: clamp(totalLaps - lapsRemaining + 1, 1, totalLaps),
+    basis: null,
+  };
+}
+
+/**
  * Gap in seconds from each car to the OVERALL classification leader (order[0]),
  * keyed by slot_id, for the spec-v1 `gap_to_leader` field. In a lap-classified
  * phase (qualifying / grid) the gap is the car's best-lap delta to the leader; in
@@ -229,6 +338,10 @@ function createSimulator(config = {}) {
   let phase = PHASES[0]; // "qualifying"
   let phaseElapsed = 0;
   let announced = false;
+  // Alternates the race phase between a timed leg and a lap-limited leg on
+  // successive cycles, so a long enough run exercises both session progress
+  // bases. Incremented on each entry into the race phase; even = timed.
+  let raceLegIndex = -1;
   // For the static (grid / results) phases: the frozen running order captured on
   // entry, as an array of slot_ids in classified order.
   let frozenOrder = null;
@@ -284,6 +397,7 @@ function createSimulator(config = {}) {
       // Grid = the qualifying result, frozen as the starting order.
       freezeOrder(byBestLap);
     } else if (p === "race") {
+      raceLegIndex += 1;
       startRaceFromGrid();
     } else if (p === "results") {
       // Results = the final race classification, frozen.
@@ -431,6 +545,8 @@ function createSimulator(config = {}) {
 
     const { subjectCar, relationship } = running ? runningDirector(order) : staticDirector(order);
 
+    const session = buildSession(phase, phaseElapsed, phaseSeconds[phase], raceLegIndex % 2 === 0);
+
     return {
       schemaVersion: "1",
       mode: phase,
@@ -460,6 +576,7 @@ function createSimulator(config = {}) {
         driver_name: subjectCar.driver_name,
       },
       relationship,
+      session,
     };
   }
 
