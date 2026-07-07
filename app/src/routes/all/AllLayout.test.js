@@ -5,6 +5,7 @@ import { normalizeConfig } from '../../lib/overlayConfig.js'
 import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
 import idleBattle from '../../../../spec/v1/fixtures/race-idle-battle.json'
 import raceSessionFcy from '../../../../spec/v1/fixtures/race-session-fcy.json'
+import raceOnboard from '../../../../spec/v1/fixtures/race-onboard-telemetry.json'
 import lowerThird from './fixtures/profile-lower-third.json'
 import towerOnly from './fixtures/profile-tower-only.json'
 import withLogos from './fixtures/profile-with-logos.json'
@@ -143,6 +144,39 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     const cfg = normalizeConfig({ widgets: { racecontrol: { visible: false } } })
     const { container } = render(AllView, { snapshot: raceSessionFcy, config: cfg })
     expect(slot(container, 'racecontrol')).toBeNull()
+  })
+
+  it('composes the on-board HUD from snapshot.subject.telemetry without disturbing other widgets (#26)', () => {
+    const { container } = render(AllView, { snapshot: raceOnboard })
+
+    const onboard = slot(container, 'onboard')
+    expect(onboard).not.toBeNull()
+    // The HUD shows the on-camera subject's live inputs (speed + gear from the fixture).
+    expect(onboard.querySelector('[data-testid="onboard-speed"]').textContent).toContain('247')
+    expect(onboard.querySelector('[data-testid="onboard-gear"]').textContent).toContain('6')
+
+    // Existing widgets keep rendering their own content unaffected.
+    const tower = slot(container, 'tower')
+    const battle = slot(container, 'battle')
+    expect(tower).not.toBeNull()
+    expect(battle).not.toBeNull()
+    expect(container.textContent).toContain('Hamilton')
+    expect(container.textContent).toContain('Verstappen')
+  })
+
+  it('idles the on-board HUD (renders nothing) when the snapshot carries no telemetry', () => {
+    // race-session-fcy.json has a subject but no subject.telemetry -> HUD renders
+    // nothing, though its slot is still placed (the component's own guard is empty).
+    const { container } = render(AllView, { snapshot: raceSessionFcy })
+    const onboard = slot(container, 'onboard')
+    expect(onboard).not.toBeNull()
+    expect(onboard.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+  })
+
+  it('omits the onboard widget from the DOM when hidden via config', () => {
+    const cfg = normalizeConfig({ widgets: { onboard: { visible: false } } })
+    const { container } = render(AllView, { snapshot: raceOnboard, config: cfg })
+    expect(slot(container, 'onboard')).toBeNull()
   })
 
   it('honors z-order by painting widgets in ascending z (later = on top)', () => {
