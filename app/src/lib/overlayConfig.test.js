@@ -120,6 +120,17 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(normalizeConfig('nope').widgets.battle.visible).toBe(true)
   })
 
+  it('defaults reducedMotion to false and honors an explicit boolean', () => {
+    // The overlay animates by default (OBS/CEF reports reduced-motion; see lib/motion.js).
+    expect(normalizeConfig({}).reducedMotion).toBe(false)
+    expect(normalizeConfig({ reducedMotion: true }).reducedMotion).toBe(true)
+    // Non-boolean garbage falls back to false.
+    expect(normalizeConfig({ reducedMotion: 'yes' }).reducedMotion).toBe(false)
+    // Round-trips through a serialized profile.
+    const rt = normalizeConfig(JSON.parse(JSON.stringify(normalizeConfig({ reducedMotion: true }))))
+    expect(rt.reducedMotion).toBe(true)
+  })
+
   it("preserves a profile's declared configVersion, including falsy values", () => {
     expect(normalizeConfig({ configVersion: '2' }).configVersion).toBe('2')
     // A falsy-but-present version must not be silently replaced by the default.
@@ -191,6 +202,66 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     const roundTripped = normalizeConfig(JSON.parse(JSON.stringify(authored)))
     expect(roundTripped.widgets.tower.classDisplay).toBe('grouped')
   })
+
+  it('defaults the onboard speedUnit to kmh and honors an explicit value', () => {
+    // Normalized onto every widget (mirrors classDisplay); only the on-board HUD reads it.
+    expect(normalizeConfig({}).widgets.onboard.speedUnit).toBe('kmh')
+    expect(
+      normalizeConfig({ widgets: { onboard: { speedUnit: 'mph' } } }).widgets.onboard.speedUnit,
+    ).toBe('mph')
+  })
+
+  it('rejects an invalid speedUnit, falling back to kmh', () => {
+    expect(
+      normalizeConfig({ widgets: { onboard: { speedUnit: 'furlongs' } } }).widgets.onboard
+        .speedUnit,
+    ).toBe('kmh')
+  })
+
+  it('round-trips an mph speedUnit through a serialized profile', () => {
+    const authored = normalizeConfig({
+      name: 'imperial',
+      widgets: { onboard: { speedUnit: 'mph' } },
+    })
+    const roundTripped = normalizeConfig(JSON.parse(JSON.stringify(authored)))
+    expect(roundTripped.widgets.onboard.speedUnit).toBe('mph')
+  })
+
+  it('defaults the onboard driverInfo to name+number and waitForLowerThird on', () => {
+    const w = normalizeConfig({}).widgets.onboard
+    expect(w.driverInfo).toEqual({ name: true, number: true, class: false, make: false, model: false })
+    expect(w.waitForLowerThird).toBe(true)
+  })
+
+  it('merges a partial driverInfo over the defaults and coerces garbage to booleans', () => {
+    const w = normalizeConfig({
+      widgets: { onboard: { driverInfo: { name: false, make: true, model: 'yes' } } },
+    }).widgets.onboard
+    // name overridden off, make on; model garbage -> falls back to default (false);
+    // number/class keep their defaults.
+    expect(w.driverInfo).toEqual({ name: false, number: true, class: false, make: true, model: false })
+  })
+
+  it('honors and round-trips waitForLowerThird=false and a full driverInfo', () => {
+    const authored = normalizeConfig({
+      widgets: {
+        onboard: {
+          waitForLowerThird: false,
+          driverInfo: { name: true, number: true, class: true, make: true, model: true },
+        },
+      },
+    })
+    expect(authored.widgets.onboard.waitForLowerThird).toBe(false)
+    const roundTripped = normalizeConfig(JSON.parse(JSON.stringify(authored)))
+    expect(roundTripped.widgets.onboard.waitForLowerThird).toBe(false)
+    expect(roundTripped.widgets.onboard.driverInfo).toEqual({
+      name: true,
+      number: true,
+      class: true,
+      make: true,
+      model: true,
+    })
+  })
 })
 
 describe('resolveWidgets — ordered render list', () => {
@@ -203,9 +274,10 @@ describe('resolveWidgets — ordered render list', () => {
         driver: { z: 4 },
         qualifying: { z: 6 },
         racecontrol: { z: 7 },
+        onboard: { z: 8 },
       },
     }).map((w) => w.key)
-    expect(order).toEqual(['battle', 'logos', 'driver', 'tower', 'qualifying', 'racecontrol'])
+    expect(order).toEqual(['battle', 'logos', 'driver', 'tower', 'qualifying', 'racecontrol', 'onboard'])
   })
 })
 

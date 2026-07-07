@@ -53,19 +53,25 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 24, y: 24, w: 380, h: 900, z: 1, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
+      waitForLowerThird: true,
+      driverInfo: { name: true, number: true, class: false, make: false, model: false },
     },
     battle: {
       visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
+      waitForLowerThird: true,
+      driverInfo: { name: true, number: true, class: false, make: false, model: false },
     },
     logos: {
       visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
+      waitForLowerThird: true,
+      driverInfo: { name: true, number: true, class: false, make: false, model: false },
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
     // the canvas. It self-manages fire/dwell/hide, so it renders nothing between
@@ -74,7 +80,9 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 900, w: 620, h: 96, z: 4, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
+      waitForLowerThird: true,
+      driverInfo: { name: true, number: true, class: false, make: false, model: false },
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
     // subject (best/last lap, sectors, and target/delta when present). Offset
@@ -85,7 +93,9 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 788, w: 840, h: 100, z: 5, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
+      waitForLowerThird: true,
+      driverInfo: { name: true, number: true, class: false, make: false, model: false },
     },
     // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
     // bar, clear of the left-column tower and the battle box beside it. Not a
@@ -97,11 +107,35 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 900, y: 24, w: 360, h: 44, z: 6, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
+      waitForLowerThird: true,
+      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+    },
+    // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
+    // content-sized over-camera strip (throttle/brake bars + speed + gear). Not a
+    // lower-third and not class-aware: the trigger knobs (trigger/dwellSeconds/
+    // showOnConnect/fireOnClassBest), `modes`, and `classDisplay` are all INERT for
+    // this widget — carried only for a uniform widget shape. It reads the subject's
+    // telemetry every tick and renders whenever visible and there is telemetry
+    // content (its own guard), so it idles automatically in parked phases. `speedUnit`
+    // is the one onboard-specific knob it DOES read: the display unit for the `speed`
+    // readout (`'kmh'` | `'mph'`); the producer emits canonical km/h and the widget
+    // converts to mph when selected.
+    onboard: {
+      visible: true, x: 760, y: 960, w: 400, h: 96, z: 7, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline', speedUnit: 'kmh',
+      waitForLowerThird: true,
+      driverInfo: { name: true, number: true, class: false, make: false, model: false },
     },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   theme: {},
+  // Overlay-wide motion opt-out. The overlay animates by default (see lib/motion.js —
+  // OBS/CEF reports reduced-motion, which must NOT silently kill the reveals); set true
+  // to turn transitions down. A `?motion=` URL param overrides this per Browser Source.
+  reducedMotion: false,
 })
 
 /** Lower-third trigger defaults (see docs/decisions/0002-lower-third-widgets.md).
@@ -142,6 +176,58 @@ export const TOWER_KEYS = Object.freeze(['tower'])
  *  its `classDisplay` control). */
 export function isTower(key) {
   return TOWER_KEYS.includes(key)
+}
+
+/** #26 on-board HUD extras — only the on-board HUD reads these, but they're normalized
+ *  onto every widget (like `classDisplay`) for a uniform shape. Additive + defaulted, so
+ *  no `configVersion` bump.
+ *   - `speedUnit`: display unit for the speed readout, `'kmh'` (default) or `'mph'`. The
+ *     producer emits `speed` in canonical km/h (spec/v1/SPEC.md `subject.telemetry`); the
+ *     widget converts to mph when selected.
+ *   - `driverInfo`: which on-camera driver/vehicle identity fields the HUD shows — each of
+ *     `name` / `number` / `class` / `make` / `model` toggled independently (name+number on
+ *     by default). `number`/`make`/`model` come from the additive `vehicle` spec fields.
+ *   - `waitForLowerThird`: when true (default), the HUD holds off while the driver
+ *     lower-third (#21) is showing its "now on camera" dwell, so the two never overlap;
+ *     it reveals when the lower-third wipes out. Only applies in `/all` (where both
+ *     widgets coexist); the standalone `/onboard` route has no lower-third to wait for. */
+export const ONBOARD_DEFAULTS = Object.freeze({
+  speedUnit: 'kmh',
+  waitForLowerThird: true,
+  driverInfo: Object.freeze({
+    name: true,
+    number: true,
+    class: false,
+    make: false,
+    model: false,
+  }),
+})
+
+/** The driver/vehicle identity fields the on-board HUD can show, in render order. */
+export const DRIVER_INFO_FIELDS = Object.freeze(['name', 'number', 'class', 'make', 'model'])
+
+/** Coerce an arbitrary `driverInfo` into the full `{name,number,class,make,model}`
+ *  boolean shape, filling missing/garbage fields from `fallback`. */
+function normalizeDriverInfo(value, fallback) {
+  const src = value && typeof value === 'object' ? value : {}
+  const out = {}
+  for (const field of DRIVER_INFO_FIELDS) {
+    out[field] = typeof src[field] === 'boolean' ? src[field] : !!fallback[field]
+  }
+  return out
+}
+
+/** Valid `speedUnit` display values. */
+export const SPEED_UNITS = Object.freeze(['kmh', 'mph'])
+
+/** Widgets whose speed-unit the config UI surfaces a control for. Just the on-board
+ *  HUD today. */
+export const ONBOARD_KEYS = Object.freeze(['onboard'])
+
+/** Whether a widget is the on-board HUD (so the config UI surfaces its `speedUnit`
+ *  control). */
+export function isOnboard(key) {
+  return ONBOARD_KEYS.includes(key)
 }
 
 /** Canonical widget keys in the layout contract, DERIVED from DEFAULT_CONFIG so it
@@ -210,6 +296,8 @@ export function normalizeConfig(raw) {
   if (src.theme && typeof src.theme === 'object') {
     out.theme = { ...out.theme, ...src.theme }
   }
+  // Overlay-wide motion opt-out (see lib/motion.js). Defaults false (animate).
+  out.reducedMotion = typeof src.reducedMotion === 'boolean' ? src.reducedMotion : false
 
   const canvasSrc = src.canvas && typeof src.canvas === 'object' ? src.canvas : {}
   out.canvas = {
@@ -266,6 +354,26 @@ export function normalizeConfig(raw) {
         w.classDisplay === 'inline' || w.classDisplay === 'grouped'
           ? w.classDisplay
           : d.classDisplay ?? TOWER_DEFAULTS.classDisplay,
+      // #26 on-board HUD display unit — only the on-board HUD reads it, but it's
+      // normalized onto every widget (like classDisplay) for a uniform shape. An
+      // unknown value falls back to the default so a stale/typo'd profile still
+      // renders a valid unit.
+      speedUnit:
+        w.speedUnit === 'kmh' || w.speedUnit === 'mph'
+          ? w.speedUnit
+          : d.speedUnit ?? ONBOARD_DEFAULTS.speedUnit,
+      // #26 on-board HUD hand-off + identity — only the HUD reads these; normalized
+      // onto every widget for a uniform shape (like classDisplay / speedUnit).
+      waitForLowerThird:
+        typeof w.waitForLowerThird === 'boolean'
+          ? w.waitForLowerThird
+          : typeof d.waitForLowerThird === 'boolean'
+            ? d.waitForLowerThird
+            : ONBOARD_DEFAULTS.waitForLowerThird,
+      driverInfo: normalizeDriverInfo(
+        w.driverInfo,
+        d.driverInfo ?? ONBOARD_DEFAULTS.driverInfo,
+      ),
     }
   }
   out.widgets = normalizedWidgets

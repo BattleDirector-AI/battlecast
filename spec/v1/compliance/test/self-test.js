@@ -151,8 +151,82 @@ function testSessionFixturesValidateAgainstSchema() {
   );
 }
 
+// The optional `subject.telemetry` sub-object (issue #102) is additive: fixtures
+// that carry it must validate against schema.json, and — the core backward-compat
+// guarantee — a payload with NO `subject.telemetry` must still validate. Assert all
+// three directly against the schema via the harness's own ajv validator.
+function testTelemetryFixturesValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const full = load("race-onboard-telemetry.json");
+  assert(
+    full.subject && full.subject.telemetry && typeof full.subject.telemetry.throttle === "number",
+    "race-onboard-telemetry.json must carry a full subject.telemetry block"
+  );
+  let result = validator.validate(full);
+  assert(result.valid, `expected race-onboard-telemetry.json (full telemetry) to validate, got: ${result.errors.join("; ")}`);
+
+  const partial = load("race-onboard-partial.json");
+  assert(
+    partial.subject && partial.subject.telemetry && !("brake" in partial.subject.telemetry),
+    "race-onboard-partial.json must carry a PARTIAL subject.telemetry (some fields omitted)"
+  );
+  result = validator.validate(partial);
+  assert(
+    result.valid,
+    `expected race-onboard-partial.json (partial telemetry) to validate, got: ${result.errors.join("; ")}`
+  );
+
+  const noTelemetry = load("race-close-battle.json");
+  assert(
+    !(noTelemetry.subject && "telemetry" in noTelemetry.subject),
+    "race-close-battle.json is the no-telemetry base and must NOT carry a subject.telemetry object"
+  );
+  result = validator.validate(noTelemetry);
+  assert(result.valid, `expected a payload with NO subject.telemetry to still validate, got: ${result.errors.join("; ")}`);
+
+  console.log(
+    "PASS: telemetry fixtures (full + partial) validate against schema.json, and a payload with NO subject.telemetry still validates (#102)"
+  );
+}
+
+// The additive vehicle identity fields `car_number` / `make` / `model` (0.6.0 HUD
+// identity) are optional: a fixture carrying them must validate, and a payload
+// WITHOUT them must still validate (backward-compat).
+function testVehicleIdentityFieldsValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const withIdentity = load("race-onboard-telemetry.json");
+  const subjectVehicle = withIdentity.vehicles.find((v) => v.slot_id === withIdentity.subject.slot_id);
+  assert(
+    subjectVehicle &&
+      typeof subjectVehicle.car_number === "string" &&
+      typeof subjectVehicle.make === "string" &&
+      typeof subjectVehicle.model === "string",
+    "race-onboard-telemetry.json's on-camera vehicle must carry car_number/make/model"
+  );
+  let result = validator.validate(withIdentity);
+  assert(result.valid, `expected race-onboard-telemetry.json (vehicle identity) to validate, got: ${result.errors.join("; ")}`);
+
+  const noIdentity = load("race-close-battle.json");
+  assert(
+    noIdentity.vehicles.every((v) => !("car_number" in v) && !("make" in v) && !("model" in v)),
+    "race-close-battle.json is the no-identity base and its vehicles must NOT carry car_number/make/model"
+  );
+  result = validator.validate(noIdentity);
+  assert(result.valid, `expected a payload with NO vehicle identity fields to still validate, got: ${result.errors.join("; ")}`);
+
+  console.log(
+    "PASS: vehicle identity fields (car_number/make/model) validate against schema.json, and a payload without them still validates (0.6.0 HUD identity)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
+  testTelemetryFixturesValidateAgainstSchema();
+  testVehicleIdentityFieldsValidateAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");

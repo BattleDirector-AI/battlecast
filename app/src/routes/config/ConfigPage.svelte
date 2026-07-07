@@ -6,11 +6,38 @@
    * client-only authoring (export a config.json) when no server is running. */
   import { onMount } from 'svelte'
   import AllView from '../all/AllView.svelte'
-  import { DEFAULT_CONFIG, WIDGET_KEYS, normalizeConfig, isLowerThird } from '../../lib/overlayConfig.js'
+  import {
+    DEFAULT_CONFIG,
+    WIDGET_KEYS,
+    DRIVER_INFO_FIELDS,
+    normalizeConfig,
+    isLowerThird,
+  } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
-  import sampleSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
+  import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
+
+  // Preview snapshot. `race-close-battle.json` is the canonical NO-telemetry fixture (so
+  // it must NOT gain a `subject.telemetry` block — the compliance harness and an AllLayout
+  // idle test rely on that), but the editor preview needs the on-board HUD to actually
+  // render so a broadcaster can see its speed readout — and the km/h vs mph toggle — take
+  // effect. So augment a COPY here with representative live inputs; the shared fixture is
+  // untouched.
+  const sampleSnapshot = {
+    ...baseSnapshot,
+    // Give the on-camera vehicle the additive identity fields so the HUD's driver-info
+    // toggles (number / class / make / model) have something to show in the preview.
+    vehicles: baseSnapshot.vehicles.map((v) =>
+      v.slot_id === baseSnapshot.subject.slot_id
+        ? { ...v, car_number: '1', make: 'Red Bull', model: 'RB20' }
+        : v,
+    ),
+    subject: {
+      ...baseSnapshot.subject,
+      telemetry: { throttle: 0.82, brake: 0, speed: 247, gear: 6 },
+    },
+  }
 
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
   let profileName = $state('default')
@@ -115,6 +142,18 @@
   // with positions restarting per class (`grouped`).
   const setClassDisplay = (key, value) =>
     (config = editor.setWidgetField(config, key, 'classDisplay', value))
+  // #26 on-board HUD-only: the display unit for the speed readout. The producer emits
+  // canonical km/h; checking the box displays mph (the widget converts). Unchecked = km/h.
+  const setSpeedUnit = (key, useMph) =>
+    (config = editor.setWidgetField(config, key, 'speedUnit', useMph ? 'mph' : 'kmh'))
+  // #26 on-board HUD-only: which driver/vehicle identity fields the HUD shows, and
+  // whether it holds off while the driver lower-third plays its "now on camera" card.
+  const setDriverInfo = (key, field, checked) => {
+    const current = { ...(config.widgets[key]?.driverInfo || {}), [field]: !!checked }
+    config = editor.setWidgetField(config, key, 'driverInfo', current)
+  }
+  const setWaitForLowerThird = (key, checked) =>
+    (config = editor.setWidgetField(config, key, 'waitForLowerThird', !!checked))
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
@@ -254,7 +293,7 @@
           class="preview__canvas"
           style="width: {canvas.w}px; height: {canvas.h}px; transform: scale({previewScale});"
         >
-          <AllView snapshot={sampleSnapshot} {config} />
+          <AllView snapshot={sampleSnapshot} {config} preview />
 
           {#each WIDGET_KEYS as key (key)}
             {#if config.widgets[key]?.visible}
@@ -362,6 +401,22 @@
           <button data-testid="canvas-1080" onclick={() => setCanvas({ w: 1920, h: 1080 })}>1920×1080</button>
           <button data-testid="canvas-720" onclick={() => setCanvas({ w: 1280, h: 720 })}>1280×720</button>
         </div>
+      </section>
+
+      <section class="panel__group">
+        <h2>Motion</h2>
+        <!-- The overlay animates by default. OBS's Browser Source (CEF) reports
+             reduced-motion, so we do NOT read the render host's setting — check this to
+             deliberately turn transitions down. `?motion=reduced` overrides per source. -->
+        <label class="checkline" title="Turn the overlay's transition animations down. Off = full motion (the default; recommended for OBS). A ?motion= URL param overrides this per Browser Source.">
+          <input
+            type="checkbox"
+            data-testid="reduced-motion"
+            checked={config.reducedMotion === true}
+            onchange={(e) => (config = { ...config, reducedMotion: e.currentTarget.checked })}
+          />
+          Reduced motion (turn transitions down)
+        </label>
       </section>
 
       <section class="panel__group">
@@ -486,6 +541,48 @@
                   <option value="inline">inline</option>
                   <option value="grouped">grouped</option>
                 </select>
+              </label>
+            {/if}
+            {#if key === 'onboard'}
+              <!-- #26-only: the display unit for the HUD's speed readout. The producer
+                   emits canonical km/h; check to display mph (the widget converts). -->
+              <label class="checkline" title="Display the on-board HUD speed in mph instead of km/h (the producer emits km/h; the widget converts)">
+                <input
+                  type="checkbox"
+                  data-testid="speed-mph-{key}"
+                  checked={w.speedUnit === 'mph'}
+                  onchange={(e) => setSpeedUnit(key, e.currentTarget.checked)}
+                />
+                Speed in mph
+              </label>
+              <!-- #26-only: which on-camera driver/vehicle identity fields the HUD
+                   shows (each toggled independently). number/make/model come from the
+                   additive vehicle spec fields; the producer must supply them. -->
+              <fieldset class="modes-row">
+                <legend>driver info shown</legend>
+                {#each DRIVER_INFO_FIELDS as field (field)}
+                  <label class="checkline">
+                    <input
+                      type="checkbox"
+                      data-testid="driver-info-{key}-{field}"
+                      checked={w.driverInfo?.[field] === true}
+                      onchange={(e) => setDriverInfo(key, field, e.currentTarget.checked)}
+                    />
+                    {field}
+                  </label>
+                {/each}
+              </fieldset>
+              <!-- #26 + #21 hand-off: hold the HUD off while the driver lower-third
+                   plays its "now on camera" card, so the driver name never shows in
+                   both at once; the HUD reveals when the card wipes out. -->
+              <label class="checkline" title="Hold the on-board HUD off while the driver lower-third is showing its 'now on camera' card, then reveal it (avoids showing the driver name in both at once)">
+                <input
+                  type="checkbox"
+                  data-testid="wait-lower-third-{key}"
+                  checked={w.waitForLowerThird === true}
+                  onchange={(e) => setWaitForLowerThird(key, e.currentTarget.checked)}
+                />
+                Wait for driver lower-third
               </label>
             {/if}
           </fieldset>

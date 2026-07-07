@@ -108,6 +108,86 @@ describe('ConfigPage editor wiring', () => {
     expect(towerEl().getAttribute('data-class-display')).toBe('grouped')
   })
 
+  it('exposes the speed-unit checkbox only for the onboard widget', async () => {
+    const { getByTestId, queryByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('speed-mph-onboard')).toBeTruthy()
+    expect(queryByTestId('speed-mph-tower')).toBeNull()
+    expect(queryByTestId('speed-mph-battle')).toBeNull()
+  })
+
+  it('toggling the onboard speed-unit checkbox switches the live preview km/h <-> mph', async () => {
+    const { container, getByTestId } = render(ConfigPage)
+    await tick()
+    const hudUnit = () =>
+      container.querySelector('[data-testid="widget-onboard"] [data-testid="onboard-speed-unit"]')
+    const hudSpeed = () =>
+      container.querySelector('[data-testid="widget-onboard"] [data-testid="onboard-speed"]')
+
+    // The preview renders the HUD (the editor sample carries telemetry) so the unit
+    // choice is visible; defaults to km/h.
+    expect(getByTestId('speed-mph-onboard').checked).toBe(false)
+    expect(hudUnit().textContent).toBe('KM/H')
+    expect(hudSpeed().textContent).toContain('247')
+
+    await fireEvent.click(getByTestId('speed-mph-onboard'))
+    await tick()
+    expect(getByTestId('speed-mph-onboard').checked).toBe(true)
+    expect(hudUnit().textContent).toBe('MPH')
+    expect(hudSpeed().textContent).toContain('153') // 247 km/h -> 153 mph
+
+    await fireEvent.click(getByTestId('speed-mph-onboard'))
+    await tick()
+    expect(getByTestId('speed-mph-onboard').checked).toBe(false)
+    expect(hudUnit().textContent).toBe('KM/H')
+  })
+
+  it('exposes the driver-info + hand-off controls only for the onboard widget', async () => {
+    const { getByTestId, queryByTestId } = render(ConfigPage)
+    await tick()
+    for (const field of ['name', 'number', 'class', 'make', 'model']) {
+      expect(getByTestId(`driver-info-onboard-${field}`)).toBeTruthy()
+      expect(queryByTestId(`driver-info-tower-${field}`)).toBeNull()
+    }
+    expect(getByTestId('wait-lower-third-onboard')).toBeTruthy()
+    expect(queryByTestId('wait-lower-third-tower')).toBeNull()
+  })
+
+  it('toggling a driver-info field updates the on-board HUD preview', async () => {
+    const { container, getByTestId } = render(ConfigPage)
+    await tick()
+    // make is off by default -> no car line in the preview HUD.
+    expect(getByTestId('driver-info-onboard-make').checked).toBe(false)
+    expect(container.querySelector('[data-testid="onboard-driver-car"]')).toBeNull()
+
+    await fireEvent.click(getByTestId('driver-info-onboard-make'))
+    await tick()
+    expect(getByTestId('driver-info-onboard-make').checked).toBe(true)
+    // The preview vehicle's make (Red Bull) now shows.
+    expect(container.querySelector('[data-testid="onboard-driver-car"]').textContent).toContain(
+      'Red Bull',
+    )
+  })
+
+  it('defaults the hand-off (wait for lower-third) on, and toggles off', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('wait-lower-third-onboard').checked).toBe(true)
+    await fireEvent.click(getByTestId('wait-lower-third-onboard'))
+    await tick()
+    expect(getByTestId('wait-lower-third-onboard').checked).toBe(false)
+  })
+
+  it('exposes a reduced-motion toggle that defaults off (animate) and toggles on', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    // Overlay animates by default, so the opt-out starts unchecked.
+    expect(getByTestId('reduced-motion').checked).toBe(false)
+    await fireEvent.click(getByTestId('reduced-motion'))
+    await tick()
+    expect(getByTestId('reduced-motion').checked).toBe(true)
+  })
+
   it('switching the driver trigger to persistent disables the dwell input', async () => {
     const { getByTestId } = render(ConfigPage)
     await tick()

@@ -22,6 +22,8 @@ const FIXTURE_FILES = [
   "qualifying-no-timing.json",
   "race-session-fcy.json",
   "race-session-partial.json",
+  "race-onboard-telemetry.json",
+  "race-onboard-partial.json",
 ];
 
 let failed = 0;

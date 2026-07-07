@@ -104,6 +104,18 @@
         "gap_to_leader": {
           "type": ["number", "null"],
           "description": "Optional producer-computed time gap, in seconds, from this vehicle to the OVERALL classification leader (`position` 1) — the interval a broadcast tower shows against each row. 0 for the leader itself; null or absent when not yet determined (e.g. no laps completed). The producer owns the metric (a lap-time delta in a qualifying-style session, an on-track time gap in a race); consumers MUST NOT derive it by scanning `vehicles[]`, but MAY compute a gap-to-CLASS-leader for a grouped view by subtracting the class leader's `gap_to_leader` from a car's own (exact arithmetic on producer values, not a re-derivation)."
+        },
+        "car_number": {
+          "type": ["string", "null"],
+          "description": "Optional racing number for this vehicle, as a STRING rendered verbatim (e.g. \"44\", \"1\", \"007\") — a string, not an integer, so leading zeros and any series' numbering scheme survive. Distinct from `slot_id`, which is an opaque stable identity key, not a display number. Null or absent when not supplied. Additive and optional; consumers (e.g. the on-board HUD identity) render it as given and MUST tolerate its absence."
+        },
+        "make": {
+          "type": ["string", "null"],
+          "description": "Optional vehicle manufacturer / marque (e.g. \"Ferrari\", \"Porsche\", \"BMW\"), rendered verbatim. Null or absent when not supplied. Additive and optional; distinct from `vehicle_class` (the racing category). Producer-owned; consumers tolerate its absence."
+        },
+        "model": {
+          "type": ["string", "null"],
+          "description": "Optional vehicle model / chassis (e.g. \"296 GT3\", \"911 GT3 R\", \"M4 GT3\"), rendered verbatim. Null or absent when not supplied. Additive and optional; often shown alongside `make`. Producer-owned; consumers tolerate its absence."
         }
       }
     },
@@ -120,6 +132,10 @@
         "driver_name": {
           "type": "string",
           "description": "Name of the on-camera driver. Should match the referenced vehicle's `driver_name`; duplicated here so the battle box can render without a vehicles lookup."
+        },
+        "telemetry": {
+          "$ref": "#/$defs/telemetry",
+          "description": "Optional live-input telemetry for the on-camera subject: throttle, brake, speed, and gear. Additive and backward-compatible — the whole sub-object is optional and a payload with NO `subject.telemetry` still validates. Grouped under its own object (not flat on `subject`) because it is a HIGH-CHURN channel updated every tick, distinct from the stable identity fields (`slot_id` / `driver_name`) that change only on a camera cut. Producer-owned (dumb overlay, smart producer): the consumer (on-board HUD) renders these values verbatim each frame and MUST tolerate their absence."
         }
       }
     },
@@ -185,6 +201,33 @@
         "basis": {
           "type": ["string", "null"],
           "description": "Optional explicit progress-mode override: `\"time\"` forces the session-clock readout, `\"laps\"` forces the lap-counter readout. When null or absent the consumer auto-selects (see SPEC.md 'session'): `time_remaining` non-null → clock, else `laps_remaining` / `total_laps` non-null → lap counter, else no progress readout. Its one required use is the endurance 'time-certain + N laps' flip: on the final timed lap the producer sets `basis:\"laps\"` and populates `laps_remaining`, so the widget flips clock → lap counter with no endurance-specific logic of its own."
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "description": "Optional live-input telemetry channel for the on-camera subject, driving the on-board HUD overlay (#26): throttle, brake, speed, and gear. Every field is OPTIONAL and producer-owned (dumb overlay, smart producer — see docs/decisions/0002-lower-third-widgets.md): the producer holds the authoritative vehicle inputs and emits them each tick; the consumer only renders what it is handed and MUST tolerate their absence. Unlike the identity fields on `subject`, this is a HIGH-CHURN block a producer populates every frame. The object is intentionally open (additionalProperties: true) so future live-input keys (e.g. rpm, drs, steering) can be added without a schema break — consumers ignore keys they don't recognize.",
+      "additionalProperties": true,
+      "properties": {
+        "throttle": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Throttle application, normalized to [0, 1] (0 = fully closed, 1 = wide open). Null or absent when not available. The consumer renders it as a fill bar and clamps to [0, 1] defensively."
+        },
+        "brake": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Brake application, normalized to [0, 1] (0 = off, 1 = maximum). Null or absent when not available. Rendered as a fill bar alongside `throttle`."
+        },
+        "speed": {
+          "type": ["number", "null"],
+          "description": "Vehicle speed in CANONICAL KILOMETRES PER HOUR (km/h). Null or absent when not available. Fixing a canonical unit (rather than leaving it producer-defined) lets the consumer offer a km/h vs mph DISPLAY toggle by converting deterministically (mph = km/h × 0.621371); the on-board HUD renders km/h by default and converts to mph when the broadcaster selects it. Producers that measure in another unit MUST convert to km/h before emitting."
+        },
+        "gear": {
+          "type": ["integer", "null"],
+          "description": "The currently selected gear as an integer. By convention `0` is neutral (rendered `N`) and `-1` is reverse (rendered `R`); positive integers are the forward gears, rendered verbatim. Null or absent when not available. Producer-owned — the consumer does not derive gear from speed."
         }
       }
     }
