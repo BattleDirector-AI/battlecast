@@ -52,6 +52,21 @@ const GRID = [
 
 const LAP_UNIT = 1; // one arbitrary "distance around the lap" unit
 const CLOSE_BATTLE_WINDOW = 1.5; // seconds — matches the design system's intensity formula
+
+// Strategy synthesis for the additive per-vehicle metrics (slice 3 of #20:
+// pit_stops / in_pit / tire_compound / tire_wear / fuel). The sim does not model
+// fuel loads or tire physics, so we synthesize a plausible stint: fuel drains and
+// tires wear with distance covered, and when either runs low the car makes a pit
+// stop (a short in-pit window) that refills fuel, fits fresh tires, and rotates the
+// compound. Tuned so a car makes ~1 stop across a short race leg, giving the richer
+// tower live interval/pit/tire/fuel values to render. `FUEL_PER_LAP` / `WEAR_PER_LAP`
+// are fractions of a full tank / fresh set consumed per lap.
+const COMPOUNDS = ["S", "M", "H"];
+const FUEL_PER_LAP = 0.28;
+const WEAR_PER_LAP = 0.42;
+const PIT_FUEL_TRIGGER = 0.1; // pit when fuel drops below this…
+const PIT_WEAR_TRIGGER = 0.85; // …or tire wear climbs above this.
+const PIT_DURATION_SECONDS = 6; // how long `in_pit` stays true through a stop.
 // Minimum on-camera dwell before the "director" will cut away, expressed in SIM
 // SECONDS (not ticks) so it is invariant to step granularity — the server may
 // sub-step the simulator to push camera cuts promptly without changing how long a
@@ -294,6 +309,35 @@ function gapToLeaderMap(order, byLap) {
   return map;
 }
 
+/**
+ * Gap in seconds from each car to the car IMMEDIATELY AHEAD in running order
+ * (order[i] to order[i-1]), keyed by slot_id, for the spec-v1 `interval_ahead`
+ * field — the tower's "interval" column, distinct from `gap_to_leader`. Mirrors
+ * gapToLeaderMap's phase treatment: a lap-time delta to the car ahead in a
+ * lap-classified phase (qualifying / grid), the on-track pair time gap in a
+ * distance-classified phase (race / results). The leader has no one ahead (null);
+ * a car without comparable timing is null.
+ */
+function intervalAheadMap(order, byLap) {
+  const map = new Map();
+  if (order.length === 0) return map;
+  map.set(order[0].slot_id, null);
+  for (let i = 1; i < order.length; i++) {
+    const ahead = order[i - 1];
+    const car = order[i];
+    if (byLap) {
+      map.set(
+        car.slot_id,
+        ahead.best_lap != null && car.best_lap != null ? round3(car.best_lap - ahead.best_lap) : null
+      );
+    } else {
+      const avgSpeed = (1 / car.pace + 1 / ahead.pace) / 2;
+      map.set(car.slot_id, round3((ahead.distance - car.distance) / avgSpeed));
+    }
+  }
+  return map;
+}
+
 /** A fresh, session-start field: no timing yet, staggered on the grid. `startClock`
  *  seeds each car's lap-timing baseline to the CURRENT sim clock — critical when the
  *  session loops back to qualifying at a non-zero clock, or the first completed lap
@@ -324,8 +368,26 @@ function makeCars(startClock = 0) {
       sector_times: [],
       improvedBestThisStep: false,
       position: i + 1,
+      // Strategy synthesis state (slice 3 of #20). A fresh stint: full fuel, fresh
+      // tires on a per-car starting compound, no stops yet, not in the pits.
+      pit_stops: 0,
+      in_pit: false,
+      pitUntilClock: 0,
+      tireCompoundIndex: i % COMPOUNDS.length,
+      tire_wear: 0,
+      fuel: 1,
     };
   });
+}
+
+/** Reset a car's stint (fuel / tires / stops) to a fresh start — used when the race
+ *  begins from the grid, so race strategy is independent of the qualifying run. */
+function resetStint(car) {
+  car.pit_stops = 0;
+  car.in_pit = false;
+  car.pitUntilClock = 0;
+  car.tire_wear = 0;
+  car.fuel = 1;
 }
 
 /** Advance one car's distance and, on a completed lap, its lap/sector timing. */
@@ -338,7 +400,8 @@ function advanceCar(car, dtSeconds, clock) {
   // a realistic band of the car's pace while still shuffling intra-class order.
   car.noiseFactor = clamp(car.noiseFactor + (Math.random() - 0.5) * 0.01, -0.04, 0.04);
   const baseSpeed = 1 / car.pace;
-  car.distance += baseSpeed * (1 + car.noiseFactor) * dtSeconds;
+  const distanceStep = baseSpeed * (1 + car.noiseFactor) * dtSeconds;
+  car.distance += distanceStep;
 
   if (car.distance - car.lapStartDistance >= LAP_UNIT) {
     car.lapStartDistance += LAP_UNIT;
@@ -351,6 +414,27 @@ function advanceCar(car, dtSeconds, clock) {
       car.improvedBestThisStep = true;
     }
     car.sector_times = splitSectors(car.last_lap);
+  }
+
+  // Strategy synthesis (slice 3 of #20): drain fuel and wear tires with the distance
+  // covered this step; when either runs low the car pits (a short in-pit window that,
+  // once it elapses, refills the tank, fits fresh tires, and rotates the compound).
+  const lapFraction = distanceStep / LAP_UNIT;
+  if (car.in_pit) {
+    if (clock >= car.pitUntilClock) {
+      car.in_pit = false;
+      car.fuel = 1;
+      car.tire_wear = 0;
+      car.tireCompoundIndex = (car.tireCompoundIndex + 1) % COMPOUNDS.length;
+    }
+  } else {
+    car.fuel = clamp(car.fuel - FUEL_PER_LAP * lapFraction, 0, 1);
+    car.tire_wear = clamp(car.tire_wear + WEAR_PER_LAP * lapFraction, 0, 1);
+    if (car.fuel <= PIT_FUEL_TRIGGER || car.tire_wear >= PIT_WEAR_TRIGGER) {
+      car.in_pit = true;
+      car.pitUntilClock = clock + PIT_DURATION_SECONDS;
+      car.pit_stops += 1;
+    }
   }
 }
 
@@ -422,6 +506,7 @@ function createSimulator(config = {}) {
       car.sector_times = [];
       car.noiseFactor = 0;
       car.improvedBestThisStep = false;
+      resetStint(car);
     });
   }
 
@@ -585,7 +670,10 @@ function createSimulator(config = {}) {
 
     // Gap to the overall leader for each car — lap-delta in the lap-classified
     // phases, on-track time gap in the distance-classified ones.
-    const gapToLeader = gapToLeaderMap(order, phase === "qualifying" || phase === "grid");
+    const byLap = phase === "qualifying" || phase === "grid";
+    const gapToLeader = gapToLeaderMap(order, byLap);
+    // Interval to the car immediately ahead (slice 3 of #20) — same phase treatment.
+    const intervalAhead = intervalAheadMap(order, byLap);
 
     const { subjectCar, relationship } = running ? runningDirector(order) : staticDirector(order);
 
@@ -608,6 +696,13 @@ function createSimulator(config = {}) {
           best_lap: car.best_lap,
           sector_times: car.sector_times,
           gap_to_leader: gapToLeader.get(car.slot_id) ?? null,
+          // Additive per-vehicle metrics (slice 3 of #20) for the richer tower.
+          interval_ahead: intervalAhead.get(car.slot_id) ?? null,
+          pit_stops: car.pit_stops,
+          in_pit: car.in_pit,
+          tire_compound: COMPOUNDS[car.tireCompoundIndex],
+          tire_wear: round2(car.tire_wear),
+          fuel: round2(car.fuel),
           notable: {
             class_best_lap: car.best_lap != null && car.best_lap === classBest.get(car.vehicle_class),
             session_best_lap: car.best_lap != null && car.best_lap === sessionBest,
