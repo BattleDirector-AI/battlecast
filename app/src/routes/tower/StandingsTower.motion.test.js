@@ -10,17 +10,10 @@ import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
 // on a node that merely GAINS the class is unreliable. The fix renders a fresh,
 // subject-keyed flash element only for the on-camera row, guaranteeing a new node
 // (hence a fresh animation) on every switch. The whole suite ran under reduced
-// motion (animation inert), which hid the problem — force no-preference here.
+// motion (animation inert), which hid the problem — force full motion here. Motion is
+// the root `data-motion` attribute now (see lib/motion.js), not the OS media query.
 function setReducedMotion(reduce) {
-  window.matchMedia = (query) => ({
-    matches: reduce && /prefers-reduced-motion:\s*reduce/.test(String(query)),
-    media: String(query),
-    addEventListener() {},
-    removeEventListener() {},
-    addListener() {},
-    removeListener() {},
-    dispatchEvent: () => false,
-  })
+  document.documentElement.dataset.motion = reduce ? 'reduced' : 'full'
 }
 
 function rowFor(slotId) {

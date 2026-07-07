@@ -120,6 +120,17 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(normalizeConfig('nope').widgets.battle.visible).toBe(true)
   })
 
+  it('defaults reducedMotion to false and honors an explicit boolean', () => {
+    // The overlay animates by default (OBS/CEF reports reduced-motion; see lib/motion.js).
+    expect(normalizeConfig({}).reducedMotion).toBe(false)
+    expect(normalizeConfig({ reducedMotion: true }).reducedMotion).toBe(true)
+    // Non-boolean garbage falls back to false.
+    expect(normalizeConfig({ reducedMotion: 'yes' }).reducedMotion).toBe(false)
+    // Round-trips through a serialized profile.
+    const rt = normalizeConfig(JSON.parse(JSON.stringify(normalizeConfig({ reducedMotion: true }))))
+    expect(rt.reducedMotion).toBe(true)
+  })
+
   it("preserves a profile's declared configVersion, including falsy values", () => {
     expect(normalizeConfig({ configVersion: '2' }).configVersion).toBe('2')
     // A falsy-but-present version must not be silently replaced by the default.

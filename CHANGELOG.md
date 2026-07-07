@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Overlay animations no longer hard-cut in OBS.** OBS's Browser Source runs Chromium
+  offscreen (CEF), which reports `prefers-reduced-motion: reduce` — and every widget gated
+  its reveals/pulses on that media query, so the whole overlay dropped to its static
+  fallbacks (hard cuts) in OBS. The overlay now **animates by default** regardless of the
+  render host's setting (the OBS machine isn't the audience): motion is resolved once into a
+  root `data-motion` attribute (`lib/motion.js`) that CSS and JS both read, instead of the OS
+  media query. Reduced motion is now an explicit opt-in — a `?motion=reduced` URL knob per
+  Browser Source (like `?src=`), or a "reduced motion" toggle + `reducedMotion` profile field
+  in `/config`. Affects the lower-thirds, standings-tower re-cut shine, battle-box and
+  Race-Control caution pulses, logo carousel, and the on-board HUD bar.
+
 ### Added
 
 - **Live-input telemetry in spec v1 — optional `subject.telemetry` object (#102, slice 2

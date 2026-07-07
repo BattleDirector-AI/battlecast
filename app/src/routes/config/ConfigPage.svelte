@@ -404,6 +404,22 @@
       </section>
 
       <section class="panel__group">
+        <h2>Motion</h2>
+        <!-- The overlay animates by default. OBS's Browser Source (CEF) reports
+             reduced-motion, so we do NOT read the render host's setting — check this to
+             deliberately turn transitions down. `?motion=reduced` overrides per source. -->
+        <label class="checkline" title="Turn the overlay's transition animations down. Off = full motion (the default; recommended for OBS). A ?motion= URL param overrides this per Browser Source.">
+          <input
+            type="checkbox"
+            data-testid="reduced-motion"
+            checked={config.reducedMotion === true}
+            onchange={(e) => (config = { ...config, reducedMotion: e.currentTarget.checked })}
+          />
+          Reduced motion (turn transitions down)
+        </label>
+      </section>
+
+      <section class="panel__group">
         <h2>Widgets</h2>
         {#each WIDGET_KEYS as key (key)}
           {@const w = config.widgets[key]}

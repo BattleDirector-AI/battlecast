@@ -3,6 +3,7 @@
   import AllView from './AllView.svelte'
   import { connect } from '../tower/sseClient.js'
   import { loadConfig, pickProducerSrc, DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
+  import { resolveMotion, applyMotion } from '../../lib/motion.js'
 
   let config = $state(DEFAULT_CONFIG)
   let snapshot = $state(null)
@@ -29,6 +30,9 @@
     loadConfig(window.location.search).then((resolved) => {
       if (cancelled) return
       config = resolved
+      // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=`
+      // URL param still wins). App.svelte already set a URL/default baseline at boot.
+      applyMotion(resolveMotion(window.location.search, { reducedMotion: resolved.reducedMotion }))
       fitStage() // re-fit: the resolved profile may set a different canvas size
       const src = pickProducerSrc(window.location.search, resolved)
       disconnect = connect(src, (next) => {

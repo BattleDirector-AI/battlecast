@@ -205,19 +205,17 @@ describe('resolveTelemetry / gearLabel / speedLabel helpers', () => {
 })
 
 describe('OnBoardHud — motion discipline (mirrors the codebase gating)', () => {
-  const noPref = /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
-    source,
-  )?.[1]
-
-  it('gates the bar transition to no-preference (snaps under reduced motion)', () => {
-    expect(noPref).toBeTruthy()
-    expect(noPref).toMatch(/\.bc-onboard__fill\s*\{[^}]*transition:\s*width/s)
+  it('gates the bar transition to full motion via data-motion (snaps under reduced)', () => {
+    // The smoothing is gated on the root `data-motion` attribute (see lib/motion.js),
+    // NOT the OS `prefers-reduced-motion` media query — so it still applies in OBS
+    // (whose CEF reports `reduce`).
+    expect(source).toMatch(
+      /:not\(\[data-motion='reduced'\]\)[^{]*\.bc-onboard__fill\s*\{[^}]*transition:\s*width/s,
+    )
+    expect(source).not.toMatch(/@media\s*\(prefers-reduced-motion/)
     // The bare (ungated) fill rule must NOT carry a transition.
-    expect(
-      /\.bc-onboard__fill\s*\{[^}]*transition:/s.test(
-        source.replace(noPref, ''),
-      ),
-    ).toBe(false)
+    const gated = /:not\(\[data-motion='reduced'\]\)[^{]*\.bc-onboard__fill\s*\{[^}]*\}/s.exec(source)?.[0]
+    expect(/\.bc-onboard__fill\s*\{[^}]*transition:/s.test(source.replace(gated, ''))).toBe(false)
   })
 })
 

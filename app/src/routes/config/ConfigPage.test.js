@@ -178,6 +178,16 @@ describe('ConfigPage editor wiring', () => {
     expect(getByTestId('wait-lower-third-onboard').checked).toBe(false)
   })
 
+  it('exposes a reduced-motion toggle that defaults off (animate) and toggles on', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    // Overlay animates by default, so the opt-out starts unchecked.
+    expect(getByTestId('reduced-motion').checked).toBe(false)
+    await fireEvent.click(getByTestId('reduced-motion'))
+    await tick()
+    expect(getByTestId('reduced-motion').checked).toBe(true)
+  })
+
   it('switching the driver trigger to persistent disables the dwell input', async () => {
     const { getByTestId } = render(ConfigPage)
     await tick()
