@@ -104,6 +104,18 @@
         "gap_to_leader": {
           "type": ["number", "null"],
           "description": "Optional producer-computed time gap, in seconds, from this vehicle to the OVERALL classification leader (`position` 1) — the interval a broadcast tower shows against each row. 0 for the leader itself; null or absent when not yet determined (e.g. no laps completed). The producer owns the metric (a lap-time delta in a qualifying-style session, an on-track time gap in a race); consumers MUST NOT derive it by scanning `vehicles[]`, but MAY compute a gap-to-CLASS-leader for a grouped view by subtracting the class leader's `gap_to_leader` from a car's own (exact arithmetic on producer values, not a re-derivation)."
+        },
+        "car_number": {
+          "type": ["string", "null"],
+          "description": "Optional racing number for this vehicle, as a STRING rendered verbatim (e.g. \"44\", \"1\", \"007\") — a string, not an integer, so leading zeros and any series' numbering scheme survive. Distinct from `slot_id`, which is an opaque stable identity key, not a display number. Null or absent when not supplied. Additive and optional; consumers (e.g. the on-board HUD identity) render it as given and MUST tolerate its absence."
+        },
+        "make": {
+          "type": ["string", "null"],
+          "description": "Optional vehicle manufacturer / marque (e.g. \"Ferrari\", \"Porsche\", \"BMW\"), rendered verbatim. Null or absent when not supplied. Additive and optional; distinct from `vehicle_class` (the racing category). Producer-owned; consumers tolerate its absence."
+        },
+        "model": {
+          "type": ["string", "null"],
+          "description": "Optional vehicle model / chassis (e.g. \"296 GT3\", \"911 GT3 R\", \"M4 GT3\"), rendered verbatim. Null or absent when not supplied. Additive and optional; often shown alongside `make`. Producer-owned; consumers tolerate its absence."
         }
       }
     },

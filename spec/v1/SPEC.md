@@ -124,6 +124,14 @@ required-ness.
     **gap-to-class-leader** by subtracting the class leader's `gap_to_leader` from a
     car's own — that is exact arithmetic on producer-authored values, not a forbidden
     re-derivation of the gap itself.
+  - **`car_number`** (string) — the vehicle's racing number, rendered **verbatim** as a
+    string (e.g. `"44"`, `"1"`, `"007"`) so leading zeros and any numbering scheme
+    survive. Distinct from `slot_id`, which is an opaque identity key, not a display
+    number. Optional; null or absent when not supplied.
+  - **`make`** / **`model`** (string) — the vehicle's manufacturer (e.g. `"Ferrari"`) and
+    model/chassis (e.g. `"296 GT3"`), rendered verbatim and often shown together. Distinct
+    from `vehicle_class` (the racing category). Both optional; null or absent when not
+    supplied. Consumed by the on-board HUD's configurable driver/vehicle identity (#26).
 
   **Contract note — no `schemaVersion` bump.** These fields were added in a minor
   revision of v1; `schemaVersion` stays `"1"`. That is permitted because `schemaVersion`
