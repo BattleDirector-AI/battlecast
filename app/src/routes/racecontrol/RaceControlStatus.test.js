@@ -151,30 +151,27 @@ describe('RaceControlStatus — empty / absent session (dumb overlay, never cras
 })
 
 describe('RaceControlStatus — cautionary border wraps the whole widget (mirrors BattleBox #80)', () => {
-  // Same construction as BattleBox's intensifying border: the pulsing ring must be
-  // drawn on an ::after overlay gated to no-preference; a static reduced-motion
-  // fallback replaces the pulse rather than removing the cue. Content rendering does
-  // not depend on prefers-reduced-motion (no JS branch reads matchMedia), so the
-  // behavioral tests above are valid regardless of the happy-dom `reduce` default —
-  // only this CSS-source check targets motion.
-  const noPref = /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
-    source,
-  )?.[1]
-  const reduce = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
-    source,
-  )?.[1]
-
-  it('animates the ring on the ::after overlay under no-preference, not the bare section', () => {
-    expect(noPref).toBeTruthy()
-    expect(noPref).toMatch(/\.bc-racecontrol--caution::after\s*\{[^}]*animation:\s*bc-racecontrol-pulse-ring/s)
+  // Same construction as BattleBox's intensifying border: the pulsing ring is drawn on
+  // an ::after overlay, gated to FULL motion via the root `data-motion` attribute (see
+  // lib/motion.js) rather than the OS `prefers-reduced-motion` media query — so it still
+  // pulses in OBS (whose CEF reports `reduce`). A static `:root[data-motion='reduced']`
+  // fallback replaces the pulse rather than removing the cue.
+  it('animates the ring on the ::after overlay under full motion, gated by data-motion', () => {
+    expect(source).toMatch(
+      /:not\(\[data-motion='reduced'\]\)[^{]*\.bc-racecontrol--caution::after\s*\{[^}]*animation:\s*bc-racecontrol-pulse-ring/s,
+    )
+    // Not gated on the OS media query anymore (OBS would suppress it).
+    expect(source).not.toMatch(/@media\s*\(prefers-reduced-motion/)
+    // And not on the bare section.
     expect(
       /\.bc-racecontrol--caution\s*\{[^}]*animation:\s*bc-racecontrol-pulse-ring/s.test(source),
     ).toBe(false)
   })
 
-  it('keeps a static ring under reduced motion (no pulse)', () => {
-    expect(reduce).toBeTruthy()
-    expect(reduce).toMatch(/\.bc-racecontrol--caution::after\s*\{[^}]*box-shadow/s)
+  it('keeps a static ring under reduced motion (data-motion=reduced), no pulse', () => {
+    expect(source).toMatch(
+      /:root\[data-motion='reduced'\][^{]*\.bc-racecontrol--caution::after\s*\{[^}]*box-shadow/s,
+    )
   })
 
   it('applies the caution class only when FCY or SC is active', () => {

@@ -4,19 +4,11 @@ import { tick } from 'svelte'
 import Harness from './LowerThirdShellHarness.svelte'
 import { reduceMotion, lowerThirdOut, lowerThirdIn } from './LowerThirdShell.svelte'
 
-// The global test setup (src/test-setup.js) stubs matchMedia to report
-// `prefers-reduced-motion: reduce`. Some cases below re-stub it to no-preference
-// to exercise the animated path; restore the reduced default afterwards.
+// Motion is resolved from the root `data-motion` attribute (see lib/motion.js), not
+// the OS media query. The global test setup (src/test-setup.js) defaults it to
+// `reduced`; some cases below flip it to `full` to exercise the animated path.
 function setReducedMotion(reduce) {
-  window.matchMedia = (query) => ({
-    matches: reduce && /prefers-reduced-motion:\s*reduce/.test(String(query)),
-    media: String(query),
-    addEventListener() {},
-    removeEventListener() {},
-    addListener() {},
-    removeListener() {},
-    dispatchEvent: () => false,
-  })
+  document.documentElement.dataset.motion = reduce ? 'reduced' : 'full'
 }
 
 afterEach(() => {

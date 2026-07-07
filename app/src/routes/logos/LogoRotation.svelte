@@ -1,4 +1,6 @@
 <script module>
+  import { prefersReducedMotion } from '../../lib/motion.js'
+
   /**
    * Build the visiting order over `count` images. `sequential` walks 0..count-1;
    * `shuffle` returns a Fisher-Yates permutation (matches rF2's shuffled sponsor
@@ -23,9 +25,7 @@
    * so the swap controller is unit-testable.
    */
   export function reduceMotion() {
-    return (
-      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
-    )
+    return prefersReducedMotion()
   }
 </script>
 
@@ -225,42 +225,41 @@
 
   /* Entrance: wrapper slides in, the logo wipes in behind the raked bar. `--enter-delay`
      (0 on first paint, EXIT_MS on a switch) holds it back until the exit finishes. Gated
-     to no-preference so reduced-motion viewers skip the sweep for a plain fade. */
-  @media (prefers-reduced-motion: no-preference) {
-    .bc-logos__reveal {
-      animation: bc-logo-slide 0.42s var(--ease-out) var(--enter-delay, 0ms) both;
-    }
-    .bc-logos__img {
-      animation: bc-logo-wipe 0.36s var(--ease-out) calc(var(--enter-delay, 0ms) + 0.12s) both;
-    }
-    .bc-logos__shine {
-      animation: bc-logo-bar 0.4s linear calc(var(--enter-delay, 0ms) + 0.12s) both;
-    }
-
-    /* Exit (the leaving layer): the logo wipes OUT under the bar while the bar sweeps
-       across again. Distinct `*-out` keyframe names so the browser restarts them
-       instead of leaving the entrance ones parked at their end frame.
-       The leaving wrapper matches `.bc-logos__reveal` above, so without this it would
-       REPLAY the entrance `bc-logo-slide` (fade/slide IN from the left) while its image
-       wipes out — contradictory motion. Hold it static so only the wipe + shine play. */
-    .bc-logos__reveal--leaving {
-      animation: none;
-    }
-    .bc-logos__reveal--leaving .bc-logos__img {
-      animation: bc-logo-wipe-out 0.3s var(--ease-in) both;
-    }
-    .bc-logos__reveal--leaving .bc-logos__shine--out {
-      animation: bc-logo-bar-out 0.34s linear both;
-    }
+     to full motion via the root `data-motion` attribute (see lib/motion.js) rather than
+     the OS `prefers-reduced-motion` media query, so an OBS/CEF host still plays the sweep;
+     only an explicit `data-motion="reduced"` opts out. */
+  :global(:root:not([data-motion='reduced'])) .bc-logos__reveal {
+    animation: bc-logo-slide 0.42s var(--ease-out) var(--enter-delay, 0ms) both;
+  }
+  :global(:root:not([data-motion='reduced'])) .bc-logos__img {
+    animation: bc-logo-wipe 0.36s var(--ease-out) calc(var(--enter-delay, 0ms) + 0.12s) both;
+  }
+  :global(:root:not([data-motion='reduced'])) .bc-logos__shine {
+    animation: bc-logo-bar 0.4s linear calc(var(--enter-delay, 0ms) + 0.12s) both;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .bc-logos__img {
-      animation: bc-logo-fade 0.16s linear both;
-    }
-    .bc-logos__shine {
-      display: none;
-    }
+  /* Exit (the leaving layer): the logo wipes OUT under the bar while the bar sweeps
+     across again. Distinct `*-out` keyframe names so the browser restarts them instead
+     of leaving the entrance ones parked at their end frame.
+     The leaving wrapper matches `.bc-logos__reveal` above, so without this it would
+     REPLAY the entrance `bc-logo-slide` (fade/slide IN from the left) while its image
+     wipes out — contradictory motion. Hold it static so only the wipe + shine play. */
+  :global(:root:not([data-motion='reduced'])) .bc-logos__reveal--leaving {
+    animation: none;
+  }
+  :global(:root:not([data-motion='reduced'])) .bc-logos__reveal--leaving .bc-logos__img {
+    animation: bc-logo-wipe-out 0.3s var(--ease-in) both;
+  }
+  :global(:root:not([data-motion='reduced'])) .bc-logos__reveal--leaving .bc-logos__shine--out {
+    animation: bc-logo-bar-out 0.34s linear both;
+  }
+
+  /* Reduced motion (opt-in `data-motion="reduced"`): plain fade, no sweep. */
+  :global(:root[data-motion='reduced']) .bc-logos__img {
+    animation: bc-logo-fade 0.16s linear both;
+  }
+  :global(:root[data-motion='reduced']) .bc-logos__shine {
+    display: none;
   }
 
   .bc-logos--idle {

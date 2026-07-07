@@ -14,12 +14,14 @@
   import GridPage from './routes/grid/GridPage.svelte'
   import ConfigPage from './routes/config/ConfigPage.svelte'
   import RaceControlPage from './routes/racecontrol/RaceControlPage.svelte'
+  import OnBoardHudPage from './routes/onboard/OnBoardHudPage.svelte'
+  import { resolveMotion, applyMotion } from './lib/motion.js'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
   const rawPath = typeof window !== 'undefined' ? window.location.pathname : '/'
   const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
-  const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos', '/driver', '/qualifying', '/racecontrol']
+  const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos', '/driver', '/qualifying', '/racecontrol', '/onboard']
   // Real app routes are full-bleed; only the Vite scaffold landing (the `{:else}`
   // branch) keeps the constrained column. `/results` is a full-screen takeover
   // slide with an opaque board background, so it is full-bleed but NOT an overlay
@@ -29,6 +31,13 @@
 
   onMount(() => {
     if (typeof document === 'undefined') return
+
+    // Resolve the overlay's motion mode and stamp it on <html data-motion=…> before
+    // the widgets reveal. Default is FULL motion regardless of the render host's
+    // prefers-reduced-motion — OBS's CEF reports `reduce`, which would otherwise turn
+    // every transition into a hard cut. `?motion=reduced` opts a Browser Source out;
+    // config-driven routes refine this from a saved profile's `reducedMotion`.
+    applyMotion(resolveMotion(typeof window !== 'undefined' ? window.location.search : ''))
 
     // The scaffold styles `#app` as a centered 1126px column with side borders and
     // `text-align: center`. That offsets and boxes-in a real route: on `/all` it
@@ -74,6 +83,8 @@
   <QualifyingPage />
 {:else if path === '/racecontrol'}
   <RaceControlPage />
+{:else if path === '/onboard'}
+  <OnBoardHudPage />
 {:else if path === '/results'}
   <ResultsPage />
 {:else if path === '/grid'}

@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Overlay animations no longer hard-cut in OBS.** OBS's Browser Source runs Chromium
+  offscreen (CEF), which reports `prefers-reduced-motion: reduce` — and every widget gated
+  its reveals/pulses on that media query, so the whole overlay dropped to its static
+  fallbacks (hard cuts) in OBS. The overlay now **animates by default** regardless of the
+  render host's setting (the OBS machine isn't the audience): motion is resolved once into a
+  root `data-motion` attribute (`lib/motion.js`) that CSS and JS both read, instead of the OS
+  media query. Reduced motion is now an explicit opt-in — a `?motion=reduced` URL knob per
+  Browser Source (like `?src=`), or a "reduced motion" toggle + `reducedMotion` profile field
+  in `/config`. Affects the lower-thirds, standings-tower re-cut shine, battle-box and
+  Race-Control caution pulses, logo carousel, and the on-board HUD bar.
+
+### Added
+
+- **Live-input telemetry in spec v1 — optional `subject.telemetry` object (#102, slice 2
+  of #20).** A new **optional `telemetry` sub-object on `subject`** carrying the on-camera
+  driver's live inputs: `throttle` (0–1), `brake` (0–1), `speed` (canonical km/h),
+  and `gear` (integer; `0` neutral, `-1` reverse by convention). Additive and
+  backward-compatible — every field is optional, `additionalProperties` stays `true`, and a
+  payload with **no** `subject.telemetry` still validates, so **`schemaVersion` stays
+  `"1"`** (same precedent as `session` / `notable` / `gap_to_leader`). Grouped under its own
+  sub-object to isolate the high-churn, every-tick input channel from the stable `subject`
+  identity fields. *Dumb overlay, smart producer*: the producer owns every value; the widget
+  renders it verbatim. `spec/v1/schema.json` + `SPEC.md` + compliance fixtures (`telemetry`
+  present / partial, and the no-`telemetry` backward-compat case asserted in the harness);
+  the reference mock producer emits `subject.telemetry` for the on-camera subject each
+  running-phase tick (parked phases omit it). See `docs/plans/0.6.0-onboard-hud.md`.
+
+- **Vehicle identity fields in spec v1 — optional `car_number` / `make` / `model`.** Three
+  additive, optional string fields on each `vehicle`: `car_number` (rendered verbatim as a
+  string so leading zeros survive; distinct from the opaque `slot_id`), `make` (manufacturer),
+  and `model` (chassis). Backward-compatible — all optional, `additionalProperties` stays
+  `true`, a payload without them still validates, **`schemaVersion` stays `"1"`**. Consumed by
+  the on-board HUD's configurable identity (below). `schema.json` + `SPEC.md` + compliance
+  assertion; the mock producer emits them for a full multi-class field.
+
+- **On-board HUD widget (#26).** An over-camera on-board HUD
+  (`app/src/routes/onboard/OnBoardHud.svelte`) on its own **`/onboard`** route and composed
+  into `/all`. It reads the on-camera subject's **live inputs every tick** (unlike the
+  cut-driven lower-thirds): throttle/brake fill bars (green/red per broadcast convention), a
+  rounded **speed** readout, and a **GEAR** indicator (`N` for neutral, `R` for reverse).
+  A per-widget **`speedUnit` toggle** switches the speed readout between **km/h** (default)
+  and **mph** — surfaced as a "Speed in mph" checkbox in the `/config` editor, or `?unit=mph`
+  on the standalone `/onboard` route; the producer emits canonical km/h and the widget
+  converts (`mph = km/h × 0.621371`).
+  - **Configurable driver/vehicle identity.** An optional identity strip shows the on-camera
+    driver's **name / number / class / make / model**, each toggled independently (name +
+    number on by default) via a "driver info shown" control in `/config`. Name is from
+    `subject.driver_name`; number/class/make/model from the matching `vehicles[]` entry.
+  - **Driver lower-third hand-off (#21).** So the driver name never shows in two places at
+    once, the HUD holds off while the driver lower-third plays its "now on camera" dwell and
+    reveals when it wipes out (a `waitForLowerThird` toggle, on by default; the HUD mirrors the
+    lower-third's own dwell timing). Only applies on `/all`; the standalone `/onboard` route
+    has no lower-third to wait for.
+  - Tolerates absent / partial / garbage `telemetry` and identity without rendering an empty
+    plate (idles in parked phases); the bar transition is gated to real motion (snaps under
+    reduced motion).
+
 ## [0.5.0] - 2026-07-07
 
 ### Added

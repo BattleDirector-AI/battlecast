@@ -1,10 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
+import { tick } from 'svelte'
 import AllView from './AllView.svelte'
 import { normalizeConfig } from '../../lib/overlayConfig.js'
 import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
 import idleBattle from '../../../../spec/v1/fixtures/race-idle-battle.json'
 import raceSessionFcy from '../../../../spec/v1/fixtures/race-session-fcy.json'
+import raceOnboard from '../../../../spec/v1/fixtures/race-onboard-telemetry.json'
 import lowerThird from './fixtures/profile-lower-third.json'
 import towerOnly from './fixtures/profile-tower-only.json'
 import withLogos from './fixtures/profile-with-logos.json'
@@ -143,6 +145,111 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     const cfg = normalizeConfig({ widgets: { racecontrol: { visible: false } } })
     const { container } = render(AllView, { snapshot: raceSessionFcy, config: cfg })
     expect(slot(container, 'racecontrol')).toBeNull()
+  })
+
+  it('composes the on-board HUD from snapshot.subject.telemetry without disturbing other widgets (#26)', () => {
+    // `preview` disables the lower-third hand-off so the HUD renders immediately (the
+    // hand-off timing has its own tests below).
+    const { container } = render(AllView, { snapshot: raceOnboard, preview: true })
+
+    const onboard = slot(container, 'onboard')
+    expect(onboard).not.toBeNull()
+    // The HUD shows the on-camera subject's live inputs (speed + gear from the fixture).
+    expect(onboard.querySelector('[data-testid="onboard-speed"]').textContent).toContain('247')
+    expect(onboard.querySelector('[data-testid="onboard-gear"]').textContent).toContain('6')
+
+    // Existing widgets keep rendering their own content unaffected.
+    const tower = slot(container, 'tower')
+    const battle = slot(container, 'battle')
+    expect(tower).not.toBeNull()
+    expect(battle).not.toBeNull()
+    expect(container.textContent).toContain('Hamilton')
+    expect(container.textContent).toContain('Verstappen')
+  })
+
+  it('idles the on-board HUD (renders nothing) when the snapshot carries no telemetry', () => {
+    // race-session-fcy.json has a subject but no subject.telemetry -> HUD renders
+    // nothing, though its slot is still placed (the component's own guard is empty).
+    const { container } = render(AllView, { snapshot: raceSessionFcy })
+    const onboard = slot(container, 'onboard')
+    expect(onboard).not.toBeNull()
+    expect(onboard.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+  })
+
+  it('omits the onboard widget from the DOM when hidden via config', () => {
+    const cfg = normalizeConfig({ widgets: { onboard: { visible: false } } })
+    const { container } = render(AllView, { snapshot: raceOnboard, config: cfg })
+    expect(slot(container, 'onboard')).toBeNull()
+  })
+
+  it('applies the config speedUnit to the on-board HUD (mph converts the canonical km/h)', () => {
+    const cfg = normalizeConfig({ widgets: { onboard: { speedUnit: 'mph' } } })
+    const { container } = render(AllView, { snapshot: raceOnboard, config: cfg, preview: true })
+    const speed = container.querySelector('[data-testid="onboard-speed"]')
+    // Fixture speed is 247 km/h -> 153 mph.
+    expect(speed.textContent).toContain('153')
+    expect(container.querySelector('[data-testid="onboard-speed-unit"]').textContent).toBe('MPH')
+  })
+
+  it('defaults the on-board HUD to km/h when no speedUnit is configured', () => {
+    const { container } = render(AllView, { snapshot: raceOnboard, preview: true })
+    const speed = container.querySelector('[data-testid="onboard-speed"]')
+    expect(speed.textContent).toContain('247')
+    expect(container.querySelector('[data-testid="onboard-speed-unit"]').textContent).toBe('KM/H')
+  })
+
+  it('shows the default driver identity (name + number) on the HUD (#26)', () => {
+    const { container } = render(AllView, { snapshot: raceOnboard, preview: true })
+    expect(container.querySelector('[data-testid="onboard-identity"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="onboard-driver-name"]').textContent).toContain(
+      'Verstappen',
+    )
+    expect(container.querySelector('[data-testid="onboard-driver-number"]').textContent).toBe('1')
+    // class / make+model are off by default.
+    expect(container.querySelector('[data-testid="onboard-driver-class"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-driver-car"]')).toBeNull()
+  })
+
+  it('honors the driverInfo toggles — class + make/model on, name/number off (#26)', () => {
+    const cfg = normalizeConfig({
+      widgets: {
+        onboard: {
+          driverInfo: { name: false, number: false, class: true, make: true, model: true },
+        },
+      },
+    })
+    const { container } = render(AllView, { snapshot: raceOnboard, config: cfg, preview: true })
+    expect(container.querySelector('[data-testid="onboard-driver-name"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-driver-number"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-driver-class"]')).not.toBeNull()
+    const car = container.querySelector('[data-testid="onboard-driver-car"]')
+    expect(car.textContent).toContain('Red Bull')
+    expect(car.textContent).toContain('RB20')
+  })
+
+  it('holds the HUD off while the driver lower-third shows its card, on connect (hand-off #26)', async () => {
+    // Default config: driver lower-third visible + waitForLowerThird on. On connect the
+    // lower-third fires its "now on camera" card, so the HUD holds off (whole-HUD wait).
+    const { container } = render(AllView, { snapshot: raceOnboard })
+    await tick()
+    expect(container.querySelector('[data-testid="driver-lower-third"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+    // The slot is still placed; only the HUD content waits.
+    expect(slot(container, 'onboard')).not.toBeNull()
+  })
+
+  it('shows the HUD immediately when waitForLowerThird is off', async () => {
+    const cfg = normalizeConfig({ widgets: { onboard: { waitForLowerThird: false } } })
+    const { container } = render(AllView, { snapshot: raceOnboard, config: cfg })
+    await tick()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
+  })
+
+  it('shows the HUD immediately when the driver lower-third is hidden (nothing to wait for)', async () => {
+    const cfg = normalizeConfig({ widgets: { driver: { visible: false } } })
+    const { container } = render(AllView, { snapshot: raceOnboard, config: cfg })
+    await tick()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
   })
 
   it('honors z-order by painting widgets in ascending z (later = on top)', () => {
