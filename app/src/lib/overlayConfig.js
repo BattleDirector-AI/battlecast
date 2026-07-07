@@ -87,6 +87,18 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline',
     },
+    // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
+    // bar, clear of the left-column tower and the battle box beside it. Not a
+    // lower-third and not class-aware: the trigger knobs (trigger/dwellSeconds/
+    // showOnConnect/fireOnClassBest), `modes`, and `classDisplay` are all INERT
+    // for this widget — carried only for a uniform widget shape. It renders
+    // whenever visible and there is session content, in every mode.
+    racecontrol: {
+      visible: true, x: 900, y: 24, w: 360, h: 44, z: 6, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline',
+    },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   theme: {},
