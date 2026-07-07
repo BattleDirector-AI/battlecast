@@ -355,12 +355,12 @@
     border-radius: 4px;
   }
 
-  /* The HUD re-renders every tick; smooth the bar between frames under real motion,
-     and snap instantly under reduced motion (no easing). */
-  @media (prefers-reduced-motion: no-preference) {
-    .bc-onboard__fill {
-      transition: width var(--bc-dur-reorder) var(--bc-ease);
-    }
+  /* The HUD re-renders every tick; smooth the bar between frames under full motion, and
+     snap instantly under reduced motion. Gated on the root `data-motion` attribute (see
+     lib/motion.js), not the OS `prefers-reduced-motion` media query, so the smoothing
+     still applies in OBS (whose CEF reports `reduce`); `data-motion="reduced"` opts out. */
+  :global(:root:not([data-motion='reduced'])) .bc-onboard__fill {
+    transition: width var(--bc-dur-reorder) var(--bc-ease);
   }
 
   .bc-onboard__fill--throttle {

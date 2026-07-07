@@ -131,23 +131,18 @@ describe('LogoRotation — switch uses the skewed bar-wipe reveal (#82)', () => 
   })
 
   it('binds slide→wrapper, wipe→image, bar→shine on switch (not a plain fade)', () => {
-    // No-preference path drives the three reveal keyframes, each on its OWN element
-    // (a mis-wire — e.g. slide on the img — must fail). The plain fade is only the
-    // reduced-motion fallback. Red on the pre-fix source (which faded the image in).
-    const noPref = /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
-      source,
-    )?.[1]
-    expect(noPref).toBeTruthy()
-    expect(noPref).toMatch(/\.bc-logos__reveal\s*\{[^}]*animation:\s*bc-logo-slide/s)
-    expect(noPref).toMatch(/\.bc-logos__img\s*\{[^}]*animation:\s*bc-logo-wipe/s)
-    expect(noPref).toMatch(/\.bc-logos__shine\s*\{[^}]*animation:\s*bc-logo-bar/s)
+    // Full-motion path drives the three reveal keyframes, each on its OWN element (a
+    // mis-wire — e.g. slide on the img — must fail). Motion is gated on the root
+    // `data-motion` attribute (see lib/motion.js), NOT the OS `prefers-reduced-motion`
+    // media query — so the reveal still plays in OBS (whose CEF reports `reduce`). The
+    // plain fade is only the `:root[data-motion='reduced']` fallback.
+    expect(source).toMatch(/:not\(\[data-motion='reduced'\]\)[^{]*\.bc-logos__reveal\s*\{[^}]*animation:\s*bc-logo-slide/s)
+    expect(source).toMatch(/:not\(\[data-motion='reduced'\]\)[^{]*\.bc-logos__img\s*\{[^}]*animation:\s*bc-logo-wipe/s)
+    expect(source).toMatch(/:not\(\[data-motion='reduced'\]\)[^{]*\.bc-logos__shine\s*\{[^}]*animation:\s*bc-logo-bar/s)
     // The old behaviour (fading the image in on every switch) must be gone; the fade
-    // survives only inside the reduced-motion block.
-    const reduce = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
-      source,
-    )?.[1]
-    expect(reduce).toMatch(/animation:\s*bc-logo-fade/)
-    expect(noPref).not.toMatch(/bc-logo-fade/)
+    // survives only inside the reduced-motion rule, and the OS media query is not used.
+    expect(source).toMatch(/:root\[data-motion='reduced'\][^{]*\.bc-logos__img\s*\{[^}]*animation:\s*bc-logo-fade/s)
+    expect(source).not.toMatch(/@media\s*\(prefers-reduced-motion/)
   })
 
   it('defines the reveal keyframes it references', () => {
@@ -178,31 +173,23 @@ describe('LogoRotation — reveal confined to the logo, sweeps full width, and e
     expect(Number(end[1])).toBeGreaterThanOrEqual(300)
   })
 
-  it('defines and wires the exit (wipe-out + bar-out) keyframes under no-preference', () => {
+  it('defines and wires the exit (wipe-out + bar-out) keyframes under full motion', () => {
     for (const kf of ['bc-logo-wipe-out', 'bc-logo-bar-out']) {
       expect(new RegExp(String.raw`@keyframes\s+${kf}\b`).test(source)).toBe(true)
     }
-    const noPref = /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
-      source,
-    )?.[1]
-    expect(noPref).toBeTruthy()
-    expect(noPref).toMatch(
-      /\.bc-logos__reveal--leaving\s+\.bc-logos__img\s*\{[^}]*animation:\s*bc-logo-wipe-out/s,
+    // Gated to full motion via the root `data-motion` attribute, not the OS media query.
+    expect(source).toMatch(
+      /:not\(\[data-motion='reduced'\]\)[^{]*\.bc-logos__reveal--leaving\s+\.bc-logos__img\s*\{[^}]*animation:\s*bc-logo-wipe-out/s,
     )
-    expect(noPref).toMatch(
-      /\.bc-logos__reveal--leaving\s+\.bc-logos__shine--out\s*\{[^}]*animation:\s*bc-logo-bar-out/s,
+    expect(source).toMatch(
+      /:not\(\[data-motion='reduced'\]\)[^{]*\.bc-logos__reveal--leaving\s+\.bc-logos__shine--out\s*\{[^}]*animation:\s*bc-logo-bar-out/s,
     )
   })
 
   it('plays an exit: on switch the previous logo wipes out on its own layer while the new one enters', async () => {
-    // happy-dom reports `prefers-reduced-motion: reduce` as true by default, which
-    // would take the instant-swap path — force real motion so the exit choreography
-    // (the thing under test) actually runs.
-    vi.stubGlobal('matchMedia', () => ({
-      matches: false,
-      addEventListener() {},
-      removeEventListener() {},
-    }))
+    // Tests default to reduced motion (the instant-swap path); force full motion via the
+    // root `data-motion` attribute so the exit choreography (the thing under test) runs.
+    document.documentElement.dataset.motion = 'full'
     const { getByTestId, queryByTestId, container } = render(LogoRotation, {
       rotation: { images: ['/logos/a.png', '/logos/b.png'], perSlotSeconds: 5 },
     })
@@ -233,11 +220,7 @@ describe('LogoRotation — reveal confined to the logo, sweeps full width, and e
   })
 
   it('a second switch within the exit window re-targets the leaving layer (no stale teardown)', async () => {
-    vi.stubGlobal('matchMedia', () => ({
-      matches: false,
-      addEventListener() {},
-      removeEventListener() {},
-    }))
+    document.documentElement.dataset.motion = 'full'
     // perSlotSeconds 0.2s (200ms) < EXIT_MS (340ms), so switches arrive faster than a
     // leaving layer's teardown — the controller must cancel the prior teardown timer
     // and re-target `leaving`, or the departing logo vanishes early / a stale timer
@@ -265,11 +248,7 @@ describe('LogoRotation — reveal confined to the logo, sweeps full width, and e
   })
 
   it('reduced motion swaps instantly — no exit layer', async () => {
-    vi.stubGlobal('matchMedia', () => ({
-      matches: true,
-      addEventListener() {},
-      removeEventListener() {},
-    }))
+    document.documentElement.dataset.motion = 'reduced'
     const { getByTestId, queryByTestId } = render(LogoRotation, {
       rotation: { images: ['/logos/a.png', '/logos/b.png'], perSlotSeconds: 4 },
     })

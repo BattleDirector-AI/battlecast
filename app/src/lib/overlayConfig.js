@@ -132,6 +132,10 @@ export const DEFAULT_CONFIG = Object.freeze({
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   theme: {},
+  // Overlay-wide motion opt-out. The overlay animates by default (see lib/motion.js —
+  // OBS/CEF reports reduced-motion, which must NOT silently kill the reveals); set true
+  // to turn transitions down. A `?motion=` URL param overrides this per Browser Source.
+  reducedMotion: false,
 })
 
 /** Lower-third trigger defaults (see docs/decisions/0002-lower-third-widgets.md).
@@ -292,6 +296,8 @@ export function normalizeConfig(raw) {
   if (src.theme && typeof src.theme === 'object') {
     out.theme = { ...out.theme, ...src.theme }
   }
+  // Overlay-wide motion opt-out (see lib/motion.js). Defaults false (animate).
+  out.reducedMotion = typeof src.reducedMotion === 'boolean' ? src.reducedMotion : false
 
   const canvasSrc = src.canvas && typeof src.canvas === 'object' ? src.canvas : {}
   out.canvas = {

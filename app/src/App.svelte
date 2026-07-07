@@ -15,6 +15,7 @@
   import ConfigPage from './routes/config/ConfigPage.svelte'
   import RaceControlPage from './routes/racecontrol/RaceControlPage.svelte'
   import OnBoardHudPage from './routes/onboard/OnBoardHudPage.svelte'
+  import { resolveMotion, applyMotion } from './lib/motion.js'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
@@ -30,6 +31,13 @@
 
   onMount(() => {
     if (typeof document === 'undefined') return
+
+    // Resolve the overlay's motion mode and stamp it on <html data-motion=…> before
+    // the widgets reveal. Default is FULL motion regardless of the render host's
+    // prefers-reduced-motion — OBS's CEF reports `reduce`, which would otherwise turn
+    // every transition into a hard cut. `?motion=reduced` opts a Browser Source out;
+    // config-driven routes refine this from a saved profile's `reducedMotion`.
+    applyMotion(resolveMotion(typeof window !== 'undefined' ? window.location.search : ''))
 
     // The scaffold styles `#app` as a centered 1126px column with side borders and
     // `text-align: center`. That offsets and boxes-in a real route: on `/all` it

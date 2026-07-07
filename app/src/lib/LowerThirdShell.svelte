@@ -1,16 +1,15 @@
 <script module>
+  import { prefersReducedMotion } from './motion.js'
+
   /**
-   * True when the viewer asked the OS to minimize motion. Used to skip the
-   * skewed bar-wipe entirely — the exit transition returns duration 0 (instant
-   * unmount, nothing lingers) and the entrance falls back to a plain fade.
-   *
-   * The `typeof` guard keeps this safe under SSR / the build's prerender pass,
-   * where `matchMedia` is undefined.
+   * True when the overlay is in reduced-motion mode (the broadcaster opted out of
+   * motion via `?motion=reduced` or the `/config` toggle — NOT the render host's OS
+   * setting; see lib/motion.js). Used to skip the skewed bar-wipe entirely — the exit
+   * transition returns duration 0 (instant unmount, nothing lingers) and the entrance
+   * falls back to a plain fade.
    */
   export function reduceMotion() {
-    return (
-      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
-    )
+    return prefersReducedMotion()
   }
 
   /**
@@ -117,50 +116,49 @@
     box-shadow: 0 0 24px var(--bc-accent-glow, rgba(31, 224, 196, 0.28));
   }
 
-  /* --- Entrance: plate skew-slides in, then the content wipes in behind the
-     raked bar (~0.5s). Gated to no-preference so reduced-motion viewers skip it. --- */
-  @media (prefers-reduced-motion: no-preference) {
-    .lt3 {
-      animation: lt3-plate-in 0.42s var(--ease-out) both;
-    }
-    .lt3__inner {
-      animation: lt3-wipe-in 0.36s var(--ease-out) 0.12s both;
-    }
-    .lt3__bar {
-      animation: lt3-bar 0.4s linear 0.12s both;
-    }
-
-    /* Exit (added at unmount by `lowerThirdOut`): content wipes out under the
-       bar, THEN the emptied plate skews off (~0.6s). `.lt3--exit` is applied at
-       runtime, so keep the scoped `.lt3` anchor and mark the runtime class
-       `:global` — otherwise the compiler prunes these as "unused". */
-    .lt3:global(.lt3--exit) {
-      animation: lt3-plate-out 0.32s var(--ease-in) 0.28s both;
-    }
-    .lt3:global(.lt3--exit) .lt3__inner {
-      animation: lt3-wipe-out 0.3s var(--ease-in) both;
-    }
-    /* The exit sweep MUST use a keyframe name distinct from the entrance's
-       `lt3-bar` (below). The entrance bar animation finishes pinned at its 100%
-       frame (`both` fill); if the exit merely re-timed the SAME animation-name,
-       the browser treats it as the same, already-finished animation and never
-       restarts it — so the shine would not sweep on the way out (the plate/wipe
-       replay fine because they already use distinct `*-out` names). See
-       tmp/lower-third-wipe-bench.html for the isolated repro. */
-    .lt3:global(.lt3--exit) .lt3__bar {
-      animation: lt3-bar-out 0.34s linear both;
-    }
+  /* --- Entrance: plate skew-slides in, then the content wipes in behind the raked
+     bar (~0.5s). Gated to full motion via the root `data-motion` attribute (see
+     lib/motion.js) rather than the OS `prefers-reduced-motion` media query, so an
+     OBS/CEF host — which reports `reduce` — still plays the reveal. Default (attribute
+     absent) animates; only an explicit `data-motion="reduced"` opts out. --- */
+  :global(:root:not([data-motion='reduced'])) .lt3 {
+    animation: lt3-plate-in 0.42s var(--ease-out) both;
+  }
+  :global(:root:not([data-motion='reduced'])) .lt3__inner {
+    animation: lt3-wipe-in 0.36s var(--ease-out) 0.12s both;
+  }
+  :global(:root:not([data-motion='reduced'])) .lt3__bar {
+    animation: lt3-bar 0.4s linear 0.12s both;
   }
 
-  /* --- Reduced motion: no sweep, no skew — a plain quick fade in; instant out
-     (the transition returns duration 0, so `.lt3--exit` is never applied). --- */
-  @media (prefers-reduced-motion: reduce) {
-    .lt3 {
-      animation: lt3-fade-in 0.16s linear both;
-    }
-    .lt3__bar {
-      display: none;
-    }
+  /* Exit (added at unmount by `lowerThirdOut`): content wipes out under the bar, THEN
+     the emptied plate skews off (~0.6s). `.lt3--exit` is applied at runtime, so keep
+     the scoped `.lt3` anchor and mark the runtime class `:global` — otherwise the
+     compiler prunes these as "unused". */
+  :global(:root:not([data-motion='reduced'])) .lt3:global(.lt3--exit) {
+    animation: lt3-plate-out 0.32s var(--ease-in) 0.28s both;
+  }
+  :global(:root:not([data-motion='reduced'])) .lt3:global(.lt3--exit) .lt3__inner {
+    animation: lt3-wipe-out 0.3s var(--ease-in) both;
+  }
+  /* The exit sweep MUST use a keyframe name distinct from the entrance's `lt3-bar`
+     (below). The entrance bar animation finishes pinned at its 100% frame (`both`
+     fill); if the exit merely re-timed the SAME animation-name, the browser treats it
+     as the same, already-finished animation and never restarts it — so the shine would
+     not sweep on the way out (the plate/wipe replay fine because they already use
+     distinct `*-out` names). See tmp/lower-third-wipe-bench.html for the isolated repro. */
+  :global(:root:not([data-motion='reduced'])) .lt3:global(.lt3--exit) .lt3__bar {
+    animation: lt3-bar-out 0.34s linear both;
+  }
+
+  /* --- Reduced motion (opt-in `data-motion="reduced"`): no sweep, no skew — a plain
+     quick fade in; instant out (the transition returns duration 0, so `.lt3--exit` is
+     never applied). --- */
+  :global(:root[data-motion='reduced']) .lt3 {
+    animation: lt3-fade-in 0.16s linear both;
+  }
+  :global(:root[data-motion='reduced']) .lt3__bar {
+    display: none;
   }
 
   @keyframes lt3-plate-in {

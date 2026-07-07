@@ -456,29 +456,30 @@
     pointer-events: none;
     overflow: hidden;
   }
-  @media (prefers-reduced-motion: no-preference) {
-    /* The shine itself — a bright, blurred, raked mint bar, screen-blended so it
-       reads as light passing over the row. `content` lives inside this media block
-       so reduced-motion viewers get no sweeping element at all. */
-    .row__oncam-flash::before {
-      content: '';
-      position: absolute;
-      top: -25%;
-      left: -20%;
-      width: 26%;
-      height: 150%;
-      background: linear-gradient(
-        90deg,
-        transparent 0%,
-        var(--bc-up, #7cffb2) 45%,
-        var(--bc-oncam-text, #eafffb) 55%,
-        transparent 100%
-      );
-      mix-blend-mode: screen;
-      filter: blur(2px);
-      box-shadow: 0 0 20px var(--bc-accent-glow, rgba(31, 224, 196, 0.35));
-      animation: row-oncam-shine 0.6s linear both;
-    }
+  /* The shine itself — a bright, blurred, raked mint bar, screen-blended so it reads as
+     light passing over the row. Gated to full motion via the root `data-motion`
+     attribute (see lib/motion.js), not the OS `prefers-reduced-motion` media query — so
+     the re-cut shine still sweeps in OBS (whose CEF reports `reduce`). The `content`
+     lives inside this gate, so under `data-motion="reduced"` there is no sweeping element
+     at all and the highlight is instant. */
+  :global(:root:not([data-motion='reduced'])) .row__oncam-flash::before {
+    content: '';
+    position: absolute;
+    top: -25%;
+    left: -20%;
+    width: 26%;
+    height: 150%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--bc-up, #7cffb2) 45%,
+      var(--bc-oncam-text, #eafffb) 55%,
+      transparent 100%
+    );
+    mix-blend-mode: screen;
+    filter: blur(2px);
+    box-shadow: 0 0 20px var(--bc-accent-glow, rgba(31, 224, 196, 0.35));
+    animation: row-oncam-shine 0.6s linear both;
   }
 
   @keyframes row-oncam-shine {

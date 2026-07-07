@@ -9,19 +9,12 @@ import noSubject from '../../../../spec/v1/fixtures/driver-no-subject.json'
 // #68 — the shipped exit choreography never fires under REAL motion because the
 // shell's `out:` transition was local, so an ANCESTOR block teardown (the widget's
 // `{#if shown}` / `{#key slot}`) removed the plate synchronously instead of playing
-// the wipe-out. The rest of the suite runs under the global reduced-motion stub
-// (duration 0), which masked this entirely — so these cases force no-preference and
-// assert the exit actually lingers/animates.
+// the wipe-out. The rest of the suite runs under the global reduced-motion default
+// (duration 0), which masked this entirely — so these cases force full motion and
+// assert the exit actually lingers/animates. Motion is the root `data-motion`
+// attribute now (see lib/motion.js), not the OS media query.
 function setReducedMotion(reduce) {
-  window.matchMedia = (query) => ({
-    matches: reduce && /prefers-reduced-motion:\s*reduce/.test(String(query)),
-    media: String(query),
-    addEventListener() {},
-    removeEventListener() {},
-    addListener() {},
-    removeListener() {},
-    dispatchEvent: () => false,
-  })
+  document.documentElement.dataset.motion = reduce ? 'reduced' : 'full'
 }
 
 // happy-dom has no Web Animations API; Svelte's non-zero-duration transitions call

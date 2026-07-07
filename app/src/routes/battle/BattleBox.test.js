@@ -154,25 +154,25 @@ describe('BattleBox — racing-mode gate (#81)', () => {
 
 describe('BattleBox — intensifying border wraps the whole widget (#80)', () => {
   // The pulsing RING must be drawn on an overlay ABOVE the header (so the header's
-  // opaque background can't cover it along the top), gated to no-preference; the
-  // outer glow rides the section. Assert the ring animates on `.bc-battle--hot::after`
-  // under no-preference and NOT on the bare `.bc-battle--hot`. Red on the pre-fix
-  // source (which pulsed the bare section, ungated).
-  const noPref = /@media\s*\(prefers-reduced-motion:\s*no-preference\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
-    source,
-  )?.[1]
-  const reduce = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/.exec(
-    source,
-  )?.[1]
-
-  it('animates the ring on the ::after overlay under no-preference, not the bare section', () => {
-    expect(noPref).toBeTruthy()
-    expect(noPref).toMatch(/\.bc-battle--hot::after\s*\{[^}]*animation:\s*bc-pulse-ring/s)
+  // opaque background can't cover it along the top); the outer glow rides the section.
+  // Motion is gated on the root `data-motion` attribute (see lib/motion.js), NOT the OS
+  // `prefers-reduced-motion` media query — so the pulse still plays in OBS (whose CEF
+  // reports `reduce`). Assert the ring animates on `.bc-battle--hot::after` under full
+  // motion (`:root:not([data-motion='reduced'])`) and NOT on the bare `.bc-battle--hot`,
+  // with a static box-shadow fallback under `:root[data-motion='reduced']`.
+  it('animates the ring on the ::after overlay under full motion, gated by data-motion', () => {
+    expect(source).toMatch(
+      /:not\(\[data-motion='reduced'\]\)[^{]*\.bc-battle--hot::after\s*\{[^}]*animation:\s*bc-pulse-ring/s,
+    )
+    // The pulse is NOT gated on the OS media query anymore (OBS would suppress it).
+    expect(source).not.toMatch(/@media\s*\(prefers-reduced-motion/)
+    // And it is not on the bare section (which the pre-#80 source pulsed, ungated).
     expect(/\.bc-battle--hot\s*\{[^}]*animation:\s*bc-pulse-ring/s.test(source)).toBe(false)
   })
 
-  it('keeps a static ring under reduced motion (no pulse)', () => {
-    expect(reduce).toBeTruthy()
-    expect(reduce).toMatch(/\.bc-battle--hot::after\s*\{[^}]*box-shadow/s)
+  it('keeps a static ring under reduced motion (data-motion=reduced), no pulse', () => {
+    expect(source).toMatch(
+      /:root\[data-motion='reduced'\][^{]*\.bc-battle--hot::after\s*\{[^}]*box-shadow/s,
+    )
   })
 })

@@ -115,21 +115,20 @@
     z-index: 3;
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .bc-racecontrol--caution {
-      animation: bc-racecontrol-pulse-glow var(--bc-dur-pulse) var(--bc-ease) infinite;
-    }
-    .bc-racecontrol--caution::after {
-      animation: bc-racecontrol-pulse-ring var(--bc-dur-pulse) var(--bc-ease) infinite;
-    }
+  /* Gated to full motion via the root `data-motion` attribute (see lib/motion.js), not
+     the OS `prefers-reduced-motion` media query — so the caution pulse still plays in OBS
+     (whose CEF reports `reduce`); only an explicit `data-motion="reduced"` opts out. */
+  :global(:root:not([data-motion='reduced'])) .bc-racecontrol--caution {
+    animation: bc-racecontrol-pulse-glow var(--bc-dur-pulse) var(--bc-ease) infinite;
+  }
+  :global(:root:not([data-motion='reduced'])) .bc-racecontrol--caution::after {
+    animation: bc-racecontrol-pulse-ring var(--bc-dur-pulse) var(--bc-ease) infinite;
   }
 
-  /* Reduced motion: a steady amber ring (no pulse, no bloom) still marks the
+  /* Reduced motion (opt-in): a steady amber ring (no pulse, no bloom) still marks the
      caution state without animation. */
-  @media (prefers-reduced-motion: reduce) {
-    .bc-racecontrol--caution::after {
-      box-shadow: inset 0 0 0 2px rgba(255, 194, 71, 0.9);
-    }
+  :global(:root[data-motion='reduced']) .bc-racecontrol--caution::after {
+    box-shadow: inset 0 0 0 2px rgba(255, 194, 71, 0.9);
   }
 
   @keyframes bc-racecontrol-pulse-ring {
