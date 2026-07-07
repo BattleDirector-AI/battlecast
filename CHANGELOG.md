@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-07
+
 ### Added
 
 - **Session state in spec v1 — optional `session` object (#90, slice 1 of #20).** A new
