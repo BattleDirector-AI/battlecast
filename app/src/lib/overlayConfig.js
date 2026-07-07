@@ -99,6 +99,19 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline',
     },
+    // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
+    // content-sized over-camera strip (throttle/brake bars + speed + gear). Not a
+    // lower-third and not class-aware: the trigger knobs (trigger/dwellSeconds/
+    // showOnConnect/fireOnClassBest), `modes`, and `classDisplay` are all INERT for
+    // this widget — carried only for a uniform widget shape. It reads the subject's
+    // telemetry every tick and renders whenever visible and there is telemetry
+    // content (its own guard), so it idles automatically in parked phases.
+    onboard: {
+      visible: true, x: 760, y: 960, w: 400, h: 96, z: 7, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline',
+    },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   theme: {},

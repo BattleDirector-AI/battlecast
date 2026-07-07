@@ -5,6 +5,7 @@
   import DriverLowerThird from '../driver/DriverLowerThird.svelte'
   import QualifyingLowerThird from '../qualifying/QualifyingLowerThird.svelte'
   import RaceControlStatus from '../racecontrol/RaceControlStatus.svelte'
+  import OnBoardHud from '../onboard/OnBoardHud.svelte'
   import { DEFAULT_CONFIG, normalizeConfig, resolveWidgets } from '../../lib/overlayConfig.js'
   import { isWidgetIdle } from '../../lib/widgetIdle.js'
 
@@ -26,7 +27,7 @@
   // while it has nothing to show (e.g. the battle box in clear air).
   const normalized = $derived(normalizeConfig(config))
   const canvas = $derived(normalized.canvas)
-  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol'])
+  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard'])
   const widgets = $derived(
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
@@ -67,6 +68,8 @@
         <QualifyingLowerThird {snapshot} widget={w} />
       {:else if w.key === 'racecontrol'}
         <RaceControlStatus session={snapshot?.session ?? null} mode={snapshot?.mode ?? null} />
+      {:else if w.key === 'onboard'}
+        <OnBoardHud telemetry={snapshot?.subject?.telemetry ?? null} mode={snapshot?.mode ?? null} />
       {/if}
     </div>
   {/each}
@@ -92,16 +95,18 @@
     box-sizing: border-box;
   }
 
-  /* The race control status pill is a content-sized indicator, not a plate that
-     stretches to fill its slot. Keep its intrinsic (compact) width, and CENTRE it
-     within the slot (rather than anchoring it to the left edge) so the pill reads as
-     centred in its allotted box. The slot's width is just the placement box. */
-  .widget-slot[data-widget='racecontrol'] {
+  /* The race control status pill and the on-board HUD are content-sized indicators,
+     not plates that stretch to fill their slot. Keep their intrinsic (compact) width,
+     and CENTRE them within the slot (rather than anchoring to the left edge) so they
+     read as centred in their allotted box. The slot's width is just the placement box. */
+  .widget-slot[data-widget='racecontrol'],
+  .widget-slot[data-widget='onboard'] {
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .widget-slot[data-widget='racecontrol'] > :global(*) {
+  .widget-slot[data-widget='racecontrol'] > :global(*),
+  .widget-slot[data-widget='onboard'] > :global(*) {
     width: auto;
   }
 </style>

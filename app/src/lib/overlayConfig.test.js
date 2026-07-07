@@ -203,9 +203,10 @@ describe('resolveWidgets — ordered render list', () => {
         driver: { z: 4 },
         qualifying: { z: 6 },
         racecontrol: { z: 7 },
+        onboard: { z: 8 },
       },
     }).map((w) => w.key)
-    expect(order).toEqual(['battle', 'logos', 'driver', 'tower', 'qualifying', 'racecontrol'])
+    expect(order).toEqual(['battle', 'logos', 'driver', 'tower', 'qualifying', 'racecontrol', 'onboard'])
   })
 })
 

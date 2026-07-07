@@ -107,6 +107,10 @@ function round1(n) {
   return Math.round(n * 10) / 10;
 }
 
+function round2(n) {
+  return Math.round(n * 100) / 100;
+}
+
 function round3(n) {
   return Math.round(n * 1000) / 1000;
 }
@@ -218,6 +222,39 @@ function buildSession(phase, elapsed, total, timedRaceLeg) {
     current_lap: clamp(totalLaps - lapsRemaining + 1, 1, totalLaps),
     basis: null,
   };
+}
+
+/**
+ * Producer-owned LIVE-INPUT telemetry for the on-camera subject, for the spec-v1
+ * `subject.telemetry` sub-object (throttle / brake / speed / gear). Dumb overlay,
+ * smart producer: the on-board HUD (#26) renders these verbatim every tick, so the
+ * synthesis lives here. The sim does not model pedal inputs, so we drive a synthetic
+ * corner→straight cycle off the clock (period `CORNER_CYCLE_SECONDS`): on the straight
+ * the car is at full throttle / top gear / top speed; mid-cycle it brakes into a
+ * corner (throttle drops, brake rises, speed and gear fall), then accelerates out.
+ * Top speed scales inversely with the car's class pace (a faster class is quicker), so
+ * the readout differs across subjects. Emitted only in the RUNNING phases; a parked
+ * car (grid / results) has no live inputs, so the producer omits the whole block and
+ * the HUD idles — which also keeps the no-telemetry backward-compat path exercised live.
+ * `speed` is a plain number in a producer-defined unit (see SPEC); here ~km/h.
+ */
+const CORNER_CYCLE_SECONDS = 14;
+
+function buildTelemetry(car, clock) {
+  // corner ∈ [0,1]: 0 on the straight, 1 at the apex (single hump per cycle).
+  const t = (clock % CORNER_CYCLE_SECONDS) / CORNER_CYCLE_SECONDS;
+  const corner = Math.max(0, Math.sin(t * Math.PI));
+  // Brake only bites in the deep part of the braking zone; throttle is the inverse
+  // of the corner, so the two bars cross over through the corner.
+  const brake = round2(clamp((corner - 0.35) / 0.5, 0, 1) * 0.95);
+  const throttle = round2(clamp(1 - corner * 1.05, 0, 1));
+  // Top speed inversely proportional to class pace (~326 for a 92s-pace GTP, ~280 for
+  // a 107s-pace GT3), modulated by the car's own pace-noise for a little life.
+  const topSpeed = 30000 / car.pace;
+  const speed = Math.round(topSpeed * (1 - corner * 0.55) * (1 + (car.noiseFactor || 0)));
+  // Gear tracks the speed fraction: ~2 through a slow corner up to 8 flat-out.
+  const gear = clamp(Math.round(1 + (speed / topSpeed) * 7), 1, 8);
+  return { throttle, brake, speed, gear };
 }
 
 /**
@@ -574,6 +611,9 @@ function createSimulator(config = {}) {
       subject: {
         slot_id: subjectCar.slot_id,
         driver_name: subjectCar.driver_name,
+        // Live-input telemetry only while the car is actually being driven (running
+        // phases). Parked phases (grid / results) omit it, so the HUD idles.
+        ...(running ? { telemetry: buildTelemetry(subjectCar, clock) } : {}),
       },
       relationship,
       session,

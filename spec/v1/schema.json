@@ -120,6 +120,10 @@
         "driver_name": {
           "type": "string",
           "description": "Name of the on-camera driver. Should match the referenced vehicle's `driver_name`; duplicated here so the battle box can render without a vehicles lookup."
+        },
+        "telemetry": {
+          "$ref": "#/$defs/telemetry",
+          "description": "Optional live-input telemetry for the on-camera subject: throttle, brake, speed, and gear. Additive and backward-compatible — the whole sub-object is optional and a payload with NO `subject.telemetry` still validates. Grouped under its own object (not flat on `subject`) because it is a HIGH-CHURN channel updated every tick, distinct from the stable identity fields (`slot_id` / `driver_name`) that change only on a camera cut. Producer-owned (dumb overlay, smart producer): the consumer (on-board HUD) renders these values verbatim each frame and MUST tolerate their absence."
         }
       }
     },
@@ -185,6 +189,33 @@
         "basis": {
           "type": ["string", "null"],
           "description": "Optional explicit progress-mode override: `\"time\"` forces the session-clock readout, `\"laps\"` forces the lap-counter readout. When null or absent the consumer auto-selects (see SPEC.md 'session'): `time_remaining` non-null → clock, else `laps_remaining` / `total_laps` non-null → lap counter, else no progress readout. Its one required use is the endurance 'time-certain + N laps' flip: on the final timed lap the producer sets `basis:\"laps\"` and populates `laps_remaining`, so the widget flips clock → lap counter with no endurance-specific logic of its own."
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "description": "Optional live-input telemetry channel for the on-camera subject, driving the on-board HUD overlay (#26): throttle, brake, speed, and gear. Every field is OPTIONAL and producer-owned (dumb overlay, smart producer — see docs/decisions/0002-lower-third-widgets.md): the producer holds the authoritative vehicle inputs and emits them each tick; the consumer only renders what it is handed and MUST tolerate their absence. Unlike the identity fields on `subject`, this is a HIGH-CHURN block a producer populates every frame. The object is intentionally open (additionalProperties: true) so future live-input keys (e.g. rpm, drs, steering) can be added without a schema break — consumers ignore keys they don't recognize.",
+      "additionalProperties": true,
+      "properties": {
+        "throttle": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Throttle application, normalized to [0, 1] (0 = fully closed, 1 = wide open). Null or absent when not available. The consumer renders it as a fill bar and clamps to [0, 1] defensively."
+        },
+        "brake": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Brake application, normalized to [0, 1] (0 = off, 1 = maximum). Null or absent when not available. Rendered as a fill bar alongside `throttle`."
+        },
+        "speed": {
+          "type": ["number", "null"],
+          "description": "Vehicle speed as a plain number in a PRODUCER-DEFINED UNIT (e.g. km/h or mph — the producer picks and stays consistent; the schema does not fix a unit). Null or absent when not available. The consumer renders the numeral verbatim under a neutral `SPEED` label and makes no unit conversion or claim."
+        },
+        "gear": {
+          "type": ["integer", "null"],
+          "description": "The currently selected gear as an integer. By convention `0` is neutral (rendered `N`) and `-1` is reverse (rendered `R`); positive integers are the forward gears, rendered verbatim. Null or absent when not available. Producer-owned — the consumer does not derive gear from speed."
         }
       }
     }

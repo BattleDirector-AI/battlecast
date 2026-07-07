@@ -134,6 +134,35 @@ required-ness.
 - **`subject`** (object) — The on-camera driver identity: a `slot_id` (which should
   reference one of the `vehicles` entries) and a `driver_name`. Widgets highlight this
   driver in the tower and center the battle box on them.
+
+  - **`telemetry`** (object, **OPTIONAL, ADDITIVE**) — the on-camera subject's
+    **live-input telemetry**, driving the on-board HUD overlay (#26). Every field is
+    producer-computed per the *dumb overlay, smart producer* principle in
+    [`docs/decisions/0002-lower-third-widgets.md`](../../docs/decisions/0002-lower-third-widgets.md):
+    the producer holds the authoritative vehicle inputs and the consumer only renders what
+    it is handed and **MUST tolerate its absence**. A payload with **no**
+    `subject.telemetry` still validates and every existing widget still renders. The object
+    is open, so unknown live-input keys are ignored.
+
+    - **`throttle`** / **`brake`** (number in `[0, 1]`) — throttle and brake application,
+      `0` = off/closed, `1` = full. The HUD renders each as a fill bar and clamps to
+      `[0, 1]` defensively.
+    - **`speed`** (number) — vehicle speed as a plain number in a **producer-defined
+      unit** (e.g. km/h or mph — the producer picks one and stays consistent; the schema
+      fixes no unit). The HUD renders the numeral verbatim under a neutral `SPEED` label
+      and makes no conversion or unit claim.
+    - **`gear`** (integer) — the selected gear. By convention `0` is neutral (rendered
+      `N`) and `-1` is reverse (rendered `R`); positive integers are the forward gears,
+      rendered verbatim. Producer-owned — the consumer does not derive gear from speed.
+
+    **Why a sub-object, not flat fields.** `telemetry` is grouped under `subject` (rather
+    than spread across its top level) because it is a **high-churn** channel a producer
+    populates *every tick*, distinct from the stable identity fields (`slot_id` /
+    `driver_name`) that change only on a camera cut. Keeping the two cadences in separate
+    structures signals which block is the live feed, and namespaces future live-input
+    fields (rpm, drs, steering) so they land additively too. The whole sub-object is
+    optional (omit it when there is no live telemetry, e.g. a parked car), and each field
+    within is independently optional so a partial feed still renders what it has.
 - **`relationship`** (object) — The battle context for the on-camera subject:
   `gap_ahead` and `gap_behind` (seconds to the cars immediately ahead/behind in
   running order; null or absent when the subject leads or trails the field), and

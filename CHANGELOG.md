@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Live-input telemetry in spec v1 — optional `subject.telemetry` object (#102, slice 2
+  of #20).** A new **optional `telemetry` sub-object on `subject`** carrying the on-camera
+  driver's live inputs: `throttle` (0–1), `brake` (0–1), `speed` (producer-defined unit),
+  and `gear` (integer; `0` neutral, `-1` reverse by convention). Additive and
+  backward-compatible — every field is optional, `additionalProperties` stays `true`, and a
+  payload with **no** `subject.telemetry` still validates, so **`schemaVersion` stays
+  `"1"`** (same precedent as `session` / `notable` / `gap_to_leader`). Grouped under its own
+  sub-object to isolate the high-churn, every-tick input channel from the stable `subject`
+  identity fields. *Dumb overlay, smart producer*: the producer owns every value; the widget
+  renders it verbatim. `spec/v1/schema.json` + `SPEC.md` + compliance fixtures (`telemetry`
+  present / partial, and the no-`telemetry` backward-compat case asserted in the harness);
+  the reference mock producer emits `subject.telemetry` for the on-camera subject each
+  running-phase tick (parked phases omit it). See `docs/plans/0.6.0-onboard-hud.md`.
+
+- **On-board HUD widget (#26).** An over-camera on-board HUD
+  (`app/src/routes/onboard/OnBoardHud.svelte`) on its own **`/onboard`** route and composed
+  into `/all`. It reads the on-camera subject's **live inputs every tick** (unlike the
+  cut-driven lower-thirds): throttle/brake fill bars (green/red per broadcast convention), a
+  rounded **SPEED** readout, and a **GEAR** indicator (`N` for neutral, `R` for reverse).
+  Tolerates absent / partial / garbage `telemetry` without rendering an empty plate (idles
+  in parked phases); the bar transition is gated to real motion (snaps under reduced motion).
+
 ## [0.5.0] - 2026-07-07
 
 ### Added

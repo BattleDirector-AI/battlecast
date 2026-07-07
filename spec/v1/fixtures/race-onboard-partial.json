@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-44",
+      "driver_name": "Hamilton",
+      "vehicle_class": "F1",
+      "position": 1,
+      "last_lap": 92.418,
+      "best_lap": 91.872,
+      "sector_times": [28.914, 31.402, 32.102],
+      "gap_to_leader": 0
+    },
+    {
+      "slot_id": "car-1",
+      "driver_name": "Verstappen",
+      "vehicle_class": "F1",
+      "position": 2,
+      "last_lap": 92.061,
+      "best_lap": 91.744,
+      "sector_times": [28.802, 31.355, 31.904],
+      "gap_to_leader": 0.4
+    }
+  ],
+  "subject": {
+    "slot_id": "car-1",
+    "driver_name": "Verstappen",
+    "telemetry": {
+      "throttle": 0.35,
+      "speed": 96
+    }
+  },
+  "relationship": {
+    "gap_ahead": 0.4,
+    "gap_behind": null,
+    "battle_intensity": 0.4
+  }
+}
