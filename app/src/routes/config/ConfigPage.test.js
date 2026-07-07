@@ -116,19 +116,30 @@ describe('ConfigPage editor wiring', () => {
     expect(queryByTestId('speed-mph-battle')).toBeNull()
   })
 
-  it('toggling the onboard speed-unit checkbox switches km/h <-> mph', async () => {
-    const { getByTestId } = render(ConfigPage)
+  it('toggling the onboard speed-unit checkbox switches the live preview km/h <-> mph', async () => {
+    const { container, getByTestId } = render(ConfigPage)
     await tick()
-    // Defaults to km/h (unchecked).
+    const hudUnit = () =>
+      container.querySelector('[data-testid="widget-onboard"] [data-testid="onboard-speed-unit"]')
+    const hudSpeed = () =>
+      container.querySelector('[data-testid="widget-onboard"] [data-testid="onboard-speed"]')
+
+    // The preview renders the HUD (the editor sample carries telemetry) so the unit
+    // choice is visible; defaults to km/h.
     expect(getByTestId('speed-mph-onboard').checked).toBe(false)
+    expect(hudUnit().textContent).toBe('KM/H')
+    expect(hudSpeed().textContent).toContain('247')
 
     await fireEvent.click(getByTestId('speed-mph-onboard'))
     await tick()
-    expect(getByTestId('speed-mph-onboard').checked).toBe(true) // now mph
+    expect(getByTestId('speed-mph-onboard').checked).toBe(true)
+    expect(hudUnit().textContent).toBe('MPH')
+    expect(hudSpeed().textContent).toContain('153') // 247 km/h -> 153 mph
 
     await fireEvent.click(getByTestId('speed-mph-onboard'))
     await tick()
-    expect(getByTestId('speed-mph-onboard').checked).toBe(false) // back to km/h
+    expect(getByTestId('speed-mph-onboard').checked).toBe(false)
+    expect(hudUnit().textContent).toBe('KM/H')
   })
 
   it('switching the driver trigger to persistent disables the dwell input', async () => {

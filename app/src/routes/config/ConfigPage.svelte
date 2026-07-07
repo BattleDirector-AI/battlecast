@@ -10,7 +10,21 @@
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
-  import sampleSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
+  import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
+
+  // Preview snapshot. `race-close-battle.json` is the canonical NO-telemetry fixture (so
+  // it must NOT gain a `subject.telemetry` block — the compliance harness and an AllLayout
+  // idle test rely on that), but the editor preview needs the on-board HUD to actually
+  // render so a broadcaster can see its speed readout — and the km/h vs mph toggle — take
+  // effect. So augment a COPY here with representative live inputs; the shared fixture is
+  // untouched.
+  const sampleSnapshot = {
+    ...baseSnapshot,
+    subject: {
+      ...baseSnapshot.subject,
+      telemetry: { throttle: 0.82, brake: 0, speed: 247, gear: 6 },
+    },
+  }
 
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
   let profileName = $state('default')
