@@ -1,10 +1,10 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
-import SessionStatus, { resolveFlag } from './SessionStatus.svelte'
+import RaceControlStatus, { resolveFlag } from './RaceControlStatus.svelte'
 // Component source, for the CSS-contract assertion on the cautionary border
 // (happy-dom runs no CSS, so the ::after overlay can only be checked in source —
 // mirrors BattleBox.test.js's technique for the same class of assertion).
-import source from './SessionStatus.svelte?raw'
+import source from './RaceControlStatus.svelte?raw'
 
 import fullSession from '../../../../spec/v1/fixtures/race-session-fcy.json'
 import partialSession from '../../../../spec/v1/fixtures/race-session-partial.json'
@@ -12,42 +12,42 @@ import partialSession from '../../../../spec/v1/fixtures/race-session-partial.js
 afterEach(() => cleanup())
 
 function statusRoot(container) {
-  return container.querySelector('[data-testid="session-status"]')
+  return container.querySelector('[data-testid="racecontrol-status"]')
 }
 
-describe('SessionStatus — flag / FCY / Safety-Car strip', () => {
+describe('RaceControlStatus — flag / FCY / Safety-Car strip', () => {
   it('renders the local flag plus FCY and SC from the full fixture (race-session-fcy.json)', () => {
-    const { container } = render(SessionStatus, {
+    const { container } = render(RaceControlStatus, {
       props: { session: fullSession.session, mode: fullSession.mode },
     })
     expect(statusRoot(container)).not.toBeNull()
 
-    const flagEl = container.querySelector('[data-testid="session-flag"]')
+    const flagEl = container.querySelector('[data-testid="racecontrol-flag"]')
     expect(flagEl.getAttribute('data-flag')).toBe('yellow')
     expect(flagEl.textContent).toContain('YELLOW FLAG')
 
     // FCY and a local yellow flag are DISTINCT — both are set on this fixture, so
     // both must render simultaneously.
-    expect(container.querySelector('[data-testid="session-fcy"]')).not.toBeNull()
-    expect(container.querySelector('[data-testid="session-sc"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-fcy"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-sc"]')).not.toBeNull()
     expect(container.textContent).toContain('FULL COURSE YELLOW')
     expect(container.textContent).toContain('SAFETY CAR')
   })
 
   it('renders just the flag (no FCY/SC) from the partial fixture', () => {
-    const { container } = render(SessionStatus, {
+    const { container } = render(RaceControlStatus, {
       props: { session: partialSession.session, mode: partialSession.mode },
     })
-    const flagEl = container.querySelector('[data-testid="session-flag"]')
+    const flagEl = container.querySelector('[data-testid="racecontrol-flag"]')
     expect(flagEl.getAttribute('data-flag')).toBe('green')
     expect(flagEl.textContent).toContain('GREEN FLAG')
-    expect(container.querySelector('[data-testid="session-fcy"]')).toBeNull()
-    expect(container.querySelector('[data-testid="session-sc"]')).toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-fcy"]')).toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-sc"]')).toBeNull()
   })
 
   it('does not render any session-clock / lap readout (that lives in the tower header)', () => {
     // Even a session rich in progress fields shows no progress text here.
-    const { container } = render(SessionStatus, {
+    const { container } = render(RaceControlStatus, {
       props: {
         session: {
           flag: 'green',
@@ -87,46 +87,46 @@ describe('flag / FCY / Safety-Car indicators', () => {
   })
 
   it('renders only the FCY badge when full_course_yellow is set without safety_car', () => {
-    const { container } = render(SessionStatus, {
+    const { container } = render(RaceControlStatus, {
       props: { session: { full_course_yellow: true } },
     })
-    expect(container.querySelector('[data-testid="session-fcy"]')).not.toBeNull()
-    expect(container.querySelector('[data-testid="session-sc"]')).toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-fcy"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-sc"]')).toBeNull()
   })
 
   it('renders only the SC badge when safety_car is set without full_course_yellow', () => {
-    const { container } = render(SessionStatus, {
+    const { container } = render(RaceControlStatus, {
       props: { session: { safety_car: true } },
     })
-    expect(container.querySelector('[data-testid="session-sc"]')).not.toBeNull()
-    expect(container.querySelector('[data-testid="session-fcy"]')).toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-sc"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-fcy"]')).toBeNull()
   })
 
   it('renders no flag chip when flag is "none", but other indicators still show', () => {
-    const { container } = render(SessionStatus, {
+    const { container } = render(RaceControlStatus, {
       props: { session: { flag: 'none', safety_car: true } },
     })
-    expect(container.querySelector('[data-testid="session-flag"]')).toBeNull()
-    expect(container.querySelector('[data-testid="session-sc"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-flag"]')).toBeNull()
+    expect(container.querySelector('[data-testid="racecontrol-sc"]')).not.toBeNull()
   })
 })
 
-describe('SessionStatus — empty / absent session (dumb overlay, never crashes)', () => {
+describe('RaceControlStatus — empty / absent session (dumb overlay, never crashes)', () => {
   it('renders nothing for a null session (no snapshot yet)', () => {
-    const { container } = render(SessionStatus, { props: { session: null, mode: null } })
+    const { container } = render(RaceControlStatus, { props: { session: null, mode: null } })
     expect(statusRoot(container)).toBeNull()
     expect(container.textContent.trim()).toBe('')
   })
 
   it('renders nothing when no props are passed at all', () => {
-    const { container } = render(SessionStatus)
+    const { container } = render(RaceControlStatus)
     expect(statusRoot(container)).toBeNull()
   })
 
   it('renders nothing for a session with no flag/FCY/SC (progress-only)', () => {
     // Progress fields alone no longer produce a status strip — they belong to the
     // tower header now.
-    const { container } = render(SessionStatus, {
+    const { container } = render(RaceControlStatus, {
       props: { session: { time_remaining: 120, laps_remaining: 5 } },
     })
     expect(statusRoot(container)).toBeNull()
@@ -134,7 +134,7 @@ describe('SessionStatus — empty / absent session (dumb overlay, never crashes)
 
   it('never throws on malformed/garbage field types', () => {
     expect(() =>
-      render(SessionStatus, {
+      render(RaceControlStatus, {
         props: {
           session: {
             flag: 123,
@@ -150,7 +150,7 @@ describe('SessionStatus — empty / absent session (dumb overlay, never crashes)
   })
 })
 
-describe('SessionStatus — cautionary border wraps the whole widget (mirrors BattleBox #80)', () => {
+describe('RaceControlStatus — cautionary border wraps the whole widget (mirrors BattleBox #80)', () => {
   // Same construction as BattleBox's intensifying border: the pulsing ring must be
   // drawn on an ::after overlay gated to no-preference; a static reduced-motion
   // fallback replaces the pulse rather than removing the cue. Content rendering does
@@ -166,21 +166,21 @@ describe('SessionStatus — cautionary border wraps the whole widget (mirrors Ba
 
   it('animates the ring on the ::after overlay under no-preference, not the bare section', () => {
     expect(noPref).toBeTruthy()
-    expect(noPref).toMatch(/\.bc-session--caution::after\s*\{[^}]*animation:\s*bc-session-pulse-ring/s)
+    expect(noPref).toMatch(/\.bc-racecontrol--caution::after\s*\{[^}]*animation:\s*bc-racecontrol-pulse-ring/s)
     expect(
-      /\.bc-session--caution\s*\{[^}]*animation:\s*bc-session-pulse-ring/s.test(source),
+      /\.bc-racecontrol--caution\s*\{[^}]*animation:\s*bc-racecontrol-pulse-ring/s.test(source),
     ).toBe(false)
   })
 
   it('keeps a static ring under reduced motion (no pulse)', () => {
     expect(reduce).toBeTruthy()
-    expect(reduce).toMatch(/\.bc-session--caution::after\s*\{[^}]*box-shadow/s)
+    expect(reduce).toMatch(/\.bc-racecontrol--caution::after\s*\{[^}]*box-shadow/s)
   })
 
   it('applies the caution class only when FCY or SC is active', () => {
-    const { container } = render(SessionStatus, {
+    const { container } = render(RaceControlStatus, {
       props: { session: { flag: 'green' } },
     })
-    expect(statusRoot(container).classList.contains('bc-session--caution')).toBe(false)
+    expect(statusRoot(container).classList.contains('bc-racecontrol--caution')).toBe(false)
   })
 })

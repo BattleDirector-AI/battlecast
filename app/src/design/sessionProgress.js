@@ -3,7 +3,7 @@
  * countdown) distinct from the per-car timing tower and from the flag/FCY/SC
  * status indicators (see docs/research/native-overlays.md); battlecast renders it
  * in the standings tower header. The flag/FCY/SC indicators live in their own
- * status widget (SessionStatus.svelte).
+ * status widget (RaceControlStatus.svelte).
  *
  * Dumb overlay, smart producer: every field is producer-computed and rendered
  * verbatim. The only judgment here is the timed-vs-lap auto-selection, mirrored
