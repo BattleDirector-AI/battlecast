@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-07
+
 ### Fixed
 
 - **Overlay animations no longer hard-cut in OBS.** OBS's Browser Source runs Chromium
