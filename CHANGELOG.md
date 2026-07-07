@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Session state in spec v1 — optional `session` object (#90, slice 1 of #20).** A new
+  **optional, top-level `session` object** on the spec-v1 payload carrying session-level
+  broadcast state: `flag` (free-form: green/yellow/red/checkered/white/none),
+  `full_course_yellow`, `safety_car`, the timed clock (`time_remaining` /
+  `session_length`), the lap counter (`laps_remaining` / `total_laps` /
+  **producer-owned `current_lap`**), and an optional `basis` (`"time"` | `"laps"`)
+  override. Additive and backward-compatible — every field is optional,
+  `additionalProperties` stays `true`, and a payload with **no** `session` still
+  validates, so **`schemaVersion` stays `"1"`** (same precedent as `notable` /
+  `gap_to_leader`). *Dumb overlay, smart producer*: the producer owns every judgment —
+  in particular the lap number is producer-owned (`current_lap`), rendered verbatim, never
+  derived from `total_laps` − `laps_remaining`. `spec/v1/schema.json` + `SPEC.md` +
+  compliance fixtures (`session` present / partial, and the no-`session` backward-compat
+  case asserted in the harness); the reference mock producer emits `session` across its
+  phase cycle (FCY + Safety-Car windows, timed and lap-limited legs, the endurance
+  `basis:"laps"` flip). See `docs/plans/0.5.0-spec-fields-session-status.md`.
+
+- **Race Control status widget (#25).** A compact, content-sized flag / Full Course
+  Yellow / Safety-Car status pill (`app/src/routes/racecontrol/RaceControlStatus.svelte`)
+  on its own **`/racecontrol`** route and composed into `/all`. It renders the current
+  flag as a coloured square + label, with distinct **FCY** and **Safety Car** chips that
+  appear only when active (the pill grows to fit); a cautionary pulsing ring (with a
+  static reduced-motion fallback, mirroring the battle box) marks FCY/SC. Driving these
+  from producer state is a reliability win — in LMU the FCY/SC labels ship manual-only.
+  Tolerates absent / partial / unknown `session` data without rendering an empty plate.
+
+- **Session clock and qualifying pole time in the standings tower (#93, #94).** The
+  standings tower header now shows the session **countdown clock or lap counter** next to
+  the mode (e.g. `QUALIFYING · 4:32`, `RACE · LAP 47 OF 58`) — the native "Session Info"
+  readout — with automatic timed-vs-lap selection (honor `basis`; else `time_remaining` →
+  clock; else the lap fields → counter; else nothing), the producer-owned `current_lap`
+  rendered verbatim. In a lap-timed session (qualifying / practice) the leader's cell now
+  shows its **pole / benchmark lap time** instead of the word `LEADER`, while the field
+  shows deltas; a race keeps reading `LEADER`. Progress logic lives in the shared,
+  unit-tested `app/src/design/sessionProgress.js`.
+
 ## [0.4.0] - 2026-07-05
 
 ### Added
