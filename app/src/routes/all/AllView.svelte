@@ -93,8 +93,14 @@
   }
 
   /* The race control status pill is a content-sized indicator, not a plate that
-     should stretch to a slot — let it keep its intrinsic (compact) width, anchored
-     at the slot's left edge. Its slot width is just the editor drag box. */
+     stretches to fill its slot. Keep its intrinsic (compact) width, and CENTRE it
+     within the slot (rather than anchoring it to the left edge) so the pill reads as
+     centred in its allotted box. The slot's width is just the placement box. */
+  .widget-slot[data-widget='racecontrol'] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   .widget-slot[data-widget='racecontrol'] > :global(*) {
     width: auto;
   }
