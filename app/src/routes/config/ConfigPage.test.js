@@ -108,6 +108,29 @@ describe('ConfigPage editor wiring', () => {
     expect(towerEl().getAttribute('data-class-display')).toBe('grouped')
   })
 
+  it('exposes the speed-unit checkbox only for the onboard widget', async () => {
+    const { getByTestId, queryByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('speed-mph-onboard')).toBeTruthy()
+    expect(queryByTestId('speed-mph-tower')).toBeNull()
+    expect(queryByTestId('speed-mph-battle')).toBeNull()
+  })
+
+  it('toggling the onboard speed-unit checkbox switches km/h <-> mph', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    // Defaults to km/h (unchecked).
+    expect(getByTestId('speed-mph-onboard').checked).toBe(false)
+
+    await fireEvent.click(getByTestId('speed-mph-onboard'))
+    await tick()
+    expect(getByTestId('speed-mph-onboard').checked).toBe(true) // now mph
+
+    await fireEvent.click(getByTestId('speed-mph-onboard'))
+    await tick()
+    expect(getByTestId('speed-mph-onboard').checked).toBe(false) // back to km/h
+  })
+
   it('switching the driver trigger to persistent disables the dwell input', async () => {
     const { getByTestId } = render(ConfigPage)
     await tick()

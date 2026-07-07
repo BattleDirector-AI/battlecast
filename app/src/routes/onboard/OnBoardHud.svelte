@@ -46,19 +46,36 @@
     return String(gear)
   }
 
-  /** Speed -> rounded integer numeral string, or null when absent. */
-  export function speedLabel(speed) {
-    if (speed == null) return null
-    return String(Math.round(speed))
+  // The producer emits `speed` in canonical km/h (see spec/v1/SPEC.md
+  // `subject.telemetry`); the HUD converts to the broadcaster-selected display unit.
+  const KMH_TO_MPH = 0.621371
+
+  /** Convert a canonical km/h speed to the display `unit` ('kmh' | 'mph'), or null. */
+  export function convertSpeed(speedKmh, unit = 'kmh') {
+    if (speedKmh == null) return null
+    return unit === 'mph' ? speedKmh * KMH_TO_MPH : speedKmh
+  }
+
+  /** Speed (canonical km/h) -> rounded numeral string in the display `unit`, or null. */
+  export function speedLabel(speedKmh, unit = 'kmh') {
+    const v = convertSpeed(speedKmh, unit)
+    if (v == null) return null
+    return String(Math.round(v))
+  }
+
+  /** Display `unit` -> its readout label. */
+  export function unitLabel(unit) {
+    return unit === 'mph' ? 'MPH' : 'KM/H'
   }
 </script>
 
 <script>
-  let { telemetry = null, mode = null } = $props()
+  let { telemetry = null, mode = null, speedUnit = 'kmh' } = $props()
 
   const t = $derived(resolveTelemetry(telemetry))
   const gear = $derived(t ? gearLabel(t.gear) : null)
-  const speed = $derived(t ? speedLabel(t.speed) : null)
+  const speed = $derived(t ? speedLabel(t.speed, speedUnit) : null)
+  const unit = $derived(unitLabel(speedUnit))
 </script>
 
 {#if t}
@@ -99,7 +116,7 @@
     {#if speed != null}
       <div class="bc-onboard__readout" data-testid="onboard-speed">
         <span class="bc-onboard__value bc-onboard__value--speed">{speed}</span>
-        <span class="bc-onboard__readout-label">SPEED</span>
+        <span class="bc-onboard__readout-label" data-testid="onboard-speed-unit">{unit}</span>
       </div>
     {/if}
     {#if gear != null}

@@ -1,6 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
-import OnBoardHud, { resolveTelemetry, gearLabel, speedLabel } from './OnBoardHud.svelte'
+import OnBoardHud, {
+  resolveTelemetry,
+  gearLabel,
+  speedLabel,
+  convertSpeed,
+  unitLabel,
+} from './OnBoardHud.svelte'
 // Component source, for the CSS-contract assertion on the reduced-motion transition
 // gate (happy-dom runs no CSS, so it can only be checked in source — mirrors
 // RaceControlStatus.test.js's technique for the same class of assertion).
@@ -67,6 +73,31 @@ describe('OnBoardHud — throttle / brake / speed / gear from live telemetry', (
   it('rounds a fractional speed to a whole numeral', () => {
     const { container } = render(OnBoardHud, { props: { telemetry: { speed: 246.7 } } })
     expect(container.querySelector('[data-testid="onboard-speed"]').textContent).toContain('247')
+  })
+})
+
+describe('OnBoardHud — speed unit (km/h default, mph on request)', () => {
+  it('defaults to km/h: renders the canonical value with a KM/H label', () => {
+    const { container } = render(OnBoardHud, { props: { telemetry: { speed: 247 } } })
+    expect(container.querySelector('[data-testid="onboard-speed"]').textContent).toContain('247')
+    expect(container.querySelector('[data-testid="onboard-speed-unit"]').textContent).toBe('KM/H')
+  })
+
+  it('converts to mph when speedUnit is "mph" (247 km/h -> 153 mph)', () => {
+    const { container } = render(OnBoardHud, {
+      props: { telemetry: { speed: 247 }, speedUnit: 'mph' },
+    })
+    // 247 * 0.621371 = 153.48... -> 153
+    expect(container.querySelector('[data-testid="onboard-speed"]').textContent).toContain('153')
+    expect(container.querySelector('[data-testid="onboard-speed-unit"]').textContent).toBe('MPH')
+  })
+
+  it('leaves the canonical km/h value unchanged under the default unit', () => {
+    const { container } = render(OnBoardHud, {
+      props: { telemetry: { speed: 247 }, speedUnit: 'kmh' },
+    })
+    expect(container.querySelector('[data-testid="onboard-speed"]').textContent).toContain('247')
+    expect(container.querySelector('[data-testid="onboard-speed-unit"]').textContent).toBe('KM/H')
   })
 })
 
@@ -142,10 +173,32 @@ describe('resolveTelemetry / gearLabel / speedLabel helpers', () => {
     expect(gearLabel(null)).toBeNull()
   })
 
-  it('rounds speed to a whole numeral', () => {
+  it('rounds speed to a whole numeral (km/h by default)', () => {
     expect(speedLabel(246.7)).toBe('247')
     expect(speedLabel(0)).toBe('0')
     expect(speedLabel(null)).toBeNull()
+  })
+
+  it('converts canonical km/h to the requested display unit', () => {
+    expect(convertSpeed(247, 'kmh')).toBe(247)
+    expect(convertSpeed(247, 'mph')).toBeCloseTo(153.48, 1)
+    expect(convertSpeed(100, 'mph')).toBeCloseTo(62.14, 1)
+    expect(convertSpeed(null, 'mph')).toBeNull()
+    // Absent/unknown unit is treated as km/h (the canonical default).
+    expect(convertSpeed(247)).toBe(247)
+    expect(convertSpeed(247, 'bogus')).toBe(247)
+  })
+
+  it('rounds the converted value in speedLabel', () => {
+    expect(speedLabel(247, 'mph')).toBe('153')
+    expect(speedLabel(247, 'kmh')).toBe('247')
+  })
+
+  it('labels the display unit', () => {
+    expect(unitLabel('kmh')).toBe('KM/H')
+    expect(unitLabel('mph')).toBe('MPH')
+    expect(unitLabel(undefined)).toBe('KM/H')
+    expect(unitLabel('bogus')).toBe('KM/H')
   })
 })
 

@@ -22,6 +22,17 @@ export function resolveSrc(search = typeof window !== 'undefined' ? window.locat
 }
 
 /**
+ * Resolve the speed display unit for the standalone `/onboard` route from a `?unit=`
+ * query param (`kmh` | `mph`, case-insensitive), defaulting to `kmh`. On `/all` the
+ * unit comes from the saved overlay config instead; this is the per-Browser-Source
+ * knob for the standalone route, mirroring `?src=` / `?class=`.
+ */
+export function resolveSpeedUnit(search = typeof window !== 'undefined' ? window.location.search : '') {
+  const raw = new URLSearchParams(search).get('unit')
+  return String(raw || '').trim().toLowerCase() === 'mph' ? 'mph' : 'kmh'
+}
+
+/**
  * Open an EventSource to `url` and invoke `onState(snapshot)` with each parsed
  * `state` snapshot. Returns a disposer that closes the connection.
  */

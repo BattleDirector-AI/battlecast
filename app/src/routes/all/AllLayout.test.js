@@ -179,6 +179,22 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(slot(container, 'onboard')).toBeNull()
   })
 
+  it('applies the config speedUnit to the on-board HUD (mph converts the canonical km/h)', () => {
+    const cfg = normalizeConfig({ widgets: { onboard: { speedUnit: 'mph' } } })
+    const { container } = render(AllView, { snapshot: raceOnboard, config: cfg })
+    const speed = container.querySelector('[data-testid="onboard-speed"]')
+    // Fixture speed is 247 km/h -> 153 mph.
+    expect(speed.textContent).toContain('153')
+    expect(container.querySelector('[data-testid="onboard-speed-unit"]').textContent).toBe('MPH')
+  })
+
+  it('defaults the on-board HUD to km/h when no speedUnit is configured', () => {
+    const { container } = render(AllView, { snapshot: raceOnboard })
+    const speed = container.querySelector('[data-testid="onboard-speed"]')
+    expect(speed.textContent).toContain('247')
+    expect(container.querySelector('[data-testid="onboard-speed-unit"]').textContent).toBe('KM/H')
+  })
+
   it('honors z-order by painting widgets in ascending z (later = on top)', () => {
     const { container } = render(AllView, {
       snapshot: closeBattle,

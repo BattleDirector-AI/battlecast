@@ -53,19 +53,19 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 24, y: 24, w: 380, h: 900, z: 1, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
     },
     battle: {
       visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
     },
     logos: {
       visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
     // the canvas. It self-manages fire/dwell/hide, so it renders nothing between
@@ -74,7 +74,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 900, w: 620, h: 96, z: 4, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
     // subject (best/last lap, sectors, and target/delta when present). Offset
@@ -85,7 +85,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 788, w: 840, h: 100, z: 5, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
     },
     // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
     // bar, clear of the left-column tower and the battle box beside it. Not a
@@ -97,7 +97,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 900, y: 24, w: 360, h: 44, z: 6, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
     },
     // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
     // content-sized over-camera strip (throttle/brake bars + speed + gear). Not a
@@ -105,12 +105,15 @@ export const DEFAULT_CONFIG = Object.freeze({
     // showOnConnect/fireOnClassBest), `modes`, and `classDisplay` are all INERT for
     // this widget — carried only for a uniform widget shape. It reads the subject's
     // telemetry every tick and renders whenever visible and there is telemetry
-    // content (its own guard), so it idles automatically in parked phases.
+    // content (its own guard), so it idles automatically in parked phases. `speedUnit`
+    // is the one onboard-specific knob it DOES read: the display unit for the `speed`
+    // readout (`'kmh'` | `'mph'`); the producer emits canonical km/h and the widget
+    // converts to mph when selected.
     onboard: {
       visible: true, x: 760, y: 960, w: 400, h: 96, z: 7, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline',
+      classDisplay: 'inline', speedUnit: 'kmh',
     },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
@@ -155,6 +158,28 @@ export const TOWER_KEYS = Object.freeze(['tower'])
  *  its `classDisplay` control). */
 export function isTower(key) {
   return TOWER_KEYS.includes(key)
+}
+
+/** #26 on-board HUD extra: `speedUnit` is the DISPLAY unit for the speed readout —
+ *  `'kmh'` (default) or `'mph'`. The producer emits `speed` in canonical km/h (see
+ *  spec/v1/SPEC.md `subject.telemetry`); the widget converts to mph when selected.
+ *  Normalized onto every widget for a uniform shape, but only the on-board HUD reads
+ *  it. Additive + defaulted, so no `configVersion` bump. */
+export const ONBOARD_DEFAULTS = Object.freeze({
+  speedUnit: 'kmh',
+})
+
+/** Valid `speedUnit` display values. */
+export const SPEED_UNITS = Object.freeze(['kmh', 'mph'])
+
+/** Widgets whose speed-unit the config UI surfaces a control for. Just the on-board
+ *  HUD today. */
+export const ONBOARD_KEYS = Object.freeze(['onboard'])
+
+/** Whether a widget is the on-board HUD (so the config UI surfaces its `speedUnit`
+ *  control). */
+export function isOnboard(key) {
+  return ONBOARD_KEYS.includes(key)
 }
 
 /** Canonical widget keys in the layout contract, DERIVED from DEFAULT_CONFIG so it
@@ -279,6 +304,14 @@ export function normalizeConfig(raw) {
         w.classDisplay === 'inline' || w.classDisplay === 'grouped'
           ? w.classDisplay
           : d.classDisplay ?? TOWER_DEFAULTS.classDisplay,
+      // #26 on-board HUD display unit — only the on-board HUD reads it, but it's
+      // normalized onto every widget (like classDisplay) for a uniform shape. An
+      // unknown value falls back to the default so a stale/typo'd profile still
+      // renders a valid unit.
+      speedUnit:
+        w.speedUnit === 'kmh' || w.speedUnit === 'mph'
+          ? w.speedUnit
+          : d.speedUnit ?? ONBOARD_DEFAULTS.speedUnit,
     }
   }
   out.widgets = normalizedWidgets

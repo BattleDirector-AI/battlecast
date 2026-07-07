@@ -115,6 +115,10 @@
   // with positions restarting per class (`grouped`).
   const setClassDisplay = (key, value) =>
     (config = editor.setWidgetField(config, key, 'classDisplay', value))
+  // #26 on-board HUD-only: the display unit for the speed readout. The producer emits
+  // canonical km/h; checking the box displays mph (the widget converts). Unchecked = km/h.
+  const setSpeedUnit = (key, useMph) =>
+    (config = editor.setWidgetField(config, key, 'speedUnit', useMph ? 'mph' : 'kmh'))
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
@@ -486,6 +490,19 @@
                   <option value="inline">inline</option>
                   <option value="grouped">grouped</option>
                 </select>
+              </label>
+            {/if}
+            {#if key === 'onboard'}
+              <!-- #26-only: the display unit for the HUD's speed readout. The producer
+                   emits canonical km/h; check to display mph (the widget converts). -->
+              <label class="checkline" title="Display the on-board HUD speed in mph instead of km/h (the producer emits km/h; the widget converts)">
+                <input
+                  type="checkbox"
+                  data-testid="speed-mph-{key}"
+                  checked={w.speedUnit === 'mph'}
+                  onchange={(e) => setSpeedUnit(key, e.currentTarget.checked)}
+                />
+                Speed in mph
               </label>
             {/if}
           </fieldset>
