@@ -29,6 +29,10 @@
     "relationship": {
       "$ref": "#/$defs/relationship",
       "description": "The battle context for the on-camera `subject` driver: gaps to the cars immediately ahead and behind, and how contested the battle is. Drives the battle box widget."
+    },
+    "session": {
+      "$ref": "#/$defs/session",
+      "description": "Optional session-level broadcast state: flag, Full Course Yellow / Safety Car status, and the timed-vs-lap progress readout (session clock or laps remaining). Additive and backward-compatible — a payload with NO `session` still validates and older consumers ignore it. Every field is producer-owned (dumb overlay, smart producer); consumers render what they are handed and MUST tolerate its absence."
     }
   },
   "$defs": {
@@ -138,6 +142,49 @@
           "minimum": 0,
           "maximum": 1,
           "description": "How close/contested the subject's battle is, normalized to [0, 1]. 0 = no meaningful battle (clear air); 1 = maximally contested (cars nose-to-tail, positions actively changing). The producer computes this from gaps, closing rate, and recent position changes; consumers treat it as an opaque intensity for presentation (e.g. battle box emphasis)."
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "description": "Optional session-level broadcast state driving the session status overlay (flag, Full Course Yellow, Safety Car, and the session clock / laps-remaining readout). Every field is OPTIONAL and producer-computed (dumb overlay, smart producer — see docs/decisions/0002-lower-third-widgets.md): the producer holds authoritative session state and sets these facts; the consumer only renders what it is handed and MUST tolerate their absence. The object is intentionally open (additionalProperties: true) so future session keys can be added without a schema break — consumers ignore keys they don't recognize.",
+      "additionalProperties": true,
+      "properties": {
+        "flag": {
+          "type": "string",
+          "description": "The current session flag. Common values are `green`, `yellow`, `red`, `checkered`, `white`, and `none`, but this is a FREE-FORM string (not a hard enum): the producer owns the flag state and consumers MUST tolerate unknown values with a best-effort render. A local `yellow` here is a sector/local flag; a session-wide caution is signalled by `full_course_yellow`."
+        },
+        "full_course_yellow": {
+          "type": "boolean",
+          "description": "True when the whole course is under caution (Full Course Yellow), as distinct from a local `yellow` `flag` that covers only one sector. The producer owns this judgment; a consumer renders the FCY indicator when it is true and MUST tolerate its absence (treat absent/false as 'no full course yellow')."
+        },
+        "safety_car": {
+          "type": "boolean",
+          "description": "True when a safety car (or pace car) is deployed. Independent of `full_course_yellow` — a session may be under FCY without a safety car on track, or a safety car may be deployed to lead the field. The producer owns this; consumers render the safety-car indicator when true and tolerate absent/false as 'no safety car'."
+        },
+        "time_remaining": {
+          "type": ["number", "null"],
+          "description": "Seconds left in a TIMED session, counting down. Null or absent in a lap-limited session, or before the clock is known. When non-null (and not overridden by `basis`), it selects the session-clock readout; `session_length` is its denominator for a progress bar. The producer owns the clock; consumers just display it."
+        },
+        "session_length": {
+          "type": ["number", "null"],
+          "description": "Total scheduled length of a TIMED session in seconds — the denominator for a session-clock progress readout (elapsed = `session_length` − `time_remaining`). Null or absent in a lap-limited session or when not known. Producer-owned."
+        },
+        "laps_remaining": {
+          "type": ["integer", "null"],
+          "description": "Laps left in a LAP-LIMITED session, counting down. Null or absent in a timed session, or before it is known. When non-null (and `time_remaining` is null, or `basis` is `\"laps\"`), it selects the lap-counter readout. The producer owns the count; consumers display it verbatim (as an 'N laps remaining' readout when no `current_lap` is supplied)."
+        },
+        "total_laps": {
+          "type": ["integer", "null"],
+          "description": "Total scheduled laps in a LAP-LIMITED session — the Y in a 'lap X of Y' readout, where X is the producer-owned `current_lap`. Null or absent in a timed session or when not known. Producer-owned."
+        },
+        "current_lap": {
+          "type": ["integer", "null"],
+          "description": "The lap the field leader is currently ON in a LAP-LIMITED session (1 = opening lap) — the X in a 'lap X of Y' readout, with Y = `total_laps`. PRODUCER-OWNED: the producer decides the counting convention (whether the lap in progress is counted, how the final lap is numbered), so consumers render it verbatim and MUST NOT derive it from `total_laps` − `laps_remaining`. Null or absent in a timed session, or when the producer does not supply it — a consumer then falls back to showing `laps_remaining` / `total_laps` as given, without inventing a lap number."
+        },
+        "basis": {
+          "type": ["string", "null"],
+          "description": "Optional explicit progress-mode override: `\"time\"` forces the session-clock readout, `\"laps\"` forces the lap-counter readout. When null or absent the consumer auto-selects (see SPEC.md 'session'): `time_remaining` non-null → clock, else `laps_remaining` / `total_laps` non-null → lap counter, else no progress readout. Its one required use is the endurance 'time-certain + N laps' flip: on the final timed lap the producer sets `basis:\"laps\"` and populates `laps_remaining`, so the widget flips clock → lap counter with no endurance-specific logic of its own."
         }
       }
     }

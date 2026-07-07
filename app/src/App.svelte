@@ -13,12 +13,13 @@
   import ResultsPage from './routes/results/ResultsPage.svelte'
   import GridPage from './routes/grid/GridPage.svelte'
   import ConfigPage from './routes/config/ConfigPage.svelte'
+  import RaceControlPage from './routes/racecontrol/RaceControlPage.svelte'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
   const rawPath = typeof window !== 'undefined' ? window.location.pathname : '/'
   const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
-  const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos', '/driver', '/qualifying']
+  const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos', '/driver', '/qualifying', '/racecontrol']
   // Real app routes are full-bleed; only the Vite scaffold landing (the `{:else}`
   // branch) keeps the constrained column. `/results` is a full-screen takeover
   // slide with an opaque board background, so it is full-bleed but NOT an overlay
@@ -71,6 +72,8 @@
   <DriverPage />
 {:else if path === '/qualifying'}
   <QualifyingPage />
+{:else if path === '/racecontrol'}
+  <RaceControlPage />
 {:else if path === '/results'}
   <ResultsPage />
 {:else if path === '/grid'}

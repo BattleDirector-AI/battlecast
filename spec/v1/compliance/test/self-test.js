@@ -4,12 +4,15 @@
 // criteria on the harness issue. Run with `npm test` from spec/v1/compliance/.
 
 const path = require("path");
+const fs = require("fs");
 const net = require("net");
 const { spawn } = require("child_process");
 const { runCheck } = require("../lib/run-check");
+const { StatePayloadValidator } = require("../lib/validator");
 
 const MOCK_PRODUCER = path.resolve(__dirname, "..", "..", "..", "..", "producers", "mock", "server.js");
 const BAD_PRODUCER = path.resolve(__dirname, "bad-producer.js");
+const FIXTURES_DIR = path.resolve(__dirname, "..", "..", "fixtures");
 
 function getFreePort() {
   return new Promise((resolve, reject) => {
@@ -118,7 +121,38 @@ async function testOversizedFrame() {
   }
 }
 
+// The optional `session` object (issue #90) is additive: fixtures that carry it
+// must validate against schema.json, and — the core backward-compat guarantee —
+// a payload with NO `session` must still validate. Assert all three directly
+// against the schema via the harness's own ajv validator, not just trust
+// additionalProperties.
+function testSessionFixturesValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const full = load("race-session-fcy.json");
+  let result = validator.validate(full);
+  assert(result.valid, `expected race-session-fcy.json (full session) to validate, got: ${result.errors.join("; ")}`);
+
+  const partial = load("race-session-partial.json");
+  result = validator.validate(partial);
+  assert(
+    result.valid,
+    `expected race-session-partial.json (partial session) to validate, got: ${result.errors.join("; ")}`
+  );
+
+  const noSession = load("race-close-battle.json");
+  assert(!("session" in noSession), "race-close-battle.json is the no-session base and must NOT carry a session object");
+  result = validator.validate(noSession);
+  assert(result.valid, `expected a payload with NO session to still validate, got: ${result.errors.join("; ")}`);
+
+  console.log(
+    "PASS: session fixtures (full + partial) validate against schema.json, and a payload with NO session still validates (#90)"
+  );
+}
+
 async function main() {
+  testSessionFixturesValidateAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");
