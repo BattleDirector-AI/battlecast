@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the reference mock producer emits `subject.telemetry` for the on-camera subject each
   running-phase tick (parked phases omit it). See `docs/plans/0.6.0-onboard-hud.md`.
 
+- **Vehicle identity fields in spec v1 — optional `car_number` / `make` / `model`.** Three
+  additive, optional string fields on each `vehicle`: `car_number` (rendered verbatim as a
+  string so leading zeros survive; distinct from the opaque `slot_id`), `make` (manufacturer),
+  and `model` (chassis). Backward-compatible — all optional, `additionalProperties` stays
+  `true`, a payload without them still validates, **`schemaVersion` stays `"1"`**. Consumed by
+  the on-board HUD's configurable identity (below). `schema.json` + `SPEC.md` + compliance
+  assertion; the mock producer emits them for a full multi-class field.
+
 - **On-board HUD widget (#26).** An over-camera on-board HUD
   (`app/src/routes/onboard/OnBoardHud.svelte`) on its own **`/onboard`** route and composed
   into `/all`. It reads the on-camera subject's **live inputs every tick** (unlike the
@@ -31,9 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   A per-widget **`speedUnit` toggle** switches the speed readout between **km/h** (default)
   and **mph** — surfaced as a "Speed in mph" checkbox in the `/config` editor, or `?unit=mph`
   on the standalone `/onboard` route; the producer emits canonical km/h and the widget
-  converts (`mph = km/h × 0.621371`). Tolerates absent / partial / garbage `telemetry`
-  without rendering an empty plate (idles in parked phases); the bar transition is gated to
-  real motion (snaps under reduced motion).
+  converts (`mph = km/h × 0.621371`).
+  - **Configurable driver/vehicle identity.** An optional identity strip shows the on-camera
+    driver's **name / number / class / make / model**, each toggled independently (name +
+    number on by default) via a "driver info shown" control in `/config`. Name is from
+    `subject.driver_name`; number/class/make/model from the matching `vehicles[]` entry.
+  - **Driver lower-third hand-off (#21).** So the driver name never shows in two places at
+    once, the HUD holds off while the driver lower-third plays its "now on camera" dwell and
+    reveals when it wipes out (a `waitForLowerThird` toggle, on by default; the HUD mirrors the
+    lower-third's own dwell timing). Only applies on `/all`; the standalone `/onboard` route
+    has no lower-third to wait for.
+  - Tolerates absent / partial / garbage `telemetry` and identity without rendering an empty
+    plate (idles in parked phases); the bar transition is gated to real motion (snaps under
+    reduced motion).
 
 ## [0.5.0] - 2026-07-07
 

@@ -191,9 +191,42 @@ function testTelemetryFixturesValidateAgainstSchema() {
   );
 }
 
+// The additive vehicle identity fields `car_number` / `make` / `model` (0.6.0 HUD
+// identity) are optional: a fixture carrying them must validate, and a payload
+// WITHOUT them must still validate (backward-compat).
+function testVehicleIdentityFieldsValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const withIdentity = load("race-onboard-telemetry.json");
+  const subjectVehicle = withIdentity.vehicles.find((v) => v.slot_id === withIdentity.subject.slot_id);
+  assert(
+    subjectVehicle &&
+      typeof subjectVehicle.car_number === "string" &&
+      typeof subjectVehicle.make === "string" &&
+      typeof subjectVehicle.model === "string",
+    "race-onboard-telemetry.json's on-camera vehicle must carry car_number/make/model"
+  );
+  let result = validator.validate(withIdentity);
+  assert(result.valid, `expected race-onboard-telemetry.json (vehicle identity) to validate, got: ${result.errors.join("; ")}`);
+
+  const noIdentity = load("race-close-battle.json");
+  assert(
+    noIdentity.vehicles.every((v) => !("car_number" in v) && !("make" in v) && !("model" in v)),
+    "race-close-battle.json is the no-identity base and its vehicles must NOT carry car_number/make/model"
+  );
+  result = validator.validate(noIdentity);
+  assert(result.valid, `expected a payload with NO vehicle identity fields to still validate, got: ${result.errors.join("; ")}`);
+
+  console.log(
+    "PASS: vehicle identity fields (car_number/make/model) validate against schema.json, and a payload without them still validates (0.6.0 HUD identity)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
+  testVehicleIdentityFieldsValidateAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");

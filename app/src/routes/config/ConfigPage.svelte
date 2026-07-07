@@ -6,7 +6,13 @@
    * client-only authoring (export a config.json) when no server is running. */
   import { onMount } from 'svelte'
   import AllView from '../all/AllView.svelte'
-  import { DEFAULT_CONFIG, WIDGET_KEYS, normalizeConfig, isLowerThird } from '../../lib/overlayConfig.js'
+  import {
+    DEFAULT_CONFIG,
+    WIDGET_KEYS,
+    DRIVER_INFO_FIELDS,
+    normalizeConfig,
+    isLowerThird,
+  } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
@@ -20,6 +26,13 @@
   // untouched.
   const sampleSnapshot = {
     ...baseSnapshot,
+    // Give the on-camera vehicle the additive identity fields so the HUD's driver-info
+    // toggles (number / class / make / model) have something to show in the preview.
+    vehicles: baseSnapshot.vehicles.map((v) =>
+      v.slot_id === baseSnapshot.subject.slot_id
+        ? { ...v, car_number: '1', make: 'Red Bull', model: 'RB20' }
+        : v,
+    ),
     subject: {
       ...baseSnapshot.subject,
       telemetry: { throttle: 0.82, brake: 0, speed: 247, gear: 6 },
@@ -133,6 +146,14 @@
   // canonical km/h; checking the box displays mph (the widget converts). Unchecked = km/h.
   const setSpeedUnit = (key, useMph) =>
     (config = editor.setWidgetField(config, key, 'speedUnit', useMph ? 'mph' : 'kmh'))
+  // #26 on-board HUD-only: which driver/vehicle identity fields the HUD shows, and
+  // whether it holds off while the driver lower-third plays its "now on camera" card.
+  const setDriverInfo = (key, field, checked) => {
+    const current = { ...(config.widgets[key]?.driverInfo || {}), [field]: !!checked }
+    config = editor.setWidgetField(config, key, 'driverInfo', current)
+  }
+  const setWaitForLowerThird = (key, checked) =>
+    (config = editor.setWidgetField(config, key, 'waitForLowerThird', !!checked))
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
@@ -272,7 +293,7 @@
           class="preview__canvas"
           style="width: {canvas.w}px; height: {canvas.h}px; transform: scale({previewScale});"
         >
-          <AllView snapshot={sampleSnapshot} {config} />
+          <AllView snapshot={sampleSnapshot} {config} preview />
 
           {#each WIDGET_KEYS as key (key)}
             {#if config.widgets[key]?.visible}
@@ -517,6 +538,35 @@
                   onchange={(e) => setSpeedUnit(key, e.currentTarget.checked)}
                 />
                 Speed in mph
+              </label>
+              <!-- #26-only: which on-camera driver/vehicle identity fields the HUD
+                   shows (each toggled independently). number/make/model come from the
+                   additive vehicle spec fields; the producer must supply them. -->
+              <fieldset class="modes-row">
+                <legend>driver info shown</legend>
+                {#each DRIVER_INFO_FIELDS as field (field)}
+                  <label class="checkline">
+                    <input
+                      type="checkbox"
+                      data-testid="driver-info-{key}-{field}"
+                      checked={w.driverInfo?.[field] === true}
+                      onchange={(e) => setDriverInfo(key, field, e.currentTarget.checked)}
+                    />
+                    {field}
+                  </label>
+                {/each}
+              </fieldset>
+              <!-- #26 + #21 hand-off: hold the HUD off while the driver lower-third
+                   plays its "now on camera" card, so the driver name never shows in
+                   both at once; the HUD reveals when the card wipes out. -->
+              <label class="checkline" title="Hold the on-board HUD off while the driver lower-third is showing its 'now on camera' card, then reveal it (avoids showing the driver name in both at once)">
+                <input
+                  type="checkbox"
+                  data-testid="wait-lower-third-{key}"
+                  checked={w.waitForLowerThird === true}
+                  onchange={(e) => setWaitForLowerThird(key, e.currentTarget.checked)}
+                />
+                Wait for driver lower-third
               </label>
             {/if}
           </fieldset>

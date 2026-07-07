@@ -5,11 +5,15 @@
   import DriverLowerThird from '../driver/DriverLowerThird.svelte'
   import QualifyingLowerThird from '../qualifying/QualifyingLowerThird.svelte'
   import RaceControlStatus from '../racecontrol/RaceControlStatus.svelte'
-  import OnBoardHud from '../onboard/OnBoardHud.svelte'
+  import OnBoardHud, { resolveIdentity } from '../onboard/OnBoardHud.svelte'
+  import { resolveSubject } from '../driver/DriverLowerThird.svelte'
   import { DEFAULT_CONFIG, normalizeConfig, resolveWidgets } from '../../lib/overlayConfig.js'
   import { isWidgetIdle } from '../../lib/widgetIdle.js'
 
-  let { snapshot = null, config = DEFAULT_CONFIG } = $props()
+  // `preview` (the /config editor) disables the on-board HUD's lower-third hand-off so
+  // the HUD is always visible for positioning/configuring — the hand-off is a runtime
+  // timing behavior that a static single-frame preview can't meaningfully show.
+  let { snapshot = null, config = DEFAULT_CONFIG, preview = false } = $props()
 
   // Class filter is a per-Browser-Source knob, read from the URL like ?src= / ?show=
   // elsewhere: `?class=<VClass>` (case-insensitive; absent = all classes). The tower
@@ -32,6 +36,23 @@
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
       .filter((w) => !(w.hideWhenIdle && isWidgetIdle(w.key, { snapshot, config: normalized }))),
+  )
+
+  // On-board HUD (#26) inputs, resolved once here since the HUD needs both the
+  // subject and the field (for the additive vehicle identity fields), plus the
+  // driver lower-third's config to time the hand-off.
+  const onboardCfg = $derived(normalized.widgets.onboard)
+  const driverCfg = $derived(normalized.widgets.driver)
+  const onboardIdentity = $derived(resolveIdentity(snapshot, onboardCfg))
+  const subjectSlotId = $derived(snapshot?.subject?.slot_id ?? null)
+  // Mirror the driver lower-third's own "renderable subject" test so the HUD's
+  // hand-off timing tracks it exactly.
+  const subjectActive = $derived(resolveSubject(snapshot).state !== 'invalid')
+  // Gate the HUD on the driver lower-third only when the broadcaster opted in
+  // (`waitForLowerThird`) AND that card is actually enabled/visible; otherwise there
+  // is nothing to wait for, so pass no gate (the HUD shows immediately).
+  const onboardGate = $derived(
+    !preview && onboardCfg?.waitForLowerThird && driverCfg?.visible ? driverCfg : null,
   )
 </script>
 
@@ -72,7 +93,11 @@
         <OnBoardHud
           telemetry={snapshot?.subject?.telemetry ?? null}
           mode={snapshot?.mode ?? null}
-          speedUnit={normalized.widgets.onboard?.speedUnit}
+          speedUnit={onboardCfg?.speedUnit}
+          identity={onboardIdentity}
+          {subjectSlotId}
+          {subjectActive}
+          driverWidget={onboardGate}
         />
       {/if}
     </div>

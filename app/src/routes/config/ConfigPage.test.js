@@ -142,6 +142,42 @@ describe('ConfigPage editor wiring', () => {
     expect(hudUnit().textContent).toBe('KM/H')
   })
 
+  it('exposes the driver-info + hand-off controls only for the onboard widget', async () => {
+    const { getByTestId, queryByTestId } = render(ConfigPage)
+    await tick()
+    for (const field of ['name', 'number', 'class', 'make', 'model']) {
+      expect(getByTestId(`driver-info-onboard-${field}`)).toBeTruthy()
+      expect(queryByTestId(`driver-info-tower-${field}`)).toBeNull()
+    }
+    expect(getByTestId('wait-lower-third-onboard')).toBeTruthy()
+    expect(queryByTestId('wait-lower-third-tower')).toBeNull()
+  })
+
+  it('toggling a driver-info field updates the on-board HUD preview', async () => {
+    const { container, getByTestId } = render(ConfigPage)
+    await tick()
+    // make is off by default -> no car line in the preview HUD.
+    expect(getByTestId('driver-info-onboard-make').checked).toBe(false)
+    expect(container.querySelector('[data-testid="onboard-driver-car"]')).toBeNull()
+
+    await fireEvent.click(getByTestId('driver-info-onboard-make'))
+    await tick()
+    expect(getByTestId('driver-info-onboard-make').checked).toBe(true)
+    // The preview vehicle's make (Red Bull) now shows.
+    expect(container.querySelector('[data-testid="onboard-driver-car"]').textContent).toContain(
+      'Red Bull',
+    )
+  })
+
+  it('defaults the hand-off (wait for lower-third) on, and toggles off', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('wait-lower-third-onboard').checked).toBe(true)
+    await fireEvent.click(getByTestId('wait-lower-third-onboard'))
+    await tick()
+    expect(getByTestId('wait-lower-third-onboard').checked).toBe(false)
+  })
+
   it('switching the driver trigger to persistent disables the dwell input', async () => {
     const { getByTestId } = render(ConfigPage)
     await tick()

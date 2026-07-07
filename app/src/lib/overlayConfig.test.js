@@ -215,6 +215,42 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     const roundTripped = normalizeConfig(JSON.parse(JSON.stringify(authored)))
     expect(roundTripped.widgets.onboard.speedUnit).toBe('mph')
   })
+
+  it('defaults the onboard driverInfo to name+number and waitForLowerThird on', () => {
+    const w = normalizeConfig({}).widgets.onboard
+    expect(w.driverInfo).toEqual({ name: true, number: true, class: false, make: false, model: false })
+    expect(w.waitForLowerThird).toBe(true)
+  })
+
+  it('merges a partial driverInfo over the defaults and coerces garbage to booleans', () => {
+    const w = normalizeConfig({
+      widgets: { onboard: { driverInfo: { name: false, make: true, model: 'yes' } } },
+    }).widgets.onboard
+    // name overridden off, make on; model garbage -> falls back to default (false);
+    // number/class keep their defaults.
+    expect(w.driverInfo).toEqual({ name: false, number: true, class: false, make: true, model: false })
+  })
+
+  it('honors and round-trips waitForLowerThird=false and a full driverInfo', () => {
+    const authored = normalizeConfig({
+      widgets: {
+        onboard: {
+          waitForLowerThird: false,
+          driverInfo: { name: true, number: true, class: true, make: true, model: true },
+        },
+      },
+    })
+    expect(authored.widgets.onboard.waitForLowerThird).toBe(false)
+    const roundTripped = normalizeConfig(JSON.parse(JSON.stringify(authored)))
+    expect(roundTripped.widgets.onboard.waitForLowerThird).toBe(false)
+    expect(roundTripped.widgets.onboard.driverInfo).toEqual({
+      name: true,
+      number: true,
+      class: true,
+      make: true,
+      model: true,
+    })
+  })
 })
 
 describe('resolveWidgets — ordered render list', () => {

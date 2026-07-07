@@ -30,21 +30,24 @@ const CLASSES = [
 // conventions (car-44 Hamilton, car-1 Verstappen, car-16 Leclerc, car-4
 // Norris, car-14 Alonso) where they overlap, extended to a full multi-class
 // grid so the standings tower's class-chip colors actually get exercised.
+// `make`/`model` are the additive spec-v1 vehicle fields the on-board HUD's
+// configurable identity displays; the GTP field runs distinct manufacturers,
+// LMP2 is the spec Oreca 07, and GT3 mixes marques.
 const GRID = [
-  { number: 44, driver: "Hamilton", classKey: "gtp" },
-  { number: 1, driver: "Verstappen", classKey: "gtp" },
-  { number: 16, driver: "Leclerc", classKey: "gtp" },
-  { number: 4, driver: "Norris", classKey: "gtp" },
-  { number: 63, driver: "Russell", classKey: "gtp" },
-  { number: 81, driver: "Piastri", classKey: "lmp2" },
-  { number: 55, driver: "Sainz", classKey: "lmp2" },
-  { number: 11, driver: "Perez", classKey: "lmp2" },
-  { number: 31, driver: "Ocon", classKey: "lmp2" },
-  { number: 10, driver: "Gasly", classKey: "lmp2" },
-  { number: 14, driver: "Alonso", classKey: "gt3" },
-  { number: 23, driver: "Albon", classKey: "gt3" },
-  { number: 22, driver: "Tsunoda", classKey: "gt3" },
-  { number: 18, driver: "Stroll", classKey: "gt3" },
+  { number: 44, driver: "Hamilton", classKey: "gtp", make: "Cadillac", model: "V-Series.R" },
+  { number: 1, driver: "Verstappen", classKey: "gtp", make: "Porsche", model: "963" },
+  { number: 16, driver: "Leclerc", classKey: "gtp", make: "Ferrari", model: "499P" },
+  { number: 4, driver: "Norris", classKey: "gtp", make: "BMW", model: "M Hybrid V8" },
+  { number: 63, driver: "Russell", classKey: "gtp", make: "Acura", model: "ARX-06" },
+  { number: 81, driver: "Piastri", classKey: "lmp2", make: "Oreca", model: "07" },
+  { number: 55, driver: "Sainz", classKey: "lmp2", make: "Oreca", model: "07" },
+  { number: 11, driver: "Perez", classKey: "lmp2", make: "Oreca", model: "07" },
+  { number: 31, driver: "Ocon", classKey: "lmp2", make: "Oreca", model: "07" },
+  { number: 10, driver: "Gasly", classKey: "lmp2", make: "Oreca", model: "07" },
+  { number: 14, driver: "Alonso", classKey: "gt3", make: "Ferrari", model: "296 GT3" },
+  { number: 23, driver: "Albon", classKey: "gt3", make: "Porsche", model: "911 GT3 R" },
+  { number: 22, driver: "Tsunoda", classKey: "gt3", make: "BMW", model: "M4 GT3" },
+  { number: 18, driver: "Stroll", classKey: "gt3", make: "Aston Martin", model: "Vantage GT3" },
 ];
 
 const LAP_UNIT = 1; // one arbitrary "distance around the lap" unit
@@ -305,6 +308,9 @@ function makeCars(startClock = 0) {
       slot_id: `car-${entry.number}`,
       driver_name: entry.driver,
       vehicle_class: entry.classKey,
+      car_number: String(entry.number),
+      make: entry.make,
+      model: entry.model,
       pace: classPace(entry.classKey) + skillOffset,
       noiseFactor: 0,
       distance,
@@ -594,6 +600,9 @@ function createSimulator(config = {}) {
           slot_id: car.slot_id,
           driver_name: car.driver_name,
           vehicle_class: car.vehicle_class,
+          car_number: car.car_number,
+          make: car.make,
+          model: car.model,
           position: car.position,
           last_lap: car.last_lap,
           best_lap: car.best_lap,

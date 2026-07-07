@@ -1,13 +1,20 @@
 <script module>
   // On-board HUD — the on-camera subject's LIVE inputs (throttle / brake / speed /
-  // gear), read from `subject.telemetry` on every snapshot. Unlike the cut-driven
-  // lower-thirds (driver #21, qualifying #22), this widget carries no dwell/trigger
-  // machinery: it just re-renders the current inputs each tick. See spec/v1/SPEC.md
-  // `subject.telemetry` and docs/plans/0.6.0-onboard-hud.md.
+  // gear) from `subject.telemetry`, plus an optional, configurable driver/vehicle
+  // identity strip (name / number / class / make / model). See spec/v1/SPEC.md and
+  // docs/plans/0.6.0-onboard-hud.md.
+  //
+  // The telemetry re-renders every snapshot. The identity fields come from the
+  // additive `vehicle` spec fields (car_number / make / model) plus driver_name /
+  // vehicle_class, resolved against the on-camera subject. To avoid showing the
+  // driver name twice, the HUD can hold off while the driver lower-third (#21) plays
+  // its "now on camera" dwell and reveal once it wipes out (the hand-off) — see the
+  // instance script.
   //
   // Dumb overlay, smart producer (docs/decisions/0002-lower-third-widgets.md): every
-  // value is producer-owned. `telemetry` may be null/undefined/partial/garbage — this
-  // module normalizes defensively and never throws.
+  // value is producer-owned. Inputs may be null/undefined/partial/garbage — these
+  // helpers normalize defensively and never throw.
+  import { fmtName } from '../../design/format.js'
 
   /** Coerce to a finite number, else null. */
   function finiteOrNull(v) {
@@ -67,75 +74,176 @@
   export function unitLabel(unit) {
     return unit === 'mph' ? 'MPH' : 'KM/H'
   }
+
+  /**
+   * Resolve the on-camera subject's driver/vehicle identity for the HUD, honoring the
+   * per-widget `driverInfo` toggles ({ name, number, class, make, model } booleans).
+   * `name` is from `subject.driver_name`; `number`/`class`/`make`/`model` are read off
+   * the matching `vehicles[]` entry (the additive spec fields). Returns only the
+   * ENABLED and PRESENT fields, or null when there is nothing to show — so the caller
+   * can omit the identity strip entirely. Never throws on partial/garbage data.
+   */
+  export function resolveIdentity(snapshot, widget = {}) {
+    const info = widget && typeof widget.driverInfo === 'object' && widget.driverInfo ? widget.driverInfo : {}
+    const subject = snapshot?.subject ?? null
+    if (!subject || typeof subject !== 'object') return null
+    const slotId = subject.slot_id ?? null
+    const vehicles = Array.isArray(snapshot?.vehicles) ? snapshot.vehicles : []
+    const vehicle = slotId != null ? vehicles.find((v) => v && v.slot_id === slotId) : undefined
+
+    const rawName = subject.driver_name ?? vehicle?.driver_name ?? null
+    const out = {}
+    if (info.name && rawName) out.name = fmtName(rawName)
+    const number = vehicle?.car_number
+    if (info.number && number != null && String(number).trim()) out.number = String(number).trim()
+    if (info.class && vehicle?.vehicle_class) out.class = String(vehicle.vehicle_class)
+    if (info.make && vehicle?.make) out.make = String(vehicle.make)
+    if (info.model && vehicle?.model) out.model = String(vehicle.model)
+
+    const has = out.name || out.number || out.class || out.make || out.model
+    return has ? out : null
+  }
 </script>
 
 <script>
-  let { telemetry = null, mode = null, speedUnit = 'kmh' } = $props()
+  import { onDestroy } from 'svelte'
+  import ClassChip from '../../design/ClassChip.svelte'
+  import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
+
+  let {
+    telemetry = null,
+    mode = null,
+    speedUnit = 'kmh',
+    // Pre-resolved identity ({ name?, number?, class?, make?, model? } or null) — the
+    // caller resolves it via resolveIdentity() from the snapshot + the widget config.
+    identity = null,
+    // Hand-off inputs. When `driverWidget` is supplied (only on `/all`, and only when
+    // the onboard `waitForLowerThird` knob is on and the driver lower-third is
+    // visible), the HUD mirrors that lower-third's fire/dwell timing off the subject
+    // stream and suppresses itself while the card is up. `null` => no gate (standalone
+    // `/onboard`, or the knob is off).
+    subjectSlotId = null,
+    subjectActive = false,
+    driverWidget = null,
+  } = $props()
 
   const t = $derived(resolveTelemetry(telemetry))
   const gear = $derived(t ? gearLabel(t.gear) : null)
   const speed = $derived(t ? speedLabel(t.speed, speedUnit) : null)
   const unit = $derived(unitLabel(speedUnit))
+  const carLine = $derived(identity ? [identity.make, identity.model].filter(Boolean).join(' ') : '')
+
+  // Hand-off (#26 + #21): reuse the shared lower-third trigger engine to compute,
+  // independently, the exact same shown/hidden timeline as the driver lower-third —
+  // no cross-widget state. While that card is shown, the HUD is suppressed.
+  let lowerThirdShown = $state(false)
+  const gate = createLowerThirdTrigger({ onChange: (v) => (lowerThirdShown = v) })
+  onDestroy(() => gate.stop())
+
+  $effect(() => {
+    if (!driverWidget) {
+      // No gate: standalone route, or waitForLowerThird off / driver card hidden.
+      gate.stop()
+      lowerThirdShown = false
+      return
+    }
+    gate.sync({
+      subjectSlotId,
+      active: subjectActive,
+      trigger: driverWidget.trigger,
+      dwellSeconds: driverWidget.dwellSeconds,
+      showOnConnect: driverWidget.showOnConnect,
+    })
+  })
+
+  const suppressed = $derived(!!driverWidget && lowerThirdShown)
+  // The HUD is a live-telemetry widget: it shows only when there are inputs to show
+  // (identity rides along with telemetry, it doesn't summon the HUD on its own), and
+  // never while the driver lower-third is holding the "now on camera" card.
+  const visible = $derived(!!t && !suppressed)
 </script>
 
-{#if t}
+{#if visible}
 <section
   class="bc-onboard"
   data-testid="onboard-hud"
   data-mode={mode ?? ''}
   aria-label="On-board telemetry"
 >
-  <div class="bc-onboard__bars">
-    {#if t.throttle != null}
-      <div class="bc-onboard__bar" data-testid="onboard-throttle">
-        <span class="bc-onboard__bar-label">THROTTLE</span>
-        <div class="bc-onboard__track">
-          <div
-            class="bc-onboard__fill bc-onboard__fill--throttle"
-            data-testid="onboard-throttle-fill"
-            style:width={`${t.throttle * 100}%`}
-          ></div>
-        </div>
-      </div>
-    {/if}
-    {#if t.brake != null}
-      <div class="bc-onboard__bar" data-testid="onboard-brake">
-        <span class="bc-onboard__bar-label">BRAKE</span>
-        <div class="bc-onboard__track">
-          <div
-            class="bc-onboard__fill bc-onboard__fill--brake"
-            data-testid="onboard-brake-fill"
-            style:width={`${t.brake * 100}%`}
-          ></div>
-        </div>
-      </div>
-    {/if}
-  </div>
+  {#if identity}
+    <div class="bc-onboard__identity" data-testid="onboard-identity">
+      {#if identity.number}
+        <span class="bc-onboard__number" data-testid="onboard-driver-number">{identity.number}</span>
+      {/if}
+      {#if identity.name}
+        <span class="bc-onboard__driver" data-testid="onboard-driver-name">{identity.name}</span>
+      {/if}
+      {#if identity.class}
+        <span class="bc-onboard__class" data-testid="onboard-driver-class">
+          <ClassChip carClass={identity.class} size="compact" />
+        </span>
+      {/if}
+      {#if carLine}
+        <span class="bc-onboard__car" data-testid="onboard-driver-car">{carLine}</span>
+      {/if}
+    </div>
+  {/if}
 
-  <div class="bc-onboard__readouts">
-    {#if speed != null}
-      <div class="bc-onboard__readout" data-testid="onboard-speed">
-        <span class="bc-onboard__value bc-onboard__value--speed">{speed}</span>
-        <span class="bc-onboard__readout-label" data-testid="onboard-speed-unit">{unit}</span>
-      </div>
-    {/if}
-    {#if gear != null}
-      <div class="bc-onboard__readout" data-testid="onboard-gear">
-        <span class="bc-onboard__value bc-onboard__value--gear">{gear}</span>
-        <span class="bc-onboard__readout-label">GEAR</span>
-      </div>
-    {/if}
+  <div class="bc-onboard__telemetry">
+    <div class="bc-onboard__bars">
+      {#if t.throttle != null}
+        <div class="bc-onboard__bar" data-testid="onboard-throttle">
+          <span class="bc-onboard__bar-label">THROTTLE</span>
+          <div class="bc-onboard__track">
+            <div
+              class="bc-onboard__fill bc-onboard__fill--throttle"
+              data-testid="onboard-throttle-fill"
+              style:width={`${t.throttle * 100}%`}
+            ></div>
+          </div>
+        </div>
+      {/if}
+      {#if t.brake != null}
+        <div class="bc-onboard__bar" data-testid="onboard-brake">
+          <span class="bc-onboard__bar-label">BRAKE</span>
+          <div class="bc-onboard__track">
+            <div
+              class="bc-onboard__fill bc-onboard__fill--brake"
+              data-testid="onboard-brake-fill"
+              style:width={`${t.brake * 100}%`}
+            ></div>
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <div class="bc-onboard__readouts">
+      {#if speed != null}
+        <div class="bc-onboard__readout" data-testid="onboard-speed">
+          <span class="bc-onboard__value bc-onboard__value--speed">{speed}</span>
+          <span class="bc-onboard__readout-label" data-testid="onboard-speed-unit">{unit}</span>
+        </div>
+      {/if}
+      {#if gear != null}
+        <div class="bc-onboard__readout" data-testid="onboard-gear">
+          <span class="bc-onboard__value bc-onboard__value--gear">{gear}</span>
+          <span class="bc-onboard__readout-label">GEAR</span>
+        </div>
+      {/if}
+    </div>
   </div>
 </section>
 {/if}
 
 <style>
-  /* A compact over-camera HUD strip: throttle/brake fill bars on the left, the SPEED
-     and GEAR readouts on the right. Smoked-glass plate like the other widgets. */
+  /* A compact over-camera HUD: an optional driver/vehicle identity strip on top, and
+     the throttle/brake bars + SPEED/GEAR readouts below. Smoked-glass plate like the
+     other widgets. */
   .bc-onboard {
     display: inline-flex;
+    flex-direction: column;
     align-items: stretch;
-    gap: var(--bc-space-4);
+    gap: var(--bc-space-2);
     width: fit-content;
     max-width: 100%;
     box-sizing: border-box;
@@ -147,6 +255,65 @@
     backdrop-filter: var(--bc-blur);
     -webkit-backdrop-filter: var(--bc-blur);
     color: var(--bc-text);
+  }
+
+  /* Identity strip: [number] NAME [class] make model — sits above the telemetry row,
+     divided from it by a hairline. */
+  .bc-onboard__identity {
+    display: flex;
+    align-items: center;
+    gap: var(--bc-space-2);
+    min-width: 0;
+    padding-bottom: var(--bc-space-1);
+    border-bottom: 1px solid var(--bc-divider);
+  }
+
+  .bc-onboard__number {
+    flex: 0 0 auto;
+    font-family: var(--bc-font-mono);
+    font-size: var(--bc-size-label);
+    font-weight: var(--bc-weight-num);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--bc-text-on-accent);
+    background: var(--bc-accent);
+    border-radius: var(--bc-radius-chip);
+    padding: 2px 6px;
+  }
+
+  .bc-onboard__driver {
+    font-family: var(--bc-font-display);
+    font-size: var(--bc-size-name);
+    font-weight: var(--bc-weight-name);
+    color: var(--bc-oncam-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .bc-onboard__class {
+    flex: 0 0 auto;
+    display: inline-flex;
+  }
+
+  .bc-onboard__car {
+    flex: 0 1 auto;
+    font-family: var(--bc-font-ui);
+    font-size: var(--bc-size-label);
+    letter-spacing: var(--bc-track-label);
+    text-transform: uppercase;
+    color: var(--bc-text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Telemetry row: bars on the left, SPEED / GEAR readouts on the right. */
+  .bc-onboard__telemetry {
+    display: flex;
+    align-items: stretch;
+    gap: var(--bc-space-4);
   }
 
   .bc-onboard__bars {
