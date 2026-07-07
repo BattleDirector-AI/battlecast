@@ -17,7 +17,22 @@
     label = 'RUNNING ORDER',
     classDisplay = 'inline',
     classFilter = null,
+    // Richer-tower metric toggles (slice 3 of #20 → follow-on to #28):
+    // `{ interval, pit, tire, fuel }`. Which additive per-vehicle metrics this tower
+    // surfaces, each independent. The bare component defaults to ALL OFF (backward-
+    // compatible: an un-configured tower renders exactly as before); /all + the
+    // standalone route pass the config's `towerMetrics` (interval on by default).
+    metrics = {},
   } = $props()
+
+  // Normalize the metric toggles once — tolerate a partial/garbage object so a caller
+  // may pass just `{ interval: true }`. Missing keys are off.
+  const m = $derived({
+    interval: metrics?.interval === true,
+    pit: metrics?.pit === true,
+    tire: metrics?.tire === true,
+    fuel: metrics?.fuel === true,
+  })
 
   const subjectSlot = $derived(snapshot?.subject?.slot_id ?? null)
 
@@ -135,6 +150,42 @@
     const seconds = own != null && lead != null ? Math.max(0, own - lead) : null
     return { leader: false, seconds }
   }
+
+  // ---- richer-tower per-vehicle metrics (slice 3 of #20) --------------------
+  // The producer owns every value; the tower renders whatever subset it is handed
+  // and tolerates absent/garbage types without throwing (dumb overlay, smart producer).
+  const finiteOrNull = (val) => (typeof val === 'number' && Number.isFinite(val) ? val : null)
+  const intOrNull = (val) => (finiteOrNull(val) == null ? null : Math.trunc(val))
+  const clamp01 = (val) => {
+    const n = finiteOrNull(val)
+    return n == null ? null : Math.max(0, Math.min(1, n))
+  }
+
+  /** Resolve one vehicle's richer-tower metrics into a defensive render model. */
+  function resolveVehicleMetrics(v) {
+    const compound =
+      typeof v?.tire_compound === 'string' && v.tire_compound.trim() ? v.tire_compound.trim() : null
+    return {
+      intervalAhead: finiteOrNull(v?.interval_ahead),
+      pitStops: intOrNull(v?.pit_stops),
+      inPit: v?.in_pit === true,
+      tireCompound: compound,
+      tireWear: clamp01(v?.tire_wear),
+      fuel: clamp01(v?.fuel),
+    }
+  }
+
+  // A pit cell shows only when it carries meaning — the car is in the pits, or it has
+  // made at least one stop; a zero-stop count is left blank rather than printing 'STOP 0'
+  // on every row. A tire cell shows when it has a compound or a wear value; a fuel cell
+  // when it has a fuel value.
+  const hasPit = (vm) => vm.inPit || (vm.pitStops != null && vm.pitStops > 0)
+  const hasTire = (vm) => vm.tireCompound != null || vm.tireWear != null
+
+  // A [0,1] fraction -> a whole-percent CSS width (rounded to keep float noise like
+  // 0.28*100 = 28.0000004 out of the DOM; sub-percent precision is imperceptible on a
+  // ~34px meter). Assumes a pre-clamped fraction (resolveVehicleMetrics clamps).
+  const barPct = (frac) => `${Math.round(frac * 100)}%`
 </script>
 
 <!-- One row renderer shared by both layouts, so the #68 on-cam flash overlay +
@@ -143,14 +194,17 @@
      inline-only 'rank/total' chip. -->
 {#snippet towerRow(v, positionText, zebra, classBadge, gap)}
   {@const oncam = v.slot_id === subjectSlot}
+  {@const vm = resolveVehicleMetrics(v)}
   <li
     class="row"
     class:row--oncam={oncam}
     class:row--zebra={zebra}
+    class:row--inpit={m.pit && vm.inPit}
     data-testid="tower-row"
     data-slot={v.slot_id}
     data-position={v.position}
     data-oncam={oncam ? 'true' : 'false'}
+    data-in-pit={m.pit && vm.inPit ? 'true' : undefined}
     aria-current={oncam ? 'true' : undefined}
   >
     {#if oncam}
@@ -184,6 +238,50 @@
       <span class="row__gap row__gap--leader" data-testid="row-gap">LEADER</span>
     {:else}
       <span class="row__gap" data-testid="row-gap">{gapCell(gap.seconds)}</span>
+    {/if}
+    <!-- Richer-tower metrics (slice 3 of #20), each config-gated by `metrics` and
+         shown only when the producer supplied that field. The interval sits beside the
+         gap as its own timing column; pit / tire / fuel form a compact strategy
+         cluster. `gapCell` renders the interval identically to the gap ('—' when
+         null — e.g. the leader, who has no one ahead). -->
+    {#if m.interval}
+      <span class="row__interval" data-testid="row-interval">{gapCell(vm.intervalAhead)}</span>
+    {/if}
+    {#if m.pit && hasPit(vm)}
+      {#if vm.inPit}
+        <span class="row__pit row__pit--in" data-testid="row-pit">PIT</span>
+      {:else}
+        <span class="row__pit" data-testid="row-pit" title="pit stops">
+          <span class="row__pit-label">STOP</span>{vm.pitStops}
+        </span>
+      {/if}
+    {/if}
+    {#if m.tire && hasTire(vm)}
+      <span class="row__tire" data-testid="row-tire">
+        {#if vm.tireCompound}
+          <span class="row__tire-compound" data-testid="row-tire-compound">{vm.tireCompound}</span>
+        {/if}
+        {#if vm.tireWear != null}
+          <span class="row__bar row__bar--wear" title="tire wear">
+            <span
+              class="row__bar-fill"
+              data-testid="row-tire-wear-fill"
+              style:width={barPct(vm.tireWear)}
+            ></span>
+          </span>
+        {/if}
+      </span>
+    {/if}
+    {#if m.fuel && vm.fuel != null}
+      <span class="row__fuel" data-testid="row-fuel" title="fuel / energy">
+        <span class="row__bar row__bar--fuel">
+          <span
+            class="row__bar-fill"
+            data-testid="row-fuel-fill"
+            style:width={barPct(vm.fuel)}
+          ></span>
+        </span>
+      </span>
     {/if}
   </li>
 {/snippet}
@@ -395,7 +493,9 @@
 
   .row__name {
     flex: 1 1 auto;
-    min-width: 0;
+    /* Keep a floor so the metric columns can never squeeze the driver name to nothing
+       (they clip at the tower's right edge instead — the cue to widen the tower). */
+    min-width: 4em;
     font-family: var(--bc-font-display);
     font-size: var(--bc-size-name);
     font-weight: var(--bc-weight-name);
@@ -426,6 +526,101 @@
      reference every delta below it is measured against. */
   .row__gap--leadlap {
     color: var(--bc-text);
+  }
+
+  /* ---- richer-tower metrics (slice 3 of #20) ------------------------------
+     Each cell is config-gated and content-sized, appended after the gap column.
+     The interval is a dimmer sibling of the gap (its own timing column); pit /
+     tire / fuel form a compact strategy cluster on the right. */
+
+  /* Interval to the car immediately ahead — same mono/tabular look as the gap, one
+     tone dimmer so the gap-to-leader stays the primary interval. */
+  .row__interval {
+    flex: 0 0 auto;
+    font-family: var(--bc-font-mono);
+    font-size: var(--bc-size-gap);
+    font-weight: var(--bc-weight-num);
+    color: var(--bc-text-3);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  /* Pit stop count — a compact 'STOP n' — flips to a red IN-PIT badge while the car
+     is in the pits. */
+  .row__pit {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    font-family: var(--bc-font-mono);
+    font-size: var(--bc-size-chip-compact);
+    font-weight: var(--bc-weight-num);
+    color: var(--bc-text-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .row__pit-label {
+    font-family: var(--bc-font-ui);
+    font-size: var(--bc-size-label);
+    font-weight: var(--bc-weight-label);
+    letter-spacing: var(--bc-track-label);
+    color: var(--bc-text-3);
+  }
+  .row__pit--in {
+    padding: 1px 6px;
+    border-radius: var(--bc-radius-chip);
+    background: var(--bc-live);
+    color: var(--bc-text-on-accent);
+    font-family: var(--bc-font-ui);
+    font-size: var(--bc-size-label);
+    font-weight: var(--bc-weight-label);
+    letter-spacing: var(--bc-track-label);
+  }
+
+  /* Tire: a compound letter plus a wear bar. */
+  .row__tire {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--bc-space-1);
+  }
+  .row__tire-compound {
+    min-width: 14px;
+    text-align: center;
+    font-family: var(--bc-font-mono);
+    font-size: var(--bc-size-chip-compact);
+    font-weight: var(--bc-weight-num);
+    color: var(--bc-text);
+  }
+
+  .row__fuel {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Shared compact meter for tire wear + fuel. */
+  .row__bar {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.09);
+    overflow: hidden;
+    vertical-align: middle;
+  }
+  .row__bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 3px;
+  }
+  /* Wear grows toward the 'hot' end as the tire wears out; fuel is a calm remaining
+     level. */
+  .row__bar--wear .row__bar-fill {
+    background: var(--bc-intensity-mid);
+  }
+  .row__bar--fuel .row__bar-fill {
+    background: var(--bc-intensity-calm);
   }
 
   /* On-camera driver — cyan accent is reserved exclusively for this. */

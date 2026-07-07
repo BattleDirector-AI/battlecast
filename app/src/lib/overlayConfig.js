@@ -56,6 +56,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
     },
     battle: {
       visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
@@ -64,6 +65,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
     },
     logos: {
       visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false,
@@ -72,6 +74,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
     // the canvas. It self-manages fire/dwell/hide, so it renders nothing between
@@ -83,6 +86,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
     // subject (best/last lap, sectors, and target/delta when present). Offset
@@ -96,6 +100,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
     },
     // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
     // bar, clear of the left-column tower and the battle box beside it. Not a
@@ -110,6 +115,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
     },
     // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
     // content-sized over-camera strip (throttle/brake bars + speed + gear). Not a
@@ -128,6 +134,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
     },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
@@ -176,6 +183,48 @@ export const TOWER_KEYS = Object.freeze(['tower'])
  *  its `classDisplay` control). */
 export function isTower(key) {
   return TOWER_KEYS.includes(key)
+}
+
+/** Richer-tower metrics (slice 3 of #20 → follow-on to #28): which additive
+ *  per-vehicle metrics the standings tower surfaces, each toggled independently.
+ *  Only the tower reads this, but it's normalized onto every widget (like
+ *  `classDisplay` / `driverInfo`) for a uniform shape. Additive + defaulted, so no
+ *  `configVersion` bump.
+ *   - `interval`: the interval-to-car-ahead column (`interval_ahead`) — ON by default,
+ *     the headline LMU-tower upgrade beside the existing gap-to-leader.
+ *   - `pit` / `tire` / `fuel`: the endurance-strategy indicators (pit_stops + in_pit,
+ *     tire_compound + tire_wear, fuel) — OFF by default, opt-in extra density. */
+export const TOWER_METRICS_DEFAULTS = Object.freeze({
+  interval: true,
+  pit: false,
+  tire: false,
+  fuel: false,
+})
+
+/** The tower-metric toggles, in render order. */
+export const TOWER_METRIC_FIELDS = Object.freeze(['interval', 'pit', 'tire', 'fuel'])
+
+/** Coerce an arbitrary `towerMetrics` into the full `{interval,pit,tire,fuel}` boolean
+ *  shape, filling missing/garbage fields from `fallback`. */
+function normalizeTowerMetrics(value, fallback) {
+  const src = value && typeof value === 'object' ? value : {}
+  const out = {}
+  for (const field of TOWER_METRIC_FIELDS) {
+    out[field] = typeof src[field] === 'boolean' ? src[field] : !!fallback[field]
+  }
+  return out
+}
+
+/** Parse a `?metrics=` comma list (`interval,pit,tire,fuel`) from the standalone
+ *  `/tower` route into the toggle shape — listed metrics on, the rest off. An
+ *  absent/empty param returns null so the caller can fall back to the config default
+ *  (interval on). Mirrors the 0.6.0 `?unit=mph` standalone knob. */
+export function parseTowerMetricsParam(raw) {
+  if (raw == null || !String(raw).trim()) return null
+  const on = new Set(splitList(raw).map((s) => s.toLowerCase()))
+  const out = {}
+  for (const field of TOWER_METRIC_FIELDS) out[field] = on.has(field)
+  return out
 }
 
 /** #26 on-board HUD extras — only the on-board HUD reads these, but they're normalized
@@ -373,6 +422,12 @@ export function normalizeConfig(raw) {
       driverInfo: normalizeDriverInfo(
         w.driverInfo,
         d.driverInfo ?? ONBOARD_DEFAULTS.driverInfo,
+      ),
+      // Richer-tower metric toggles — only the standings tower reads them, but
+      // normalized onto every widget (like driverInfo) for a uniform shape.
+      towerMetrics: normalizeTowerMetrics(
+        w.towerMetrics,
+        d.towerMetrics ?? TOWER_METRICS_DEFAULTS,
       ),
     }
   }
