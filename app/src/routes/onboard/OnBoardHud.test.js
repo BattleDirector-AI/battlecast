@@ -1,11 +1,13 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
+import { tick } from 'svelte'
 import OnBoardHud, {
   resolveTelemetry,
   gearLabel,
   speedLabel,
   convertSpeed,
   unitLabel,
+  resolveIdentity,
 } from './OnBoardHud.svelte'
 // Component source, for the CSS-contract assertion on the reduced-motion transition
 // gate (happy-dom runs no CSS, so it can only be checked in source — mirrors
@@ -216,5 +218,160 @@ describe('OnBoardHud — motion discipline (mirrors the codebase gating)', () =>
         source.replace(noPref, ''),
       ),
     ).toBe(false)
+  })
+})
+
+describe('resolveIdentity — driver/vehicle identity from the subject + field', () => {
+  const snap = {
+    subject: { slot_id: 'car-1', driver_name: 'Max Verstappen' },
+    vehicles: [
+      {
+        slot_id: 'car-1',
+        driver_name: 'Max Verstappen',
+        vehicle_class: 'GTP',
+        car_number: '1',
+        make: 'Red Bull',
+        model: 'RB20',
+      },
+    ],
+  }
+
+  it('returns only the ENABLED and PRESENT fields, with the name formatted', () => {
+    // fmtName abbreviates to 'Initial. Surname'; the uppercase look is CSS, not text.
+    expect(resolveIdentity(snap, { driverInfo: { name: true, number: true } })).toEqual({
+      name: 'M. Verstappen',
+      number: '1',
+    })
+  })
+
+  it('includes class / make / model when toggled on', () => {
+    expect(resolveIdentity(snap, { driverInfo: { class: true, make: true, model: true } })).toEqual({
+      class: 'GTP',
+      make: 'Red Bull',
+      model: 'RB20',
+    })
+  })
+
+  it('returns null when no fields are enabled', () => {
+    expect(resolveIdentity(snap, { driverInfo: {} })).toBeNull()
+  })
+
+  it('returns null when enabled fields are absent from the data', () => {
+    const bare = { subject: { slot_id: 'x' }, vehicles: [] }
+    expect(resolveIdentity(bare, { driverInfo: { name: true, number: true } })).toBeNull()
+  })
+
+  it('tolerates missing subject / vehicles / garbage without throwing', () => {
+    expect(resolveIdentity(null, { driverInfo: { name: true } })).toBeNull()
+    expect(resolveIdentity({ subject: null }, { driverInfo: { name: true } })).toBeNull()
+    expect(() =>
+      resolveIdentity({ subject: { slot_id: 'a', driver_name: 'x' }, vehicles: 'nope' }, {}),
+    ).not.toThrow()
+  })
+})
+
+describe('OnBoardHud — driver/vehicle identity strip', () => {
+  it('renders the identity fields it is handed', () => {
+    const { container } = render(OnBoardHud, {
+      props: {
+        telemetry: { speed: 200, gear: 5 },
+        identity: { number: '1', name: 'M. VERSTAPPEN', class: 'GTP', make: 'Red Bull', model: 'RB20' },
+      },
+    })
+    expect(container.querySelector('[data-testid="onboard-identity"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="onboard-driver-number"]').textContent).toBe('1')
+    expect(container.querySelector('[data-testid="onboard-driver-name"]').textContent).toContain('VERSTAPPEN')
+    expect(container.querySelector('[data-testid="onboard-driver-class"]').textContent).toContain('GTP')
+    expect(container.querySelector('[data-testid="onboard-driver-car"]').textContent).toContain('Red Bull RB20')
+  })
+
+  it('renders no identity strip when identity is null, but telemetry still shows', () => {
+    const { container } = render(OnBoardHud, {
+      props: { telemetry: { speed: 200 }, identity: null },
+    })
+    expect(container.querySelector('[data-testid="onboard-identity"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
+  })
+
+  it('does not summon the HUD for identity alone (telemetry is required)', () => {
+    const { container } = render(OnBoardHud, {
+      props: { telemetry: null, identity: { name: 'M. VERSTAPPEN' } },
+    })
+    expect(container.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+  })
+})
+
+describe('OnBoardHud — lower-third hand-off (whole HUD waits)', () => {
+  const driverWidget = { trigger: 'dwell', dwellSeconds: 6, showOnConnect: true }
+
+  it('is suppressed on connect while the card is up, then reveals after the dwell', async () => {
+    vi.useFakeTimers()
+    try {
+      const { container } = render(OnBoardHud, {
+        props: {
+          telemetry: { speed: 200, gear: 5 },
+          subjectSlotId: 'car-1',
+          subjectActive: true,
+          driverWidget,
+        },
+      })
+      await tick()
+      // The lower-third fires on connect, so the HUD holds off.
+      expect(container.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+
+      // Advance past the dwell -> the card hides -> the HUD reveals.
+      vi.advanceTimersByTime(6000)
+      await tick()
+      expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('re-suppresses on a camera cut to a new subject, then reveals again', async () => {
+    vi.useFakeTimers()
+    try {
+      const { container, rerender } = render(OnBoardHud, {
+        props: {
+          telemetry: { speed: 200, gear: 5 },
+          subjectSlotId: 'car-1',
+          subjectActive: true,
+          driverWidget,
+        },
+      })
+      await tick()
+      vi.advanceTimersByTime(6000)
+      await tick()
+      expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
+
+      // Cut to a new driver -> the card re-fires -> the HUD hides again.
+      await rerender({
+        telemetry: { speed: 200, gear: 5 },
+        subjectSlotId: 'car-2',
+        subjectActive: true,
+        driverWidget,
+      })
+      await tick()
+      expect(container.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+
+      vi.advanceTimersByTime(6000)
+      await tick()
+      expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not wait when no driverWidget is supplied (no gate)', async () => {
+    const { container } = render(OnBoardHud, {
+      props: {
+        telemetry: { speed: 200, gear: 5 },
+        subjectSlotId: 'car-1',
+        subjectActive: true,
+        driverWidget: null,
+      },
+    })
+    await tick()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
   })
 })
