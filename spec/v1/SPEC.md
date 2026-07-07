@@ -147,10 +147,12 @@ required-ness.
     - **`throttle`** / **`brake`** (number in `[0, 1]`) — throttle and brake application,
       `0` = off/closed, `1` = full. The HUD renders each as a fill bar and clamps to
       `[0, 1]` defensively.
-    - **`speed`** (number) — vehicle speed as a plain number in a **producer-defined
-      unit** (e.g. km/h or mph — the producer picks one and stays consistent; the schema
-      fixes no unit). The HUD renders the numeral verbatim under a neutral `SPEED` label
-      and makes no conversion or unit claim.
+    - **`speed`** (number) — vehicle speed in **canonical km/h**. Fixing a canonical unit
+      lets the consumer offer a **km/h vs mph display toggle** by converting deterministically
+      (`mph = km/h × 0.621371`): the on-board HUD renders km/h by default and converts to mph
+      when the broadcaster selects it (a per-widget `speedUnit` config knob, `?unit=mph` on the
+      standalone `/onboard` route). Producers measuring in another unit MUST convert to km/h
+      before emitting.
     - **`gear`** (integer) — the selected gear. By convention `0` is neutral (rendered
       `N`) and `-1` is reverse (rendered `R`); positive integers are the forward gears,
       rendered verbatim. Producer-owned — the consumer does not derive gear from speed.

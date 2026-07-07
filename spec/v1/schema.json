@@ -211,7 +211,7 @@
         },
         "speed": {
           "type": ["number", "null"],
-          "description": "Vehicle speed as a plain number in a PRODUCER-DEFINED UNIT (e.g. km/h or mph — the producer picks and stays consistent; the schema does not fix a unit). Null or absent when not available. The consumer renders the numeral verbatim under a neutral `SPEED` label and makes no unit conversion or claim."
+          "description": "Vehicle speed in CANONICAL KILOMETRES PER HOUR (km/h). Null or absent when not available. Fixing a canonical unit (rather than leaving it producer-defined) lets the consumer offer a km/h vs mph DISPLAY toggle by converting deterministically (mph = km/h × 0.621371); the on-board HUD renders km/h by default and converts to mph when the broadcaster selects it. Producers that measure in another unit MUST convert to km/h before emitting."
         },
         "gear": {
           "type": ["integer", "null"],

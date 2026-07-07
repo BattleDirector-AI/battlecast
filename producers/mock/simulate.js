@@ -236,7 +236,8 @@ function buildSession(phase, elapsed, total, timedRaceLeg) {
  * the readout differs across subjects. Emitted only in the RUNNING phases; a parked
  * car (grid / results) has no live inputs, so the producer omits the whole block and
  * the HUD idles — which also keeps the no-telemetry backward-compat path exercised live.
- * `speed` is a plain number in a producer-defined unit (see SPEC); here ~km/h.
+ * `speed` is emitted in the spec's canonical unit, km/h (topSpeed ≈ 326 for a 92s-pace
+ * GTP, ≈ 280 for a 107s-pace GT3); the HUD converts to mph on demand.
  */
 const CORNER_CYCLE_SECONDS = 14;
 

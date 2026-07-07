@@ -191,6 +191,30 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     const roundTripped = normalizeConfig(JSON.parse(JSON.stringify(authored)))
     expect(roundTripped.widgets.tower.classDisplay).toBe('grouped')
   })
+
+  it('defaults the onboard speedUnit to kmh and honors an explicit value', () => {
+    // Normalized onto every widget (mirrors classDisplay); only the on-board HUD reads it.
+    expect(normalizeConfig({}).widgets.onboard.speedUnit).toBe('kmh')
+    expect(
+      normalizeConfig({ widgets: { onboard: { speedUnit: 'mph' } } }).widgets.onboard.speedUnit,
+    ).toBe('mph')
+  })
+
+  it('rejects an invalid speedUnit, falling back to kmh', () => {
+    expect(
+      normalizeConfig({ widgets: { onboard: { speedUnit: 'furlongs' } } }).widgets.onboard
+        .speedUnit,
+    ).toBe('kmh')
+  })
+
+  it('round-trips an mph speedUnit through a serialized profile', () => {
+    const authored = normalizeConfig({
+      name: 'imperial',
+      widgets: { onboard: { speedUnit: 'mph' } },
+    })
+    const roundTripped = normalizeConfig(JSON.parse(JSON.stringify(authored)))
+    expect(roundTripped.widgets.onboard.speedUnit).toBe('mph')
+  })
 })
 
 describe('resolveWidgets — ordered render list', () => {

@@ -10,7 +10,21 @@
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
-  import sampleSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
+  import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
+
+  // Preview snapshot. `race-close-battle.json` is the canonical NO-telemetry fixture (so
+  // it must NOT gain a `subject.telemetry` block — the compliance harness and an AllLayout
+  // idle test rely on that), but the editor preview needs the on-board HUD to actually
+  // render so a broadcaster can see its speed readout — and the km/h vs mph toggle — take
+  // effect. So augment a COPY here with representative live inputs; the shared fixture is
+  // untouched.
+  const sampleSnapshot = {
+    ...baseSnapshot,
+    subject: {
+      ...baseSnapshot.subject,
+      telemetry: { throttle: 0.82, brake: 0, speed: 247, gear: 6 },
+    },
+  }
 
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
   let profileName = $state('default')
@@ -115,6 +129,10 @@
   // with positions restarting per class (`grouped`).
   const setClassDisplay = (key, value) =>
     (config = editor.setWidgetField(config, key, 'classDisplay', value))
+  // #26 on-board HUD-only: the display unit for the speed readout. The producer emits
+  // canonical km/h; checking the box displays mph (the widget converts). Unchecked = km/h.
+  const setSpeedUnit = (key, useMph) =>
+    (config = editor.setWidgetField(config, key, 'speedUnit', useMph ? 'mph' : 'kmh'))
 
   // ---- logo management ------------------------------------------------------
   async function onUpload(event) {
@@ -486,6 +504,19 @@
                   <option value="inline">inline</option>
                   <option value="grouped">grouped</option>
                 </select>
+              </label>
+            {/if}
+            {#if key === 'onboard'}
+              <!-- #26-only: the display unit for the HUD's speed readout. The producer
+                   emits canonical km/h; check to display mph (the widget converts). -->
+              <label class="checkline" title="Display the on-board HUD speed in mph instead of km/h (the producer emits km/h; the widget converts)">
+                <input
+                  type="checkbox"
+                  data-testid="speed-mph-{key}"
+                  checked={w.speedUnit === 'mph'}
+                  onchange={(e) => setSpeedUnit(key, e.currentTarget.checked)}
+                />
+                Speed in mph
               </label>
             {/if}
           </fieldset>

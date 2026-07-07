@@ -69,7 +69,11 @@
       {:else if w.key === 'racecontrol'}
         <RaceControlStatus session={snapshot?.session ?? null} mode={snapshot?.mode ?? null} />
       {:else if w.key === 'onboard'}
-        <OnBoardHud telemetry={snapshot?.subject?.telemetry ?? null} mode={snapshot?.mode ?? null} />
+        <OnBoardHud
+          telemetry={snapshot?.subject?.telemetry ?? null}
+          mode={snapshot?.mode ?? null}
+          speedUnit={normalized.widgets.onboard?.speedUnit}
+        />
       {/if}
     </div>
   {/each}
