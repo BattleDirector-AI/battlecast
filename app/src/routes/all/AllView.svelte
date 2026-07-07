@@ -4,7 +4,7 @@
   import LogoRotation from '../logos/LogoRotation.svelte'
   import DriverLowerThird from '../driver/DriverLowerThird.svelte'
   import QualifyingLowerThird from '../qualifying/QualifyingLowerThird.svelte'
-  import SessionStatus from '../session/SessionStatus.svelte'
+  import RaceControlStatus from '../racecontrol/RaceControlStatus.svelte'
   import { DEFAULT_CONFIG, normalizeConfig, resolveWidgets } from '../../lib/overlayConfig.js'
   import { isWidgetIdle } from '../../lib/widgetIdle.js'
 
@@ -26,7 +26,7 @@
   // while it has nothing to show (e.g. the battle box in clear air).
   const normalized = $derived(normalizeConfig(config))
   const canvas = $derived(normalized.canvas)
-  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'session'])
+  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol'])
   const widgets = $derived(
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
@@ -65,8 +65,8 @@
         <DriverLowerThird {snapshot} widget={w} />
       {:else if w.key === 'qualifying'}
         <QualifyingLowerThird {snapshot} widget={w} />
-      {:else if w.key === 'session'}
-        <SessionStatus session={snapshot?.session ?? null} mode={snapshot?.mode ?? null} />
+      {:else if w.key === 'racecontrol'}
+        <RaceControlStatus session={snapshot?.session ?? null} mode={snapshot?.mode ?? null} />
       {/if}
     </div>
   {/each}
@@ -92,10 +92,10 @@
     box-sizing: border-box;
   }
 
-  /* The session status pill is a content-sized indicator, not a plate that should
-     stretch to a slot — let it keep its intrinsic (compact) width, anchored at the
-     slot's left edge. Its slot width is just the editor drag box. */
-  .widget-slot[data-widget='session'] > :global(*) {
+  /* The race control status pill is a content-sized indicator, not a plate that
+     should stretch to a slot — let it keep its intrinsic (compact) width, anchored
+     at the slot's left edge. Its slot width is just the editor drag box. */
+  .widget-slot[data-widget='racecontrol'] > :global(*) {
     width: auto;
   }
 </style>

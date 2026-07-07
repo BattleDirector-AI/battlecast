@@ -1,4 +1,4 @@
-// Session Status SSE client — battlecast is the CLIENT; the producer is the server.
+// Race Control SSE client — battlecast is the CLIENT; the producer is the server.
 // We open an EventSource against the producer's endpoint and listen for the
 // named `state` event (NOT the default unnamed `message`). Each `state` event's
 // `data` is one complete JSON snapshot conforming to spec/v1/schema.json.

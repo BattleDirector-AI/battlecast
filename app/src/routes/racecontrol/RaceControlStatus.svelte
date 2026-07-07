@@ -46,32 +46,32 @@
 
 {#if hasContent}
 <section
-  class="bc-session"
-  class:bc-session--caution={caution}
-  data-testid="session-status"
+  class="bc-racecontrol"
+  class:bc-racecontrol--caution={caution}
+  data-testid="racecontrol-status"
   data-mode={mode ?? ''}
-  aria-label="Session status"
+  aria-label="Race control status"
 >
   {#if flag}
-    <div class="bc-session__flag" data-testid="session-flag" data-flag={flag.key}>
+    <div class="bc-racecontrol__flag" data-testid="racecontrol-flag" data-flag={flag.key}>
       <span
-        class="bc-session__swatch"
+        class="bc-racecontrol__swatch"
         data-flag={flag.key}
         style:background={flag.color ?? undefined}
       ></span>
-      <span class="bc-session__flag-label">{flag.label}</span>
+      <span class="bc-racecontrol__flag-label">{flag.label}</span>
     </div>
   {/if}
 
   {#if fcy || sc}
-    <div class="bc-session__badges">
+    <div class="bc-racecontrol__badges">
       {#if fcy}
-        <span class="bc-session__badge bc-session__badge--fcy" data-testid="session-fcy">
+        <span class="bc-racecontrol__badge bc-racecontrol__badge--fcy" data-testid="racecontrol-fcy">
           FULL COURSE YELLOW
         </span>
       {/if}
       {#if sc}
-        <span class="bc-session__badge bc-session__badge--sc" data-testid="session-sc">
+        <span class="bc-racecontrol__badge bc-racecontrol__badge--sc" data-testid="racecontrol-sc">
           SAFETY CAR
         </span>
       {/if}
@@ -84,7 +84,7 @@
   /* A compact, content-sized status pill: [ ■ FLAG ] plus FCY / SC chips only when
      those fire. Sized to its content (not stretched to a bar) so green-flag — the
      common case — is a small box; it grows only when there's a caution to show. */
-  .bc-session {
+  .bc-racecontrol {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -106,7 +106,7 @@
   /* Cautionary ring, same construction as BattleBox's intensifying border: drawn on
      an ::after overlay ABOVE the content (z-index 3) so it wraps the whole strip
      rather than being clipped by the plate fill. */
-  .bc-session--caution::after {
+  .bc-racecontrol--caution::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -116,23 +116,23 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .bc-session--caution {
-      animation: bc-session-pulse-glow var(--bc-dur-pulse) var(--bc-ease) infinite;
+    .bc-racecontrol--caution {
+      animation: bc-racecontrol-pulse-glow var(--bc-dur-pulse) var(--bc-ease) infinite;
     }
-    .bc-session--caution::after {
-      animation: bc-session-pulse-ring var(--bc-dur-pulse) var(--bc-ease) infinite;
+    .bc-racecontrol--caution::after {
+      animation: bc-racecontrol-pulse-ring var(--bc-dur-pulse) var(--bc-ease) infinite;
     }
   }
 
   /* Reduced motion: a steady amber ring (no pulse, no bloom) still marks the
      caution state without animation. */
   @media (prefers-reduced-motion: reduce) {
-    .bc-session--caution::after {
+    .bc-racecontrol--caution::after {
       box-shadow: inset 0 0 0 2px rgba(255, 194, 71, 0.9);
     }
   }
 
-  @keyframes bc-session-pulse-ring {
+  @keyframes bc-racecontrol-pulse-ring {
     0%,
     100% {
       box-shadow: inset 0 0 0 1.5px rgba(255, 194, 71, 0.3);
@@ -142,7 +142,7 @@
     }
   }
 
-  @keyframes bc-session-pulse-glow {
+  @keyframes bc-racecontrol-pulse-glow {
     0%,
     100% {
       box-shadow: var(--bc-shadow-plate), 0 0 0 rgba(255, 194, 71, 0);
@@ -152,14 +152,14 @@
     }
   }
 
-  .bc-session__flag {
+  .bc-racecontrol__flag {
     display: flex;
     align-items: center;
     gap: var(--bc-space-1);
     min-width: 0;
   }
 
-  .bc-session__swatch {
+  .bc-racecontrol__swatch {
     flex: 0 0 auto;
     width: 20px;
     height: 20px;
@@ -168,7 +168,7 @@
   }
 
   /* Checkered flag: no single fill color, so paint an actual checkerboard. */
-  .bc-session__swatch[data-flag='checkered'] {
+  .bc-racecontrol__swatch[data-flag='checkered'] {
     background-color: #fff;
     background-image:
       linear-gradient(45deg, #0b0e13 25%, transparent 25%, transparent 75%, #0b0e13 75%, #0b0e13),
@@ -179,7 +179,7 @@
       3px 3px;
   }
 
-  .bc-session__flag-label {
+  .bc-racecontrol__flag-label {
     font-family: var(--bc-font-ui);
     font-size: var(--bc-size-label);
     font-weight: var(--bc-weight-label);
@@ -187,12 +187,17 @@
     text-transform: uppercase;
     color: var(--bc-text-2);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* line-height 1 collapses the label's tall inherited line box to the cap
+       height, so the caps sit dead-centre against the 20px swatch (a tall line box
+       makes uppercase text read as floating slightly high). The negative right
+       margin trims the trailing letter-spacing after the last glyph so the pill
+       hugs the text symmetrically. */
+    line-height: 1;
+    margin-right: calc(-1 * var(--bc-track-label));
   }
 
   /* FCY / SC chips sit inline after the flag, extending the pill only when active. */
-  .bc-session__badges {
+  .bc-racecontrol__badges {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -200,7 +205,7 @@
     min-width: 0;
   }
 
-  .bc-session__badge {
+  .bc-racecontrol__badge {
     font-family: var(--bc-font-ui);
     font-size: var(--bc-size-label);
     font-weight: var(--bc-weight-label);
@@ -212,13 +217,13 @@
     border: 1px solid;
   }
 
-  .bc-session__badge--fcy {
+  .bc-racecontrol__badge--fcy {
     color: var(--bc-text-on-accent);
     background: var(--bc-intensity-mid);
     border-color: var(--bc-intensity-mid);
   }
 
-  .bc-session__badge--sc {
+  .bc-racecontrol__badge--sc {
     color: var(--bc-intensity-mid);
     background: transparent;
     border-color: var(--bc-intensity-mid);

@@ -120,14 +120,14 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     )
   })
 
-  it('composes the session status widget from snapshot.session without disturbing other widgets (#25)', () => {
+  it('composes the race control status widget from snapshot.session without disturbing other widgets (#25)', () => {
     const { container } = render(AllView, { snapshot: raceSessionFcy })
 
-    const session = slot(container, 'session')
-    expect(session).not.toBeNull()
-    expect(session.textContent).toContain('YELLOW FLAG')
-    expect(session.textContent).toContain('FULL COURSE YELLOW')
-    expect(session.textContent).toContain('SAFETY CAR')
+    const racecontrol = slot(container, 'racecontrol')
+    expect(racecontrol).not.toBeNull()
+    expect(racecontrol.textContent).toContain('YELLOW FLAG')
+    expect(racecontrol.textContent).toContain('FULL COURSE YELLOW')
+    expect(racecontrol.textContent).toContain('SAFETY CAR')
 
     // Existing widgets keep rendering their own content unaffected (tower shows the
     // fixture's running order; battle shows the on-camera subject).
@@ -139,10 +139,10 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(container.textContent).toContain('Verstappen')
   })
 
-  it('omits the session widget from the DOM when hidden via config', () => {
-    const cfg = normalizeConfig({ widgets: { session: { visible: false } } })
+  it('omits the racecontrol widget from the DOM when hidden via config', () => {
+    const cfg = normalizeConfig({ widgets: { racecontrol: { visible: false } } })
     const { container } = render(AllView, { snapshot: raceSessionFcy, config: cfg })
-    expect(slot(container, 'session')).toBeNull()
+    expect(slot(container, 'racecontrol')).toBeNull()
   })
 
   it('honors z-order by painting widgets in ascending z (later = on top)', () => {
