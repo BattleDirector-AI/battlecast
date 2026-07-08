@@ -146,6 +146,42 @@ describe('StandingsTower metrics — tire + fuel bars', () => {
   })
 })
 
+describe('StandingsTower metrics — race-only gating in qualifying/practice', () => {
+  // Pit stops, tire wear, and fuel are race features of the tower; on a qualifying /
+  // practice lap board the widget suppresses them outright even when the producer sends
+  // them and every toggle is on. Tire compound (and the interval) stay.
+  const quali = { ...towerMetrics, mode: 'qualifying' }
+
+  it('hides pit / tire-wear / fuel in qualifying but keeps compound + interval', () => {
+    render(StandingsTower, { snapshot: quali, metrics: ALL_ON })
+    // Suppressed outright regardless of the data being present.
+    expect(document.querySelectorAll('[data-testid="row-pit"]')).toHaveLength(0)
+    expect(document.querySelectorAll('[data-testid="row-fuel"]')).toHaveLength(0)
+    expect(document.querySelectorAll('[data-testid="row-tire-wear-fill"]')).toHaveLength(0)
+    // A car that is in_pit gets no in-pit row state in qualifying.
+    expect(rowFor('car-4').getAttribute('data-in-pit')).toBeNull()
+    // Compound still shows (the qualifying tire choice), and the interval column too.
+    expect(cellText('car-44', 'row-tire-compound')).toBe('M')
+    expect(document.querySelectorAll('[data-testid="row-tire"]').length).toBe(4)
+    expect(cellText('car-1', 'row-interval')).toBe('+0.400')
+  })
+
+  it('applies the same gate to practice sessions', () => {
+    render(StandingsTower, { snapshot: { ...towerMetrics, mode: 'practice' }, metrics: ALL_ON })
+    expect(document.querySelectorAll('[data-testid="row-pit"]')).toHaveLength(0)
+    expect(document.querySelectorAll('[data-testid="row-fuel"]')).toHaveLength(0)
+    expect(document.querySelectorAll('[data-testid="row-tire-wear-fill"]')).toHaveLength(0)
+    expect(cellText('car-44', 'row-tire-compound')).toBe('M')
+  })
+
+  it('shows all of them in the race (the gate is qualifying/practice-only)', () => {
+    render(StandingsTower, { snapshot: { ...towerMetrics, mode: 'race' }, metrics: ALL_ON })
+    expect(cellText('car-4', 'row-pit')).toBe('PIT')
+    expect(fillWidth('car-44', 'row-fuel-fill')).toBe('61%')
+    expect(fillWidth('car-44', 'row-tire-wear-fill')).toBe('34%')
+  })
+})
+
 describe('StandingsTower metrics — partial producer feed', () => {
   it('renders only the fields each vehicle actually carries', () => {
     render(StandingsTower, { snapshot: towerPartial, metrics: ALL_ON })

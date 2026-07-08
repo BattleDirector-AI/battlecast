@@ -714,16 +714,18 @@ function createSimulator(config = {}) {
           sector_times: car.sector_times,
           gap_to_leader: gapToLeader.get(car.slot_id) ?? null,
           // Additive per-vehicle metrics (slice 3 of #20) for the richer tower.
-          // `interval_ahead` is a timing field, valid in every phase. The strategy
-          // metrics (pit/tire/fuel) are a RACE concept, so they are OMITTED in
-          // qualifying/grid/results — pit stops never show in qualifying, and the
-          // additive-field-absent path stays exercised live.
+          // `interval_ahead` is a timing field, valid in every phase. Tire COMPOUND is
+          // relevant on any running lap (the qualifying tire choice included), so it is
+          // emitted in qualifying AND race. The remaining strategy metrics (pit stops,
+          // tire wear, fuel) are a RACE concept, so they are omitted outside the race —
+          // pit stops never show in qualifying, and the additive-absent path stays
+          // exercised live.
           interval_ahead: intervalAhead.get(car.slot_id) ?? null,
+          ...(running ? { tire_compound: COMPOUNDS[car.tireCompoundIndex] } : {}),
           ...(isRace
             ? {
                 pit_stops: car.pit_stops,
                 in_pit: car.in_pit,
-                tire_compound: COMPOUNDS[car.tireCompoundIndex],
                 tire_wear: round2(car.tire_wear),
                 fuel: round2(car.fuel),
               }

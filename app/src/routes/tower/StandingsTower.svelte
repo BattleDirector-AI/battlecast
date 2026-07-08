@@ -59,6 +59,14 @@
     ['qualifying', 'practice'].includes(String(snapshot?.mode ?? '').trim().toLowerCase()),
   )
 
+  // Pit stops, tire wear, and fuel are RACE features of the tower — they don't belong on a
+  // qualifying / practice lap board, so the widget suppresses them there OUTRIGHT,
+  // regardless of the config toggles or what a producer happens to send (this is where the
+  // dumb-overlay rule yields to a presentation decision). Tire COMPOUND is the one
+  // strategy field that stays — the qualifying tire choice is relevant — as does the
+  // interval column. Same session set as `lapTimed`.
+  const hideRaceStrategy = $derived(lapTimed)
+
   // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
   // => show every class.
   const filterKey = $derived(
@@ -177,10 +185,8 @@
 
   // A pit cell shows only when it carries meaning — the car is in the pits, or it has
   // made at least one stop; a zero-stop count is left blank rather than printing 'STOP 0'
-  // on every row. A tire cell shows when it has a compound or a wear value; a fuel cell
-  // when it has a fuel value.
+  // on every row. (Tire and fuel cells gate on their own fields at the render site.)
   const hasPit = (vm) => vm.inPit || (vm.pitStops != null && vm.pitStops > 0)
-  const hasTire = (vm) => vm.tireCompound != null || vm.tireWear != null
 
   // A [0,1] fraction -> a whole-percent CSS width (rounded to keep float noise like
   // 0.28*100 = 28.0000004 out of the DOM; sub-percent precision is imperceptible on a
@@ -195,16 +201,24 @@
 {#snippet towerRow(v, positionText, zebra, classBadge, gap)}
   {@const oncam = v.slot_id === subjectSlot}
   {@const vm = resolveVehicleMetrics(v)}
+  <!-- Per-cell visibility: the config toggle AND the field's presence AND, for the
+       race-only metrics, that this is not a qualifying/practice board. Tire compound is
+       exempt from the race gate. -->
+  {@const inPitActive = m.pit && !hideRaceStrategy && vm.inPit}
+  {@const showPit = m.pit && !hideRaceStrategy && hasPit(vm)}
+  {@const showCompound = m.tire && vm.tireCompound != null}
+  {@const showWear = m.tire && !hideRaceStrategy && vm.tireWear != null}
+  {@const showFuel = m.fuel && !hideRaceStrategy && vm.fuel != null}
   <li
     class="row"
     class:row--oncam={oncam}
     class:row--zebra={zebra}
-    class:row--inpit={m.pit && vm.inPit}
+    class:row--inpit={inPitActive}
     data-testid="tower-row"
     data-slot={v.slot_id}
     data-position={v.position}
     data-oncam={oncam ? 'true' : 'false'}
-    data-in-pit={m.pit && vm.inPit ? 'true' : undefined}
+    data-in-pit={inPitActive ? 'true' : undefined}
     aria-current={oncam ? 'true' : undefined}
   >
     {#if oncam}
@@ -247,7 +261,7 @@
     {#if m.interval}
       <span class="row__interval" data-testid="row-interval">{gapCell(vm.intervalAhead)}</span>
     {/if}
-    {#if m.pit && hasPit(vm)}
+    {#if showPit}
       {#if vm.inPit}
         <span class="row__pit row__pit--in" data-testid="row-pit">PIT</span>
       {:else}
@@ -256,12 +270,12 @@
         </span>
       {/if}
     {/if}
-    {#if m.tire && hasTire(vm)}
+    {#if showCompound || showWear}
       <span class="row__tire" data-testid="row-tire">
-        {#if vm.tireCompound}
+        {#if showCompound}
           <span class="row__tire-compound" data-testid="row-tire-compound">{vm.tireCompound}</span>
         {/if}
-        {#if vm.tireWear != null}
+        {#if showWear}
           <span class="row__bar row__bar--wear" title="tire wear">
             <span
               class="row__bar-fill"
@@ -272,7 +286,7 @@
         {/if}
       </span>
     {/if}
-    {#if m.fuel && vm.fuel != null}
+    {#if showFuel}
       <span class="row__fuel" data-testid="row-fuel" title="fuel / energy">
         <span class="row__bar row__bar--fuel">
           <span
