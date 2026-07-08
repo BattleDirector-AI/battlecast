@@ -583,13 +583,23 @@
     align-items: center;
     gap: var(--bc-space-1);
   }
+  /* The compound is producer-free-form and rendered verbatim — it may be a single letter
+     ("S"/"M"/"H"), a short word ("soft"/"wet"/"inter"), or a code ("C3"). Keep a small
+     floor so a lone letter still reads as a column, but let multi-character labels take
+     the width they need; a pathologically long string ellipsizes rather than shoving the
+     wear/fuel bars off the row. */
   .row__tire-compound {
+    flex: 0 1 auto;
     min-width: 14px;
+    max-width: 5em;
     text-align: center;
     font-family: var(--bc-font-mono);
     font-size: var(--bc-size-chip-compact);
     font-weight: var(--bc-weight-num);
     color: var(--bc-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .row__fuel {

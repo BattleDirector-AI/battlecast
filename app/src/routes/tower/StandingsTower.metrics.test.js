@@ -102,6 +102,24 @@ describe('StandingsTower metrics — tire + fuel bars', () => {
     expect(fillWidth('car-16', 'row-tire-wear-fill')).toBe('62%')
   })
 
+  it('renders a multi-character compound label verbatim (not just a single letter)', () => {
+    // The compound is producer-free-form: words and codes must survive, not be clipped
+    // to one glyph.
+    const snap = {
+      ...towerMetrics,
+      vehicles: towerMetrics.vehicles.map((v) =>
+        v.slot_id === 'car-44'
+          ? { ...v, tire_compound: 'soft' }
+          : v.slot_id === 'car-1'
+            ? { ...v, tire_compound: 'C3' }
+            : v,
+      ),
+    }
+    render(StandingsTower, { snapshot: snap, metrics: { tire: true } })
+    expect(cellText('car-44', 'row-tire-compound')).toBe('soft')
+    expect(cellText('car-1', 'row-tire-compound')).toBe('C3')
+  })
+
   it('renders a fuel-bar fill width tracking fuel', () => {
     render(StandingsTower, { snapshot: towerMetrics, metrics: { fuel: true } })
     expect(fillWidth('car-44', 'row-fuel-fill')).toBe('61%')
