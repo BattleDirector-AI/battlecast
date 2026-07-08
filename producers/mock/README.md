@@ -41,6 +41,7 @@ snapshot in its `data:` field.
 | `GRID_SECONDS`    | `30`    | Duration of the **grid / pre-race** phase, in sim-seconds           |
 | `RACE_SECONDS`    | `300`   | Duration of the **race** phase, in sim-seconds                      |
 | `RESULTS_SECONDS` | `30`    | Duration of the **results** phase, in sim-seconds                   |
+| `PHASE`           | —       | Lock `simulate` to one session type instead of cycling (see below)  |
 
 Phase durations are in **sim-seconds** (race time), not wall-clock. At the default
 cadence (`SIM_DT_SECONDS=2` every `INTERVAL_MS=750`, ≈2.7 sim-s per real second) the
@@ -48,6 +49,19 @@ default session cycles in ~4 real minutes. A lap is ~92–107 sim-seconds at the
 paces, so the ~300 s qualifying/race defaults give each car several flying/racing
 laps; shorten them (e.g. `QUALI_SECONDS=60`) to cycle the phases faster during a
 quick overlay test, at the cost of fewer completed laps per phase.
+
+**Locking a single session type.** To eye-test one phase in isolation, set `PHASE`
+(or pass it as a 3rd CLI arg) to `qualifying`, `grid`, `race`, or `results` — the
+simulator stays in that phase, re-entering a fresh leg each time its duration elapses,
+instead of cycling. The strategy metrics (`pit_stops` / `in_pit` / `tire_compound` /
+`tire_wear` / `fuel`) are a race concept and are only emitted in the **race** phase, so
+e.g. pit stops never appear in qualifying.
+
+```sh
+PHASE=race node server.js simulate     # or: node server.js simulate race
+make dev PHASE=race                     # full stack, mock locked to the race
+make dev-mock PHASE=qualifying          # just the mock, locked to qualifying
+```
 
 ## Modes
 

@@ -390,8 +390,10 @@ function resetStint(car) {
   car.fuel = 1;
 }
 
-/** Advance one car's distance and, on a completed lap, its lap/sector timing. */
-function advanceCar(car, dtSeconds, clock) {
+/** Advance one car's distance and, on a completed lap, its lap/sector timing. When
+ *  `evolveStint` is true (the RACE phase only) it also drains fuel, wears tires, and runs
+ *  the pit cycle — a race concept, so qualifying laps never accrue stops. */
+function advanceCar(car, dtSeconds, clock, evolveStint) {
   // Slow random-walk pace fluctuation so gaps ebb and flow organically instead of
   // separating (or converging) monotonically. It is a fraction of the car's OWN
   // base speed (a ±4% band), not an absolute term: an absolute term is a huge
@@ -416,9 +418,12 @@ function advanceCar(car, dtSeconds, clock) {
     car.sector_times = splitSectors(car.last_lap);
   }
 
-  // Strategy synthesis (slice 3 of #20): drain fuel and wear tires with the distance
-  // covered this step; when either runs low the car pits (a short in-pit window that,
-  // once it elapses, refills the tank, fits fresh tires, and rotates the compound).
+  // Strategy synthesis (slice 3 of #20) — RACE ONLY: drain fuel and wear tires with the
+  // distance covered this step; when either runs low the car pits (a short in-pit window
+  // that, once it elapses, refills the tank, fits fresh tires, and rotates the compound).
+  // Gated to the race so qualifying never runs the pit cycle (a car doing a flying lap
+  // isn't making pit stops).
+  if (!evolveStint) return;
   const lapFraction = distanceStep / LAP_UNIT;
   if (car.in_pit) {
     if (clock >= car.pitUntilClock) {
@@ -459,6 +464,11 @@ function byDistance(a, b) {
 function createSimulator(config = {}) {
   const phaseSeconds = { ...DEFAULT_PHASE_SECONDS, ...(config.phaseSeconds || {}) };
   const onPhaseChange = typeof config.onPhaseChange === "function" ? config.onPhaseChange : null;
+  // Optional single-phase lock (e.g. { lockPhase: "race" }) for eye-testing one session
+  // type: instead of cycling qualifying → grid → race → results, the simulator stays in
+  // this phase, re-entering it (a fresh leg) each time its duration elapses. Invalid
+  // values are ignored (normal cycling). See `PHASE=` in producers/mock/server.js.
+  const lockPhase = PHASES.includes(config.lockPhase) ? config.lockPhase : null;
 
   let cars = makeCars();
   let clock = 0;
@@ -527,6 +537,9 @@ function createSimulator(config = {}) {
       freezeOrder(byBestLap);
     } else if (p === "race") {
       raceLegIndex += 1;
+      // A direct race lock skips the qualifying→grid setup, so seed a starting order
+      // from the current (fresh, no-lap) field before laying out the grid.
+      if (!frozenOrder) freezeOrder(byBestLap);
       startRaceFromGrid();
     } else if (p === "results") {
       // Results = the final race classification, frozen.
@@ -625,16 +638,20 @@ function createSimulator(config = {}) {
     clock += dtSeconds;
     phaseElapsed += dtSeconds;
     if (phaseElapsed >= phaseSeconds[phase]) {
-      const next = PHASES[(PHASES.indexOf(phase) + 1) % PHASES.length];
+      // Locked: re-enter the same phase (a fresh leg) instead of advancing the cycle.
+      const next = lockPhase ?? PHASES[(PHASES.indexOf(phase) + 1) % PHASES.length];
       enterPhase(next);
     }
 
     const running = phase === "qualifying" || phase === "race";
+    // Strategy (fuel/tire/pit) evolves and is emitted only in the race — see the
+    // vehicle map and advanceCar. Qualifying runs the cars but not the pit cycle.
+    const isRace = phase === "race";
     for (const car of cars) {
       // Reset the per-step "just set a personal best" flag; only a lap completed
       // on THIS step in a running phase can set it true.
       car.improvedBestThisStep = false;
-      if (running) advanceCar(car, dtSeconds, clock);
+      if (running) advanceCar(car, dtSeconds, clock, isRace);
     }
 
     // Producer-computed notability (dumb overlay, smart producer — see
@@ -697,12 +714,20 @@ function createSimulator(config = {}) {
           sector_times: car.sector_times,
           gap_to_leader: gapToLeader.get(car.slot_id) ?? null,
           // Additive per-vehicle metrics (slice 3 of #20) for the richer tower.
+          // `interval_ahead` is a timing field, valid in every phase. The strategy
+          // metrics (pit/tire/fuel) are a RACE concept, so they are OMITTED in
+          // qualifying/grid/results — pit stops never show in qualifying, and the
+          // additive-field-absent path stays exercised live.
           interval_ahead: intervalAhead.get(car.slot_id) ?? null,
-          pit_stops: car.pit_stops,
-          in_pit: car.in_pit,
-          tire_compound: COMPOUNDS[car.tireCompoundIndex],
-          tire_wear: round2(car.tire_wear),
-          fuel: round2(car.fuel),
+          ...(isRace
+            ? {
+                pit_stops: car.pit_stops,
+                in_pit: car.in_pit,
+                tire_compound: COMPOUNDS[car.tireCompoundIndex],
+                tire_wear: round2(car.tire_wear),
+                fuel: round2(car.fuel),
+              }
+            : {}),
           notable: {
             class_best_lap: car.best_lap != null && car.best_lap === classBest.get(car.vehicle_class),
             session_best_lap: car.best_lap != null && car.best_lap === sessionBest,
@@ -723,6 +748,16 @@ function createSimulator(config = {}) {
       relationship,
       session,
     };
+  }
+
+  // A phase lock other than the default (qualifying) needs its setup run up front so the
+  // very first step() is already in that phase (grid/results freeze an order, race lays
+  // out and starts a grid). Qualifying is the natural initial state, so it needs nothing.
+  // enterPhase already announced this phase, so mark it announced to avoid a duplicate
+  // opening log on the first step.
+  if (lockPhase && lockPhase !== PHASES[0]) {
+    enterPhase(lockPhase);
+    announced = true;
   }
 
   return { step };
