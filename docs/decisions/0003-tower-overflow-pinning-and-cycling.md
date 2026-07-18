@@ -1,7 +1,7 @@
 # Decision: tower overflow — slot clamp, pinned rows, and field cycling
 
-**Issues:** #116 · **Epic:** #31 · **Milestone:** TBD
-**Status:** Proposed · **Date:** 2026-07-18
+**Issues:** #116 · **Epic:** #31 · **Milestone:** 0.8.0
+**Status:** Accepted · **Date:** 2026-07-18
 
 Specifies what the standings tower does when the field is larger than the configured
 slot can display: how many rows fit, which cars keep a row, and how the rest of the
