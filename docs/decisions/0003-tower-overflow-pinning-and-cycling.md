@@ -38,6 +38,29 @@ Every input here is already a producer-provided field:
 The overlay derives **no race fact**. It decides only *which already-provided rows to
 draw, and when*. Consequently: **no spec change, no `schemaVersion` bump, no new field.**
 
+## Grounding — what the native systems and real broadcasts do
+
+`docs/research/native-overlays.md` already documents both sim systems, and they converge
+on this design:
+
+- **Le Mans Ultimate** (the officially licensed WEC game) — its Timing Tower has an
+  **"Autocycle"** setting that "determines the number of seconds before the tower rotates
+  to show **lower classified drivers**." That is precisely pinned-top-plus-cycling-window,
+  with a configurable dwell. Our `perPageSeconds` is its `Autocycle`.
+- **rFactor 2** — tower with "configurable row counts and scrolling."
+
+**Neither documents a page indicator** — no dots, no "2 of 3". Real broadcast matches:
+F1's standings graphics have historically "either scrolled or refreshed through the
+field", and the recurring viewer complaint is about *waiting 30–45 seconds* for the next
+hit of data — about **cadence**, not about being unable to tell which page is showing.
+WEC's 2025 graphics refresh describes its goal as a "streamlined, distraction-free
+format".
+
+**Decision: no page indicator.** It is absent from every reference implementation, it
+would consume budget in a widget whose entire problem is running out of vertical space,
+and it answers a question viewers are not asking. Orientation in a multi-class field comes
+from the class label already in the header, not from a page counter.
+
 ## Alternatives rejected
 
 | Option | Why not |
@@ -57,8 +80,10 @@ Additive and defaulted, so no `configVersion` bump — same pattern as `hideWhen
   "maxRows": "auto",        // "auto" = derive from h; or an explicit integer cap
   "cycle": {
     "enabled": true,
-    "perPageSeconds": 8,    // mirrors logoRotation.perSlotSeconds
+    "perPageSeconds": 8,    // mirrors logoRotation.perSlotSeconds; floored at 4 (below that
+                            // the tower is unreadable — clamp, don't trust the value)
     "pinTop": 3,            // 0 = none, 1 = leader, 3 = podium, N = top N
+    "pinScope": "overall",  // "overall" = top N of the field | "class" = top N of EACH class
     "pinSubject": true      // keep the on-camera car on screen
   }
 }
@@ -67,6 +92,16 @@ Additive and defaulted, so no `configVersion` bump — same pattern as `hideWhen
 **`pinTop: N` rather than separate `alwaysShowLeader` / `alwaysShowPodium` flags.** One
 integer covers leader (1), podium (3), and top-N without introducing two booleans that
 can contradict each other, and it extends without new config keys.
+
+**`pinScope` supports both overall and per-class.** A single-class field wants the top N
+of the field; a multi-class endurance field wants the leader of *each* class pinned, which
+is the shape WEC coverage actually takes. Note this is independent of `classDisplay` — a
+flat (`inline`) tower can pin per class without rendering class sections, so per-class
+pinning does **not** drag the deferred grouped mode back into scope.
+
+Budget note: `pinScope: 'class'` costs `pinTop x classCount` rows. With 4 classes and
+`pinTop: 3` that is 12 rows before the cycling window gets any — so the pins-exceed-budget
+rule below is a live case in multi-class, not a theoretical one.
 
 **`pinSubject` defaults true.** In a director-driven product this is the highest-value
 pin: when the battle box or on-board HUD is featuring a car running P14, having that car
@@ -93,9 +128,10 @@ The clamp means an off-by-one here is a clipped row, not an off-canvas tower.
 
 Given the ordered field and a row budget:
 
-1. **Pins** — take `pinTop` leaders, plus the subject car if `pinSubject` and it isn't
-   already among them. **De-duplicate by `slot_id`** (never by driver name — two drivers
-   can share one, per `0002`).
+1. **Pins** — take `pinTop` leaders (of the field when `pinScope: 'overall'`, of each class
+   when `'class'`), plus the subject car if `pinSubject` and it isn't already among them.
+   **De-duplicate by `slot_id`** (never by driver name — two drivers can share one, per
+   `0002`).
 2. **Window** — the remaining budget cycles through the cars not pinned, in position
    order, `perPageSeconds` per page.
 3. **Render** — pins first in position order, then the current window page in position
@@ -151,13 +187,22 @@ indicator.
 - **Producer-driven selection** (a "featured cars" field). Would be a spec addition and
   should only happen if presentation-side selection proves insufficient.
 
-## Open questions
+## Resolved
 
-1. **Page indicator** — dots, "2/3", or nothing? Costs vertical space if it takes a row;
-   probably belongs in the header next to the session clock.
-2. **Does `pinTop` mean overall or per class** in a multi-class field? Overall is simpler;
-   per-class is arguably what an endurance broadcast wants, and interacts with the deferred
-   grouped mode.
-3. **Should cycling pause** during a caution/FCY, when viewers are scanning the order?
-4. **`perPageSeconds` floor** — below ~4s the tower is unreadable; worth clamping the
-   config rather than trusting the value.
+1. **Page indicator — none.** Absent from LMU, rF2, and real broadcast practice; costs
+   budget in a widget defined by not having enough of it. See *Grounding* above.
+2. **`pinScope` supports both** overall and per-class, defaulting to `'overall'`.
+   Independent of `classDisplay`, so it does not un-defer grouped mode.
+3. **Cycling does not pause under caution/FCY.** A stopped tower is indistinguishable
+   from a frozen overlay — the failure mode a broadcaster fears most — and the flag state
+   is already carried by the Race Control widget. Cadence stays constant; only the data
+   changes.
+4. **`perPageSeconds` is floored at 4s**, clamped rather than trusted, since a
+   misconfigured 1s renders the tower unreadable.
+
+## Still open
+
+- Whether **`hideWhenIdle`** should interact with cycling at all (a tower with an empty
+  window page is not "idle" in the existing sense).
+- Whether the **window should reset to page 1** on a session-phase change (e.g.
+  qualifying → race), or keep its cursor across the transition.
