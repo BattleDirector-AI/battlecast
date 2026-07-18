@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-18
+
+### Added
+
+- **Richer per-vehicle metrics in spec v1 — optional strategy fields on `vehicle` (#110,
+  slice 3 of #20).** Five new **optional** fields carrying the data an endurance tower
+  needs: `interval_ahead` (gap to the car ahead, distinct from the existing gap-to-leader),
+  `pit_stops` and `in_pit` (stop count and a currently-in-pit flag), `tire_compound`,
+  `tire_wear`, and `fuel`. Additive and backward-compatible — every field is optional,
+  `additionalProperties` stays `true`, and a payload carrying none of them still validates,
+  so **`schemaVersion` stays `"1"`** (same precedent as `session` / `subject.telemetry`).
+  Two deliberate contract choices: `tire_compound` is a **free-form string rendered
+  verbatim** (producers name their own compounds — `"S"`, `"soft"`, `"C3"` — so the overlay
+  makes no compound-vocabulary claim), while `tire_wear` and `fuel` are **normalized to
+  [0, 1]**, letting the consumer draw a bar without a unit claim — the same discipline the
+  throttle/brake bars take. `fuel` is deliberately **one** field covering combustion fuel
+  *or* hybrid/EV energy, rendered as a neutral resource bar that makes no ICE-vs-EV claim;
+  a producer measuring in litres or percent converts before emitting. `spec/v1/schema.json`
+  + `SPEC.md` + compliance fixtures (full and partial), with the reference mock producer
+  emitting all five. See `docs/plans/0.7.0-richer-tower.md`.
+
+- **LMU-style richer standings tower (#111).** The tower gains an **interval column**
+  (`interval_ahead`) plus opt-in endurance-strategy indicators: pit-stop count with an
+  in-pit marker, tire compound and a wear bar, and a fuel/energy bar. Controlled by a new
+  `towerMetrics` widget block — `{ interval, pit, tire, fuel }` — with **`interval` on by
+  default and the strategy indicators off**, so existing profiles render as they did and
+  the extra density is an explicit opt-in. The standalone tower route takes the same knobs
+  via a `?metrics=interval,pit,tire,fuel` URL parameter, matching the existing `?src=` /
+  `?class=` idiom. These are **race-only**: pit, tire-wear and fuel are suppressed in
+  qualifying, where they carry no meaning.
+
+- **`make dev-live` — run the overlay stack against a real producer (#113).** Starts the
+  companion server (`:7397`) and the Vite app (`:5173`) *without* the mock producer, for
+  driving the overlays from a real producer where `:8080` would just be a second, unused
+  SSE server. Implemented as a `--no-mock` flag on `scripts/dev.mjs`, which already built
+  the stack from a process list. Also adds a `PHASE=qualifying|grid|race|results` lock to
+  the mock producer, so a single session type can be eye-tested without waiting for the
+  cycle to come round.
+
+### Fixed
+
+- **The standings tower no longer renders past its slot — or off the canvas (#116).** The
+  tower draws a row per car, so a large field grew the widget past the bottom of the screen.
+  The configured `h` was sizing only the drag box in the config editor, not the render, so
+  the height a broadcaster set was effectively a lie. The tower is now bounded by its
+  configured slot height; rows that don't fit are clipped rather than escaping the box.
+  This is the clamp only — choosing *which* cars keep a row (pinned leaders plus a cycling
+  window over the rest of the field) is specified in
+  `docs/decisions/0003-tower-overflow-pinning-and-cycling.md` and lands separately.
+
 ## [0.6.0] - 2026-07-07
 
 ### Fixed
