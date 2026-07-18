@@ -6,6 +6,9 @@
  *   mock    reference SSE producer (simulated)     http://localhost:8080/events
  *   app     Vite dev server (overlays + /config)   http://localhost:5173
  *
+ * Pass --no-mock (or run `make dev-live`) to start just the server and app, for
+ * driving the overlays from a real producer instead of the simulated one.
+ *
  * Vite proxies /api and /logos/ to the companion server (see app/vite.config.js),
  * so /config's Save/upload work in dev. Ctrl+C tears the whole stack down; if any
  * child dies, the rest are stopped so you never end up with orphans.
@@ -19,6 +22,12 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const isWin = process.platform === 'win32'
+
+// `--no-mock` drops the reference producer from the stack, for when a real one
+// (e.g. BattleDirector) already serves the feed and :8080 would just be a second,
+// unused SSE server. Overlays then need ?src= — or a profile's producer.src —
+// pointed at that producer, since the app defaults to localhost:8080.
+const noMock = process.argv.slice(2).includes('--no-mock')
 
 // ANSI colors keep three interleaved logs readable.
 const COLORS = { server: '\x1b[36m', mock: '\x1b[35m', app: '\x1b[32m' }
@@ -90,7 +99,7 @@ function shutdown(code = 0) {
   setTimeout(() => process.exit(code), 300)
 }
 
-for (const proc of PROCS) {
+for (const proc of PROCS.filter((proc) => !(noMock && proc.name === 'mock'))) {
   const child = spawn(process.execPath, proc.args, {
     cwd: proc.cwd ?? ROOT,
     env: { ...process.env, ...proc.env, FORCE_COLOR: '1' },
