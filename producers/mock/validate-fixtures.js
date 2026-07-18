@@ -24,6 +24,8 @@ const FIXTURE_FILES = [
   "race-session-partial.json",
   "race-onboard-telemetry.json",
   "race-onboard-partial.json",
+  "race-tower-metrics.json",
+  "race-tower-partial.json",
 ];
 
 let failed = 0;

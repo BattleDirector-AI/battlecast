@@ -223,10 +223,65 @@ function testVehicleIdentityFieldsValidateAgainstSchema() {
   );
 }
 
+// The additive per-vehicle metrics (slice 3 of #20) — `interval_ahead`, `pit_stops`,
+// `in_pit`, `tire_compound`, `tire_wear`, `fuel` — are optional: fixtures that carry them
+// must validate, a fixture that carries only SOME must validate, and — the core
+// backward-compat guarantee — a payload with NONE must still validate. Assert all three
+// directly against the schema via the harness's own ajv validator.
+function testTowerMetricsFixturesValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const full = load("race-tower-metrics.json");
+  const fullSubjectVeh = full.vehicles.find((v) => v.slot_id === full.subject.slot_id);
+  assert(
+    fullSubjectVeh &&
+      typeof fullSubjectVeh.interval_ahead === "number" &&
+      typeof fullSubjectVeh.pit_stops === "number" &&
+      typeof fullSubjectVeh.in_pit === "boolean" &&
+      typeof fullSubjectVeh.tire_compound === "string" &&
+      typeof fullSubjectVeh.tire_wear === "number" &&
+      typeof fullSubjectVeh.fuel === "number",
+    "race-tower-metrics.json's subject vehicle must carry the full metric set (interval_ahead/pit_stops/in_pit/tire_compound/tire_wear/fuel)"
+  );
+  assert(
+    full.vehicles.some((v) => v.in_pit === true),
+    "race-tower-metrics.json must include a vehicle with in_pit: true"
+  );
+  let result = validator.validate(full);
+  assert(result.valid, `expected race-tower-metrics.json (full metrics) to validate, got: ${result.errors.join("; ")}`);
+
+  const partial = load("race-tower-partial.json");
+  const partialSubjectVeh = partial.vehicles.find((v) => v.slot_id === partial.subject.slot_id);
+  assert(
+    partialSubjectVeh && "tire_compound" in partialSubjectVeh && !("fuel" in partialSubjectVeh),
+    "race-tower-partial.json's subject vehicle must carry a PARTIAL metric set (some fields present, others omitted)"
+  );
+  result = validator.validate(partial);
+  assert(
+    result.valid,
+    `expected race-tower-partial.json (partial metrics) to validate, got: ${result.errors.join("; ")}`
+  );
+
+  const noMetrics = load("race-close-battle.json");
+  const METRIC_KEYS = ["interval_ahead", "pit_stops", "in_pit", "tire_compound", "tire_wear", "fuel"];
+  assert(
+    noMetrics.vehicles.every((v) => METRIC_KEYS.every((k) => !(k in v))),
+    "race-close-battle.json is the no-metrics base and its vehicles must NOT carry any of the new metrics"
+  );
+  result = validator.validate(noMetrics);
+  assert(result.valid, `expected a payload with NO vehicle metrics to still validate, got: ${result.errors.join("; ")}`);
+
+  console.log(
+    "PASS: tower metrics (interval_ahead/pit_stops/in_pit/tire_compound/tire_wear/fuel) validate against schema.json — full + partial, and a payload with none still validates (slice 3 of #20)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
   testVehicleIdentityFieldsValidateAgainstSchema();
+  testTowerMetricsFixturesValidateAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");

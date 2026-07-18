@@ -116,6 +116,35 @@
         "model": {
           "type": ["string", "null"],
           "description": "Optional vehicle model / chassis (e.g. \"296 GT3\", \"911 GT3 R\", \"M4 GT3\"), rendered verbatim. Null or absent when not supplied. Additive and optional; often shown alongside `make`. Producer-owned; consumers tolerate its absence."
+        },
+        "interval_ahead": {
+          "type": ["number", "null"],
+          "description": "Optional producer-computed time gap, in seconds, from this vehicle to the car immediately AHEAD in overall running order — the 'interval' column a broadcast tower shows beside the gap-to-leader. Distinct from `gap_to_leader` (to `position` 1): this is the gap to the ONE car ahead (`position` − 1). Null or absent for the leader (no one ahead) or until determined. The producer owns the metric (an on-track time gap in a race, a lap-time delta in a qualifying-style session); consumers render it verbatim and MUST NOT derive it by scanning `vehicles[]`. Unlike the class-relative gap-to-leader (which a grouped tower MAY compute by exact subtraction of producer values), a class-relative interval is NOT re-derivable, so a grouped tower renders this verbatim (gap to the car ahead overall) and makes no class-relative claim."
+        },
+        "pit_stops": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Optional count of COMPLETED pit stops this vehicle has made this session. Null or absent when not tracked. Producer-owned; consumers render it verbatim (dumb overlay, smart producer) and MUST tolerate its absence."
+        },
+        "in_pit": {
+          "type": "boolean",
+          "description": "Optional flag, true while the vehicle is currently in the pit lane / pit box (in a pit stop or driving through the pits). Absent or false means on track. The producer owns this judgment; consumers render an in-pit indicator when true and MUST tolerate its absence (treat absent/false as 'on track')."
+        },
+        "tire_compound": {
+          "type": ["string", "null"],
+          "description": "Optional tire compound label for the vehicle's current tires, rendered VERBATIM as a free-form string (e.g. \"S\"/\"M\"/\"H\", \"soft\", \"wet\", \"C3\") — producers define their own compound names. Null or absent when not supplied. Producer-owned; consumers display it as given and MUST tolerate its absence."
+        },
+        "tire_wear": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Optional tire wear for the vehicle's current tires, NORMALIZED to [0, 1] (0 = fresh, 1 = fully worn). Fixing a normalized fraction (rather than a raw age-in-laps or percent) lets the consumer render a wear bar without a unit claim, the same discipline the throttle/brake bars take; a producer that measures wear another way MUST convert to [0, 1] before emitting. Null or absent when not available. The consumer clamps to [0, 1] defensively."
+        },
+        "fuel": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Optional fuel OR hybrid-energy remaining for the vehicle, NORMALIZED to [0, 1] (1 = full, 0 = empty). Deliberately ONE field covering either resource — the producer defines which (combustion fuel or hybrid/EV energy) and the overlay renders a neutral resource bar making no ICE-vs-EV claim. Fixing a normalized fraction (rather than litres/percent) lets the consumer render a bar without a unit claim; a producer measuring in another unit MUST convert to [0, 1] before emitting. Null or absent when not available. The consumer clamps to [0, 1] defensively."
         }
       }
     },

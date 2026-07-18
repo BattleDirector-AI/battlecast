@@ -132,6 +132,42 @@ required-ness.
     model/chassis (e.g. `"296 GT3"`), rendered verbatim and often shown together. Distinct
     from `vehicle_class` (the racing category). Both optional; null or absent when not
     supplied. Consumed by the on-board HUD's configurable driver/vehicle identity (#26).
+  - **`interval_ahead`** (number, seconds) — the time gap to the car immediately **ahead**
+    in overall running order (`position` − 1) — the "interval" column a broadcast tower
+    prints beside the gap-to-leader. Distinct from `gap_to_leader` (which is to `position`
+    1). `null` or absent for the leader (no one ahead) or until it can be determined. The
+    producer owns what the metric measures (an on-track time gap in a race, a lap-time
+    delta in a qualifying-style session), so consumers render it verbatim and **MUST NOT**
+    derive it by scanning `vehicles[]`. Note the asymmetry with `gap_to_leader`: a grouped
+    tower MAY compute a gap-to-*class*-leader by exact subtraction of producer values, but a
+    class-relative interval is **not** re-derivable, so a grouped tower renders
+    `interval_ahead` verbatim (the gap to the car ahead overall) and makes no class-relative
+    claim.
+  - **`pit_stops`** (integer ≥ 0) — count of **completed** pit stops this session. Optional;
+    null or absent when not tracked.
+  - **`in_pit`** (boolean) — `true` while the vehicle is currently in the pit lane / box.
+    Absent or false means on track; a consumer renders an in-pit indicator only when true.
+  - **`tire_compound`** (string) — the current tires' compound label, rendered **verbatim**
+    (e.g. `"S"`, `"M"`, `"H"`, `"wet"`, `"C3"`); producers define their own compound names.
+    Optional; null or absent when not supplied.
+  - **`tire_wear`** (number in `[0, 1]`) — current-tire wear, **normalized** `0` = fresh,
+    `1` = fully worn. A normalized fraction (rather than age-in-laps or percent) lets the
+    consumer render a wear bar with no unit claim, the same discipline the on-board HUD's
+    throttle/brake bars take; a producer measuring wear another way MUST convert before
+    emitting. Optional; the consumer clamps to `[0, 1]` defensively.
+  - **`fuel`** (number in `[0, 1]`) — fuel **or** hybrid-energy remaining, **normalized**
+    `1` = full, `0` = empty. Deliberately one field for either resource — the producer
+    defines which (combustion fuel or hybrid/EV energy) and the overlay renders a neutral
+    resource bar making no ICE-vs-EV claim. Optional; the consumer clamps to `[0, 1]`.
+
+  These six per-vehicle metrics are consumed by the LMU-style richer standings tower — an
+  **interval column** beside the gap-to-leader, plus config-gated **pit / tire / fuel**
+  indicators a broadcaster enables for endurance density. They are kept **flat on
+  `vehicle`** (not grouped into a sub-object) — the deliberate opposite of the
+  `subject.telemetry` grouping — because `vehicle` is already a uniformly-flat, mixed-cadence
+  object and these metrics' churn does not split cleanly (`interval_ahead` / `tire_wear` /
+  `fuel` drift every tick; `pit_stops` / `in_pit` / `tire_compound` change only at a stop).
+  See `docs/plans/0.7.0-richer-tower.md`.
 
   **Contract note — no `schemaVersion` bump.** These fields were added in a minor
   revision of v1; `schemaVersion` stays `"1"`. That is permitted because `schemaVersion`
