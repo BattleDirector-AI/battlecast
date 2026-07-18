@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-18
+
 ### Added
 
 - **Richer per-vehicle metrics in spec v1 — optional strategy fields on `vehicle` (#110,
