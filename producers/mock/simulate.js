@@ -52,6 +52,21 @@ const GRID = [
 
 const LAP_UNIT = 1; // one arbitrary "distance around the lap" unit
 const CLOSE_BATTLE_WINDOW = 1.5; // seconds — matches the design system's intensity formula
+
+// Strategy synthesis for the additive per-vehicle metrics (slice 3 of #20:
+// pit_stops / in_pit / tire_compound / tire_wear / fuel). The sim does not model
+// fuel loads or tire physics, so we synthesize a plausible stint: fuel drains and
+// tires wear with distance covered, and when either runs low the car makes a pit
+// stop (a short in-pit window) that refills fuel, fits fresh tires, and rotates the
+// compound. Tuned so a car makes ~1 stop across a short race leg, giving the richer
+// tower live interval/pit/tire/fuel values to render. `FUEL_PER_LAP` / `WEAR_PER_LAP`
+// are fractions of a full tank / fresh set consumed per lap.
+const COMPOUNDS = ["S", "M", "H"];
+const FUEL_PER_LAP = 0.28;
+const WEAR_PER_LAP = 0.42;
+const PIT_FUEL_TRIGGER = 0.1; // pit when fuel drops below this…
+const PIT_WEAR_TRIGGER = 0.85; // …or tire wear climbs above this.
+const PIT_DURATION_SECONDS = 6; // how long `in_pit` stays true through a stop.
 // Minimum on-camera dwell before the "director" will cut away, expressed in SIM
 // SECONDS (not ticks) so it is invariant to step granularity — the server may
 // sub-step the simulator to push camera cuts promptly without changing how long a
@@ -294,6 +309,35 @@ function gapToLeaderMap(order, byLap) {
   return map;
 }
 
+/**
+ * Gap in seconds from each car to the car IMMEDIATELY AHEAD in running order
+ * (order[i] to order[i-1]), keyed by slot_id, for the spec-v1 `interval_ahead`
+ * field — the tower's "interval" column, distinct from `gap_to_leader`. Mirrors
+ * gapToLeaderMap's phase treatment: a lap-time delta to the car ahead in a
+ * lap-classified phase (qualifying / grid), the on-track pair time gap in a
+ * distance-classified phase (race / results). The leader has no one ahead (null);
+ * a car without comparable timing is null.
+ */
+function intervalAheadMap(order, byLap) {
+  const map = new Map();
+  if (order.length === 0) return map;
+  map.set(order[0].slot_id, null);
+  for (let i = 1; i < order.length; i++) {
+    const ahead = order[i - 1];
+    const car = order[i];
+    if (byLap) {
+      map.set(
+        car.slot_id,
+        ahead.best_lap != null && car.best_lap != null ? round3(car.best_lap - ahead.best_lap) : null
+      );
+    } else {
+      const avgSpeed = (1 / car.pace + 1 / ahead.pace) / 2;
+      map.set(car.slot_id, round3((ahead.distance - car.distance) / avgSpeed));
+    }
+  }
+  return map;
+}
+
 /** A fresh, session-start field: no timing yet, staggered on the grid. `startClock`
  *  seeds each car's lap-timing baseline to the CURRENT sim clock — critical when the
  *  session loops back to qualifying at a non-zero clock, or the first completed lap
@@ -324,12 +368,32 @@ function makeCars(startClock = 0) {
       sector_times: [],
       improvedBestThisStep: false,
       position: i + 1,
+      // Strategy synthesis state (slice 3 of #20). A fresh stint: full fuel, fresh
+      // tires on a per-car starting compound, no stops yet, not in the pits.
+      pit_stops: 0,
+      in_pit: false,
+      pitUntilClock: 0,
+      tireCompoundIndex: i % COMPOUNDS.length,
+      tire_wear: 0,
+      fuel: 1,
     };
   });
 }
 
-/** Advance one car's distance and, on a completed lap, its lap/sector timing. */
-function advanceCar(car, dtSeconds, clock) {
+/** Reset a car's stint (fuel / tires / stops) to a fresh start — used when the race
+ *  begins from the grid, so race strategy is independent of the qualifying run. */
+function resetStint(car) {
+  car.pit_stops = 0;
+  car.in_pit = false;
+  car.pitUntilClock = 0;
+  car.tire_wear = 0;
+  car.fuel = 1;
+}
+
+/** Advance one car's distance and, on a completed lap, its lap/sector timing. When
+ *  `evolveStint` is true (the RACE phase only) it also drains fuel, wears tires, and runs
+ *  the pit cycle — a race concept, so qualifying laps never accrue stops. */
+function advanceCar(car, dtSeconds, clock, evolveStint) {
   // Slow random-walk pace fluctuation so gaps ebb and flow organically instead of
   // separating (or converging) monotonically. It is a fraction of the car's OWN
   // base speed (a ±4% band), not an absolute term: an absolute term is a huge
@@ -338,7 +402,8 @@ function advanceCar(car, dtSeconds, clock) {
   // a realistic band of the car's pace while still shuffling intra-class order.
   car.noiseFactor = clamp(car.noiseFactor + (Math.random() - 0.5) * 0.01, -0.04, 0.04);
   const baseSpeed = 1 / car.pace;
-  car.distance += baseSpeed * (1 + car.noiseFactor) * dtSeconds;
+  const distanceStep = baseSpeed * (1 + car.noiseFactor) * dtSeconds;
+  car.distance += distanceStep;
 
   if (car.distance - car.lapStartDistance >= LAP_UNIT) {
     car.lapStartDistance += LAP_UNIT;
@@ -351,6 +416,30 @@ function advanceCar(car, dtSeconds, clock) {
       car.improvedBestThisStep = true;
     }
     car.sector_times = splitSectors(car.last_lap);
+  }
+
+  // Strategy synthesis (slice 3 of #20) — RACE ONLY: drain fuel and wear tires with the
+  // distance covered this step; when either runs low the car pits (a short in-pit window
+  // that, once it elapses, refills the tank, fits fresh tires, and rotates the compound).
+  // Gated to the race so qualifying never runs the pit cycle (a car doing a flying lap
+  // isn't making pit stops).
+  if (!evolveStint) return;
+  const lapFraction = distanceStep / LAP_UNIT;
+  if (car.in_pit) {
+    if (clock >= car.pitUntilClock) {
+      car.in_pit = false;
+      car.fuel = 1;
+      car.tire_wear = 0;
+      car.tireCompoundIndex = (car.tireCompoundIndex + 1) % COMPOUNDS.length;
+    }
+  } else {
+    car.fuel = clamp(car.fuel - FUEL_PER_LAP * lapFraction, 0, 1);
+    car.tire_wear = clamp(car.tire_wear + WEAR_PER_LAP * lapFraction, 0, 1);
+    if (car.fuel <= PIT_FUEL_TRIGGER || car.tire_wear >= PIT_WEAR_TRIGGER) {
+      car.in_pit = true;
+      car.pitUntilClock = clock + PIT_DURATION_SECONDS;
+      car.pit_stops += 1;
+    }
   }
 }
 
@@ -375,6 +464,11 @@ function byDistance(a, b) {
 function createSimulator(config = {}) {
   const phaseSeconds = { ...DEFAULT_PHASE_SECONDS, ...(config.phaseSeconds || {}) };
   const onPhaseChange = typeof config.onPhaseChange === "function" ? config.onPhaseChange : null;
+  // Optional single-phase lock (e.g. { lockPhase: "race" }) for eye-testing one session
+  // type: instead of cycling qualifying → grid → race → results, the simulator stays in
+  // this phase, re-entering it (a fresh leg) each time its duration elapses. Invalid
+  // values are ignored (normal cycling). See `PHASE=` in producers/mock/server.js.
+  const lockPhase = PHASES.includes(config.lockPhase) ? config.lockPhase : null;
 
   let cars = makeCars();
   let clock = 0;
@@ -422,6 +516,7 @@ function createSimulator(config = {}) {
       car.sector_times = [];
       car.noiseFactor = 0;
       car.improvedBestThisStep = false;
+      resetStint(car);
     });
   }
 
@@ -442,6 +537,9 @@ function createSimulator(config = {}) {
       freezeOrder(byBestLap);
     } else if (p === "race") {
       raceLegIndex += 1;
+      // A direct race lock skips the qualifying→grid setup, so seed a starting order
+      // from the current (fresh, no-lap) field before laying out the grid.
+      if (!frozenOrder) freezeOrder(byBestLap);
       startRaceFromGrid();
     } else if (p === "results") {
       // Results = the final race classification, frozen.
@@ -540,16 +638,20 @@ function createSimulator(config = {}) {
     clock += dtSeconds;
     phaseElapsed += dtSeconds;
     if (phaseElapsed >= phaseSeconds[phase]) {
-      const next = PHASES[(PHASES.indexOf(phase) + 1) % PHASES.length];
+      // Locked: re-enter the same phase (a fresh leg) instead of advancing the cycle.
+      const next = lockPhase ?? PHASES[(PHASES.indexOf(phase) + 1) % PHASES.length];
       enterPhase(next);
     }
 
     const running = phase === "qualifying" || phase === "race";
+    // Strategy (fuel/tire/pit) evolves and is emitted only in the race — see the
+    // vehicle map and advanceCar. Qualifying runs the cars but not the pit cycle.
+    const isRace = phase === "race";
     for (const car of cars) {
       // Reset the per-step "just set a personal best" flag; only a lap completed
       // on THIS step in a running phase can set it true.
       car.improvedBestThisStep = false;
-      if (running) advanceCar(car, dtSeconds, clock);
+      if (running) advanceCar(car, dtSeconds, clock, isRace);
     }
 
     // Producer-computed notability (dumb overlay, smart producer — see
@@ -585,7 +687,10 @@ function createSimulator(config = {}) {
 
     // Gap to the overall leader for each car — lap-delta in the lap-classified
     // phases, on-track time gap in the distance-classified ones.
-    const gapToLeader = gapToLeaderMap(order, phase === "qualifying" || phase === "grid");
+    const byLap = phase === "qualifying" || phase === "grid";
+    const gapToLeader = gapToLeaderMap(order, byLap);
+    // Interval to the car immediately ahead (slice 3 of #20) — same phase treatment.
+    const intervalAhead = intervalAheadMap(order, byLap);
 
     const { subjectCar, relationship } = running ? runningDirector(order) : staticDirector(order);
 
@@ -608,6 +713,23 @@ function createSimulator(config = {}) {
           best_lap: car.best_lap,
           sector_times: car.sector_times,
           gap_to_leader: gapToLeader.get(car.slot_id) ?? null,
+          // Additive per-vehicle metrics (slice 3 of #20) for the richer tower.
+          // `interval_ahead` is a timing field, valid in every phase. Tire COMPOUND is
+          // relevant on any running lap (the qualifying tire choice included), so it is
+          // emitted in qualifying AND race. The remaining strategy metrics (pit stops,
+          // tire wear, fuel) are a RACE concept, so they are omitted outside the race —
+          // pit stops never show in qualifying, and the additive-absent path stays
+          // exercised live.
+          interval_ahead: intervalAhead.get(car.slot_id) ?? null,
+          ...(running ? { tire_compound: COMPOUNDS[car.tireCompoundIndex] } : {}),
+          ...(isRace
+            ? {
+                pit_stops: car.pit_stops,
+                in_pit: car.in_pit,
+                tire_wear: round2(car.tire_wear),
+                fuel: round2(car.fuel),
+              }
+            : {}),
           notable: {
             class_best_lap: car.best_lap != null && car.best_lap === classBest.get(car.vehicle_class),
             session_best_lap: car.best_lap != null && car.best_lap === sessionBest,
@@ -628,6 +750,16 @@ function createSimulator(config = {}) {
       relationship,
       session,
     };
+  }
+
+  // A phase lock other than the default (qualifying) needs its setup run up front so the
+  // very first step() is already in that phase (grid/results freeze an order, race lays
+  // out and starts a grid). Qualifying is the natural initial state, so it needs nothing.
+  // enterPhase already announced this phase, so mark it announced to avoid a duplicate
+  // opening log on the first step.
+  if (lockPhase && lockPhase !== PHASES[0]) {
+    enterPhase(lockPhase);
+    announced = true;
   }
 
   return { step };

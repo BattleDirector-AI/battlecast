@@ -73,6 +73,7 @@
           {snapshot}
           {classFilter}
           classDisplay={normalized.widgets.tower?.classDisplay}
+          metrics={normalized.widgets.tower?.towerMetrics}
         />
       {:else if w.key === 'battle'}
         <BattleBox

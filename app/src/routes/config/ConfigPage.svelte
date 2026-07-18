@@ -10,6 +10,7 @@
     DEFAULT_CONFIG,
     WIDGET_KEYS,
     DRIVER_INFO_FIELDS,
+    TOWER_METRIC_FIELDS,
     normalizeConfig,
     isLowerThird,
   } from '../../lib/overlayConfig.js'
@@ -26,13 +27,26 @@
   // untouched.
   const sampleSnapshot = {
     ...baseSnapshot,
-    // Give the on-camera vehicle the additive identity fields so the HUD's driver-info
-    // toggles (number / class / make / model) have something to show in the preview.
-    vehicles: baseSnapshot.vehicles.map((v) =>
-      v.slot_id === baseSnapshot.subject.slot_id
-        ? { ...v, car_number: '1', make: 'Red Bull', model: 'RB20' }
-        : v,
-    ),
+    // Augment a COPY with the additive fields so the preview exercises the widgets that
+    // read them: the on-camera vehicle gets identity fields (for the HUD's driver-info
+    // toggles) and every vehicle gets the richer-tower metrics (interval / pit / tire /
+    // fuel) so toggling those tower controls shows representative data.
+    vehicles: baseSnapshot.vehicles.map((v, i) => {
+      const prev = baseSnapshot.vehicles[i - 1]
+      const withMetrics = {
+        ...v,
+        interval_ahead:
+          i === 0 ? null : Math.round((v.gap_to_leader - prev.gap_to_leader) * 1000) / 1000,
+        pit_stops: [1, 1, 2, 1][i] ?? 1,
+        in_pit: i === 3,
+        tire_compound: ['M', 'M', 'S', 'H'][i] ?? 'M',
+        tire_wear: [0.34, 0.28, 0.62, 0.12][i] ?? 0.3,
+        fuel: [0.61, 0.58, 0.44, 0.73][i] ?? 0.5,
+      }
+      return v.slot_id === baseSnapshot.subject.slot_id
+        ? { ...withMetrics, car_number: '1', make: 'Red Bull', model: 'RB20' }
+        : withMetrics
+    }),
     subject: {
       ...baseSnapshot.subject,
       telemetry: { throttle: 0.82, brake: 0, speed: 247, gear: 6 },
@@ -142,6 +156,14 @@
   // with positions restarting per class (`grouped`).
   const setClassDisplay = (key, value) =>
     (config = editor.setWidgetField(config, key, 'classDisplay', value))
+  // Richer-tower (slice 3 of #20): which additive per-vehicle metrics the standings
+  // tower surfaces — interval column + pit / tire / fuel indicators, each toggled
+  // independently. Only the tower reads `towerMetrics`; the producer must supply the
+  // underlying fields.
+  const setTowerMetric = (key, field, checked) => {
+    const current = { ...(config.widgets[key]?.towerMetrics || {}), [field]: !!checked }
+    config = editor.setWidgetField(config, key, 'towerMetrics', current)
+  }
   // #26 on-board HUD-only: the display unit for the speed readout. The producer emits
   // canonical km/h; checking the box displays mph (the widget converts). Unchecked = km/h.
   const setSpeedUnit = (key, useMph) =>
@@ -542,6 +564,24 @@
                   <option value="grouped">grouped</option>
                 </select>
               </label>
+              <!-- #28 follow-on: which additive per-vehicle metrics the tower surfaces —
+                   the interval-to-ahead column plus pit / tire / fuel indicators. The
+                   producer must supply the underlying fields (interval_ahead / pit_stops /
+                   in_pit / tire_compound / tire_wear / fuel). -->
+              <fieldset class="modes-row">
+                <legend>tower metrics shown</legend>
+                {#each TOWER_METRIC_FIELDS as field (field)}
+                  <label class="checkline">
+                    <input
+                      type="checkbox"
+                      data-testid="tower-metric-{key}-{field}"
+                      checked={w.towerMetrics?.[field] === true}
+                      onchange={(e) => setTowerMetric(key, field, e.currentTarget.checked)}
+                    />
+                    {field}
+                  </label>
+                {/each}
+              </fieldset>
             {/if}
             {#if key === 'onboard'}
               <!-- #26-only: the display unit for the HUD's speed readout. The producer
