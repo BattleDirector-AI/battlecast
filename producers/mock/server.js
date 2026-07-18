@@ -27,17 +27,30 @@
 // SIM_DT_SECONDS (default 2 — sim-seconds of race time advanced per tick), and
 // the per-phase durations in SIM seconds QUALI_SECONDS (300), GRID_SECONDS (30),
 // RACE_SECONDS (300), RESULTS_SECONDS (30) — see simulate.js / README.md.
+//
+// PHASE (or a 3rd CLI arg, e.g. `simulate race`) locks simulate mode to one session
+// type — qualifying|grid|race|results — for eye-testing, instead of cycling them.
 
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const { createSimulator } = require("./simulate.js");
+const { createSimulator, PHASES } = require("./simulate.js");
 
 const PORT = Number(process.env.PORT) || 8080;
 const INTERVAL_MS = Number(process.env.INTERVAL_MS) || 750;
 const SIM_DT_SECONDS = Number(process.env.SIM_DT_SECONDS) || 2;
 const SSE_PATH = "/events";
 const MODE = (process.argv[2] || process.env.MODE || "simulate").toLowerCase();
+
+// Optional single-phase lock for eye-testing one session type (simulate mode only):
+//   node producers/mock/server.js simulate race   — or   PHASE=race make dev
+// Locks the simulator to that phase (qualifying|grid|race|results) instead of cycling.
+// An unrecognized value is ignored with a warning (normal cycling).
+const LOCK_PHASE_RAW = (process.argv[3] || process.env.PHASE || "").trim().toLowerCase();
+const LOCK_PHASE = LOCK_PHASE_RAW && PHASES.includes(LOCK_PHASE_RAW) ? LOCK_PHASE_RAW : null;
+if (LOCK_PHASE_RAW && !LOCK_PHASE) {
+  console.warn(`[mock] ignoring PHASE="${LOCK_PHASE_RAW}" — expected one of: ${PHASES.join(", ")}`);
+}
 
 const FIXTURES_DIR = path.resolve(__dirname, "..", "..", "spec", "v1", "fixtures");
 
@@ -111,6 +124,8 @@ function runSimulateMode() {
     onPhaseChange: (phase, simClock) => {
       console.log(`[mock] phase → ${phase} (sim-clock ${simClock}s)`);
     },
+    // When set, lock the simulator to a single session type for eye-testing.
+    lockPhase: LOCK_PHASE,
   });
 
   // Sub-step the simulator several times per cadence interval and broadcast on a
@@ -167,8 +182,11 @@ function runSimulateMode() {
   });
 
   console.log(
-    `[mock] mode: simulate — one live multi-class session cycling qualifying → grid → race → results, ` +
-      `${SIM_DT_SECONDS}s of race time per ${INTERVAL_MS}ms tick ` +
+    `[mock] mode: simulate — ` +
+      (LOCK_PHASE
+        ? `LOCKED to the ${LOCK_PHASE} phase (looping fresh legs)`
+        : `one live multi-class session cycling qualifying → grid → race → results`) +
+      `, ${SIM_DT_SECONDS}s of race time per ${INTERVAL_MS}ms tick ` +
       `(sub-stepped ${SUBSTEPS}× every ${STEP_MS}ms; emits promptly on a subject or phase change)`,
   );
 }
