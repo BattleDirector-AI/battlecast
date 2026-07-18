@@ -124,6 +124,22 @@
     box-sizing: border-box;
   }
 
+  /* The tower is the one widget whose height is driven by the session — a row per car —
+     so a large field grew it past its slot and off the canvas entirely (#116). Bound it
+     to the configured `h`; `.tower` already sets `overflow: hidden`, so rows that don't
+     fit are clipped rather than escaping the box.
+
+     This is the clamp only. Choosing WHICH cars stay visible (pinned leaders + cycling
+     the rest of the field) is a separate feature, and this rule stays underneath it as
+     the guarantee that a widget can never exceed its slot.
+
+     Scoped to the tower deliberately: the content-sized widgets (lower-thirds, on-board,
+     race control) are centred within a placement box rather than filling it, so clamping
+     those would clip them instead of bounding them. */
+  .widget-slot[data-widget='tower'] > :global(*) {
+    max-height: 100%;
+  }
+
   /* The race control status pill and the on-board HUD are content-sized indicators,
      not plates that stretch to fill their slot. Keep their intrinsic (compact) width,
      and CENTRE them within the slot (rather than anchoring to the left edge) so they
