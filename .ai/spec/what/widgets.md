@@ -19,8 +19,10 @@ never derive semantic facts. Implementation lives under `app/src/routes/*`; see 
 4. A grouped-by-class tower MAY show a gap-to-class-leader by subtracting the class leader's
    `gap_to_leader` from a car's own — exact arithmetic on producer values, not a forbidden
    re-derivation.
-5. Each row carries a **class-rank badge** (e.g. `GTP 3/7`) computed from the full field's running
-   order, so it stays stable regardless of the `?class=` filter (rule 10).
+5. In **inline** layout, each row carries a **class-rank badge** (e.g. `GTP 3/7`) computed from the
+   full field's running order, so it stays stable regardless of the `?class=` filter (rule 10). In
+   **grouped** layout the badge is omitted — class rank is conveyed structurally by the restarting
+   position column and the group header's car count.
 6. **Interval column** — renders per-vehicle `interval_ahead` (gap to the car immediately ahead)
    beside the gap-to-leader. Gated by `towerMetrics.interval` (default **on**). Because a
    class-relative interval is not re-derivable, `interval_ahead` is rendered verbatim even in a
@@ -45,8 +47,10 @@ never derive semantic facts. Implementation lives under `app/src/routes/*`; see 
 ### Battle box (`/battle`)
 
 11. Centers on the `subject`, showing `gap_ahead` / `gap_behind` and a `battle_intensity` meter.
-12. Renders an **explicit idle state** when there is no active battle. It is idle outside a racing
-    mode, or when the on-camera car has no adjacent car to fight (`isActiveBattle`).
+12. **Idle behavior splits by cause.** Outside a racing mode (qualifying/practice/takeover) the
+    battle box renders **nothing** at all. Within a racing mode but with no adjacent car to fight
+    (`isActiveBattle` false), it renders an **explicit placeholder** (e.g. "CLEAR AIR"). Both count
+    as idle for `hideWhenIdle`.
 
 ### Subject-driven lower-thirds (`/driver` #21, `/qualifying` #22)
 
@@ -104,8 +108,9 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 26. **`/logos`** cycles sponsor logos (`logoRotation`: images, `perSlotSeconds`, `order`).
 27. **`/grid`** (pre-race starting grid) and **`/results`** (final classification) are full-screen
     **opaque takeover** slides — full-bleed but NOT transparent overlay routes. They group the field
-    by class in class-registry order (the same sequence the grouped tower uses), sort by `position`,
-    and honor the `?class=` filter.
+    by class in class-registry order (the same sequence the grouped tower uses), order each group by
+    `position`, and honor the `?class=` filter. `/results` restarts class positions within each group
+    (like the grouped tower); `/grid` shows the overall position in a staggered two-column rake.
 
 ### Field filter & auto-hide
 

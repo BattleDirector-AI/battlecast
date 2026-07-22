@@ -9,7 +9,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 |---|---|---|
 | `src/App.svelte` | route dispatch, `OVERLAY_ROUTES`, `FULL_BLEED_ROUTES` | Pathname → page component; full-bleed/transparent/motion boot setup. |
 | `src/main.js` | — | Mounts the app. |
-| `src/routes/<w>/sseClient.js` | `connect`, `parseState`, `resolveSrc`, `DEFAULT_SRC`, `SUPPORTED_SCHEMA_VERSION` | Open EventSource, parse `state` events, warn on version mismatch. |
+| `src/routes/<w>/sseClient.js` | `connect` (all routes); **tower** also exports `parseState`, `resolveSrc`, `DEFAULT_SRC`, `SUPPORTED_SCHEMA_VERSION`; battle/racecontrol/onboard inline the parse + a local `KNOWN_SCHEMA_VERSION` + the default URL string (onboard adds `resolveSpeedUnit`) | Open EventSource, parse `state` events, warn on unknown `schemaVersion`. Same behavior across routes; only the tower client is factored into named exports. |
 | `src/lib/overlayConfig.js` | `loadConfig`, `normalizeConfig`, `resolveWidgets`, `pickProducerSrc`, `parseTowerMetricsParam`, `DEFAULT_CONFIG`, `WIDGET_KEYS` | Config contract: load, normalize, order widgets, pick producer URL, parse `?metrics=`. |
 | `src/lib/motion.js` | `resolveMotion`, `applyMotion`, `prefersReducedMotion` | Motion policy → `<html data-motion>`. |
 | `src/lib/widgetIdle.js` | `IDLE_PREDICATES`, `isWidgetIdle`, `widgetSupportsAutoHide` | Per-widget idle predicates for `hideWhenIdle`. |
