@@ -95,6 +95,23 @@ describe('loadConfig precedence — URL params > profile fetch > default', () =>
   })
 })
 
+describe('applyUrlOverrides — prototype-pollution safety', () => {
+  afterEach(() => {
+    delete Object.prototype.visible // defensive: keep a leak from bleeding across tests
+  })
+
+  it('ignores __proto__ / constructor keys in ?show= / ?hide= (no prototype pollution)', async () => {
+    await loadConfig('?show=__proto__,constructor&hide=__proto__')
+    expect(Object.prototype.hasOwnProperty.call(Object.prototype, 'visible')).toBe(false)
+    expect({}.visible).toBeUndefined()
+  })
+
+  it('still toggles real, own widget keys', async () => {
+    const cfg = await loadConfig('?hide=tower')
+    expect(cfg.widgets.tower.visible).toBe(false)
+  })
+})
+
 describe('normalizeConfig — always yields a complete, well-typed contract', () => {
   it('coerces string coordinates and fills missing fields from the default', () => {
     const config = normalizeConfig({
