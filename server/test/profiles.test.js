@@ -114,5 +114,10 @@ test('profiles: API JSON responses are sent no-cache (#115)', async () => {
     })
     const one = await fetch(`${base}/api/profiles/race`)
     assert.equal(one.headers.get('cache-control'), 'no-cache')
+
+    // The error path (sendError -> sendJson) carries it too.
+    const missing = await fetch(`${base}/api/profiles/ghost`)
+    assert.equal(missing.status, 404)
+    assert.equal(missing.headers.get('cache-control'), 'no-cache')
   })
 })
