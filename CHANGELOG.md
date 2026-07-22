@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **The `/results` board now groups by class** instead of a single flat overall table. Classes are
+  laid out in registry order (the same sequence as the grouped standings tower and the `/grid`
+  slide), each group in finishing order with class positions restarting at `1`; the `?class=` filter
+  still narrows to one class. Brings the results slide in line with the `.ai/spec` behavioral spec.
+
 ## [0.7.0] - 2026-07-18
 
 ### Added

@@ -20,9 +20,9 @@ profiles and upload logo images. Implementation: `server/`; see `how/server.md`.
 ### API
 
 4. Profiles: `GET /api/profiles` (list names), `GET /api/profiles/<name>` (fetch, 404 if absent),
-   `PUT/POST /api/profiles/<name>` (save; 201 new / 200 update). Persisted as
-   `data/profiles/<name>.json` — file-per-profile, no database (inspectable, diffable,
-   git-committable).
+   `PUT/POST /api/profiles/<name>` (save; 201 new / 200 update), `DELETE /api/profiles/<name>` (200
+   on delete, 404 if absent). Persisted as `data/profiles/<name>.json` — file-per-profile, no
+   database (inspectable, diffable, git-committable).
 5. Logos: `GET /api/logos` (list `{name,url,size}`), `POST /api/logos` (upload, multipart or raw body
    + `?name=`), `DELETE /api/logos/<file>`, `GET /logos/<file>` (serve). Persisted as
    `data/logos/<file>`.
