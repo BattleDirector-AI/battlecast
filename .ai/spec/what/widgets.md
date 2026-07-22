@@ -8,6 +8,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 
 ### Standings tower (`/tower`)
 
+> **Overflow** (what happens when the field is larger than the slot can display — the CSS clamp, row
+> budget, pinned rows, and the cycling window) is specified separately in `tower-overflow.md`.
+
 1. Renders the running order: sort `vehicles[]` by `position` ascending. Highlights the `subject`
    driver's row (keyed by `slot_id`). Shows lap/gap timing per row (em-dash when timing is absent).
 2. In a **lap-timed** session (qualifying/practice), the leader's cell shows their best (pole) lap —
