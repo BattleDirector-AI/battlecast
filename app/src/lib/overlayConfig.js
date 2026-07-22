@@ -408,7 +408,14 @@ export function normalizeConfig(raw) {
   }
 
   const widgets = src.widgets && typeof src.widgets === 'object' ? src.widgets : {}
-  const keys = new Set([...Object.keys(out.widgets), ...Object.keys(widgets)])
+  // Drop prototype-polluting keys: a JSON-parsed profile can carry `__proto__` /
+  // `constructor` as OWN keys, and `normalizedWidgets['__proto__'] = …` would go through
+  // the prototype setter (reassigning the object's prototype) while `constructor` /
+  // `prototype` would leak in as stray widgets. Keep the set to real, safe keys.
+  const UNSAFE_WIDGET_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+  const keys = new Set(
+    [...Object.keys(out.widgets), ...Object.keys(widgets)].filter((k) => !UNSAFE_WIDGET_KEYS.has(k)),
+  )
   const normalizedWidgets = {}
   for (const key of keys) {
     const w = widgets[key] && typeof widgets[key] === 'object' ? widgets[key] : {}
