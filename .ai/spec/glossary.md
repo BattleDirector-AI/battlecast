@@ -25,7 +25,7 @@ Domain terms used across the battlecast specs and code.
 | **fuel** | Per-vehicle normalized `[0,1]` fuel *or* hybrid energy remaining (producer decides which); a neutral tower resource bar. |
 | **towerMetrics** | Per-tower config toggles `{interval,pit,tire,fuel}` (interval on, rest off by default) selecting which richer-tower indicators show. `?metrics=` overrides on the standalone `/tower`. |
 | **Race strategy suppression** | In qualifying/practice the tower suppresses pit, tire-wear, and fuel outright (race features on a lap board); tire compound and the interval column stay. |
-| **Session-progress readout** | The "Session Info" clock / `LAP X OF Y` counter rendered in the **standings-tower header** (`sessionProgress.js`) — distinct from the Race Control flag/FCY/SC widget. |
+| **Session-progress readout** | The "Session Info" clock / `LAP X OF Y` counter rendered in the **standings-tower header** — distinct from the Race Control flag/FCY/SC widget. |
 | **?class= filter** | Cross-route URL knob (`/tower`, `/all`, `/grid`, `/results`) narrowing the rendered field to one `vehicle_class`; class-rank badges stay computed from the full field. |
 | **telemetry** | Optional `subject.telemetry` sub-object of the on-camera driver's live inputs (throttle, brake, speed, gear). High-churn; drives the on-board HUD. |
 | **Canonical km/h** | Speed is always emitted in km/h; the on-board HUD converts to mph in the view (`× 0.621371`) when `speedUnit: mph`. |

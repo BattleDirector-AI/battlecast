@@ -1,8 +1,8 @@
 # Overlay Configuration
 
 The layout/visibility/rotation/motion contract that render pages read and the `/config` UI writes.
-The source of truth in code is `app/src/lib/overlayConfig.js` (`DEFAULT_CONFIG`, `normalizeConfig`,
-`loadConfig`). Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`.
+Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; implementation in
+`how/renderer.md`.
 
 ## Behavioral Rules
 
@@ -18,12 +18,12 @@ The source of truth in code is `app/src/lib/overlayConfig.js` (`DEFAULT_CONFIG`,
 
 ### Loading & precedence
 
-4. `loadConfig(search)` resolves with precedence **explicit URL params → fetched profile JSON →
-   built-in default**. Nothing provided ⇒ default layout, so existing `/all` users are never broken.
+4. Config resolution follows precedence **explicit URL params → fetched profile JSON → built-in
+   default**. Nothing provided ⇒ default layout, so existing `/all` users are never broken.
 5. `?profile=<name>` fetches server mode (`/api/profiles/<name>`) first, then static mode
    (`/config/<name>.json`). A missing/malformed profile **logs a warning and falls back to default**
    — best-effort, never blank, never thrown (mirrors the spec's tolerance ethos).
-6. `normalizeConfig` coerces any partial/malformed config into the full shape: every widget gets a
+6. Normalization coerces any partial/malformed config into the full shape: every widget gets a
    boolean `visible`, finite geometry, and all defaulted knobs. **Unknown widget keys from a newer
    profile are preserved** (forward-compat), defaulting hidden.
 7. `?show=` / `?hide=` comma lists are the **highest-precedence** visibility override, applied after
@@ -69,9 +69,9 @@ The source of truth in code is `app/src/lib/overlayConfig.js` (`DEFAULT_CONFIG`,
 
 ## Configuration Surface
 
-Profile shape (see `DEFAULT_CONFIG`): `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
+Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 `widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{}`, `reducedMotion`.
-Widget keys are derived from `DEFAULT_CONFIG.widgets`: `tower`, `battle`, `logos`, `driver`,
+Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +
 `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
 `classDisplay` + `towerMetrics` + `speedUnit`/`driverInfo`/`waitForLowerThird`), but only the
@@ -87,5 +87,3 @@ URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile
   touch the producer contract or the compliance harness.
 - Additive-only: never make an existing knob required or change its default in a way that alters a
   saved profile's rendered layout without a `configVersion` bump.
-- `DEFAULT_CONFIG` is frozen; callers clone before mutating. `WIDGET_KEYS` is derived from it so the
-  canonical key list cannot drift.

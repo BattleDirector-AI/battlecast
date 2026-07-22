@@ -29,8 +29,7 @@ on a field name/type, `schema.json` wins.
 6. `schemaVersion` bumps **only on breaking changes**. Optional additive fields are a minor revision
    of v1 and keep `schemaVersion` `"1"`, permitted because `additionalProperties: true` holds at
    every level.
-7. On an unrecognized `schemaVersion`, battlecast logs a warning and best-effort renders (see
-   `sseClient.js` `parseState`).
+7. On an unrecognized `schemaVersion`, battlecast logs a warning and best-effort renders.
 
 ### Required payload shape
 
@@ -67,8 +66,8 @@ on a field name/type, `schema.json` wins.
     normalized fuel *or* hybrid energy, 1 full → 0 empty, clamped). Kept **flat on `vehicle`** (the
     deliberate opposite of the `subject.telemetry` grouping). Consumed by the richer standings tower.
 14. **`subject.telemetry`** (open object) — the subject's live inputs: **`throttle`** / **`brake`**
-    (`[0,1]`, clamped defensively), **`speed`** (canonical **km/h** — consumers convert to mph via
-    `× 0.621371`), **`gear`** (integer; `0`=neutral→`N`, `-1`=reverse→`R`, positive verbatim).
+    (`[0,1]`, clamped defensively), **`speed`** (canonical **km/h**; consumers convert to mph
+    deterministically), **`gear`** (integer; `0`=neutral→`N`, `-1`=reverse→`R`, positive verbatim).
     High-churn channel; each field independently optional so a partial feed renders what it has.
 15. **`session`** (open object) — session status: **`flag`** (free-form string;
     `green`/`yellow`/`red`/`checkered`/`white`/`none` common), **`full_course_yellow`** /
@@ -90,8 +89,3 @@ on a field name/type, `schema.json` wins.
   `spec/v1/compliance/` passing (`CONTRIBUTING.md`).
 - Optional fields are additive-only; do not make a previously-optional field required without a
   breaking `schemaVersion` bump.
-
-## Planned Changes
-
-- `[PLANNED]` Live in-progress-lap sector semantics (a "current lap in progress" representation for
-  true hot-lap sector-by-sector timing) — see `docs/decisions/0002-lower-third-widgets.md` §v1.x.

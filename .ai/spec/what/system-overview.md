@@ -83,9 +83,3 @@ Runtime knobs are URL params per Browser Source and saved-profile fields. See
   code path.
 - **Node ≥ 22** across app tooling, server, and mock producer. The server and mock producer are
   **zero-dependency** (Node built-ins only).
-
-## Planned Changes
-
-Tracked as GitHub issues (see `docs/plans/` and `docs/decisions/`); not enumerated here. Known
-`[PLANNED]` protocol hooks referenced in decisions: live in-progress-lap sector semantics, and
-broader use of per-vehicle `notable` flags by the tower/ticker (`docs/decisions/0002-…`).
