@@ -108,6 +108,62 @@ describe('ConfigPage editor wiring', () => {
     expect(towerEl().getAttribute('data-class-display')).toBe('grouped')
   })
 
+  // --- tower overflow cycling controls (ADR 0003 / .ai/spec overlay-config rule 14) ---
+  // SPEC-FIRST: these encode the editor-control contract and are RED until the /config
+  // editor surfaces the maxRows/cycle controls for the tower widget.
+
+  it('exposes the overflow-cycling controls only for the tower widget', async () => {
+    const { getByTestId, queryByTestId } = render(ConfigPage)
+    await tick()
+    for (const id of ['cycle-enabled', 'per-page-seconds', 'pin-top', 'pin-scope', 'pin-subject', 'max-rows']) {
+      expect(getByTestId(`${id}-tower`)).toBeTruthy()
+      expect(queryByTestId(`${id}-battle`)).toBeNull()
+      expect(queryByTestId(`${id}-driver`)).toBeNull()
+    }
+  })
+
+  it('reflects the default cycle config values in the cycling controls', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('cycle-enabled-tower').checked).toBe(true)
+    expect(getByTestId('pin-subject-tower').checked).toBe(true)
+    expect(getByTestId('pin-scope-tower').value).toBe('overall')
+    expect(Number(getByTestId('pin-top-tower').value)).toBe(3)
+    expect(Number(getByTestId('per-page-seconds-tower').value)).toBe(8)
+    expect(getByTestId('max-rows-tower').value).toBe('auto')
+  })
+
+  it('editing the tower pin-scope updates the config (round-trips through the control)', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('pin-scope-tower').value).toBe('overall')
+    await fireEvent.change(getByTestId('pin-scope-tower'), { target: { value: 'class' } })
+    await tick()
+    expect(getByTestId('pin-scope-tower').value).toBe('class')
+  })
+
+  it('toggling cycle-enabled updates the tower config', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('cycle-enabled-tower').checked).toBe(true)
+    await fireEvent.click(getByTestId('cycle-enabled-tower'))
+    await tick()
+    expect(getByTestId('cycle-enabled-tower').checked).toBe(false)
+  })
+
+  it('coerces max-rows: a positive integer is kept, blank/garbage falls back to auto', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('max-rows-tower').value).toBe('auto')
+    await fireEvent.change(getByTestId('max-rows-tower'), { target: { value: '12' } })
+    await tick()
+    expect(getByTestId('max-rows-tower').value).toBe('12')
+    // Garbage (and 0 / negatives / blank) coerce back to 'auto', matching normalizeMaxRows.
+    await fireEvent.change(getByTestId('max-rows-tower'), { target: { value: 'abc' } })
+    await tick()
+    expect(getByTestId('max-rows-tower').value).toBe('auto')
+  })
+
   it('exposes the speed-unit checkbox only for the onboard widget', async () => {
     const { getByTestId, queryByTestId } = render(ConfigPage)
     await tick()

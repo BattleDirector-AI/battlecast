@@ -74,6 +74,12 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     `/tower` route selects which `towerMetrics` are on (comma list; the analogue of `?unit=mph` on
     `/onboard`); `?show=`/`?hide=` (rule 7) and `?motion=` (rule 10) as above.
 
+14. **Editor control surface.** The `/config` editor exposes controls for the per-widget knobs a
+    broadcaster tunes — geometry, visibility, and each widget's own settings (as it already does for
+    the tower's `classDisplay`/`towerMetrics`, the lower-third triggers, and the on-board HUD unit).
+    This **includes the tower's overflow settings** — `maxRows` and the `cycle` pinned-rows/window
+    knobs — so cycling is configured through the UI, not only by hand-editing the profile JSON.
+
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
