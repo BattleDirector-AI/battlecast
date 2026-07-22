@@ -24,6 +24,12 @@ Domain terms used across the battlecast specs and code.
 | **tire_compound / tire_wear** | Per-vehicle current-tire compound label (verbatim) and normalized `[0,1]` wear; drive the tower's tire indicator. |
 | **fuel** | Per-vehicle normalized `[0,1]` fuel *or* hybrid energy remaining (producer decides which); a neutral tower resource bar. |
 | **towerMetrics** | Per-tower config toggles `{interval,pit,tire,fuel}` (interval on, rest off by default) selecting which richer-tower indicators show. `?metrics=` overrides on the standalone `/tower`. |
+| **Tower clamp** | The CSS bound guaranteeing the standings tower never exceeds its configured `h` (shipped in 0.7.0). The permanent safety net beneath overflow selection. See [[tower-overflow]]. |
+| **Row budget** | How many rows the tower slot can show beneath its header; when none fit, only the header shows. |
+| **Pinned rows** | Cars that always keep a tower row when the field overflows: `pinTop` leaders (`pinScope` overall or per-class) plus the subject car when `pinSubject`. De-duplicated by `slot_id`. |
+| **Cycling window** | The rows left after pins, cycling through the non-pinned field in position order, `perPageSeconds` per page. Membership is frozen per page turn for stability; no page indicator. |
+| **maxRows** | Per-tower cap: `"auto"` (derive from `h`) or an integer. |
+| **Autocycle** | LMU's name for the pinned-top-plus-cycling-window tower behavior; battlecast's `perPageSeconds` is its dwell knob. |
 | **Race strategy suppression** | In qualifying/practice the tower suppresses pit, tire-wear, and fuel outright (race features on a lap board); tire compound and the interval column stay. |
 | **Session-progress readout** | The "Session Info" clock / `LAP X OF Y` counter rendered in the **standings-tower header** — distinct from the Race Control flag/FCY/SC widget. |
 | **?class= filter** | Cross-route URL knob (`/tower`, `/all`, `/grid`, `/results`) narrowing the rendered field to one `vehicle_class`; class-rank badges stay computed from the full field. |

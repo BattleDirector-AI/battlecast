@@ -74,6 +74,9 @@
           {classFilter}
           classDisplay={normalized.widgets.tower?.classDisplay}
           metrics={normalized.widgets.tower?.towerMetrics}
+          maxRows={normalized.widgets.tower?.maxRows}
+          cycle={normalized.widgets.tower?.cycle}
+          slotHeight={normalized.widgets.tower?.h}
         />
       {:else if w.key === 'battle'}
         <BattleBox

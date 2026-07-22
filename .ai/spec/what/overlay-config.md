@@ -59,9 +59,16 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
     | `classDisplay` | tower | inline vs grouped multi-class layout |
     | `towerMetrics` | tower | `{interval,pit,tire,fuel}` indicator toggles (interval on, rest off by default) |
+    | `maxRows`, `cycle` | tower | overflow row cap + pinned-rows/cycling-window config (see `tower-overflow.md`) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
 
-12. **URL-only knobs** (not stored in a profile) layer on top of the loaded config per Browser
+12. **Tower overflow config** (`maxRows`, `cycle`; only the tower reads them). `maxRows`: `"auto"`
+    (fit the configured height) or an integer cap. `cycle`: `enabled` (default true), `perPageSeconds`
+    (default 8, floored at 4), `pinTop` (default 3), `pinScope` (`"overall"` default | `"class"`),
+    `pinSubject` (default true). Additive + defaulted, so existing profiles render identically until a
+    field exceeds what the tower can show. Behavior is specified in `what/tower-overflow.md`.
+
+13. **URL-only knobs** (not stored in a profile) layer on top of the loaded config per Browser
     Source: `?class=<vehicle_class>` is a **cross-route field filter** read by `/tower`, `/all`,
     `/grid`, and `/results` (narrows the rendered field to one class); `?metrics=` on the standalone
     `/tower` route selects which `towerMetrics` are on (comma list; the analogue of `?unit=mph` on
@@ -74,8 +81,8 @@ Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +
 `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
-`classDisplay` + `towerMetrics` + `speedUnit`/`driverInfo`/`waitForLowerThird`), but only the
-widget noted in the rule-11 table actually reads each.
+`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
+but only the widget noted in the rule-11 table actually reads each.
 
 URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,
 `?hide=`, `?motion=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),

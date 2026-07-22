@@ -314,3 +314,88 @@ describe('pickProducerSrc — producer feed resolution', () => {
     expect(pickProducerSrc('', config)).toBe(DEFAULT_SRC)
   })
 })
+
+describe('normalizeConfig — tower overflow maxRows + cycle (ADR 0003)', () => {
+  it('DEFAULT_CONFIG ships the spec defaults on the tower', () => {
+    const t = DEFAULT_CONFIG.widgets.tower
+    expect(t.maxRows).toBe('auto')
+    expect(t.cycle).toEqual({
+      enabled: true,
+      perPageSeconds: 8,
+      pinTop: 3,
+      pinScope: 'overall',
+      pinSubject: true,
+    })
+  })
+
+  it('fills maxRows + cycle from the default when a profile omits them', () => {
+    const c = normalizeConfig({ widgets: { tower: { visible: true } } })
+    expect(c.widgets.tower.maxRows).toBe('auto')
+    expect(c.widgets.tower.cycle).toEqual({
+      enabled: true,
+      perPageSeconds: 8,
+      pinTop: 3,
+      pinScope: 'overall',
+      pinSubject: true,
+    })
+  })
+
+  it('normalizes maxRows: keeps "auto" and positive integers, floors floats, rejects garbage', () => {
+    const scope = (v) => normalizeConfig({ widgets: { tower: { maxRows: v } } }).widgets.tower.maxRows
+    expect(scope('auto')).toBe('auto')
+    expect(scope(12)).toBe(12)
+    expect(scope(12.9)).toBe(12) // floored
+    expect(scope(0)).toBe('auto') // < 1 -> default
+    expect(scope(-4)).toBe('auto')
+    expect(scope('nope')).toBe('auto')
+    expect(scope(null)).toBe('auto')
+  })
+
+  it('coerces a partial cycle object, keeping valid fields and defaulting the rest', () => {
+    const c = normalizeConfig({
+      widgets: { tower: { cycle: { enabled: false, pinScope: 'class' } } },
+    })
+    expect(c.widgets.tower.cycle).toEqual({
+      enabled: false, // kept
+      perPageSeconds: 8, // default
+      pinTop: 3, // default
+      pinScope: 'class', // kept
+      pinSubject: true, // default
+    })
+  })
+
+  it('rejects garbage cycle fields and a non-object cycle, falling back to defaults', () => {
+    const c = normalizeConfig({
+      widgets: {
+        tower: { cycle: { enabled: 'yes', perPageSeconds: -3, pinTop: 'x', pinScope: 'bogus', pinSubject: 1 } },
+      },
+    })
+    expect(c.widgets.tower.cycle).toEqual(CYCLE_DEFAULTS_SHAPE)
+    // a non-object cycle is replaced wholesale by the defaults
+    const c2 = normalizeConfig({ widgets: { tower: { cycle: 'nope' } } })
+    expect(c2.widgets.tower.cycle).toEqual(CYCLE_DEFAULTS_SHAPE)
+  })
+
+  it('keeps a configured perPageSeconds as-is (the tower floors it at render time)', () => {
+    const c = normalizeConfig({ widgets: { tower: { cycle: { perPageSeconds: 2 } } } })
+    // config preserves the operator's value; the 4s readability floor is applied in
+    // the widget via towerCycle.clampPerPageSeconds, not here.
+    expect(c.widgets.tower.cycle.perPageSeconds).toBe(2)
+  })
+
+  it('normalizes maxRows + cycle onto every widget (uniform shape)', () => {
+    const c = normalizeConfig({})
+    for (const key of Object.keys(c.widgets)) {
+      expect(c.widgets[key].maxRows).toBe('auto')
+      expect(c.widgets[key].cycle).toEqual(CYCLE_DEFAULTS_SHAPE)
+    }
+  })
+})
+
+const CYCLE_DEFAULTS_SHAPE = {
+  enabled: true,
+  perPageSeconds: 8,
+  pinTop: 3,
+  pinScope: 'overall',
+  pinSubject: true,
+}

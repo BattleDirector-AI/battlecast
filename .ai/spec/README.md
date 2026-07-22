@@ -41,6 +41,7 @@ lives in the repo-root `ARCHITECTURE.md`, `README.md`, and `docs/`.
 | Understand the system | `what/system-overview.md` |
 | Change the producer↔battlecast data contract | `what/protocol-contract.md` + root `spec/v1/` |
 | Change what a widget renders or when it shows | `what/widgets.md` |
+| Change tower overflow (clamp, row budget, pinned rows, cycling) | `what/tower-overflow.md` |
 | Change layout/profiles/motion behavior | `what/overlay-config.md` |
 | Change config/logo persistence or serving | `what/companion-server.md` |
 | Navigate the Svelte renderer | `how/renderer.md` |
@@ -55,6 +56,7 @@ lives in the repo-root `ARCHITECTURE.md`, `README.md`, and `docs/`.
 | `what/system-overview.md` | `how/project-structure.md` |
 | `what/protocol-contract.md` | `how/protocol-and-testing.md` |
 | `what/widgets.md` | `how/renderer.md` |
+| `what/tower-overflow.md` | `how/renderer.md` |
 | `what/overlay-config.md` | `how/renderer.md`, `how/server.md` |
 | `what/companion-server.md` | `how/server.md` |
 
