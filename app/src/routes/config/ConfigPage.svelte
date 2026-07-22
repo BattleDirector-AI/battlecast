@@ -164,6 +164,19 @@
     const current = { ...(config.widgets[key]?.towerMetrics || {}), [field]: !!checked }
     config = editor.setWidgetField(config, key, 'towerMetrics', current)
   }
+  // ADR 0003 tower-only: overflow row cap + pinned-rows/cycling window. `maxRows` is
+  // 'auto' (fit the slot height) or an integer cap; blank/garbage/<1 falls back to 'auto'.
+  const setMaxRows = (key, raw) => {
+    const t = String(raw ?? '').trim().toLowerCase()
+    const n = Number(t)
+    const value = t === 'auto' || t === '' || !(Number.isFinite(n) && n >= 1) ? 'auto' : Math.floor(n)
+    config = editor.setWidgetField(config, key, 'maxRows', value)
+  }
+  // `cycle` is a nested object; spread the current shape and set one field (like towerMetrics).
+  const setCycleField = (key, field, value) => {
+    const current = { ...(config.widgets[key]?.cycle || {}), [field]: value }
+    config = editor.setWidgetField(config, key, 'cycle', current)
+  }
   // #26 on-board HUD-only: the display unit for the speed readout. The producer emits
   // canonical km/h; checking the box displays mph (the widget converts). Unchecked = km/h.
   const setSpeedUnit = (key, useMph) =>
@@ -582,6 +595,67 @@
                   </label>
                 {/each}
               </fieldset>
+              <!-- ADR 0003 tower-only: overflow — pinned rows + cycling window. When the
+                   field exceeds the tower's height, pin the top N (+ the on-camera car) and
+                   cycle the rest a page at a time. See .ai/spec/what/tower-overflow.md. -->
+              <label class="checkline">
+                <input
+                  type="checkbox"
+                  data-testid="cycle-enabled-{key}"
+                  checked={w.cycle?.enabled === true}
+                  onchange={(e) => setCycleField(key, 'enabled', e.currentTarget.checked)}
+                />
+                Cycle overflow rows
+              </label>
+              <label class="num">
+                max rows
+                <input
+                  type="text"
+                  data-testid="max-rows-{key}"
+                  value={w.maxRows}
+                  onchange={(e) => setMaxRows(key, e.currentTarget.value)}
+                />
+              </label>
+              <label class="num">
+                seconds per page
+                <input
+                  type="number"
+                  min="1"
+                  data-testid="per-page-seconds-{key}"
+                  value={w.cycle?.perPageSeconds}
+                  onchange={(e) => setCycleField(key, 'perPageSeconds', Number(e.currentTarget.value))}
+                />
+              </label>
+              <label class="num">
+                pin top N
+                <input
+                  type="number"
+                  min="0"
+                  data-testid="pin-top-{key}"
+                  value={w.cycle?.pinTop}
+                  onchange={(e) => setCycleField(key, 'pinTop', Number(e.currentTarget.value))}
+                />
+              </label>
+              <label class="num class-display-row">
+                pin scope
+                <select
+                  data-testid="pin-scope-{key}"
+                  value={w.cycle?.pinScope}
+                  onchange={(e) => setCycleField(key, 'pinScope', e.currentTarget.value)}
+                >
+                  <option value="overall">overall</option>
+                  <option value="class">class</option>
+                </select>
+              </label>
+              <label class="checkline">
+                <input
+                  type="checkbox"
+                  data-testid="pin-subject-{key}"
+                  checked={w.cycle?.pinSubject === true}
+                  onchange={(e) => setCycleField(key, 'pinSubject', e.currentTarget.checked)}
+                />
+                Keep the on-camera car pinned
+              </label>
             {/if}
             {#if key === 'onboard'}
               <!-- #26-only: the display unit for the HUD's speed readout. The producer
