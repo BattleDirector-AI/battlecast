@@ -39,10 +39,12 @@ on a field name/type, `schema.json` wins.
    `subject.telemetry`.
 9. **`mode`** (string) — broadcast intent (`race`, `qualifying`, `practice`, `replay`, …). Consumers
    MUST tolerate unknown values.
-10. **`vehicles`** (array, no guaranteed order) — each entry has stable `slot_id`, `driver_name`,
-    `vehicle_class`, integer `position` (1 = leader), and lap/sector timing (`last_lap`, `best_lap`,
-    `sector_times`, seconds). Consumers **sort by `position`** for running order. `sector_times` is
-    the most recent **completed** lap, not one in progress.
+10. **`vehicles`** (array, no guaranteed order) — each entry has the **required** identity fields
+    `slot_id`, `driver_name`, `vehicle_class`, and integer `position` (1 = leader). Lap/sector
+    timing (`last_lap`, `best_lap`, `sector_times`, seconds) is **optional and nullable** —
+    consumers treat its absence as a first-class case (e.g. render an em-dash), not an error.
+    Consumers **sort by `position`** for running order. `sector_times`, when present, is the most
+    recent **completed** lap, not one in progress.
 11. **`subject`** (object) — the on-camera driver: `slot_id` (should reference a `vehicles` entry)
     and `driver_name`. Widgets highlight this driver and center the battle box on them. Identity is
     keyed off **`slot_id`, never `driver_name`** (two drivers can share a name).
@@ -57,6 +59,13 @@ on a field name/type, `schema.json` wins.
     **`gap_to_leader`** (seconds; `0` for the leader; null/absent until determinable),
     **`car_number`** (string, rendered verbatim to preserve leading zeros), **`make`** / **`model`**
     (strings, verbatim). Consumers read the flags/values the producer set; they never derive them.
+    **Richer-tower per-vehicle metrics (0.7.0, same additive category):** **`interval_ahead`**
+    (seconds to the car immediately ahead, `position−1`; null/absent for the leader; rendered
+    verbatim and NOT re-derivable class-relatively), **`pit_stops`** (integer ≥ 0 completed stops),
+    **`in_pit`** (boolean; indicator shown only when true), **`tire_compound`** (verbatim label),
+    **`tire_wear`** (`[0,1]` normalized, 0 fresh → 1 worn, clamped defensively), **`fuel`** (`[0,1]`
+    normalized fuel *or* hybrid energy, 1 full → 0 empty, clamped). Kept **flat on `vehicle`** (the
+    deliberate opposite of the `subject.telemetry` grouping). Consumed by the richer standings tower.
 14. **`subject.telemetry`** (open object) — the subject's live inputs: **`throttle`** / **`brake`**
     (`[0,1]`, clamped defensively), **`speed`** (canonical **km/h** — consumers convert to mph via
     `× 0.621371`), **`gear`** (integer; `0`=neutral→`N`, `-1`=reverse→`R`, positive verbatim).

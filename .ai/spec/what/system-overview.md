@@ -65,7 +65,9 @@ Runtime knobs are URL params per Browser Source and saved-profile fields. See
 | `?profile=<name>` | URL | Select a saved layout profile (`/all`). |
 | `?show=` / `?hide=` | URL | Comma list toggling per-widget visibility (highest precedence). |
 | `?motion=reduced\|full` | URL | Per-source motion override. |
+| `?class=<class>` | URL | Cross-route field filter (`/tower`, `/all`, `/grid`, `/results`) — show one vehicle class. |
 | `?unit=mph` | URL (`/onboard`) | Speed-unit override for the standalone on-board HUD. |
+| `?metrics=<list>` | URL (`/tower`) | Select which tower metrics (`interval,pit,tire,fuel`) show on the standalone tower. |
 
 ## Constraints
 

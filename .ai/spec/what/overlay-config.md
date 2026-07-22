@@ -58,14 +58,28 @@ The source of truth in code is `app/src/lib/overlayConfig.js` (`DEFAULT_CONFIG`,
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
     | `classDisplay` | tower | inline vs grouped multi-class layout |
+    | `towerMetrics` | tower | `{interval,pit,tire,fuel}` indicator toggles (interval on, rest off by default) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
+
+12. **URL-only knobs** (not stored in a profile) layer on top of the loaded config per Browser
+    Source: `?class=<vehicle_class>` is a **cross-route field filter** read by `/tower`, `/all`,
+    `/grid`, and `/results` (narrows the rendered field to one class); `?metrics=` on the standalone
+    `/tower` route selects which `towerMetrics` are on (comma list; the analogue of `?unit=mph` on
+    `/onboard`); `?show=`/`?hide=` (rule 7) and `?motion=` (rule 10) as above.
 
 ## Configuration Surface
 
 Profile shape (see `DEFAULT_CONFIG`): `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 `widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{}`, `reducedMotion`.
 Widget keys are derived from `DEFAULT_CONFIG.widgets`: `tower`, `battle`, `logos`, `driver`,
-`qualifying`, `racecontrol`, `onboard`.
+`qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +
+`hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
+`classDisplay` + `towerMetrics` + `speedUnit`/`driverInfo`/`waitForLowerThird`), but only the
+widget noted in the rule-11 table actually reads each.
+
+URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,
+`?hide=`, `?motion=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),
+`?metrics=` (standalone `/tower`).
 
 ## Constraints
 

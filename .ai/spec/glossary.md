@@ -19,6 +19,14 @@ Domain terms used across the battlecast specs and code.
 | **notable** | Per-vehicle open object of producer-set booleans (`class_best_lap`, `session_best_lap`, `personal_best_lap`) flagging lap notability. The overlay fires on the flag, never derives it. |
 | **target_lap / delta_to_target** | Producer-provided "time to beat" (seconds) and the vehicle's delta to it. The producer decides what "target" means; the overlay just displays it. |
 | **gap_to_leader** | Producer-provided time gap from a vehicle to the overall classification leader; `0` for the leader. |
+| **interval_ahead** | Producer-provided time gap (seconds) to the car immediately *ahead* (`position − 1`); the tower's "interval" column. Distinct from `gap_to_leader`; not re-derivable class-relatively, so rendered verbatim. |
+| **pit_stops / in_pit** | Per-vehicle completed pit-stop count and an in-pit boolean flag; drive the tower's pit indicator (race-only). |
+| **tire_compound / tire_wear** | Per-vehicle current-tire compound label (verbatim) and normalized `[0,1]` wear; drive the tower's tire indicator. |
+| **fuel** | Per-vehicle normalized `[0,1]` fuel *or* hybrid energy remaining (producer decides which); a neutral tower resource bar. |
+| **towerMetrics** | Per-tower config toggles `{interval,pit,tire,fuel}` (interval on, rest off by default) selecting which richer-tower indicators show. `?metrics=` overrides on the standalone `/tower`. |
+| **Race strategy suppression** | In qualifying/practice the tower suppresses pit, tire-wear, and fuel outright (race features on a lap board); tire compound and the interval column stay. |
+| **Session-progress readout** | The "Session Info" clock / `LAP X OF Y` counter rendered in the **standings-tower header** (`sessionProgress.js`) — distinct from the Race Control flag/FCY/SC widget. |
+| **?class= filter** | Cross-route URL knob (`/tower`, `/all`, `/grid`, `/results`) narrowing the rendered field to one `vehicle_class`; class-rank badges stay computed from the full field. |
 | **telemetry** | Optional `subject.telemetry` sub-object of the on-camera driver's live inputs (throttle, brake, speed, gear). High-churn; drives the on-board HUD. |
 | **Canonical km/h** | Speed is always emitted in km/h; the on-board HUD converts to mph in the view (`× 0.621371`) when `speedUnit: mph`. |
 | **FCY (Full Course Yellow)** | Whole-course caution (`session.full_course_yellow`), distinct from a local `yellow` `flag`. |

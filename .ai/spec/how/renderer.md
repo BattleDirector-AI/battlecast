@@ -10,7 +10,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/App.svelte` | route dispatch, `OVERLAY_ROUTES`, `FULL_BLEED_ROUTES` | Pathname → page component; full-bleed/transparent/motion boot setup. |
 | `src/main.js` | — | Mounts the app. |
 | `src/routes/<w>/sseClient.js` | `connect`, `parseState`, `resolveSrc`, `DEFAULT_SRC`, `SUPPORTED_SCHEMA_VERSION` | Open EventSource, parse `state` events, warn on version mismatch. |
-| `src/lib/overlayConfig.js` | `loadConfig`, `normalizeConfig`, `resolveWidgets`, `pickProducerSrc`, `DEFAULT_CONFIG`, `WIDGET_KEYS` | Config contract: load, normalize, order widgets, pick producer URL. |
+| `src/lib/overlayConfig.js` | `loadConfig`, `normalizeConfig`, `resolveWidgets`, `pickProducerSrc`, `parseTowerMetricsParam`, `DEFAULT_CONFIG`, `WIDGET_KEYS` | Config contract: load, normalize, order widgets, pick producer URL, parse `?metrics=`. |
 | `src/lib/motion.js` | `resolveMotion`, `applyMotion`, `prefersReducedMotion` | Motion policy → `<html data-motion>`. |
 | `src/lib/widgetIdle.js` | `IDLE_PREDICATES`, `isWidgetIdle`, `widgetSupportsAutoHide` | Per-widget idle predicates for `hideWhenIdle`. |
 | `src/lib/lowerThirdTrigger.js` | — | Edge-triggered camera-cut / dwell state machine for lower-thirds. |
@@ -70,3 +70,14 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `App.svelte` for real routes; the scaffold landing (`{:else}`) is leftover template and not a
   product route.
 - Deep clone uses `structuredClone` with a JSON fallback (`DEFAULT_CONFIG` is frozen).
+- **The `?class=` field filter is read per-route**, not via config: `TowerPage`, `AllView`,
+  `GridPage`, and `ResultsPage` each read `?class=` from `location.search`. Class-rank badges are
+  computed from the *full* field (in `StandingsTower.svelte`) so a filtered view keeps correct
+  `n/total` ranks.
+- **The tower header renders the session-progress readout** (clock / `LAP X OF Y`) via
+  `design/sessionProgress.js` (`sessionProgressText`) — NOT the Race Control widget, which draws
+  only flag/FCY/SC. Two separate widgets read the same `session` object for different parts.
+- **Richer-tower metrics** (`interval_ahead`, `pit_stops`/`in_pit`, `tire_compound`/`tire_wear`,
+  `fuel`) are gated by the per-tower `towerMetrics` toggle (`?metrics=` on the standalone route),
+  and `StandingsTower.svelte` suppresses pit/tire-wear/fuel outright in lap-timed modes
+  (`hideRaceStrategy`) regardless of the toggles or producer data.
