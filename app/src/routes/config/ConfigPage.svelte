@@ -621,6 +621,7 @@
                 <input
                   type="number"
                   min="1"
+                  step="1"
                   data-testid="per-page-seconds-{key}"
                   value={w.cycle?.perPageSeconds}
                   onchange={(e) => setCycleField(key, 'perPageSeconds', Number(e.currentTarget.value))}
@@ -631,6 +632,7 @@
                 <input
                   type="number"
                   min="0"
+                  step="1"
                   data-testid="pin-top-{key}"
                   value={w.cycle?.pinTop}
                   onchange={(e) => setCycleField(key, 'pinTop', Number(e.currentTarget.value))}

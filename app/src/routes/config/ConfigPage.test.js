@@ -151,6 +151,19 @@ describe('ConfigPage editor wiring', () => {
     expect(getByTestId('cycle-enabled-tower').checked).toBe(false)
   })
 
+  it('coerces max-rows: a positive integer is kept, blank/garbage falls back to auto', async () => {
+    const { getByTestId } = render(ConfigPage)
+    await tick()
+    expect(getByTestId('max-rows-tower').value).toBe('auto')
+    await fireEvent.change(getByTestId('max-rows-tower'), { target: { value: '12' } })
+    await tick()
+    expect(getByTestId('max-rows-tower').value).toBe('12')
+    // Garbage (and 0 / negatives / blank) coerce back to 'auto', matching normalizeMaxRows.
+    await fireEvent.change(getByTestId('max-rows-tower'), { target: { value: 'abc' } })
+    await tick()
+    expect(getByTestId('max-rows-tower').value).toBe('auto')
+  })
+
   it('exposes the speed-unit checkbox only for the onboard widget', async () => {
     const { getByTestId, queryByTestId } = render(ConfigPage)
     await tick()
