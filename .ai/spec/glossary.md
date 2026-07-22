@@ -25,7 +25,7 @@ Domain terms used across the battlecast specs and code.
 | **fuel** | Per-vehicle normalized `[0,1]` fuel *or* hybrid energy remaining (producer decides which); a neutral tower resource bar. |
 | **towerMetrics** | Per-tower config toggles `{interval,pit,tire,fuel}` (interval on, rest off by default) selecting which richer-tower indicators show. `?metrics=` overrides on the standalone `/tower`. |
 | **Tower clamp** | The CSS bound guaranteeing the standings tower never exceeds its configured `h` (shipped in 0.7.0). The permanent safety net beneath overflow selection. See [[tower-overflow]]. |
-| **Row budget** | How many rows fit the tower slot: `floor((slotHeight − headerHeight) / rowHeight)`, measured from design tokens. `< 1` → header only. |
+| **Row budget** | How many rows the tower slot can show beneath its header; when none fit, only the header shows. |
 | **Pinned rows** | Cars that always keep a tower row when the field overflows: `pinTop` leaders (`pinScope` overall or per-class) plus the subject car when `pinSubject`. De-duplicated by `slot_id`. |
 | **Cycling window** | The rows left after pins, cycling through the non-pinned field in position order, `perPageSeconds` per page. Membership is frozen per page turn for stability; no page indicator. |
 | **maxRows** | Per-tower cap: `"auto"` (derive from `h`) or an integer. |

@@ -62,7 +62,13 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `maxRows`, `cycle` | tower | overflow row cap + pinned-rows/cycling-window config (see `tower-overflow.md`) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
 
-12. **URL-only knobs** (not stored in a profile) layer on top of the loaded config per Browser
+12. **Tower overflow config** (`maxRows`, `cycle`; only the tower reads them). `maxRows`: `"auto"`
+    (fit the configured height) or an integer cap. `cycle`: `enabled` (default true), `perPageSeconds`
+    (default 8, floored at 4), `pinTop` (default 3), `pinScope` (`"overall"` default | `"class"`),
+    `pinSubject` (default true). Additive + defaulted, so existing profiles render identically until a
+    field exceeds what the tower can show. Behavior is specified in `what/tower-overflow.md`.
+
+13. **URL-only knobs** (not stored in a profile) layer on top of the loaded config per Browser
     Source: `?class=<vehicle_class>` is a **cross-route field filter** read by `/tower`, `/all`,
     `/grid`, and `/results` (narrows the rendered field to one class); `?metrics=` on the standalone
     `/tower` route selects which `towerMetrics` are on (comma list; the analogue of `?unit=mph` on

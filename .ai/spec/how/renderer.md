@@ -14,7 +14,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/motion.js` | `resolveMotion`, `applyMotion`, `prefersReducedMotion` | Motion policy → `<html data-motion>`. |
 | `src/lib/widgetIdle.js` | `IDLE_PREDICATES`, `isWidgetIdle`, `widgetSupportsAutoHide` | Per-widget idle predicates for `hideWhenIdle`. |
 | `src/lib/lowerThirdTrigger.js` | — | Edge-triggered camera-cut / dwell state machine for lower-thirds. |
-| `src/routes/tower/towerCycle.js` | `computeRowBudget`, `clampPerPageSeconds`, `selectPins`, `selectRows`, `createTowerCycle` | Tower overflow selection + cycling-window stability (see `what/tower-overflow.md`). **[PLANNED — spec-first: failing tests exist, implementation pending spec approval]** |
+| `src/routes/tower/towerCycle.js` | `computeRowBudget`, `clampPerPageSeconds`, `selectPins`, `selectRows`, `createTowerCycle` | Tower overflow selection + cycling-window stability (see `what/tower-overflow.md`). *Spec-first: failing tests exist; implementation pending spec approval.* |
 | `src/lib/LowerThirdShell.svelte` | — | Shared reveal/dwell/wipe shell for lower-third widgets. |
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
@@ -67,6 +67,14 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   motion tests still stamp `data-motion` explicitly (`*.motion.test.js`).
 - **Speed is canonical km/h in the payload;** the on-board HUD converts to mph in the view layer
   (`× 0.621371`), it is never stored/emitted in mph.
+- **Tower overflow selection** (`towerCycle.js`, behavior in `what/tower-overflow.md`): the row
+  budget is `floor((slotHeight − headerHeight) / rowHeight)`, **measured** from the
+  `--bc-widget-header` (38px) and `--bc-row-standard` (44px) design tokens rather than hardcoded, so
+  a theme override cannot desync it. `StandingsTower.svelte` measures its slot, feeds the budget to
+  the pure selection functions (`selectPins`/`selectRows`), and drives `createTowerCycle` for the
+  page cursor + frozen window membership. `happy-dom` does no layout, so the measured budget and the
+  CSS clamp are verified in a real browser (as the #118 clamp was); the selection/stability logic is
+  unit-tested in `towerCycle.test.js`.
 - The Vite/Svelte scaffold's `#app` centering and themed background are neutralized at runtime in
   `App.svelte` for real routes; the scaffold landing (`{:else}`) is leftover template and not a
   product route.

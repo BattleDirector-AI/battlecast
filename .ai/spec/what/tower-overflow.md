@@ -1,129 +1,73 @@
-# Tower Overflow — Clamp, Row Budget, Pinned Rows & Cycling
+# Tower Overflow — Pinned Rows & Cycling
 
-What the standings tower does when the field is larger than the configured slot can display: how
-many rows fit, which cars keep a row, and how the rest of the field is shown. **Renderable from
-`spec/v1` today — no schema change, no new producer field.** Decision record:
-`docs/decisions/0003-tower-overflow-pinning-and-cycling.md` (Accepted). Milestone 0.8.0 (#116).
-
-Implementation target: `app/src/routes/tower/towerCycle.js` (selection/stability logic) consumed by
-`StandingsTower.svelte`; see `how/renderer.md`.
+When the field is larger than the standings tower's configured height can display, the tower shows a
+selection of the field rather than overflowing its box. These rules define that selection and how it
+cycles. Renderable from `spec/v1` today — no new producer field.
 
 ## Behavioral Rules
 
-### Two layers
+### Bounds & capacity
 
-1. Overflow is handled in **two deliberately separate layers**: the **clamp** (a pure CSS bound — the
-   tower can never exceed its configured `h`; already shipped, PR #118) and **selection** (of the
-   rows that fit, which cars get them: pinned rows plus a cycling window). The clamp stays underneath
-   selection permanently — it guarantees the widget cannot escape its box no matter what selection
-   does or how the row budget is miscounted.
-2. This is **presentation, not analysis** (per `docs/decisions/0002-lower-third-widgets.md`). Every
-   input is already producer-provided (position ordering, `subject.slot_id`, class). The overlay
-   derives no race fact; it decides only *which already-provided rows to draw, and when*.
-   Consequently: no spec change, no `schemaVersion` bump, no new field.
+1. The tower never renders beyond its configured height. A field too large for the slot is shown as a
+   selection of rows, never by growing the widget past its box.
+2. The tower fills its slot with as many whole rows as fit beneath the header. If not even one row
+   fits, it renders the header alone — never a partial or overflowing row.
 
-### Row budget
+### What gets a row
 
-3. The row budget is `floor((slotHeight − headerHeight) / rowHeight)`, **measured** from the live
-   `--bc-widget-header` (38px default) and `--bc-row-standard` (44px default) design tokens — read
-   back by measurement, never hardcoded, so a theme override cannot silently desync it.
-4. If the row budget is `< 1`, render the **header only** — never a negative or partial selection.
-5. The clamp bounds the result: an off-by-one in the budget is a clipped row, not an off-canvas
-   tower.
+3. The visible rows are **pinned rows** plus a **cycling window** over everyone else.
+4. **Pinned rows** always keep a row while the rest of the field cycles. The broadcaster chooses the
+   pins: the top N of the field, or the top N of each class, and — independently — the on-camera
+   (`subject`) car. Pins are identified by stable car identity (`slot_id`), never by driver name, and
+   a car that qualifies two ways (e.g. a class leader who is also on camera) takes a single row.
+5. The **cycling window** is the remaining capacity, cycling through the cars that are not pinned, in
+   running order, dwelling a configured time on each page before advancing.
+6. Rows render pins first in running order, then the current window page in running order. Pins keep
+   their true positions; the window is a moving slice of the field, not a re-ranking.
 
-### Selection
+### When selection is unnecessary or over-subscribed
 
-6. **Pins** — take `pinTop` leaders (of the whole field when `pinScope: 'overall'`, of each class
-   when `'class'`), plus the subject car when `pinSubject` and it is not already pinned. **De-duplicate
-   by `slot_id`**, never by driver name (two drivers can share a name, per ADR 0002).
-7. **Window** — the remaining budget (`budget − pins`) cycles through the cars **not** pinned, in
-   position order, `perPageSeconds` per page.
-8. **Render order** — pins first in position order, then the current window page in position order.
-   Pins keep their true positions; the window is a moving slice, not a re-rank.
+7. When the whole field fits, there is no cycling — every car shows and the window never turns.
+8. When the pins alone do not fit, the pins win: they fill the tower from the top and the window shows
+   nothing.
+9. When the field shrinks mid-cycle (retirements, pit exits), the tower never shows an empty page; the
+   current page stays within the smaller field.
+10. When the camera cuts to a different car, its pin updates immediately — following the cut is the
+    point. Only the cycling window is held steady (rule 11).
 
-### Degenerate cases
+### Stability under a live feed
 
-9. **Field fits the budget** → cycling is **inert**: render everyone, no page turns. Cycling must
-   *disappear*, not "cycle" a single page.
-10. **Pins alone exceed the budget** → pins win, truncated at the budget from the top; the window
-    gets nothing.
-11. **Field shrinks mid-cycle** (retirements, pit exits) → clamp the page index into range rather
-    than rendering an empty page.
-12. **Subject changes mid-page** → the subject pin updates immediately (it is a camera cut; following
-    it is the point). Only the *window* is stability-locked (rule 13).
-
-### Page stability
-
-13. **Window membership is snapshotted when a page turns and held for the dwell.** The per-row *data*
-    (gap, tire, position) keeps updating live within the page; only the *set of cars* in the window is
-    frozen. A car that changes position mid-page stays in the window and shows its new position — it
-    does not jump pages until the next turn. Accepted consequence: a car may appear in two consecutive
-    pages, or be skipped once, when the order shifts across a turn — strictly preferable to a tower
-    that reshuffles every tick. (Same shape as the lower-third dwell: a changing producer value does
-    not itself retrigger the display.)
+11. The set of cars in the window is fixed when a page appears and held until the page turns; only a
+    turn changes which cars are in the window. Each row's live data (position, gap, tire, fuel) keeps
+    updating within the page, and a car that changes position mid-page keeps its place in the page and
+    shows its new position rather than jumping pages. A car may therefore appear on two consecutive
+    pages, or be skipped once, when the order shifts across a turn — accepted in exchange for a tower
+    that does not reshuffle on every update.
 
 ### Cadence & motion
 
-14. **No page indicator** — no dots, no "2 of 3". It is absent from every reference implementation
-    (LMU Autocycle, rF2), costs budget in a widget defined by not having enough of it, and answers a
-    question viewers are not asking; orientation comes from the class label in the header.
-15. **Cycling does not pause under caution/FCY.** A stopped tower is indistinguishable from a frozen
-    overlay; the flag state is already carried by the Race Control widget. Cadence stays constant;
-    only the data changes.
-16. **`perPageSeconds` is floored at 4s** — clamped rather than trusted, since a misconfigured 1s
-    renders the tower unreadable.
-17. **Page turns gate on the root `data-motion` attribute, not `prefers-reduced-motion`** — OBS/CEF
-    reports reduced-motion, so a media-query implementation would hard-cut in OBS (the 0.6.0 bug). A
-    page turn is a reveal like any other and follows the established transition idiom.
+12. The tower shows no page indicator — no dots, no "page 2 of 3".
+13. Cycling keeps a constant cadence and does not pause under caution or a full-course yellow; a
+    stopped tower is indistinguishable from a frozen overlay, and the flag state is shown elsewhere.
+14. The per-page dwell has a minimum below which the tower would be unreadable; a shorter configured
+    value is raised to that minimum.
+15. A page turn is a motion reveal and obeys the overlay's motion policy (`what/overlay-config.md`),
+    not the render host's reduced-motion setting.
 
-### Scope
+### Idle & session changes
 
-18. **In scope: flat (`classDisplay: 'inline'`) towers.** Grouped (`classDisplay: 'grouped'`) towers
-    stay **clamp-only** — class headers consume row budget dynamically and cycling within class
-    sections is a materially harder problem, deferred. `pinScope: 'class'` is independent of
-    `classDisplay`, so per-class pinning does not drag grouped mode back into scope.
+16. Cycling never makes the tower "idle": the standings tower is always meaningful, so `hideWhenIdle`
+    does not apply to it and a populated window page is not an idle state.
+17. On a change of session phase (`mode` — e.g. qualifying → race) the window returns to its first
+    page; the cycling position does not carry across the transition.
 
-### Open items resolved here [PROPOSED — confirm on spec approval]
+## Scope
 
-19. **`hideWhenIdle` × cycling:** the tower has no idle predicate and is always meaningful, so
-    `hideWhenIdle` does not apply to it; a window page carrying cars is never "idle". Cycling
-    introduces no idle behavior. *(Resolves ADR 0003 "Still open" #1.)*
-20. **Window cursor on session-phase change:** reset the window to page 1 when `mode` changes (e.g.
-    qualifying → race) — a fresh session context; the cursor does not carry across the transition.
-    *(Resolves ADR 0003 "Still open" #2.)*
-
-## Configuration Surface
-
-Additive and defaulted — no `configVersion` bump (same pattern as `hideWhenIdle`). Existing profiles
-render identically until a field exceeds the row budget, at which point the prior behavior (overflow
-off-canvas) was already broken. Only the standings tower reads these.
-
-```jsonc
-"tower": {
-  "maxRows": "auto",         // "auto" = derive from h (row budget); or an explicit integer cap
-  "cycle": {
-    "enabled": true,
-    "perPageSeconds": 8,     // seconds per window page; floored at 4 (clamp, don't trust)
-    "pinTop": 3,             // 0 none | 1 leader | 3 podium | N top-N
-    "pinScope": "overall",   // "overall" = top N of the field | "class" = top N of EACH class
-    "pinSubject": true       // keep the on-camera car on screen
-  }
-}
-```
+These rules apply to the **flat** standings tower (a single running-order list). A class-grouped
+tower is outside their scope and is bounded only by rule 1.
 
 ## Constraints
 
-- Presentation only: never derive a race fact; the only inputs are producer-provided position,
-  `subject.slot_id`, and class. De-duplicate pins by `slot_id`.
-- The clamp stays under selection permanently; selection must never be trusted to bound geometry.
-- Flat towers only. Grouped towers remain clamp-only until grouped-mode cycling is designed.
-- `happy-dom` does no layout, so the *measured* row budget and clamp interaction are verified in a
-  real browser (as the #118 clamp was); the pure selection/stability logic is unit-tested in
-  `towerCycle.test.js`.
-
-## Planned Changes
-
-- `[PLANNED]` Grouped-mode (`classDisplay: 'grouped'`) cycling — per-class pages / shared cursor.
-- `[PLANNED]` Auto-shrink as a floored adjunct to buy a row or two before cycling engages.
-- `[PLANNED]` Producer-driven selection (a "featured cars" field) — a spec addition, only if
-  presentation-side selection proves insufficient.
+- Selection is presentation, not analysis: its only inputs are the producer-provided running order,
+  the on-camera `subject`, and vehicle class. The tower derives no race fact and does not re-rank.
+- Pins de-duplicate by `slot_id`, never by driver name.
