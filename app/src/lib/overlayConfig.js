@@ -57,6 +57,8 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      maxRows: 'auto',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     battle: {
       visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
@@ -66,6 +68,8 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      maxRows: 'auto',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     logos: {
       visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false,
@@ -75,6 +79,8 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      maxRows: 'auto',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
     // the canvas. It self-manages fire/dwell/hide, so it renders nothing between
@@ -87,6 +93,8 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      maxRows: 'auto',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
     // subject (best/last lap, sectors, and target/delta when present). Offset
@@ -101,6 +109,8 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      maxRows: 'auto',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
     // bar, clear of the left-column tower and the battle box beside it. Not a
@@ -116,6 +126,8 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      maxRows: 'auto',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
     // content-sized over-camera strip (throttle/brake bars + speed + gear). Not a
@@ -135,6 +147,8 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      maxRows: 'auto',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
@@ -213,6 +227,45 @@ function normalizeTowerMetrics(value, fallback) {
     out[field] = typeof src[field] === 'boolean' ? src[field] : !!fallback[field]
   }
   return out
+}
+
+/** Tower overflow — pinned-rows + cycling config (spec .ai/spec/what/tower-overflow.md,
+ *  ADR 0003). Only the standings tower reads `maxRows` / `cycle`, but they're normalized
+ *  onto every widget (like `classDisplay` / `towerMetrics`) for a uniform shape. Additive
+ *  + defaulted, so no `configVersion` bump. `maxRows` is `'auto'` (fit the configured
+ *  height) or an integer cap; `cycle` configures the pinned rows + cycling window. */
+export const MAXROWS_DEFAULT = 'auto'
+export const PIN_SCOPES = Object.freeze(['overall', 'class'])
+export const CYCLE_DEFAULTS = Object.freeze({
+  enabled: true,
+  perPageSeconds: 8,
+  pinTop: 3,
+  pinScope: 'overall',
+  pinSubject: true,
+})
+
+/** Coerce `maxRows` to `'auto'` or a positive integer, else the fallback. */
+function normalizeMaxRows(value, fallback) {
+  if (value === 'auto') return 'auto'
+  const n = Number(value)
+  if (Number.isFinite(n) && n >= 1) return Math.floor(n)
+  return fallback ?? MAXROWS_DEFAULT
+}
+
+/** Coerce an arbitrary `cycle` into the full shape, filling from `fallback`.
+ *  `perPageSeconds` keeps whatever positive value is configured — the tower applies the
+ *  readability floor at render time (towerCycle.clampPerPageSeconds), not here. */
+function normalizeCycle(value, fallback) {
+  const src = value && typeof value === 'object' ? value : {}
+  const pps = Number(src.perPageSeconds)
+  const pinTop = Number(src.pinTop)
+  return {
+    enabled: typeof src.enabled === 'boolean' ? src.enabled : fallback.enabled,
+    perPageSeconds: Number.isFinite(pps) && pps > 0 ? pps : fallback.perPageSeconds,
+    pinTop: Number.isFinite(pinTop) && pinTop >= 0 ? Math.floor(pinTop) : fallback.pinTop,
+    pinScope: PIN_SCOPES.includes(src.pinScope) ? src.pinScope : fallback.pinScope,
+    pinSubject: typeof src.pinSubject === 'boolean' ? src.pinSubject : fallback.pinSubject,
+  }
 }
 
 /** Parse a `?metrics=` comma list (`interval,pit,tire,fuel`) from the standalone
@@ -429,6 +482,10 @@ export function normalizeConfig(raw) {
         w.towerMetrics,
         d.towerMetrics ?? TOWER_METRICS_DEFAULTS,
       ),
+      // Tower overflow — pinned-rows + cycling config (ADR 0003). Only the tower
+      // reads these; normalized onto every widget for a uniform shape.
+      maxRows: normalizeMaxRows(w.maxRows, d.maxRows ?? MAXROWS_DEFAULT),
+      cycle: normalizeCycle(w.cycle, d.cycle ?? CYCLE_DEFAULTS),
     }
   }
   out.widgets = normalizedWidgets

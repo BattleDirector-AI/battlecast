@@ -3,6 +3,8 @@
   import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName, fmtLapTime } from '../../design/format.js'
   import { sessionProgressText } from '../../design/sessionProgress.js'
+  import { untrack } from 'svelte'
+  import { computeRowBudget, createTowerCycle, clampPerPageSeconds } from './towerCycle.js'
 
   // Class-aware standings tower (#28). Presentational: renders whatever snapshot it
   // is handed. Two layouts, selected by `classDisplay`:
@@ -23,6 +25,14 @@
     // compatible: an un-configured tower renders exactly as before); /all + the
     // standalone route pass the config's `towerMetrics` (interval on by default).
     metrics = {},
+    // Tower overflow — pinned rows + cycling window (ADR 0003 / .ai/spec tower-overflow.md).
+    // `maxRows` ('auto' | integer cap) and `cycle` come from config; `slotHeight` is the
+    // tower's configured slot height in CANVAS px. Only /all supplies slotHeight — that's
+    // where the tower has a bounded box; the standalone route leaves it null, so cycling
+    // stays inert unless an integer `maxRows` caps the rows directly.
+    maxRows = 'auto',
+    cycle = null,
+    slotHeight = null,
   } = $props()
 
   // Normalize the metric toggles once — tolerate a partial/garbage object so a caller
@@ -127,6 +137,103 @@
   // A class filter that matches nothing is a distinct, explicit state from "no
   // snapshot at all" — surface which so the tower never blanks silently.
   const emptyReason = $derived(snapshot?.vehicles?.length ? 'no-match' : 'no-state')
+
+  // ---- tower overflow: pinned rows + cycling window (ADR 0003) ---------------
+  // Grouped layout stays clamp-only (spec scope); cycling applies to the inline
+  // (single running-order) layout. The CSS clamp on the slot is the hard bound
+  // underneath — selection just decides which rows are worth showing.
+
+  // Bound to the .tower section so the row/header heights read off the live design
+  // tokens (theme-overridable) rather than hardcoding 38/44 (spec rule 3).
+  let towerEl = $state(null)
+  let tokenPx = $state({ header: 38, row: 44 })
+  $effect(() => {
+    if (!towerEl || typeof getComputedStyle !== 'function') return
+    const cs = getComputedStyle(towerEl)
+    const header = parseFloat(cs.getPropertyValue('--bc-widget-header'))
+    const row = parseFloat(cs.getPropertyValue('--bc-row-standard'))
+    tokenPx = {
+      header: Number.isFinite(header) && header > 0 ? header : 38,
+      row: Number.isFinite(row) && row > 0 ? row : 44,
+    }
+  })
+
+  // Row budget: how many rows fit the configured slot height (measured tokens), capped
+  // by an explicit integer `maxRows`. No slot height + 'auto' => unbounded (the
+  // standalone /tower case), so cycling stays inert.
+  const rowBudget = $derived.by(() => {
+    const fromHeight =
+      slotHeight != null ? computeRowBudget(slotHeight, tokenPx.header, tokenPx.row) : Infinity
+    if (maxRows === 'auto' || maxRows == null) return fromHeight
+    const cap = Number(maxRows)
+    return Number.isFinite(cap) ? Math.min(fromHeight, Math.floor(cap)) : fromHeight
+  })
+
+  // The controller exists whenever cycling is configured for a bounded inline tower —
+  // independent of whether the field currently overflows, so a growing field engages
+  // cycling without recreating (and resetting) the controller. Depends on the budget,
+  // NOT the field size.
+  const cycleEnabled = $derived(
+    cycle?.enabled === true &&
+      classDisplay === 'inline' &&
+      Number.isFinite(rowBudget) &&
+      rowBudget >= 1,
+  )
+
+  // Stateful cycling controller (frozen window membership + page cursor), kept in a
+  // plain handle. Feed it the FILTERED inline field (position-sorted); class-rank
+  // badges stay computed from the full field (classInfo), unaffected.
+  let controller = null
+  let displayRows = $state([])
+  let pageEpoch = $state(0) // bumped on each turn to re-trigger the reveal animation
+  const cycleSnapshot = () => ({
+    vehicles: inlineRows,
+    subject: snapshot?.subject ?? {},
+    mode: snapshot?.mode ?? null,
+  })
+
+  // Controller lifecycle + page-turn timer. Depends on budget/cycle only (via
+  // `cycleEnabled`) — NOT the snapshot — so it recreates only when the layout budget
+  // changes and the timer keeps a constant cadence (cycling never pauses, incl. under
+  // caution). The prime is untracked so it doesn't pull the snapshot into the deps.
+  $effect(() => {
+    if (!cycleEnabled) {
+      controller = null
+      return
+    }
+    const c = createTowerCycle({ budget: rowBudget, cycle })
+    controller = c
+    displayRows = untrack(() => c.sync(cycleSnapshot()))
+    const ms = clampPerPageSeconds(cycle.perPageSeconds) * 1000
+    const id = setInterval(() => {
+      // Only turn (and animate) when the field actually overflows the budget; a fitting
+      // field is inert. Reads here are outside tracking — a plain timer callback.
+      if (inlineRows.length > rowBudget) {
+        displayRows = c.turn(cycleSnapshot())
+        pageEpoch += 1
+      }
+    }, ms)
+    return () => {
+      clearInterval(id)
+      if (controller === c) controller = null
+    }
+  })
+
+  // Re-render the frozen window with live data on every snapshot (position/gap/tire
+  // update in place; membership changes only on a turn). Defined after the lifecycle
+  // effect, so `controller` is current when this runs.
+  $effect(() => {
+    if (!cycleEnabled) return
+    const snap = cycleSnapshot()
+    if (controller) displayRows = controller.sync(snap)
+  })
+
+  // Rows the inline layout draws: the cycled selection when active (all rows when the
+  // field fits, the pinned+window subset when it overflows), else the whole filtered
+  // field. Falls back to the full field before the first sync rather than flashing empty.
+  const renderRows = $derived(
+    cycleEnabled && displayRows.length ? displayRows : inlineRows,
+  )
 
   // Gap-to-leader readout (#28). Each row shows its interval to the leader, from the
   // producer's `gap_to_leader` (gap to the OVERALL leader). The grouped layout shows
@@ -304,6 +411,7 @@
   class="tower"
   data-testid="standings-tower"
   data-class-display={classDisplay}
+  bind:this={towerEl}
 >
   <header class="tower__header" data-testid="tower-header">
     <span class="tower__mode">{header}</span>
@@ -349,11 +457,17 @@
       {/each}
     </div>
   {:else}
-    <ol class="tower__rows">
-      {#each inlineRows as v, i (v.slot_id)}
-        {@render towerRow(v, v.position, i % 2 === 1, `${classRankOf(v)}/${classTotalOf(v)}`, overallGap(v))}
-      {/each}
-    </ol>
+    <!-- Inline layout. When cycling is active the {#key pageEpoch} remount replays the
+         page-turn reveal on each turn; otherwise the key is stable ('all') so data updates
+         re-render in place with no animation. `renderRows` is the cycled subset (or the
+         whole filtered field when not cycling / before the first sync). -->
+    {#key cycleEnabled ? pageEpoch : 'all'}
+      <ol class="tower__rows" class:tower__rows--turn={cycleEnabled}>
+        {#each renderRows as v, i (v.slot_id)}
+          {@render towerRow(v, v.position, i % 2 === 1, `${classRankOf(v)}/${classTotalOf(v)}`, overallGap(v))}
+        {/each}
+      </ol>
+    {/key}
   {/if}
 </section>
 
@@ -715,6 +829,26 @@
     100% {
       transform: translateX(520%) skewX(-13deg);
       opacity: 0;
+    }
+  }
+
+  /* Page-turn reveal for the cycling window (#116). The inline rows list remounts on each
+     turn ({#key pageEpoch}), replaying this reveal. Gated to full motion via the root
+     `data-motion` attribute — NOT the OS `prefers-reduced-motion` media query — so a turn
+     still animates in OBS (whose CEF reports `reduce`); under an explicit
+     `data-motion="reduced"` the animation is absent and the turn is instant. */
+  :global(:root:not([data-motion='reduced'])) .tower__rows--turn {
+    animation: tower-page-turn 0.24s ease both;
+  }
+
+  @keyframes tower-page-turn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 </style>
