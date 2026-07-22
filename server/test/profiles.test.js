@@ -98,3 +98,21 @@ test('profiles: DELETE removes a saved profile, 404 when absent', async () => {
     assert.equal((await fetch(`${base}/api/profiles/race`, { method: 'DELETE' })).status, 404)
   })
 })
+
+test('profiles: API JSON responses are sent no-cache (#115)', async () => {
+  await withServer(async ({ base }) => {
+    // The config API is live state, not a cacheable asset — the browser must revalidate
+    // so a Browser Source refresh picks up a just-saved profile.
+    const list = await fetch(`${base}/api/profiles`)
+    assert.equal(list.status, 200)
+    assert.equal(list.headers.get('cache-control'), 'no-cache')
+
+    await fetch(`${base}/api/profiles/race`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ configVersion: '1', name: 'race', widgets: {} }),
+    })
+    const one = await fetch(`${base}/api/profiles/race`)
+    assert.equal(one.headers.get('cache-control'), 'no-cache')
+  })
+})
