@@ -206,11 +206,14 @@
     displayRows = untrack(() => c.sync(cycleSnapshot()))
     const ms = clampPerPageSeconds(cycle.perPageSeconds) * 1000
     const id = setInterval(() => {
-      // Only turn (and animate) when the field actually overflows the budget; a fitting
-      // field is inert. Reads here are outside tracking — a plain timer callback.
+      // Only turn when the field actually overflows the budget; a fitting field is inert.
+      // Reads here are outside tracking — a plain timer callback.
       if (inlineRows.length > rowBudget) {
+        const prevPage = c.page
         displayRows = c.turn(cycleSnapshot())
-        pageEpoch += 1
+        // Replay the reveal only when the window page actually advanced — a pins-only
+        // overflow (a single window page) must not flash the same rows every tick.
+        if (c.page !== prevPage) pageEpoch += 1
       }
     }, ms)
     return () => {
@@ -231,9 +234,17 @@
   // Rows the inline layout draws: the cycled selection when active (all rows when the
   // field fits, the pinned+window subset when it overflows), else the whole filtered
   // field. Falls back to the full field before the first sync rather than flashing empty.
-  const renderRows = $derived(
-    cycleEnabled && displayRows.length ? displayRows : inlineRows,
-  )
+  const renderRows = $derived.by(() => {
+    if (cycleEnabled && displayRows.length) return displayRows
+    // Not cycling (disabled, budget < 1, or before the first sync): still cap a bounded
+    // inline tower to whole rows / header-only rather than leaning on the CSS clip to hide
+    // a partial row (spec rule 2). Standalone (infinite budget) and grouped fall through
+    // to the full field, bounded only by the clamp.
+    if (classDisplay === 'inline' && Number.isFinite(rowBudget)) {
+      return inlineRows.slice(0, Math.max(0, rowBudget))
+    }
+    return inlineRows
+  })
 
   // Gap-to-leader readout (#28). Each row shows its interval to the leader, from the
   // producer's `gap_to_leader` (gap to the OVERALL leader). The grouped layout shows

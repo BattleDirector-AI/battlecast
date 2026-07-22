@@ -225,4 +225,23 @@ describe('createTowerCycle — page-membership stability', () => {
     expect(slots(rows)).toEqual(['car-1', 'car-2', 'car-3', 'car-4'])
     expect(c.page).toBe(0)
   })
+
+  it('never exceeds the budget when a camera cut adds the subject pin (rules 1-2)', () => {
+    const field = Array.from({ length: 20 }, (_, i) =>
+      car(i + 1, `car-${i + 1}`, ['GTP', 'LMP2', 'GT3'][i % 3]),
+    )
+    const c = createTowerCycle({
+      budget: 8,
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
+    })
+    // Subject on a top-3 car: pins {car-1,car-2,car-3}, a 5-wide window frozen.
+    let rows = c.sync(snapshot(field, 'car-2'))
+    expect(rows.length).toBeLessThanOrEqual(8)
+    // Camera cuts to an off-page mid-field car: the subject becomes a 4th pin, so the
+    // window must shrink — the frozen membership must NOT render a budget+1 row.
+    rows = c.sync(snapshot(field, 'car-15'))
+    expect(rows.length).toBeLessThanOrEqual(8)
+    expect(slots(rows)).toContain('car-15') // subject pinned immediately (rule 10)
+    expect(slots(rows)).toContain('car-1') // leader still pinned
+  })
 })

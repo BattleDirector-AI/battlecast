@@ -158,10 +158,13 @@ export function createTowerCycle(config = {}) {
       membership = nonPinned.slice(start, start + windowSize).map((c) => c.slot_id)
     }
 
-    // Render the frozen members that still exist, in current position order. If they
-    // have all left the field, fall back to the current page slice.
+    // Render the frozen members that still exist, in current position order, capped to
+    // the CURRENT window size: a camera cut that adds the subject pin shrinks windowSize,
+    // so drop the trailing frozen member(s) rather than overflow the budget (spec rules
+    // 1-2). The rest of the membership stays put (rule 11). If they have all left the
+    // field, fall back to the current page slice.
     const memberSet = new Set(membership)
-    let win = nonPinned.filter((c) => memberSet.has(c.slot_id))
+    let win = nonPinned.filter((c) => memberSet.has(c.slot_id)).slice(0, windowSize)
     if (win.length === 0) {
       const start = page * windowSize
       win = nonPinned.slice(start, start + windowSize)
