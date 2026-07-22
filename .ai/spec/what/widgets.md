@@ -2,7 +2,7 @@
 
 Behavioral rules for what each widget renders and when it shows. All widgets consume the same
 `spec/v1` snapshot and obey *dumb overlay, smart producer* — they present producer-provided values,
-never derive semantic facts. Implementation lives under `app/src/routes/*`; see `how/renderer.md`.
+never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 
 ## Behavioral Rules
 
@@ -32,14 +32,14 @@ never derive semantic facts. Implementation lives under `app/src/routes/*`; see 
    `tire_compound` label + a `tire_wear` bar over `[0,1]`), `fuel` (a neutral resource bar over
    `[0,1]`, fuel or hybrid energy). A broadcaster enables these for endurance density.
 8. **Qualifying/practice suppression** — in lap-timed modes the tower suppresses `pit`, tire **wear**,
-   and `fuel` **outright**, regardless of the `towerMetrics` toggles or what the producer sends
-   (`hideRaceStrategy`); these are race features that don't belong on a lap board. Tire **compound**
+   and `fuel` **outright**, regardless of the `towerMetrics` toggles or what the producer sends;
+   these are race features that don't belong on a lap board. Tire **compound**
    and the interval column stay. (This is the one place the dumb-overlay rule yields to a
    presentation decision.)
 9. **Session-progress header** — the tower header renders the native "Session Info" readout (session
-   countdown clock or `LAP X OF Y` counter) from the `session` object via `sessionProgress.js`
-   (protocol rule 16). This is a **tower** element, distinct from the Race Control widget (rule 20).
-   Null when the producer sends no session progress → the header then shows just the `mode`.
+   countdown clock or `LAP X OF Y` counter) from the `session` object (protocol rule 16). This is a
+   **tower** element, distinct from the Race Control widget (rule 20). Null when the producer sends no
+   session progress → the header then shows just the `mode`.
 10. **`?class=` filter** — narrows the rendered field to a single `vehicle_class` (case-insensitive).
     A filter that matches nothing is an **explicit** state distinct from "no snapshot at all"; the
     tower surfaces which and never blanks silently.
@@ -48,9 +48,8 @@ never derive semantic facts. Implementation lives under `app/src/routes/*`; see 
 
 11. Centers on the `subject`, showing `gap_ahead` / `gap_behind` and a `battle_intensity` meter.
 12. **Idle behavior splits by cause.** Outside a racing mode (qualifying/practice/takeover) the
-    battle box renders **nothing** at all. Within a racing mode but with no adjacent car to fight
-    (`isActiveBattle` false), it renders an **explicit placeholder** (e.g. "CLEAR AIR"). Both count
-    as idle for `hideWhenIdle`.
+    battle box renders **nothing** at all. Within a racing mode but with no adjacent car to fight, it
+    renders an **explicit placeholder** (e.g. "CLEAR AIR"). Both count as idle for `hideWhenIdle`.
 
 ### Subject-driven lower-thirds (`/driver` #21, `/qualifying` #22)
 
@@ -83,7 +82,7 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 
 20. Renders **only** flag / FCY / Safety-Car status from the optional `session` object (`flag`,
     `full_course_yellow`, `safety_car`). It does **NOT** render the timed/lap progress readout —
-    that lives in the standings-tower header (rule 9, via `sessionProgress.js`). Renders whenever
+    that lives in the standings-tower header (rule 9). Renders whenever
     visible and there is flag/FCY/SC content, in every mode. Not a lower-third and not class-aware —
     the trigger/`modes`/`classDisplay` knobs are inert for it.
 
@@ -135,8 +134,3 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 - Every widget must render (or cleanly idle) when its optional fields are absent.
 - The qualifying/practice race-strategy suppression (rule 8) is a deliberate presentation override
   and takes precedence over both the `towerMetrics` toggles and producer-sent data.
-
-## Planned Changes
-
-- `[PLANNED]` Tower/ticker badging from `notable` flags field-wide (#27/#28 direction) — see
-  `docs/decisions/0002-lower-third-widgets.md`.
