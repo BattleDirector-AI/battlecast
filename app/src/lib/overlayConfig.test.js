@@ -132,6 +132,22 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(config.widgets.trackmap).toMatchObject({ x: 10, y: 10, w: 300, h: 300, visible: false })
   })
 
+  it('drops prototype-polluting widget keys from a crafted profile', () => {
+    // JSON.parse makes __proto__ / constructor OWN keys (unlike an object literal, where
+    // `__proto__:` would set the literal's prototype instead of adding a key).
+    const widgets = JSON.parse(
+      '{"__proto__":{"visible":true},"constructor":{"visible":true},"prototype":{"visible":true},"tower":{"x":5}}',
+    )
+    const config = normalizeConfig({ widgets })
+    // The widgets object's prototype is untouched and no stray widget leaked in.
+    expect(Object.getPrototypeOf(config.widgets)).toBe(Object.prototype)
+    expect(Object.prototype.hasOwnProperty.call(config.widgets, 'constructor')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(config.widgets, 'prototype')).toBe(false)
+    // Real widgets still normalize; nothing pollutes the global prototype.
+    expect(config.widgets.tower.x).toBe(5)
+    expect({}.visible).toBeUndefined()
+  })
+
   it('is safe on null / non-object input', () => {
     expect(normalizeConfig(null).widgets.tower.visible).toBe(true)
     expect(normalizeConfig('nope').widgets.battle.visible).toBe(true)
