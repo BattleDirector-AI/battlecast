@@ -442,7 +442,12 @@ function applyUrlOverrides(config, params) {
   const out = clone(config)
   const setVisible = (raw, visible) => {
     for (const key of splitList(raw)) {
-      if (out.widgets[key]) out.widgets[key].visible = visible
+      // Guard with hasOwnProperty: a crafted key like `__proto__` resolves
+      // `out.widgets[key]` to Object.prototype (truthy), so the assignment below would
+      // pollute the prototype. Only toggle real, own widget keys.
+      if (Object.prototype.hasOwnProperty.call(out.widgets, key)) {
+        out.widgets[key].visible = visible
+      }
     }
   }
   if (params.has('show')) setVisible(params.get('show'), true)
