@@ -195,7 +195,9 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(alpha('nope')).toBe(0.82) // garbage -> default
     expect(alpha(null)).toBe(0.82) // null -> default (NOT 0 / transparent)
     expect(alpha('')).toBe(0.82)
+    expect(alpha('   ')).toBe(0.82) // whitespace-only -> default (not 0)
     expect(alpha(false)).toBe(0.82)
+    expect(alpha('0.4')).toBe(0.4) // a numeric string still parses
     // normalized onto every widget (like hideWhenIdle), for a uniform shape.
     const cfg = normalizeConfig({})
     for (const key of Object.keys(cfg.widgets)) {

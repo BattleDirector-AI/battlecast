@@ -115,4 +115,14 @@ describe('AllView — per-widget plate opacity (#117)', () => {
     expect(b.getPropertyValue('--bc-plate-dense')).toBe('rgba(var(--bc-plate-dense-rgb), 0.84)')
     expect(b.getPropertyValue('--bc-header')).toBe('rgba(var(--bc-header-rgb), 0.94)')
   })
+
+  it('clamps every scaled plate token to 1 at plateAlpha = 1', () => {
+    const cfg = normalizeConfig({ widgets: { tower: { plateAlpha: 1 } } })
+    const { container } = render(AllView, { snapshot: closeBattle, config: cfg })
+    const s = container.querySelector('[data-testid="widget-tower"]').style
+    // dense (0.84·1/0.82 = 1.02) and header (0.94·1/0.82 = 1.15) both clamp to 1.
+    expect(s.getPropertyValue('--bc-plate')).toBe('rgba(var(--bc-plate-rgb), 1)')
+    expect(s.getPropertyValue('--bc-plate-dense')).toBe('rgba(var(--bc-plate-dense-rgb), 1)')
+    expect(s.getPropertyValue('--bc-header')).toBe('rgba(var(--bc-header-rgb), 1)')
+  })
 })

@@ -360,12 +360,18 @@ function num(value, fallback) {
   return Number.isFinite(n) ? n : fallback
 }
 
-/** Coerce to a finite number clamped to [0, 1], else the provided default. Rejects
- *  null / '' / booleans (which `Number()` would turn into a surprising 0) so a cleared
- *  field falls back rather than rendering a fully transparent plate. */
+/** Coerce to a finite number clamped to [0, 1], else the provided default. Accepts a
+ *  number or a non-blank numeric string; null / '' / whitespace / booleans / other types
+ *  fall back — `Number()` would turn several of those into a surprising 0 (a fully
+ *  transparent plate) rather than the intended default. */
 function clamp01(value, fallback) {
-  if (value == null || value === '' || typeof value === 'boolean') return fallback
-  const n = Number(value)
+  if (typeof value === 'boolean') return fallback
+  const n =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : NaN
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
 }
 
