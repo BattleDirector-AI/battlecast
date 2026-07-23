@@ -54,6 +54,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | Knob | Read by | Meaning |
     |---|---|---|
     | `visible`, `x/y/w/h/z` | all | geometry + visibility |
+    | `plateAlpha` | plated widgets | background-plate opacity (0.82 default; the plate only, not text/borders) |
     | `hideWhenIdle` | supporting widgets (battle, logos, driver, qualifying) | auto-hide when idle |
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
@@ -80,13 +81,20 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     This **includes the tower's overflow settings** — `maxRows` and the `cycle` pinned-rows/window
     knobs — so cycling is configured through the UI, not only by hand-editing the profile JSON.
 
+15. **Per-widget plate opacity.** `plateAlpha` (`[0,1]`, default `0.82`) sets the opacity of a
+    widget's background **plate** — the translucent panel behind its content — **not** the whole
+    widget: text, borders, and bars stay full-strength (deliberately not element `opacity`, which
+    would dim everything and hurt legibility). Default `0.82` so existing profiles render
+    identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
+    widgets that render a background plate.
+
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 `widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{}`, `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +
-`hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
+`plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
 `classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
 but only the widget noted in the rule-11 table actually reads each.
 
