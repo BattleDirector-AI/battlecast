@@ -3,6 +3,7 @@
   import AllView from './AllView.svelte'
   import { connect } from '../tower/sseClient.js'
   import { loadConfig, pickProducerSrc, DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
+  import { watchConfig } from '../../lib/configWatch.js'
   import { resolveMotion, applyMotion } from '../../lib/motion.js'
 
   let config = $state(DEFAULT_CONFIG)
@@ -21,6 +22,7 @@
   onMount(() => {
     let cancelled = false
     let disconnect = () => {}
+    let stopWatch = () => {}
 
     fitStage()
     window.addEventListener('resize', fitStage)
@@ -38,12 +40,28 @@
       disconnect = connect(src, (next) => {
         snapshot = next
       })
+
+      // Live-reload (#115): re-read the profile on an interval and apply layout changes
+      // without a manual refresh — immediately, no transition. The producer feed above is
+      // left untouched (a config edit does not reconnect SSE).
+      stopWatch = watchConfig(
+        window.location.search,
+        (nextConfig) => {
+          config = nextConfig
+          applyMotion(
+            resolveMotion(window.location.search, { reducedMotion: nextConfig.reducedMotion }),
+          )
+          fitStage()
+        },
+        { initial: resolved },
+      )
     })
 
     return () => {
       cancelled = true
       window.removeEventListener('resize', fitStage)
       disconnect()
+      stopWatch()
     }
   })
 </script>

@@ -5,10 +5,13 @@
 :root {
   /* ---- Surfaces / neutrals (smoked glass over video) ---- */
   --bc-board: #101216;                       /* solid reference board / studio bg */
-  --bc-plate: rgba(10, 12, 14, 0.82);        /* default widget plate (pair w/ blur) */
-  --bc-plate-dense: rgba(8, 10, 12, 0.84);   /* denser plate for tight rows */
+  --bc-plate-rgb: 10, 12, 14;                /* plate base color channels — alpha set per widget (#117) */
+  --bc-plate: rgba(var(--bc-plate-rgb), 0.82); /* default widget plate (pair w/ blur) */
+  --bc-plate-dense-rgb: 8, 10, 12;           /* denser plate base — alpha set per widget (#117) */
+  --bc-plate-dense: rgba(var(--bc-plate-dense-rgb), 0.84); /* denser plate for tight rows */
   --bc-plate-solid: #0a0c0e;                 /* opaque fallback (no blur context) */
-  --bc-header: rgba(16, 19, 22, 0.94);       /* widget header bar */
+  --bc-header-rgb: 16, 19, 22;               /* header bar base — alpha set per widget (#117) */
+  --bc-header: rgba(var(--bc-header-rgb), 0.94); /* widget header bar */
 
   /* ---- Hairlines / dividers ---- */
   --bc-hairline: rgba(255, 255, 255, 0.08);  /* plate edge / outline */

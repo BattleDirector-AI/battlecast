@@ -24,6 +24,24 @@
       ? new URLSearchParams(window.location.search).get('class')
       : null
 
+  // #117 per-widget plate opacity. Widgets read one of three plate tokens with different
+  // default alphas (--bc-plate 0.82, --bc-plate-dense 0.84, --bc-header 0.94). Scale each
+  // proportionally to the widget's `plateAlpha` so the 0.82 default preserves every widget's
+  // current look, while a lower value dims all of them together. Redeclared per slot: a
+  // :root token that bakes the alpha resolves once at :root and can't be overridden downward.
+  const PLATE_BASE = 0.82
+  const clamp01 = (x) => Math.max(0, Math.min(1, x))
+  const round3 = (x) => Math.round(x * 1000) / 1000
+  function plateVars(alpha) {
+    const a = Number.isFinite(alpha) ? alpha : PLATE_BASE
+    const f = a / PLATE_BASE // 1 at the 0.82 default, so every plate keeps its current alpha
+    return (
+      `--bc-plate: rgba(var(--bc-plate-rgb), ${round3(clamp01(a))});` +
+      ` --bc-plate-dense: rgba(var(--bc-plate-dense-rgb), ${round3(clamp01(0.84 * f))});` +
+      ` --bc-header: rgba(var(--bc-header-rgb), ${round3(clamp01(0.94 * f))})`
+    )
+  }
+
   // Config-driven layout: each widget is absolutely placed on the configured
   // canvas per its {x, y, w, h, z}. Only widgets that are `visible` AND have a
   // component are rendered — a hidden widget is absent from the DOM, not just
@@ -66,7 +84,7 @@
       class="widget-slot"
       data-testid="widget-{w.key}"
       data-widget={w.key}
-      style="left: {w.x}px; top: {w.y}px; width: {w.w}px; height: {w.h}px; z-index: {w.z};"
+      style="left: {w.x}px; top: {w.y}px; width: {w.w}px; height: {w.h}px; z-index: {w.z}; {plateVars(w.plateAlpha)};"
     >
       {#if w.key === 'tower'}
         <StandingsTower
@@ -74,6 +92,9 @@
           {classFilter}
           classDisplay={normalized.widgets.tower?.classDisplay}
           metrics={normalized.widgets.tower?.towerMetrics}
+          maxRows={normalized.widgets.tower?.maxRows}
+          cycle={normalized.widgets.tower?.cycle}
+          slotHeight={normalized.widgets.tower?.h}
         />
       {:else if w.key === 'battle'}
         <BattleBox

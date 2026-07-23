@@ -5,6 +5,11 @@ export function sendJson(res, status, obj) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(body),
+    // Config/asset API JSON is live state, not a cacheable asset: `no-cache` forces the
+    // browser to revalidate, so a manual OBS Browser Source refresh reliably picks up a
+    // just-saved profile instead of a stale cached copy. Mirrors the logo assets, which
+    // already set `no-cache` (createApp.js). #115.
+    'Cache-Control': 'no-cache',
   })
   res.end(body)
 }
