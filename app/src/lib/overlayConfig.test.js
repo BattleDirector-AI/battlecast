@@ -186,6 +186,20 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(normalizeConfig({ widgets: { battle: { hideWhenIdle: true } } }).widgets.battle.hideWhenIdle).toBe(true)
   })
 
+  it('defaults plateAlpha to 0.82, clamps to [0,1], rejects garbage, on every widget (#117)', () => {
+    const alpha = (v) => normalizeConfig({ widgets: { tower: { plateAlpha: v } } }).widgets.tower.plateAlpha
+    expect(normalizeConfig({}).widgets.tower.plateAlpha).toBe(0.82) // default
+    expect(alpha(0.4)).toBe(0.4)
+    expect(alpha(1.5)).toBe(1) // clamped high
+    expect(alpha(-1)).toBe(0) // clamped low
+    expect(alpha('nope')).toBe(0.82) // garbage -> default
+    // normalized onto every widget (like hideWhenIdle), for a uniform shape.
+    const cfg = normalizeConfig({})
+    for (const key of Object.keys(cfg.widgets)) {
+      expect(cfg.widgets[key].plateAlpha).toBe(0.82)
+    }
+  })
+
   it('defaults the lower-third trigger knobs and honors explicit values', () => {
     // Defaults on every widget (mirrors hideWhenIdle); only lower-thirds read them.
     const d = normalizeConfig({}).widgets.driver

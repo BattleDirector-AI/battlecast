@@ -94,3 +94,17 @@ describe('AllView — standings tower + battle box from one snapshot', () => {
     expect(groups).toEqual(['GTP', 'LMP2', 'GT3'])
   })
 })
+
+describe('AllView — per-widget plate opacity (#117)', () => {
+  // SPEC-FIRST: encodes the application contract for overlay-config rule 15 and is RED
+  // until AllView applies each widget's plateAlpha as a --bc-plate-alpha CSS var on its slot.
+  it('applies each widget plateAlpha as a --bc-plate-alpha var on its slot', () => {
+    const cfg = normalizeConfig({ widgets: { tower: { plateAlpha: 0.5 } } })
+    const { container } = render(AllView, { snapshot: closeBattle, config: cfg })
+    const towerSlot = container.querySelector('[data-testid="widget-tower"]')
+    expect(towerSlot.style.getPropertyValue('--bc-plate-alpha')).toBe('0.5')
+    // A widget left at the default carries 0.82.
+    const battleSlot = container.querySelector('[data-testid="widget-battle"]')
+    expect(battleSlot.style.getPropertyValue('--bc-plate-alpha')).toBe('0.82')
+  })
+})
