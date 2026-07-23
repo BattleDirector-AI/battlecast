@@ -57,7 +57,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto',
+      maxRows: 'auto', plateAlpha: 0.82,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     battle: {
@@ -68,7 +68,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto',
+      maxRows: 'auto', plateAlpha: 0.82,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     logos: {
@@ -79,7 +79,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto',
+      maxRows: 'auto', plateAlpha: 0.82,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
@@ -93,7 +93,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto',
+      maxRows: 'auto', plateAlpha: 0.82,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
@@ -109,7 +109,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto',
+      maxRows: 'auto', plateAlpha: 0.82,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
@@ -126,7 +126,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto',
+      maxRows: 'auto', plateAlpha: 0.82,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
@@ -147,7 +147,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto',
+      maxRows: 'auto', plateAlpha: 0.82,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
   },
@@ -360,6 +360,12 @@ function num(value, fallback) {
   return Number.isFinite(n) ? n : fallback
 }
 
+/** Coerce to a finite number clamped to [0, 1], else the provided default. */
+function clamp01(value, fallback) {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
+}
+
 /** Coerce a `modes` value to a clean string array, falling back to `fallback`.
  *  Accepts an array (trimmed non-empty strings) or a comma list; anything empty
  *  or malformed yields a fresh copy of the fallback so gating still works. */
@@ -493,6 +499,9 @@ export function normalizeConfig(raw) {
       // reads these; normalized onto every widget for a uniform shape.
       maxRows: normalizeMaxRows(w.maxRows, d.maxRows ?? MAXROWS_DEFAULT),
       cycle: normalizeCycle(w.cycle, d.cycle ?? CYCLE_DEFAULTS),
+      // #117 per-widget plate opacity — clamped to [0,1], default 0.82. Read by the
+      // plated widgets; applied by the render page as a --bc-plate-alpha CSS var.
+      plateAlpha: clamp01(w.plateAlpha, d.plateAlpha ?? 0.82),
     }
   }
   out.widgets = normalizedWidgets

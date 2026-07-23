@@ -5,7 +5,8 @@
 :root {
   /* ---- Surfaces / neutrals (smoked glass over video) ---- */
   --bc-board: #101216;                       /* solid reference board / studio bg */
-  --bc-plate: rgba(10, 12, 14, 0.82);        /* default widget plate (pair w/ blur) */
+  --bc-plate-rgb: 10, 12, 14;                /* plate base color channels — alpha set per widget (#117) */
+  --bc-plate: rgba(var(--bc-plate-rgb), 0.82); /* default widget plate (pair w/ blur) */
   --bc-plate-dense: rgba(8, 10, 12, 0.84);   /* denser plate for tight rows */
   --bc-plate-solid: #0a0c0e;                 /* opaque fallback (no blur context) */
   --bc-header: rgba(16, 19, 22, 0.94);       /* widget header bar */

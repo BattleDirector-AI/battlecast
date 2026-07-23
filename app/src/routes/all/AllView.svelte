@@ -66,7 +66,7 @@
       class="widget-slot"
       data-testid="widget-{w.key}"
       data-widget={w.key}
-      style="left: {w.x}px; top: {w.y}px; width: {w.w}px; height: {w.h}px; z-index: {w.z};"
+      style="left: {w.x}px; top: {w.y}px; width: {w.w}px; height: {w.h}px; z-index: {w.z}; --bc-plate: rgba(var(--bc-plate-rgb), {w.plateAlpha});"
     >
       {#if w.key === 'tower'}
         <StandingsTower
