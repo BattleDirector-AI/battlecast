@@ -99,13 +99,20 @@ describe('AllView — per-widget plate opacity (#117)', () => {
   // Each slot redeclares --bc-plate composed from the base rgb + the widget's plateAlpha,
   // so the widget child inherits a plate at the configured opacity. (Overriding only an
   // alpha var wouldn't work — a :root --bc-plate that bakes it resolves once at :root.)
-  it('applies each widget plateAlpha as a composed --bc-plate on its slot', () => {
+  it('scales all three plate tokens per slot, proportional to plateAlpha', () => {
     const cfg = normalizeConfig({ widgets: { tower: { plateAlpha: 0.5 } } })
     const { container } = render(AllView, { snapshot: closeBattle, config: cfg })
-    const towerSlot = container.querySelector('[data-testid="widget-tower"]')
-    expect(towerSlot.style.getPropertyValue('--bc-plate')).toBe('rgba(var(--bc-plate-rgb), 0.5)')
-    // A widget left at the default carries 0.82.
-    const battleSlot = container.querySelector('[data-testid="widget-battle"]')
-    expect(battleSlot.style.getPropertyValue('--bc-plate')).toBe('rgba(var(--bc-plate-rgb), 0.82)')
+    const styleOf = (key) => container.querySelector(`[data-testid="widget-${key}"]`).style
+    // Configured widget: --bc-plate IS the alpha; dense/header scale to preserve their
+    // relative density (0.84·0.5/0.82 = 0.512; 0.94·0.5/0.82 = 0.573).
+    const t = styleOf('tower')
+    expect(t.getPropertyValue('--bc-plate')).toBe('rgba(var(--bc-plate-rgb), 0.5)')
+    expect(t.getPropertyValue('--bc-plate-dense')).toBe('rgba(var(--bc-plate-dense-rgb), 0.512)')
+    expect(t.getPropertyValue('--bc-header')).toBe('rgba(var(--bc-header-rgb), 0.573)')
+    // A widget left at the 0.82 default keeps every plate's original alpha.
+    const b = styleOf('battle')
+    expect(b.getPropertyValue('--bc-plate')).toBe('rgba(var(--bc-plate-rgb), 0.82)')
+    expect(b.getPropertyValue('--bc-plate-dense')).toBe('rgba(var(--bc-plate-dense-rgb), 0.84)')
+    expect(b.getPropertyValue('--bc-header')).toBe('rgba(var(--bc-header-rgb), 0.94)')
   })
 })
