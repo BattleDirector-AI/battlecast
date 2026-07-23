@@ -88,6 +88,14 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
     widgets that render a background plate.
 
+16. **Live config reload.** A render page re-reads its profile at runtime and applies a change
+    without a manual Browser Source refresh: it re-resolves the config (same precedence as rule 4) on
+    a modest interval and, when the result differs, swaps to the new layout **immediately and without
+    transition** — a config edit is an operator action, not a broadcast reveal, so animating a
+    geometry change mid-show would read as a glitch. A missed or failed poll just delays the change
+    (best-effort, like the initial load); the producer feed and widget state are unaffected. Relies on
+    the API's `no-cache` (rule 3) so a poll sees fresh state rather than a stale cached copy.
+
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
