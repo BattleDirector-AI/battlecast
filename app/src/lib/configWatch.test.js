@@ -1,5 +1,4 @@
-/* Spec-first failing tests for live config reload (#115 / overlay-config rule 15).
- * watchConfig is an unimplemented skeleton, so these are RED until it lands. */
+/* Tests for live config reload — watchConfig (#115 / overlay-config rule 16). */
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { watchConfig } from './configWatch.js'
 import { normalizeConfig } from './overlayConfig.js'
@@ -51,5 +50,24 @@ describe('watchConfig — live profile reload (#115)', () => {
     await vi.advanceTimersByTimeAsync(1000) // poll 2 -> B -> fire
     expect(seen.map((c) => c.widgets.tower.x)).toEqual([2])
     stop()
+  })
+
+  it('suppresses onChange when stop() is called while a load is in flight', async () => {
+    vi.useFakeTimers()
+    let resolveLoad
+    const loadImpl = vi.fn(() => new Promise((r) => (resolveLoad = r)))
+    const seen = []
+    const stop = watchConfig('?profile=x', (c) => seen.push(c), {
+      intervalMs: 1000,
+      initial: null,
+      loadImpl,
+    })
+    await vi.advanceTimersByTimeAsync(1000) // fires the poll, which awaits the pending load
+    expect(loadImpl).toHaveBeenCalledTimes(1)
+    stop() // stop while the load is still in flight
+    resolveLoad(normalizeConfig({ widgets: { tower: { x: 5 } } })) // resolves after stop
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(seen).toHaveLength(0) // the post-await stopped-check suppresses it
   })
 })

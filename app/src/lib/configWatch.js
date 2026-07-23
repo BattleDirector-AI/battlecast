@@ -16,6 +16,10 @@ function sameConfig(a, b) {
  * differs from the last-seen config (starting from `opts.initial`). Returns a `stop()`
  * that ends polling.
  *
+ * Uses a self-rescheduling timer (not `setInterval`) so the next poll is only scheduled
+ * after the current one settles — a slow load can never overlap a newer one and apply a
+ * stale config out of order.
+ *
  * @param {string} search - a `location.search` string (`?profile=…`).
  * @param {(config: object) => void} onChange
  * @param {{intervalMs?: number, initial?: object, loadImpl?: (s: string) => Promise<object>}} [opts]
@@ -25,22 +29,27 @@ export function watchConfig(search, onChange, opts = {}) {
   const { intervalMs = 5000, initial = null, loadImpl = loadConfig } = opts
   let last = initial
   let stopped = false
+  let timer = null
 
-  const id = setInterval(async () => {
-    if (stopped) return
+  const tick = async () => {
     let next
     try {
       next = await loadImpl(search)
     } catch {
-      return // best-effort: a failed poll just delays the next successful one
+      next = undefined // best-effort: a failed poll is skipped, then rescheduled below
     }
-    if (stopped || sameConfig(last, next)) return
-    last = next
-    onChange(next)
-  }, intervalMs)
+    if (stopped) return // stopped while the load was in flight — suppress + don't reschedule
+    if (next !== undefined && !sameConfig(last, next)) {
+      last = next
+      onChange(next)
+    }
+    timer = setTimeout(tick, intervalMs)
+  }
+
+  timer = setTimeout(tick, intervalMs)
 
   return () => {
     stopped = true
-    clearInterval(id)
+    clearTimeout(timer)
   }
 }
