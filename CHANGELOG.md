@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Standings tower overflow — pinned rows + a cycling window (#128, ADR 0003).** When the field
+  exceeds the tower's slot the widget no longer just clips (the 0.7.0 clamp, #116); it now keeps
+  a configurable set of **pinned rows** (leaders, and optionally the on-camera subject) visible at
+  all times and **cycles a window** over the remaining cars so the whole field gets screen time.
+  Row budget is measured from the configured slot height, page membership is frozen per turn (rows
+  don't jitter tick-to-tick), there's a 4s-per-page floor, and paging is gated on `data-motion`.
+  Driven by a new `maxRows: 'auto'` + `cycle: { enabled, perPageSeconds, pinTop, pinScope,
+  pinSubject }` widget block, defaulted so existing profiles render unchanged. Grouped mode stays
+  clamp-only. See `docs/decisions/0003-tower-overflow-pinning-and-cycling.md`.
+  - **`/config` editor controls (#131).** The tower panel exposes the overflow behavior —
+    pinned-row count and the cycling window — so a broadcaster can tune it without editing a
+    profile by hand; the settings round-trip through saved profiles.
+
+- **Per-widget plate opacity — `plateAlpha` (#117, #134).** Each widget's config gains a
+  `plateAlpha` knob that dims **only its background plate** (driving `--bc-plate`), not the widget's
+  text or borders — a broadcaster wanting a more transparent plate keeps full legibility, unlike a
+  blunt element `opacity`. Defaulted to today's `0.82`, so existing profiles render identically.
+
+### Changed
+
+- **The `/results` board now groups by class (#127)** instead of a single flat overall table.
+  Classes are laid out in registry order (the same sequence as the grouped standings tower and the
+  `/grid` slide), each group in finishing order with class positions restarting at `1`; the
+  `?class=` filter still narrows to one class. Brings the results slide in line with the `.ai/spec`
+  behavioral spec.
+
+- **Adopted a spec-first `.ai/spec/` structure (#126, #129) as the source of truth for behavior.**
+  Agent-facing specifications now live under `.ai/spec/` split into `what/` (behavioral rules) and
+  `how/` (codebase navigation); the structure was reconciled against the shipped code, fixing four
+  spec inaccuracies and pruning forward-looking / implementation detail from the behavioral specs
+  (#127, #129). The producer↔battlecast protocol remains the shipped `spec/v1/` contract. Docs and
+  internal structure only — no runtime behavior change.
+
+### Fixed
+
+- **Config staleness — a saved profile now takes effect without a manual Browser Source refresh
+  (#115).** Two parts. (1) The config API served JSON with no `Cache-Control`, so a running overlay
+  (and a refreshed Browser Source) could read a stale profile from cache; the API now sends
+  `no-cache` like the logo assets do (#133). (2) `/all` resolved its config once on mount and never
+  re-read it, so an operator's saved edit never reached a running source; it now polls the profile
+  endpoint on a modest interval and **applies a detected change immediately and without transition**
+  (a config edit is an operator action, not a broadcast reveal, so animating a geometry change
+  mid-show would read as a glitch) (#135). The cache fix is also a prerequisite for the reload —
+  polling a heuristically-cached endpoint would just poll a stale copy.
+
+### Security
+
+- **Prototype-pollution hardening on config input.** Two guards: `?show=` / `?hide=` URL params no
+  longer let a crafted key such as `?show=__proto__` reach `Object` prototype (#130), and
+  `normalizeConfig` now drops unsafe widget keys (`__proto__` / `constructor` / `prototype`) when
+  ingesting a profile (#132). Malicious or malformed config can no longer pollute the prototype
+  chain.
+
 ## [0.7.0] - 2026-07-18
 
 ### Added

@@ -1,30 +1,51 @@
 <script>
   import ClassChip from '../../design/ClassChip.svelte'
-  import { classColor } from '../../design/classMeta.js'
+  import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName, fmtLapTime } from '../../design/format.js'
 
   // Full-screen end-/mid-session results board (#23). Presentational: it renders
-  // whatever snapshot it is handed, sorted strictly by `position`, optionally
-  // narrowed to a single class. All SSE wiring + URL parsing lives in ResultsPage.
+  // whatever snapshot it is handed as a per-class classification — grouped by class
+  // in registry order, each group in finishing order with class positions restarting
+  // at 1 — optionally narrowed to a single class. All SSE wiring + URL parsing lives
+  // in ResultsPage. Mirrors the grid slide (#24) grouping convention.
   let { snapshot = null, classFilter = null, label = 'RESULTS' } = $props()
 
   // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
-  // => show every class.
+  // => show every class, each in its own group.
   const filterKey = $derived(
     classFilter != null && String(classFilter).trim()
       ? String(classFilter).trim().toLowerCase()
       : null,
   )
 
-  const rows = $derived(
-    [...(snapshot?.vehicles ?? [])]
+  // Build per-class groups. Filter first, then sort strictly by position so each
+  // group inherits finishing order, then bucket by class. Groups are ordered by the
+  // class registry `order` (the same sequence the grid slide and grouped tower use),
+  // with an alphabetical tiebreak for classes the registry doesn't know. Never mutate
+  // the source array — copy before sort.
+  const groups = $derived.by(() => {
+    const rows = [...(snapshot?.vehicles ?? [])]
       .filter(
         (v) =>
           filterKey === null ||
           String(v.vehicle_class ?? '').toLowerCase() === filterKey,
       )
-      .sort((a, b) => a.position - b.position),
-  )
+      .sort((a, b) => a.position - b.position)
+
+    const byClass = {}
+    for (const v of rows) {
+      const raw = String(v.vehicle_class ?? '')
+      const key = raw.toLowerCase()
+      if (!byClass[key]) {
+        byClass[key] = { key, carClass: raw, order: classMeta(raw).order, cars: [] }
+      }
+      byClass[key].cars.push(v)
+    }
+
+    return Object.values(byClass).sort(
+      (a, b) => a.order - b.order || a.key.localeCompare(b.key),
+    )
+  })
 
   // A snapshot with a class filter that matches nothing is a distinct, explicit
   // state from "no snapshot at all" — surface which one so the board never blanks.
@@ -43,7 +64,7 @@
     {/if}
   </header>
 
-  {#if rows.length === 0}
+  {#if groups.length === 0}
     <div class="results__empty" data-testid="results-empty" data-reason={emptyReason}>
       {#if emptyReason === 'no-match'}
         No cars in this class
@@ -52,39 +73,52 @@
       {/if}
     </div>
   {:else}
-    <ol class="results__rows">
-      <li class="results__colhead" aria-hidden="true">
-        <span class="col col--pos">POS</span>
-        <span class="col col--class">CLASS</span>
-        <span class="col col--name">DRIVER</span>
-        <span class="col col--lap">BEST LAP</span>
-      </li>
-      {#each rows as v (v.slot_id ?? v.position)}
-        <li
-          class="row"
-          data-testid="results-row"
-          data-slot={v.slot_id}
-          data-position={v.position}
-          data-class={v.vehicle_class}
+    <div class="results__groups">
+      {#each groups as group (group.key)}
+        <section
+          class="group"
+          data-testid="results-group"
+          data-class={group.carClass}
         >
-          <span
-            class="row__classbar"
-            style:background={classColor(v.vehicle_class)}
-            aria-hidden="true"
-          ></span>
-          <span class="col col--pos row__pos">{v.position}</span>
-          <span class="col col--class">
-            <ClassChip carClass={v.vehicle_class} />
-          </span>
-          <span class="col col--name row__name" data-testid="driver-name"
-            >{fmtName(v.driver_name)}</span
-          >
-          <span class="col col--lap row__lap" data-testid="best-lap"
-            >{fmtLapTime(v.best_lap)}</span
-          >
-        </li>
+          <header class="group__head">
+            <ClassChip carClass={group.carClass} />
+            <span class="group__count">{group.cars.length} cars</span>
+          </header>
+          <ol class="group__rows">
+            <li class="group__colhead" aria-hidden="true">
+              <span class="col col--pos">POS</span>
+              <span class="col col--name">DRIVER</span>
+              <span class="col col--lap">BEST LAP</span>
+            </li>
+            <!-- Class positions restart at 1 within each group; `data-position`
+                 keeps the overall running position for identity/debugging. -->
+            {#each group.cars as v, i (v.slot_id ?? v.position)}
+              <li
+                class="row"
+                data-testid="results-row"
+                data-slot={v.slot_id}
+                data-position={v.position}
+                data-class-pos={i + 1}
+                data-class={v.vehicle_class}
+              >
+                <span
+                  class="row__classbar"
+                  style:background={classColor(v.vehicle_class)}
+                  aria-hidden="true"
+                ></span>
+                <span class="col col--pos row__pos">{i + 1}</span>
+                <span class="col col--name row__name" data-testid="driver-name"
+                  >{fmtName(v.driver_name)}</span
+                >
+                <span class="col col--lap row__lap" data-testid="best-lap"
+                  >{fmtLapTime(v.best_lap)}</span
+                >
+              </li>
+            {/each}
+          </ol>
+        </section>
       {/each}
-    </ol>
+    </div>
   {/if}
 </section>
 
@@ -136,23 +170,46 @@
     color: var(--bc-text-3);
   }
 
-  .results__rows {
+  .results__groups {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--bc-space-5);
+    padding-top: var(--bc-space-4);
+    overflow-y: auto;
+  }
+
+  .group__head {
+    display: flex;
+    align-items: center;
+    gap: var(--bc-space-3);
+    padding-bottom: var(--bc-space-3);
+  }
+
+  .group__count {
+    font-size: var(--bc-size-label);
+    font-weight: var(--bc-weight-label);
+    letter-spacing: var(--bc-track-label);
+    text-transform: uppercase;
+    color: var(--bc-text-3);
+  }
+
+  .group__rows {
     list-style: none;
     margin: 0;
     padding: 0;
-    flex: 1 1 auto;
   }
 
-  /* Shared grid so header cells and data cells align in columns. */
-  .results__colhead,
+  /* Shared grid so the group colhead and its data rows align in columns. */
+  .group__colhead,
   .row {
     display: grid;
-    grid-template-columns: 64px 88px 1fr 160px;
+    grid-template-columns: 64px 1fr 160px;
     align-items: center;
     gap: var(--bc-space-3);
   }
 
-  .results__colhead {
+  .group__colhead {
     height: var(--bc-widget-header);
     padding: 0 var(--bc-space-3) 0 var(--bc-space-4);
     font-size: var(--bc-size-label);

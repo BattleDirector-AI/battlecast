@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
+import { flushSync } from 'svelte'
 import { render, cleanup } from '@testing-library/svelte'
 import StandingsTower from './StandingsTower.svelte'
 import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
@@ -373,5 +374,78 @@ describe('StandingsTower — gap to leader (#28)', () => {
     }
     render(StandingsTower, { snapshot: noLap })
     expect(gapFor('car-16')).toBe('LEADER')
+  })
+})
+
+describe('StandingsTower — overflow cycling (ADR 0003)', () => {
+  // happy-dom does no layout, but the cycling SELECTION is exercisable: `slotHeight` is a
+  // prop and the row/header token heights fall back to 38/44 (getComputedStyle returns no
+  // CSS vars here). budget = floor((slotHeight - 38) / 44). The clamp + real measurement
+  // are covered by the headless-browser verification, not here.
+  const bigField = (n, subject = null) => ({
+    mode: 'race',
+    vehicles: Array.from({ length: n }, (_, i) => ({
+      slot_id: `car-${i + 1}`,
+      driver_name: `D${i + 1}`,
+      vehicle_class: ['GTP', 'LMP2', 'GT3'][i % 3],
+      position: i + 1,
+      best_lap: 90 + i,
+      gap_to_leader: i === 0 ? 0 : i,
+    })),
+    subject: subject ? { slot_id: subject, driver_name: subject } : {},
+    relationship: {},
+  })
+  const CYCLE = { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true }
+  const rowCount = () => document.querySelectorAll('[data-testid="tower-row"]').length
+
+  it('caps the inline tower to the row budget from the slot height (rules 1-2)', () => {
+    // budget = floor((400 - 38) / 44) = 8
+    render(StandingsTower, { snapshot: bigField(30), slotHeight: 400, cycle: CYCLE })
+    flushSync()
+    expect(rowCount()).toBeLessThanOrEqual(8)
+    expect(rowCount()).toBeGreaterThan(0)
+  })
+
+  it('renders header-only when not even one row fits (budget < 1)', () => {
+    // (50 - 38) / 44 -> 0
+    render(StandingsTower, { snapshot: bigField(20), slotHeight: 50, cycle: CYCLE })
+    flushSync()
+    expect(rowCount()).toBe(0)
+    expect(document.querySelector('[data-testid="tower-header"]')).not.toBeNull()
+  })
+
+  it('does not cycle without a slot height (standalone route): the full field renders', () => {
+    render(StandingsTower, { snapshot: bigField(30), cycle: CYCLE })
+    flushSync()
+    expect(rowCount()).toBe(30)
+  })
+
+  it('pins the leader and the on-camera subject even when the field overflows (rules 4, 10)', () => {
+    render(StandingsTower, { snapshot: bigField(30, 'car-25'), slotHeight: 400, cycle: CYCLE })
+    flushSync()
+    expect(rowCount()).toBeLessThanOrEqual(8)
+    expect(rowFor('car-1')).not.toBeNull() // leader pinned
+    expect(rowFor('car-25')).not.toBeNull() // on-camera subject pinned
+  })
+
+  it('leaves the grouped layout clamp-only — no cycling selection (scope)', () => {
+    render(StandingsTower, {
+      snapshot: bigField(30),
+      slotHeight: 400,
+      classDisplay: 'grouped',
+      cycle: CYCLE,
+    })
+    flushSync()
+    expect(rowCount()).toBe(30)
+  })
+
+  it('does not cycle when disabled, but still caps to whole rows (no clipped partial)', () => {
+    render(StandingsTower, {
+      snapshot: bigField(30),
+      slotHeight: 400,
+      cycle: { ...CYCLE, enabled: false },
+    })
+    flushSync()
+    expect(rowCount()).toBeLessThanOrEqual(8)
   })
 })
