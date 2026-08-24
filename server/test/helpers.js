@@ -8,9 +8,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { createApp } from '../lib/createApp.js'
 
-export async function withServer(run, { distDir } = {}) {
+export async function withServer(run, { distDir, embedded } = {}) {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bc-server-'))
-  const server = http.createServer(createApp({ dataDir, distDir }))
+  const server = http.createServer(createApp({ dataDir, distDir, embedded }))
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const { port } = server.address()
   const base = `http://127.0.0.1:${port}`

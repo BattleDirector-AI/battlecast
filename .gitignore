@@ -25,3 +25,8 @@ venv/
 
 # Claude Code personal settings (per-user permissions/overrides — not shared)
 .claude/settings.local.json
+
+# Packaged binary build output (generated asset module + compiled .exe)
+packaging/build/
+# `bun build --compile` scratch file, left behind if the compile aborts
+*.bun-build

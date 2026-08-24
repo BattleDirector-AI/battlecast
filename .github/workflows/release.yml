@@ -1,0 +1,92 @@
+name: Release
+
+# Attach a runnable Windows binary to every version tag, so a broadcaster can
+# download and run battlecast without installing Node or building the app.
+# Cross-compiled from Linux by `bun build --compile` (see packaging/README.md),
+# hence one Ubuntu runner rather than a Windows one.
+
+# Triggered by the release being PUBLISHED, not by the tag push: RELEASING.md
+# pushes the tag first and runs `gh release create` after, so a tag trigger would
+# race ahead of the release it needs to upload to.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build and attach the binary to (e.g. v0.8.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  windows-binary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: app
+
+      # Guard the release artifact with the same suites CI runs on a PR — a release
+      # can be published without a green PR immediately behind it.
+      - name: Test
+        run: npm test
+        working-directory: app
+
+      - name: Test server
+        run: npm test
+        working-directory: server
+
+      - name: Resolve version
+        id: version
+        run: echo "tag=${{ inputs.tag || github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Windows binary
+        run: |
+          node packaging/build-exe.mjs \
+            --out "packaging/build/battlecast-${{ steps.version.outputs.tag }}-windows-x64.exe"
+
+      # A published checksum is the only integrity signal an unsigned binary has.
+      - name: Checksum
+        working-directory: packaging/build
+        run: sha256sum battlecast-*.exe | tee SHA256SUMS.txt
+
+      - name: Smoke-test the binary
+        run: |
+          # Confirm the compiled exe is a real PE and carries the embedded app.
+          file packaging/build/battlecast-*.exe | grep -qi 'PE32+' \
+            || { echo 'not a Windows PE executable'; exit 1; }
+          grep -q 'EMBEDDED_DIST' packaging/build/embedded-dist.generated.js \
+            || { echo 'embedded asset module is empty'; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: battlecast-windows-x64
+          path: |
+            packaging/build/battlecast-*.exe
+            packaging/build/SHA256SUMS.txt
+
+      - name: Attach to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ steps.version.outputs.tag }}" \
+            packaging/build/battlecast-*.exe \
+            packaging/build/SHA256SUMS.txt \
+            --clobber
