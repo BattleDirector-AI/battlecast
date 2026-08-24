@@ -81,6 +81,43 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     This **includes the tower's overflow settings** — `maxRows` and the `cycle` pinned-rows/window
     knobs — so cycling is configured through the UI, not only by hand-editing the profile JSON.
 
+### Editor help content
+
+16. **Every control the editor renders MUST be explained in the UI itself.** A broadcaster reaches
+    `/config` from a downloaded binary with no repo, no README and no prior context; a knob whose
+    only documentation is a spec file or a commit message is undocumented. Help copy is written for
+    that reader — no protocol or codebase identifiers (`slot_id`, `interval_ahead`, `notable`), no
+    issue numbers, no spec rule references.
+
+17. **Two levels, chosen by what the reader is asking.**
+    - *What is this widget?* — each widget carries a human **title** and a one-paragraph **summary**
+      of what it puts on screen, rendered **always visible** in its editor row. This is the question
+      a new broadcaster has before any individual knob, so it must not be hidden behind an
+      interaction.
+    - *What does this control change?* — each control carries help behind an **ⓘ** affordance,
+      revealed on demand. Hidden by default because the panel is dense; discoverable because the ⓘ
+      is visible even when the text is not (a native `title=` tooltip is not sufficient — it signals
+      nothing until hover).
+
+18. **Help content is data, not markup.** All copy lives in one module (`app/src/lib/configHelp.js`)
+    keyed by widget and by logical field name, and the editor renders from it. This keeps the copy
+    reviewable in one place and makes coverage testable.
+
+19. **Coverage cannot drift.** Tests assert that the help maps exactly match the config surface the
+    editor iterates (`WIDGET_KEYS`, `TOWER_METRIC_FIELDS`, `DRIVER_INFO_FIELDS`) with no missing and
+    no orphan entries, and that every rendered widget control resolves to an ⓘ. Adding a knob without
+    help is therefore a **failing test**, not a silent omission.
+
+20. **Asking for help never changes a setting.** Help affordances sit inside `<label>` elements, so
+    the ⓘ MUST cancel its click rather than let the label activate the control beside it — asking
+    what "Reduced motion" does must not switch reduced motion on. The popover dismisses on `Escape`
+    and on a click outside, and anchors itself inside the viewport rather than overflowing the panel.
+
+21. **Behaviors that read as bugs MUST be called out** where the broadcaster meets them: the
+    qualifying/practice suppression of pit / tire-wear / fuel (`widgets.md` rule 8), and that the
+    lower-thirds hide themselves between camera cuts (rules 13-19) — both otherwise look like a
+    broken overlay rather than a deliberate rule.
+
 15. **Per-widget plate opacity.** `plateAlpha` (`[0,1]`, default `0.82`) sets the opacity of a
     widget's background **plate** — the translucent panel behind its content — **not** the whole
     widget: text, borders, and bars stay full-strength (deliberately not element `opacity`, which

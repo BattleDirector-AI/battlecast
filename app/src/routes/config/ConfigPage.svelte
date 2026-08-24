@@ -15,6 +15,13 @@
     isLowerThird,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
+  import HelpTip from '../../lib/HelpTip.svelte'
+  import {
+    WIDGET_HELP,
+    FIELD_HELP,
+    TOWER_METRIC_HELP,
+    DRIVER_INFO_HELP,
+  } from '../../lib/configHelp.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
   import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
@@ -363,7 +370,7 @@
     <!-- Controls -->
     <aside class="panel">
       <section class="panel__group">
-        <h2>Profile</h2>
+        <h2>Profile<HelpTip text={FIELD_HELP.profileName} label="profiles" testid="help-profile" /></h2>
         <label>
           Name
           <input data-testid="profile-name" bind:value={profileName} />
@@ -404,7 +411,7 @@
       </section>
 
       <section class="panel__group">
-        <h2>Canvas size</h2>
+        <h2>Canvas size<HelpTip text={FIELD_HELP.canvasSize} label="canvas size" testid="help-canvas" /></h2>
         <p class="hint">Output resolution the layout is designed against (default 1920×1080).</p>
         <div class="row">
           <!-- Commit on change (blur/Enter), not every keystroke: setCanvas
@@ -443,7 +450,7 @@
         <!-- The overlay animates by default. OBS's Browser Source (CEF) reports
              reduced-motion, so we do NOT read the render host's setting — check this to
              deliberately turn transitions down. `?motion=reduced` overrides per source. -->
-        <label class="checkline" title="Turn the overlay's transition animations down. Off = full motion (the default; recommended for OBS). A ?motion= URL param overrides this per Browser Source.">
+        <label class="checkline">
           <input
             type="checkbox"
             data-testid="reduced-motion"
@@ -451,11 +458,18 @@
             onchange={(e) => (config = { ...config, reducedMotion: e.currentTarget.checked })}
           />
           Reduced motion (turn transitions down)
+          <HelpTip text={FIELD_HELP.reducedMotion} label="reduced motion" testid="help-reduced-motion" />
         </label>
       </section>
 
       <section class="panel__group">
         <h2>Widgets</h2>
+        <!-- Widget-level orientation lives in each row's blurb below; this only
+             frames the section for someone scanning it for the first time. -->
+        <p class="section-note">
+          Tick a widget to include it in the combined <code>/all</code> overlay, then drag it in the
+          preview or set its position below. Each widget explains what it puts on screen.
+        </p>
         {#each WIDGET_KEYS as key (key)}
           {@const w = config.widgets[key]}
           <fieldset class="widget-row">
@@ -469,11 +483,20 @@
                 />
                 {key}
               </label>
+              <HelpTip text={FIELD_HELP.visible} label="the {key} visibility toggle" testid="help-visible-{key}" />
             </legend>
+            <!-- The widget's human name + what it puts on screen. Always visible
+                 (not behind the tip) because "what IS this widget" is the question
+                 a new broadcaster has before any individual knob. -->
+            <p class="widget-blurb" data-testid="blurb-{key}">
+              <strong>{WIDGET_HELP[key].title}</strong>
+              {WIDGET_HELP[key].summary}
+            </p>
             <div class="grid4">
               {#each ['x', 'y', 'w', 'h'] as field (field)}
                 <label class="num">
                   {field}
+                  <HelpTip text={FIELD_HELP[field]} label={field} testid="help-{field}-{key}" />
                   <input
                     type="number"
                     data-testid="{field}-{key}"
@@ -484,6 +507,7 @@
               {/each}
               <label class="num">
                 z
+                <HelpTip text={FIELD_HELP.z} label="z" testid="help-z-{key}" />
                 <input
                   type="number"
                   data-testid="z-{key}"
@@ -493,7 +517,7 @@
               </label>
             </div>
             {#if widgetSupportsAutoHide(key)}
-              <label class="checkline" title="Remove this widget from the overlay while it has nothing to show">
+              <label class="checkline">
                 <input
                   type="checkbox"
                   data-testid="hide-idle-{key}"
@@ -501,6 +525,7 @@
                   onchange={(e) => setHideWhenIdle(key, e.currentTarget.checked)}
                 />
                 Hide when idle
+                <HelpTip text={FIELD_HELP.hideWhenIdle} label="hide when idle" testid="help-hide-idle-{key}" />
               </label>
             {/if}
             {#if isLowerThird(key)}
@@ -510,6 +535,7 @@
               <div class="row trigger-row">
                 <label class="num">
                   trigger
+                  <HelpTip text={FIELD_HELP.trigger} label="trigger" testid="help-trigger-{key}" />
                   <select
                     data-testid="trigger-{key}"
                     value={w.trigger}
@@ -521,6 +547,7 @@
                 </label>
                 <label class="num">
                   dwell secs
+                  <HelpTip text={FIELD_HELP.dwellSeconds} label="dwell seconds" testid="help-dwell-{key}" />
                   <input
                     type="number"
                     min="1"
@@ -538,7 +565,10 @@
                    camera cut, and whether the producer-flagged class-best lap fires
                    the "fastest lap" flash independent of those modes. -->
               <fieldset class="modes-row">
-                <legend>fires on cut in</legend>
+                <legend>
+                  fires on cut in
+                  <HelpTip text={FIELD_HELP.modes} label="fires on cut in" testid="help-modes-{key}" />
+                </legend>
                 {#each MODE_OPTIONS as mode (mode)}
                   <label class="checkline">
                     <input
@@ -551,7 +581,7 @@
                   </label>
                 {/each}
               </fieldset>
-              <label class="checkline" title="Flash the timing bar when the producer flags the on-camera driver's lap a class best (any mode)">
+              <label class="checkline">
                 <input
                   type="checkbox"
                   data-testid="fire-class-best-{key}"
@@ -559,6 +589,11 @@
                   onchange={(e) => setFireOnClassBest(key, e.currentTarget.checked)}
                 />
                 Fire on class-best lap
+                <HelpTip
+                  text={FIELD_HELP.fireOnClassBest}
+                  label="fire on class-best lap"
+                  testid="help-fire-class-best-{key}"
+                />
               </label>
             {/if}
             {#if key === 'tower'}
@@ -568,6 +603,7 @@
                    order) with positions restarting per class. -->
               <label class="num class-display-row">
                 class display
+                <HelpTip text={FIELD_HELP.classDisplay} label="class display" testid="help-class-display-{key}" />
                 <select
                   data-testid="class-display-{key}"
                   value={w.classDisplay}
@@ -592,6 +628,11 @@
                       onchange={(e) => setTowerMetric(key, field, e.currentTarget.checked)}
                     />
                     {field}
+                    <HelpTip
+                      text={TOWER_METRIC_HELP[field]}
+                      label="the {field} column"
+                      testid="help-tower-metric-{key}-{field}"
+                    />
                   </label>
                 {/each}
               </fieldset>
@@ -606,9 +647,15 @@
                   onchange={(e) => setCycleField(key, 'enabled', e.currentTarget.checked)}
                 />
                 Cycle overflow rows
+                <HelpTip
+                  text={FIELD_HELP.cycleEnabled}
+                  label="cycle overflow rows"
+                  testid="help-cycle-enabled-{key}"
+                />
               </label>
               <label class="num">
                 max rows
+                <HelpTip text={FIELD_HELP.maxRows} label="max rows" testid="help-max-rows-{key}" />
                 <input
                   type="text"
                   data-testid="max-rows-{key}"
@@ -618,6 +665,11 @@
               </label>
               <label class="num">
                 seconds per page
+                <HelpTip
+                  text={FIELD_HELP.perPageSeconds}
+                  label="seconds per page"
+                  testid="help-per-page-seconds-{key}"
+                />
                 <input
                   type="number"
                   min="1"
@@ -629,6 +681,7 @@
               </label>
               <label class="num">
                 pin top N
+                <HelpTip text={FIELD_HELP.pinTop} label="pin top N" testid="help-pin-top-{key}" />
                 <input
                   type="number"
                   min="0"
@@ -640,6 +693,7 @@
               </label>
               <label class="num class-display-row">
                 pin scope
+                <HelpTip text={FIELD_HELP.pinScope} label="pin scope" testid="help-pin-scope-{key}" />
                 <select
                   data-testid="pin-scope-{key}"
                   value={w.cycle?.pinScope}
@@ -657,12 +711,17 @@
                   onchange={(e) => setCycleField(key, 'pinSubject', e.currentTarget.checked)}
                 />
                 Keep the on-camera car pinned
+                <HelpTip
+                  text={FIELD_HELP.pinSubject}
+                  label="keep the on-camera car pinned"
+                  testid="help-pin-subject-{key}"
+                />
               </label>
             {/if}
             {#if key === 'onboard'}
               <!-- #26-only: the display unit for the HUD's speed readout. The producer
                    emits canonical km/h; check to display mph (the widget converts). -->
-              <label class="checkline" title="Display the on-board HUD speed in mph instead of km/h (the producer emits km/h; the widget converts)">
+              <label class="checkline">
                 <input
                   type="checkbox"
                   data-testid="speed-mph-{key}"
@@ -670,6 +729,7 @@
                   onchange={(e) => setSpeedUnit(key, e.currentTarget.checked)}
                 />
                 Speed in mph
+                <HelpTip text={FIELD_HELP.speedUnit} label="speed in mph" testid="help-speed-mph-{key}" />
               </label>
               <!-- #26-only: which on-camera driver/vehicle identity fields the HUD
                    shows (each toggled independently). number/make/model come from the
@@ -685,13 +745,18 @@
                       onchange={(e) => setDriverInfo(key, field, e.currentTarget.checked)}
                     />
                     {field}
+                    <HelpTip
+                      text={DRIVER_INFO_HELP[field]}
+                      label="the {field} field"
+                      testid="help-driver-info-{key}-{field}"
+                    />
                   </label>
                 {/each}
               </fieldset>
               <!-- #26 + #21 hand-off: hold the HUD off while the driver lower-third
                    plays its "now on camera" card, so the driver name never shows in
                    both at once; the HUD reveals when the card wipes out. -->
-              <label class="checkline" title="Hold the on-board HUD off while the driver lower-third is showing its 'now on camera' card, then reveal it (avoids showing the driver name in both at once)">
+              <label class="checkline">
                 <input
                   type="checkbox"
                   data-testid="wait-lower-third-{key}"
@@ -699,6 +764,11 @@
                   onchange={(e) => setWaitForLowerThird(key, e.currentTarget.checked)}
                 />
                 Wait for driver lower-third
+                <HelpTip
+                  text={FIELD_HELP.waitForLowerThird}
+                  label="wait for driver lower-third"
+                  testid="help-wait-lower-third-{key}"
+                />
               </label>
             {/if}
           </fieldset>
@@ -706,7 +776,7 @@
       </section>
 
       <section class="panel__group">
-        <h2>Logo rotation</h2>
+        <h2>Logo rotation<HelpTip text={FIELD_HELP.logoUpload} label="logo rotation" testid="help-logos" /></h2>
         <label title={serverUp ? undefined : 'Start the companion server (make dev) to upload logos'}>
           Upload image
           <input type="file" accept="image/*" data-testid="upload" multiple onchange={onUpload} disabled={!serverUp} />
@@ -748,6 +818,7 @@
         <div class="row">
           <label class="num">
             per-slot seconds
+            <HelpTip text={FIELD_HELP.logoPerSlot} label="per-slot seconds" testid="help-per-slot" />
             <input
               type="number"
               min="1"
@@ -758,6 +829,7 @@
           </label>
           <label class="num">
             order
+            <HelpTip text={FIELD_HELP.logoOrder} label="logo order" testid="help-logo-order" />
             <select
               data-testid="order"
               value={config.logoRotation.order}
@@ -771,7 +843,7 @@
       </section>
 
       <section class="panel__group">
-        <h2>Producer</h2>
+        <h2>Producer<HelpTip text={FIELD_HELP.producerSrc} label="the producer feed" testid="help-producer" /></h2>
         <label>
           SSE URL
           <input
@@ -784,7 +856,7 @@
       </section>
 
       <section class="panel__group">
-        <h2>OBS Browser Source URL</h2>
+        <h2>OBS Browser Source URL<HelpTip text={FIELD_HELP.obsUrl} label="the Browser Source URL" testid="help-obs-url" /></h2>
         <button
           type="button"
           class="obs-url"
@@ -817,6 +889,30 @@
     gap: 1rem;
     padding: 0.75rem 1.25rem;
     border-bottom: 1px solid #2a3140;
+  }
+  /* Always-visible orientation copy. Muted and tight so it informs without
+     competing with the controls in an already dense panel. */
+  .widget-blurb {
+    margin: 0.15rem 0 0.55rem;
+    color: #9aa7ba;
+    font-size: 0.74rem;
+    line-height: 1.5;
+  }
+  .widget-blurb strong {
+    display: block;
+    color: #cbd5e3;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .section-note {
+    margin: 0 0 0.6rem;
+    color: #9aa7ba;
+    font-size: 0.74rem;
+    line-height: 1.5;
+  }
+  .section-note code {
+    color: #cbd5e3;
+    font-size: 0.72rem;
   }
   .config__bar h1 {
     font-size: 1rem;
@@ -970,6 +1066,19 @@
   .widget-row legend {
     text-transform: uppercase;
     font-size: 0.8rem;
+  }
+  /* Keep the visibility checkbox, the widget name and its help tip on one line.
+     A bare <legend> lays its children out as block flow, which dropped the tip
+     onto a line of its own and pushed the checkbox above the name. */
+  .widget-row > legend {
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+  }
+  .widget-row > legend > label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
   }
   .checkline {
     display: flex;
