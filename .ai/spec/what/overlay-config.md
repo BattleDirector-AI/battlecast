@@ -81,6 +81,13 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     This **includes the tower's overflow settings** — `maxRows` and the `cycle` pinned-rows/window
     knobs — so cycling is configured through the UI, not only by hand-editing the profile JSON.
 
+15. **Per-widget plate opacity.** `plateAlpha` (`[0,1]`, default `0.82`) sets the opacity of a
+    widget's background **plate** — the translucent panel behind its content — **not** the whole
+    widget: text, borders, and bars stay full-strength (deliberately not element `opacity`, which
+    would dim everything and hurt legibility). Default `0.82` so existing profiles render
+    identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
+    widgets that render a background plate.
+
 ### Editor help content
 
 16. **Every control the editor renders MUST be explained in the UI itself.** A broadcaster reaches
@@ -118,20 +125,16 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     lower-thirds hide themselves between camera cuts (rules 13-19) — both otherwise look like a
     broken overlay rather than a deliberate rule.
 
-15. **Per-widget plate opacity.** `plateAlpha` (`[0,1]`, default `0.82`) sets the opacity of a
-    widget's background **plate** — the translucent panel behind its content — **not** the whole
-    widget: text, borders, and bars stay full-strength (deliberately not element `opacity`, which
-    would dim everything and hurt legibility). Default `0.82` so existing profiles render
-    identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
-    widgets that render a background plate.
+### Live reload
 
-16. **Live config reload.** A render page re-reads its profile at runtime and applies a change
+22. **Live config reload.** A render page re-reads its profile at runtime and applies a change
     without a manual Browser Source refresh: it re-resolves the config (same precedence as rule 4) on
     a modest interval and, when the result differs, swaps to the new layout **immediately and without
     transition** — a config edit is an operator action, not a broadcast reveal, so animating a
     geometry change mid-show would read as a glitch. A missed or failed poll just delays the change
     (best-effort, like the initial load); the producer feed and widget state are unaffected. Relies on
-    the API's `no-cache` (rule 3) so a poll sees fresh state rather than a stale cached copy.
+    the API's `no-cache` headers (`companion-server.md` rule 15) so a poll sees fresh state rather
+    than a stale cached copy.
 
 ## Configuration Surface
 
