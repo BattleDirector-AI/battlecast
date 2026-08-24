@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-24
+
 ### Added
 
 - **Downloadable Windows binary — `battlecast.exe` (ADR 0004).** Releases now attach a
