@@ -68,6 +68,9 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     (default 8, floored at 4), `pinTop` (default 3), `pinScope` (`"overall"` default | `"class"`),
     `pinSubject` (default true). Additive + defaulted, so existing profiles render identically until a
     field exceeds what the tower can show. Behavior is specified in `what/tower-overflow.md`.
+    [PLANNED: #140] These two knobs configure the tower on **both** entry points — the widget inside
+    `/all` and the standalone `/tower` Browser Source, which derives its slot height from its own
+    viewport (`tower-overflow.md` rules 18–20).
 
 13. **URL-only knobs** (not stored in a profile) layer on top of the loaded config per Browser
     Source: `?class=<vehicle_class>` is a **cross-route field filter** read by `/tower`, `/all`,
