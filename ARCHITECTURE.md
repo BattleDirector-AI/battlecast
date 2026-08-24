@@ -91,6 +91,27 @@ vice-versa.
   on rendered content, never on "it mounted." The same fixtures validate against `schema.json`,
   replay from the mock producer, and drive unit tests, so a contract change surfaces everywhere.
 
+## Run modes
+
+The same code ships three ways, and none of them is a fork of the others:
+
+1. **Dev stack** — `make dev` runs the Vite app (`:5173`), the mock producer (`:8080`), and the
+   companion server (`:7397`) side by side.
+2. **Node** — `node server/serve.js` serves a built `app/dist` plus the config/asset API. Or no
+   server at all: build the app and host `app/dist` on any SPA-fallback static host alongside
+   committed `config/` and `logos/` folders. The render path is byte-identical; only in-UI upload is
+   lost.
+3. **Packaged binary** — `battlecast.exe`, a single file with the server, the built app (embedded as
+   an asset map), and the reference mock producer inside it, so a broadcaster needs neither Node nor
+   a build. `--demo` starts the bundled mock on `:8080` — the app's built-in default feed — so a
+   fresh download renders a live simulated race with nothing configured. The binary keeps its `data/`
+   next to the executable rather than in the working directory, and adds no behavior the plain-Node
+   path lacks.
+
+The static handler resolves **disk before embedded assets**, which is what lets one code path cover
+all three: a dev checkout keeps serving a freshly rebuilt `app/dist` even with a stale embedded map
+present.
+
 ## Repository layout
 
 | Path | What it is |
@@ -99,6 +120,7 @@ vice-versa.
 | `spec/v1/` | The producer↔battlecast protocol: `SPEC.md`, `schema.json`, fixtures, compliance harness. |
 | `producers/mock/` | Reference SSE producer that replays/simulates fixtures — the dev feed. |
 | `server/` | Companion config/asset server (`battlecast serve`), zero-dependency Node. |
+| `packaging/` | Builds the single-file `battlecast.exe` — embeds `app/dist`, compiles server + mock. |
 | `scripts/dev.mjs` | Dev-stack launcher behind `make dev`. |
 | `docs/decisions/` | Accepted architecture decision records (ADRs). |
 | `.ai/spec/` | Machine-facing specifications (what/ + how/). |
@@ -108,5 +130,7 @@ vice-versa.
 - Behavioral rules and code navigation: `.ai/spec/README.md`
 - The wire contract: `spec/v1/SPEC.md` + `spec/v1/schema.json`
 - Key decisions: `docs/decisions/0001-overlay-config-and-asset-persistence.md`,
-  `docs/decisions/0002-lower-third-widgets.md`
+  `docs/decisions/0002-lower-third-widgets.md`,
+  `docs/decisions/0003-tower-overflow-pinning-and-cycling.md`,
+  `docs/decisions/0004-packaged-windows-binary.md`
 - Release flow: `RELEASING.md`; testing bar: `CONTRIBUTING.md`
