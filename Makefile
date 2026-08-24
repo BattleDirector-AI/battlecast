@@ -4,7 +4,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev dev-live dev-app dev-mock dev-server build test lint
+.PHONY: help install dev dev-live dev-app dev-mock dev-server build exe test lint
 
 # Optional single-phase lock for the mock producer, for eye-testing one session type:
 #   make dev PHASE=race        (full stack, mock locked to the race)
@@ -36,6 +36,9 @@ dev-server: ## Run only the companion config/asset server (:7397)
 
 build: ## Build the production app bundle (app/dist)
 	npm --prefix app run build
+
+exe: ## Build the packaged Windows binary (packaging/build/battlecast.exe). Needs bun.
+	node packaging/build-exe.mjs
 
 test: ## Run the app test suite
 	npm --prefix app test
