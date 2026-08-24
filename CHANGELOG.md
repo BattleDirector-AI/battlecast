@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-24
+
 ### Added
 
 - **In-app help for every `/config` control.** The config editor now explains itself, so a
