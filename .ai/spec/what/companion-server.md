@@ -41,6 +41,34 @@ profiles and upload logo images. Implementation: `server/`; see `how/server.md`.
    SPA-fallback static host alongside committed `config/` + `logos/` folders. Only in-UI upload is
    lost; the render path is identical. This is a design property, not a second code path.
 
+### Embedded assets & the packaged binary
+
+9. The static handler MAY be given an **embedded asset map** (URL path → bytes) in addition to a
+   `distDir`. Resolution order is **disk first, then embedded**, for both the exact-file lookup and
+   the SPA `index.html` fallback. A checkout with a real `app/dist` therefore behaves exactly as
+   before; the map only fills in what disk cannot serve.
+10. Embedded assets are subject to the same rules as disk assets: correct `Content-Type` by
+    extension, `X-Content-Type-Options: nosniff`, extensionless paths falling back to `index.html`,
+    and a real `404` for a missing path that has an extension. Path traversal cannot apply — lookups
+    are exact keys in the map, never filesystem paths.
+11. A **packaged single-file build** (`battlecast.exe`) exists so a broadcaster can run battlecast
+    without installing Node or building the app. It bundles the server, the built overlay app as an
+    embedded asset map, and the reference mock producer. It is a *packaging* of the same server —
+    it MUST NOT introduce behavior the `node server/serve.js` path does not have.
+12. The packaged build stores its data **next to the executable** (`<exe dir>/data`), not in the
+    process working directory — a double-clicked binary must not scatter `profiles/` and `logos/`
+    into whatever folder Explorer happened to launch it from. `--data-dir` still overrides.
+
+### Demo mode
+
+13. `--demo` starts the bundled reference mock producer on `127.0.0.1:8080` alongside the server, so
+    a fresh install renders a live simulated race with no producer configured. `8080` is not
+    incidental: it is the app's built-in `DEFAULT_SRC`, so `/all` resolves to the demo feed with no
+    `?src=` parameter.
+14. Demo mode is **additive and non-default**. Without `--demo` the binary serves only the overlay
+    app and config API, and the overlay connects out to whatever producer `?src=` or the active
+    profile names. The mock is never started implicitly.
+
 ## Configuration Surface
 
 | Flag / env | Default | Purpose |
@@ -49,6 +77,7 @@ profiles and upload logo images. Implementation: `server/`; see `how/server.md`.
 | `--port` / `PORT` | `7397` | Listen port. |
 | `--data-dir` / `DATA_DIR` | `./data` | Where `profiles/` and `logos/` live. |
 | `--dist-dir` / `DIST_DIR` | `../app/dist` | Built app to serve. |
+| `--demo` | off | Also start the bundled mock producer on `127.0.0.1:8080`. |
 
 ## Constraints
 
@@ -56,3 +85,7 @@ profiles and upload logo images. Implementation: `server/`; see `how/server.md`.
 - Keep it zero-dependency (Node built-ins). Uphold the upload validation and default-localhost bind
   — they are the server's security surface.
 - Config persistence is orthogonal to `spec/v1`; server changes must not touch the compliance harness.
+- The packaged binary is a distribution concern only. Keep `server/` runnable under plain Node with
+  no generated files present — the embedded asset map is an optional argument, never an import.
+- Demo mode must not become the default, and the bundled mock must stay the unmodified reference
+  producer from `producers/mock/` — not a packaging-specific fork.

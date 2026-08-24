@@ -52,11 +52,11 @@ function safeDecode(segment) {
   }
 }
 
-export function createApp({ dataDir, distDir } = {}) {
+export function createApp({ dataDir, distDir, embedded } = {}) {
   if (!dataDir) throw new Error('createApp requires a dataDir')
   const profiles = createProfileStore(dataDir)
   const logos = createLogoStore(dataDir)
-  const serveStatic = createStaticHandler(distDir)
+  const serveStatic = createStaticHandler(distDir, embedded)
 
   async function handleProfiles(req, res, url) {
     if (url.pathname === '/api/profiles') {

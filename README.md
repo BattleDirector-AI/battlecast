@@ -41,6 +41,38 @@ v1 deliberately ships exactly **two widgets**:
 v1 is **not** a general-purpose overlay platform — just these two widgets, fed by a
 contract any producer can implement.
 
+## Download and run (Windows)
+
+Grab `battlecast-<version>-windows-x64.exe` from the
+[latest release](https://github.com/BattleDirector-AI/battlecast/releases/latest)
+and run it. No Node, no build step — the overlay app is compiled in.
+
+```
+battlecast.exe --demo
+```
+
+`--demo` starts a simulated race alongside the server, so you can see the overlays
+working before wiring up a real producer. Then add Browser Sources in OBS at
+1920x1080:
+
+| URL | What it shows |
+| --- | --- |
+| `http://localhost:7397/all` | every widget on one canvas |
+| `http://localhost:7397/tower` | standings tower only |
+| `http://localhost:7397/battle` | battle box only |
+
+Layout and logos are edited at `http://localhost:7397/config`. To drive it from a
+real producer, drop `--demo` and point at the feed:
+`http://localhost:7397/all?src=http://<producer>/events`.
+
+Profiles and uploaded logos are stored in a `data/` folder **next to the .exe**, so
+the binary and its configuration move together. `battlecast.exe --help` lists every
+option.
+
+> The binary is unsigned, so Windows SmartScreen warns on first run
+> ("More info" → "Run anyway"). Each release publishes `SHA256SUMS.txt` if you want
+> to verify the download.
+
 ## Development
 
 ```sh
@@ -71,6 +103,7 @@ targets, including `dev-app` / `dev-mock` / `dev-server` to run a piece on its o
 | `producers/mock/`    | Reference mock producer that replays fixtures over SSE.       |
 | `server/`            | Companion server (`battlecast serve`) — static app + config API. |
 | `scripts/dev.mjs`    | Dev-stack launcher used by `make dev`.                        |
+| `packaging/`         | Builds the self-contained Windows binary (`make exe`).        |
 
 ## License
 

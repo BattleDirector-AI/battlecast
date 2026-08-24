@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-24
+
+### Added
+
+- **Downloadable Windows binary — `battlecast.exe` (ADR 0004).** Releases now attach a
+  self-contained executable, so a broadcaster can run battlecast without installing Node or
+  building the app: download, run, point OBS at `http://localhost:7397/all`. The overlay app
+  travels inside the binary as an embedded asset map, and profiles/logos are stored in a `data/`
+  folder **next to the .exe** rather than the working directory, so a double-clicked binary keeps
+  its configuration with it. Built by `bun build --compile` (`make exe`) — build-time only;
+  `server/` and `producers/mock/` remain zero-dependency Node.
+
+- **`--demo` — first-run simulated race.** The binary can start the bundled reference mock
+  producer alongside the server, so a fresh download renders a live race with nothing configured.
+  The mock binds `:8080`, which is already the app's built-in `DEFAULT_SRC`, so `/all` needs no
+  `?src=`. Opt-in; the mock never starts implicitly.
+
+- **`.github/workflows/release.yml`.** On a published release: runs the app + server suites, builds
+  the binary, and attaches it with `SHA256SUMS.txt`. Triggered by `release: published` rather than
+  the tag push, since `RELEASING.md` pushes the tag before creating the release. The binary is
+  unsigned — SmartScreen warns on first run; the checksum is the integrity signal.
+
+### Changed
+
+- **`server/lib/static.js` takes an optional embedded asset map** as a second source, resolved
+  **after** the on-disk `distDir` so a dev rebuild is never shadowed by a stale generated map.
+  Embedded assets get the same content-type and `nosniff` treatment as disk assets.
+
+- **`producers/mock/server.js` is importable.** It exports `runSimulateMode` / `runFixturesMode`
+  and self-starts only under `require.main === module`, and it no longer reads `process.argv` at
+  import time — argv belongs to whoever owns the process. `node producers/mock/server.js simulate
+  race` and `PHASE=` behave exactly as before.
+
 ## [0.8.0] - 2026-07-23
 
 ### Added
