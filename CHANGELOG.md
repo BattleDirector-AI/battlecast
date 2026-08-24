@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **In-app help for every `/config` control.** The config editor now explains itself, so a
+  broadcaster who downloaded the binary can learn what each widget does without leaving the page.
+  Two levels: each widget carries a human name and a short description of what it puts on screen,
+  rendered **always visible** in its row; each individual control carries help behind an **ⓘ**
+  revealed on demand (the panel is dense, but a native `title=` tooltip signals nothing until you
+  hover it). The copy calls out the two behaviors that most often read as bugs — that pit, tire
+  wear and fuel are deliberately suppressed in qualifying and practice, and that the lower-thirds
+  hide themselves between camera cuts.
+
+- **`app/src/lib/configHelp.js`** — all help copy as data in one module, keyed by widget and by
+  logical field name, with `app/src/lib/HelpTip.svelte` rendering it. Tests assert the maps match
+  the config surface the editor iterates (`WIDGET_KEYS`, `TOWER_METRIC_FIELDS`, `DRIVER_INFO_FIELDS`)
+  with no missing and no orphan entries, and that every rendered widget control resolves to an ⓘ —
+  so a knob added without help fails CI instead of shipping unexplained.
+
+### Fixed
+
+- **Asking for help no longer changes the setting.** The ⓘ affordances sit inside `<label>`
+  elements, so a click on one would have activated the control beside it — opening the help for
+  "Reduced motion" would have switched reduced motion on. The button now cancels its own click.
+  Found by the test written for it, and confirmed against a real browser.
+
+- **`/config` legend layout.** The per-widget visibility checkbox, the widget name and its help
+  affordance now sit on one line; a bare `<legend>` had laid them out as block flow.
+
+
 ## [0.9.0] - 2026-08-24
 
 ### Added
