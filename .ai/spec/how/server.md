@@ -13,10 +13,19 @@ Behavioral rules: `what/companion-server.md`.
 | `lib/logos.js` | — | List/store/delete/serve logo images under `data/logos/`. |
 | `lib/multipart.js` | — | Minimal multipart/form-data parser for uploads (no deps). |
 | `lib/validation.js` | — | Filename/profile-name sanitization, image-type + size caps. |
-| `lib/static.js` | — | Serve `app/dist` with SPA fallback. |
+| `lib/static.js` | `createStaticHandler(distDir, embedded)` | Serve `app/dist` with SPA fallback; optional embedded asset map as the second source. |
 | `lib/respond.js` | — | Shared HTTP response helpers. |
 | `data/profiles/`, `data/logos/` | — | On-disk persistence (file-per-profile; committed for static mode). |
 | `test/*.test.js` | — | Node test-runner suites incl. `security.test.js` (traversal/upload abuse). |
+
+Packaging lives **outside** `server/` so the server stays plain-Node runnable:
+
+| File | Responsibility |
+|---|---|
+| `packaging/embed-dist.mjs` | Read `app/dist` → emit `packaging/build/embedded-dist.generated.js` (URL path → base64). Generated, gitignored. |
+| `packaging/entry.js` | Packaged-binary entry: data dir next to the exe, embedded assets, `--demo`, `--help`. |
+| `packaging/build-exe.mjs` | Orchestrates embed → `bun build --compile --target=bun-windows-x64` → `packaging/build/battlecast.exe`. |
+| `.github/workflows/release.yml` | On a `v*` tag: build app, compile the exe, attach it + `SHA256SUMS.txt` to the release. |
 
 ## Data Flow
 
@@ -26,6 +35,9 @@ Behavioral rules: `what/companion-server.md`.
    `POST /api/logos` write after `validation.js` checks; `DELETE /api/logos/<file>` removes.
 3. `GET /logos/<file>` serves stored images; any unmatched path falls through `static.js` to the
    built app with SPA fallback.
+4. Packaged: `entry.js` resolves `dataDir` from `path.dirname(process.execPath)`, passes the
+   generated asset map as `createApp({ embedded })`, and — with `--demo` — calls
+   `runSimulateMode({ port: 8080 })` from `producers/mock/server.js` before listening.
 
 ## Key Abstractions
 
@@ -53,3 +65,7 @@ Behavioral rules: `what/companion-server.md`.
   browser (`app/src/routes/*/sseClient.js`). Do not add a state-feed proxy here.
 - Port `7397` deliberately sits above the sim `_397` family (rF2 :5397, LMU :6397) so it never
   collides with a sim on the same machine.
+- `static.js` resolves **disk before embedded**. Do not invert this: a dev checkout must keep serving
+  a freshly rebuilt `app/dist` even if a stale generated map is present.
+- `producers/mock/server.js` exports `runSimulateMode` / `runFixturesMode` and only self-starts under
+  `require.main === module`, so the packaged binary can start it in-process. Keep that guard.

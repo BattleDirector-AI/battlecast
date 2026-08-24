@@ -40,17 +40,23 @@ const PORT = Number(process.env.PORT) || 8080;
 const INTERVAL_MS = Number(process.env.INTERVAL_MS) || 750;
 const SIM_DT_SECONDS = Number(process.env.SIM_DT_SECONDS) || 2;
 const SSE_PATH = "/events";
-const MODE = (process.argv[2] || process.env.MODE || "simulate").toLowerCase();
 
 // Optional single-phase lock for eye-testing one session type (simulate mode only):
 //   node producers/mock/server.js simulate race   — or   PHASE=race make dev
 // Locks the simulator to that phase (qualifying|grid|race|results) instead of cycling.
 // An unrecognized value is ignored with a warning (normal cycling).
-const LOCK_PHASE_RAW = (process.argv[3] || process.env.PHASE || "").trim().toLowerCase();
-const LOCK_PHASE = LOCK_PHASE_RAW && PHASES.includes(LOCK_PHASE_RAW) ? LOCK_PHASE_RAW : null;
-if (LOCK_PHASE_RAW && !LOCK_PHASE) {
-  console.warn(`[mock] ignoring PHASE="${LOCK_PHASE_RAW}" — expected one of: ${PHASES.join(", ")}`);
+//
+// Resolved from `raw` — the CLI arg when this file OWNS the process, env only when
+// imported. An embedder's argv is not ours to interpret.
+function resolveLockPhase(raw) {
+  const value = (raw || "").trim().toLowerCase();
+  if (!value) return null;
+  if (PHASES.includes(value)) return value;
+  console.warn(`[mock] ignoring PHASE="${value}" — expected one of: ${PHASES.join(", ")}`);
+  return null;
 }
+
+const ENV_LOCK_PHASE = resolveLockPhase(process.env.PHASE);
 
 const FIXTURES_DIR = path.resolve(__dirname, "..", "..", "spec", "v1", "fixtures");
 
@@ -83,11 +89,11 @@ function frame(payload) {
   return `event: state\ndata: ${JSON.stringify(payload)}\n\n`;
 }
 
-function startServer(onRequest) {
+function startServer(onRequest, port = PORT) {
   const server = http.createServer(onRequest);
-  server.listen(PORT, () => {
-    console.log(`[mock] battlecast mock producer listening on http://localhost:${PORT}`);
-    console.log(`[mock] SSE endpoint: GET http://localhost:${PORT}${SSE_PATH}`);
+  server.listen(port, () => {
+    console.log(`[mock] battlecast mock producer listening on http://localhost:${port}`);
+    console.log(`[mock] SSE endpoint: GET http://localhost:${port}${SSE_PATH}`);
   });
   return server;
 }
@@ -116,7 +122,12 @@ function openSse(res) {
 }
 
 // ---- simulate mode: one shared race, broadcast to every connected client ----
-function runSimulateMode() {
+function runSimulateMode({
+  port = PORT,
+  lockPhase = ENV_LOCK_PHASE,
+  intervalMs = INTERVAL_MS,
+  dtSeconds = SIM_DT_SECONDS,
+} = {}) {
   const simulator = createSimulator({
     // Log every phase transition (and the opening phase) on the mock's prefixed
     // stdout so a tester watching the overlay can see qualifying → grid → race →
@@ -125,7 +136,7 @@ function runSimulateMode() {
       console.log(`[mock] phase → ${phase} (sim-clock ${simClock}s)`);
     },
     // When set, lock the simulator to a single session type for eye-testing.
-    lockPhase: LOCK_PHASE,
+    lockPhase,
   });
 
   // Sub-step the simulator several times per cadence interval and broadcast on a
@@ -136,9 +147,9 @@ function runSimulateMode() {
   // still emits at ~INTERVAL_MS; the total sim-time advanced per real second is
   // unchanged (SUBSTEPS × STEP_DT === SIM_DT_SECONDS), and the director's on-camera
   // dwell is time-based in simulate.js, so cut frequency is unchanged too.
-  const SUBSTEPS = Math.max(1, Math.ceil(INTERVAL_MS / 150));
-  const STEP_MS = Math.max(1, Math.round(INTERVAL_MS / SUBSTEPS));
-  const STEP_DT = SIM_DT_SECONDS / SUBSTEPS;
+  const SUBSTEPS = Math.max(1, Math.ceil(intervalMs / 150));
+  const STEP_MS = Math.max(1, Math.round(intervalMs / SUBSTEPS));
+  const STEP_DT = dtSeconds / SUBSTEPS;
 
   let latest = simulator.step(STEP_DT);
   let lastSubject = latest.subject && latest.subject.slot_id != null ? latest.subject.slot_id : null;
@@ -160,7 +171,7 @@ function runSimulateMode() {
     // it carries reach the overlay within one sub-step rather than a full tick.
     const cut = subject !== lastSubject || latest.mode !== lastMode;
     // Emit on a camera cut immediately, or once the cadence interval has elapsed.
-    if (cut || msSinceEmit >= INTERVAL_MS) {
+    if (cut || msSinceEmit >= intervalMs) {
       lastSubject = subject;
       lastMode = latest.mode;
       msSinceEmit = 0;
@@ -168,7 +179,7 @@ function runSimulateMode() {
     }
   }, STEP_MS);
 
-  startServer((req, res) => {
+  const server = startServer((req, res) => {
     if (rejectNonSse(req, res)) return;
     openSse(res);
     console.log(`[mock] client connected: ${req.socket.remoteAddress}`);
@@ -183,23 +194,25 @@ function runSimulateMode() {
 
   console.log(
     `[mock] mode: simulate — ` +
-      (LOCK_PHASE
-        ? `LOCKED to the ${LOCK_PHASE} phase (looping fresh legs)`
+      (lockPhase
+        ? `LOCKED to the ${lockPhase} phase (looping fresh legs)`
         : `one live multi-class session cycling qualifying → grid → race → results`) +
-      `, ${SIM_DT_SECONDS}s of race time per ${INTERVAL_MS}ms tick ` +
+      `, ${dtSeconds}s of race time per ${intervalMs}ms tick ` +
       `(sub-stepped ${SUBSTEPS}× every ${STEP_MS}ms; emits promptly on a subject or phase change)`,
   );
+
+  return server;
 }
 
 // ---- fixtures mode: each connection independently cycles the fixtures ----
-function runFixturesMode() {
+function runFixturesMode({ port = PORT, intervalMs = INTERVAL_MS } = {}) {
   const fixtures = loadFixtures();
   if (fixtures.length === 0) {
     console.error("No fixtures loaded; aborting.");
     process.exit(1);
   }
 
-  startServer((req, res) => {
+  const server = startServer((req, res) => {
     if (rejectNonSse(req, res)) return;
     openSse(res);
     console.log(`[mock] client connected: ${req.socket.remoteAddress}`);
@@ -213,7 +226,7 @@ function runFixturesMode() {
     const timer = setInterval(() => {
       res.write(frame(fixtures[i % fixtures.length].payload));
       i += 1;
-    }, INTERVAL_MS);
+    }, intervalMs);
 
     req.on("close", () => {
       clearInterval(timer);
@@ -224,13 +237,25 @@ function runFixturesMode() {
   console.log(
     `[mock] mode: fixtures — cycling ${fixtures.length} fixture(s): ${fixtures.map((f) => f.name).join(", ")}`,
   );
+
+  return server;
 }
 
-if (MODE === "fixtures") {
-  runFixturesMode();
-} else if (MODE === "simulate") {
-  runSimulateMode();
-} else {
-  console.error(`[mock] unknown mode "${MODE}" — expected "simulate" or "fixtures"`);
-  process.exit(1);
+module.exports = { runSimulateMode, runFixturesMode, PHASES, SSE_PATH };
+
+// Run only when invoked directly. When imported — by the packaged binary's --demo
+// mode — the embedder chooses the mode and port, and argv belongs to the embedder.
+// Mirrors server/serve.js.
+if (require.main === module) {
+  const mode = (process.argv[2] || process.env.MODE || "simulate").toLowerCase();
+  const lockPhase = resolveLockPhase(process.argv[3] || process.env.PHASE);
+
+  if (mode === "fixtures") {
+    runFixturesMode();
+  } else if (mode === "simulate") {
+    runSimulateMode({ lockPhase });
+  } else {
+    console.error(`[mock] unknown mode "${mode}" — expected "simulate" or "fixtures"`);
+    process.exit(1);
+  }
 }

@@ -34,7 +34,10 @@ Use the `release-cut` skill (`.claude/skills/release-cut/`) for the full flow. I
 3. **Cut** — on `prerelease`, bump the version (`app/package.json`), move
    `[Unreleased]` to a dated version section, commit, and tag `vX.Y.Z`.
 4. **Promote** — PR `prerelease → main`, push the tag, merge, then
-   `gh release create vX.Y.Z`.
+   `gh release create vX.Y.Z`. Publishing the release triggers
+   `.github/workflows/release.yml`, which builds `battlecast.exe` and attaches it
+   with `SHA256SUMS.txt` — nothing to do by hand. (Re-run it for an existing tag via
+   the workflow's `workflow_dispatch` input.)
 5. **Back-merge** — a small `prerelease → next` PR carries the version bump and
    changelog forward so `next` doesn't conflict on the following release.
 
