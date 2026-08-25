@@ -84,7 +84,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   re-derived on `resize`. `TowerPage.svelte` also resolves the profile (`loadConfig`, as
   `DriverPage`/`QualifyingPage` do) so the tower's `maxRows`/`cycle` reach the standalone route.
   Rationale: `docs/decisions/0005-standalone-tower-slot-height.md`.
-- **Measure the resolved padding, not the token** [PLANNED: #152]. The inset is read as the page
+- **Measure the resolved padding, not the token**. The inset is read as the page
   element's computed `paddingTop`/`paddingBottom`, which the engine has already resolved to `px`.
   Reading the *custom property* instead (`getPropertyValue('--bc-inset-safe')`) returns its
   **authored text**, so a token authored in any unit but `px` — `3rem` — parses to a plausible,
@@ -94,7 +94,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   “measure, don't hardcode” applied one level further down; the header/row tokens
   (`--bc-widget-header` / `--bc-row-standard`) are read as custom properties because they are
   design values with no resolved-layout equivalent to read instead.
-- **Re-fitting coalesces to one measurement per frame** [PLANNED: #152]. A resize burst (an operator
+- **Re-fitting coalesces to one measurement per frame**. A resize burst (an operator
   dragging the source) would otherwise re-measure and reassign the budget on every event, and each
   budget change returns the cycling window to its first page (`what/tower-overflow.md` rule 19).
   Coalesce through `requestAnimationFrame` so a drag settles once.
