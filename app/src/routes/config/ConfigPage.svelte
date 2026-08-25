@@ -13,6 +13,7 @@
     TOWER_METRIC_FIELDS,
     normalizeConfig,
     isLowerThird,
+    rendersPlate,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
@@ -516,6 +517,32 @@
                 />
               </label>
             </div>
+            {#if rendersPlate(key)}
+              <!-- #145: how see-through this widget's background plate is. Scales the
+                   three plate tokens together (AllView's plateVars); the text, bars and
+                   borders drawn on top are deliberately untouched - this is the plate,
+                   not element opacity. Only the widgets that paint a plate get it. -->
+              <label class="checkline plate-row">
+                plate opacity
+                <HelpTip
+                  text={FIELD_HELP.plateAlpha}
+                  label="plate opacity"
+                  testid="help-plate-alpha-{key}"
+                />
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  data-testid="plate-alpha-{key}"
+                  value={w.plateAlpha}
+                  oninput={(e) => setField(key, 'plateAlpha', Number(e.currentTarget.value))}
+                />
+                <span class="plate-value" data-testid="plate-alpha-value-{key}"
+                  >{Number(w.plateAlpha).toFixed(2)}</span
+                >
+              </label>
+            {/if}
             {#if widgetSupportsAutoHide(key)}
               <label class="checkline">
                 <input
@@ -1090,6 +1117,18 @@
   }
   .checkline input {
     width: auto;
+  }
+  /* The slider takes the spare width; the readout keeps a fixed, tabular column so
+     dragging it does not shuffle the row. */
+  .plate-row input[type='range'] {
+    flex: 1;
+    padding: 0;
+  }
+  .plate-value {
+    min-width: 2.2rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: #e7ecf3;
   }
   .trigger-row {
     margin-top: 0.5rem;

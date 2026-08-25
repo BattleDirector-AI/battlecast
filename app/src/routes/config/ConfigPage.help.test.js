@@ -126,6 +126,33 @@ describe('config editor: help popovers', () => {
     }
   })
 
+  /* SPEC-FIRST (#145): `what/overlay-config.md` rule 23 puts a plate-opacity control
+   * in every plate-rendering widget row, so rule 16 requires it to be explained in
+   * the UI. RED until the control (and its ⓘ) render. */
+  it('explains the plate-opacity control on every widget that offers one', async () => {
+    const { container } = render(ConfigPage)
+
+    for (const key of ['tower', 'battle', 'driver', 'qualifying', 'racecontrol', 'onboard']) {
+      expect(container.querySelector(`[data-testid="help-plate-alpha-${key}-text"]`)).toBeNull()
+
+      const btn = container.querySelector(`[data-testid="help-plate-alpha-${key}"]`)
+      expect(btn, `no plate-opacity help for ${key}`).toBeTruthy()
+
+      await fireEvent.click(btn)
+      await tick()
+      const pop = container.querySelector(`[data-testid="help-plate-alpha-${key}-text"]`)
+      expect(pop, `plate-opacity help for ${key} did not open`).toBeTruthy()
+      expect(pop.textContent.trim()).toBe(FIELD_HELP.plateAlpha)
+
+      await fireEvent.keyDown(document, { key: 'Escape' })
+      await tick()
+    }
+
+    // The copy has to say the thing rule 15 exists for, or it explains nothing.
+    expect(FIELD_HELP.plateAlpha.toLowerCase()).toMatch(/panel|plate/)
+    expect(FIELD_HELP.plateAlpha.toLowerCase()).toMatch(/full strength|stay|not affected/)
+  })
+
   it('labels each ⓘ for screen readers with the control it explains', () => {
     const { container } = render(ConfigPage)
     const btn = container.querySelector('[data-testid="help-speed-mph-onboard"]')

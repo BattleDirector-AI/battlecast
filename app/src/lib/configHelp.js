@@ -85,6 +85,10 @@ export const FIELD_HELP = Object.freeze({
   hideWhenIdle:
     'Drop this widget out of the overlay completely while it has nothing to show, instead of ' +
     'leaving an empty panel on screen. Only offered for widgets that can be idle.',
+  plateAlpha:
+    'How solid the dark panel behind this widget looks. Turn it down to let busy footage show ' +
+    'through — the names, numbers, bars and outlines drawn on top stay at full strength either ' +
+    'way, so the widget never gets harder to read. Only offered for widgets that have a panel.',
 
   // --- lower-thirds: driver + qualifying ---
   trigger:

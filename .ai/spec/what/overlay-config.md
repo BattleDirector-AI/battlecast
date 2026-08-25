@@ -88,6 +88,26 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
     widgets that render a background plate.
 
+23. **Plate opacity is tunable from the editor.** `[PLANNED: #145]` The `/config` editor exposes a
+    plate-opacity control in the widget row — rule 14's control surface — for each widget that
+    renders a background plate, so rule 15's broadcaster judgement call ("a more see-through plate
+    over busy footage") never requires hand-editing a profile JSON or a round-trip through
+    Export/Import. The **plate-rendering widgets** are the six that paint one of the plate tokens:
+    `tower` and `battle` (panel + header bar), `driver` and `qualifying` (the shared lower-third
+    card), `racecontrol` and `onboard` (header-bar plate). `logos` composites its images straight
+    over the video with no panel behind them, so it gets **no** control — gated the same way
+    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all seven. The
+    control spans the full `[0,1]` range in steps of `0.01`, starts at the `0.82` default, and
+    renders its current value as text beside it — two decimals, matching the step — so the setting is
+    readable at a glance instead of inferred from a slider position. Per rule 16 it carries its own
+    help copy, and per rule 19 the coverage tests then require it.
+
+24. **Withholding the control does not change the config.** `[PLANNED: #145]` `plateAlpha` stays
+    normalized onto every widget (rule 11) whether or not the editor offers a control for it. A
+    profile carrying a hand-authored `plateAlpha` for a non-plate widget keeps that value through a
+    load → edit → save cycle: the editor never rewrites a knob it declines to show, and rule 6's
+    forward-compat guarantee is unaffected.
+
 ### Editor help content
 
 16. **Every control the editor renders MUST be explained in the UI itself.** A broadcaster reaches

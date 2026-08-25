@@ -347,6 +347,26 @@ export function isLowerThird(key) {
   return LOWER_THIRD_KEYS.includes(key)
 }
 
+/** Widgets that paint one of the plate tokens and therefore read `plateAlpha`: the
+ *  tower and battle box (panel + header bar), the driver/qualifying lower-third card,
+ *  and the race-control/on-board header bar. `logos` composites its images straight
+ *  over the video with no panel behind them. */
+export const PLATE_WIDGET_KEYS = Object.freeze([
+  'tower',
+  'battle',
+  'driver',
+  'qualifying',
+  'racecontrol',
+  'onboard',
+])
+
+/** Whether a widget renders a background plate (so the config UI surfaces its
+ *  plate-opacity knob). Withholding the control is a UI decision only — `plateAlpha`
+ *  stays normalized onto every widget either way. */
+export function rendersPlate(key) {
+  return PLATE_WIDGET_KEYS.includes(key)
+}
+
 /** Deep clone that works in Node >=17 / happy-dom (structuredClone) with a JSON
  *  fallback. DEFAULT_CONFIG is frozen, so callers must clone before mutating. */
 function clone(value) {
