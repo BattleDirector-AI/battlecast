@@ -77,6 +77,16 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   page cursor + frozen window membership. `happy-dom` does no layout, so the measured budget and the
   CSS clamp are verified in a real browser (as the #118 clamp was); the selection/stability logic is
   unit-tested in `towerCycle.test.js`.
+- **Where `slotHeight` comes from** (behavior in `what/tower-overflow.md` rules 18–20): `/all`
+  (`AllView.svelte`) passes the tower widget's configured `h`. The standalone route
+  (`TowerPage.svelte`) has no configured slot, so it **derives** one from the viewport:
+  `window.innerHeight` less the `.tower-page` safe-area inset top and bottom, read from
+  `--bc-inset-safe` with a `48px` fallback (the same measure-with-fallback pattern as the
+  header/row tokens, so a theme override cannot desync it), floored at zero and re-derived on
+  `resize`. `TowerPage.svelte` also resolves the profile (`loadConfig`, as `DriverPage`/
+  `QualifyingPage` do) so the tower's `maxRows`/`cycle` reach the standalone route.
+  [PLANNED: #140 — `TowerPage` supplies neither today.] Rationale:
+  `docs/decisions/0005-standalone-tower-slot-height.md`.
 - The Vite/Svelte scaffold's `#app` centering and themed background are neutralized at runtime in
   `App.svelte` for real routes; the scaffold landing (`{:else}`) is leftover template and not a
   product route.
