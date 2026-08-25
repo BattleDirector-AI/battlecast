@@ -68,7 +68,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     (default 8, floored at 4), `pinTop` (default 3), `pinScope` (`"overall"` default | `"class"`),
     `pinSubject` (default true). Additive + defaulted, so existing profiles render identically until a
     field exceeds what the tower can show. Behavior is specified in `what/tower-overflow.md`.
-    [PLANNED: #140] These two knobs configure the tower on **both** entry points — the widget inside
+    These two knobs configure the tower on **both** entry points — the widget inside
     `/all` and the standalone `/tower` Browser Source, which derives its slot height from its own
     viewport (`tower-overflow.md` rules 18–20).
 
@@ -91,7 +91,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
     widgets that render a background plate.
 
-23. **Plate opacity is tunable from the editor.** `[PLANNED: #145]` The `/config` editor exposes a
+23. **Plate opacity is tunable from the editor.** The `/config` editor exposes a
     plate-opacity control in the widget row — rule 14's control surface — for each widget that
     renders a background plate, so rule 15's broadcaster judgement call ("a more see-through plate
     over busy footage") never requires hand-editing a profile JSON or a round-trip through
@@ -105,7 +105,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     readable at a glance instead of inferred from a slider position. Per rule 16 it carries its own
     help copy, and per rule 19 the coverage tests then require it.
 
-24. **Withholding the control does not change the config.** `[PLANNED: #145]` `plateAlpha` stays
+24. **Withholding the control does not change the config.** `plateAlpha` stays
     normalized onto every widget (rule 11) whether or not the editor offers a control for it. A
     profile carrying a hand-authored `plateAlpha` for a non-plate widget keeps that value through a
     load → edit → save cycle: the editor never rewrites a knob it declines to show, and rule 6's

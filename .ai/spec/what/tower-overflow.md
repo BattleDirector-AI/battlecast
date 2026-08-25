@@ -17,18 +17,18 @@ cycles. Renderable from `spec/v1` today — no new producer field.
 
 Decision record: `docs/decisions/0005-standalone-tower-slot-height.md`.
 
-18. **Both entry points bound the tower.** [PLANNED: #140] The tower has a bounded slot on every
+18. **Both entry points bound the tower.** The tower has a bounded slot on every
     route it renders on, and rules 1–17 apply identically on both. Inside `/all` the slot is the
     tower widget's configured height (`h`). On the standalone `/tower` route the slot is **derived
     from the Browser Source viewport**: the viewport height less the route's safe-area inset at the
     top and the bottom, floored at zero. `/all`'s budget still comes from its configured slot and
     never from the viewport.
-19. **The derived slot tracks the viewport.** [PLANNED: #140] A Browser Source can be resized while
+19. **The derived slot tracks the viewport.** A Browser Source can be resized while
     it is running, so `/tower` re-derives its slot height — and therefore its row budget — whenever
     the viewport changes size, and re-fits to the new size. Rule 11's window stability does not
     extend across a resize: the cycling window returns to its first page, as it does on a
     session-phase change (rule 17).
-20. **Overflow configuration reaches both entry points.** [PLANNED: #140] The standalone route reads
+20. **Overflow configuration reaches both entry points.** The standalone route reads
     the tower's `maxRows` and `cycle` settings from the same loaded profile `/all` reads them from
     (`overlay-config.md` rules 11–12), so one profile configures the tower identically on both
     routes. An explicit integer `maxRows` still caps: the effective budget is the smaller of the slot
