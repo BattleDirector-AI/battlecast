@@ -15,33 +15,28 @@ cycles. Renderable from `spec/v1` today — no new producer field.
 
 ### Where the slot comes from
 
-*(Rules 18–20 are new; per the README's numbering convention a new rule takes the next free number
-even when it lands in an earlier section.)*
+Decision record: `docs/decisions/0005-standalone-tower-slot-height.md`.
 
 18. **Both entry points bound the tower.** [PLANNED: #140] The tower has a bounded slot on every
-    route it renders on. Inside `/all` the slot is the tower widget's configured height (`h`). On the
-    standalone `/tower` route the slot is **derived from the Browser Source viewport**: the viewport
-    height less the route's safe-area inset at the top and the bottom, floored at zero. The Browser
-    Source's own configured dimensions therefore play exactly the role `/all`'s configured slot
-    height plays, and rules 1–17 apply identically on both routes — a Browser Source pointed at
-    `/tower` shows a bounded selection with pinned rows and a cycling window instead of growing with
-    the field. `/all` is unchanged by this: its budget still comes from the configured slot and never
-    from the viewport.
+    route it renders on, and rules 1–17 apply identically on both. Inside `/all` the slot is the
+    tower widget's configured height (`h`). On the standalone `/tower` route the slot is **derived
+    from the Browser Source viewport**: the viewport height less the route's safe-area inset at the
+    top and the bottom, floored at zero. `/all`'s budget still comes from its configured slot and
+    never from the viewport.
 19. **The derived slot tracks the viewport.** [PLANNED: #140] A Browser Source can be resized while
     it is running, so `/tower` re-derives its slot height — and therefore its row budget — whenever
-    the viewport changes size, and re-fits to the new size. A resize is an operator layout change,
-    not a live-feed event, so rule 11's window stability does not extend across it: the cycling
-    window may restart at its first page after a resize.
+    the viewport changes size, and re-fits to the new size. Rule 11's window stability does not
+    extend across a resize: the cycling window returns to its first page, as it does on a
+    session-phase change (rule 17).
 20. **Overflow configuration reaches both entry points.** [PLANNED: #140] The standalone route reads
     the tower's `maxRows` and `cycle` settings from the same loaded profile `/all` reads them from
     (`overlay-config.md` rules 11–12), so one profile configures the tower identically on both
     routes. An explicit integer `maxRows` still caps: the effective budget is the smaller of the slot
-    budget (rule 2) and `maxRows`. `maxRows: "auto"` means the slot budget alone — which on `/tower`
-    is the viewport-derived one of rule 18, no longer unbounded. The derived slot height is neither a
-    profile field nor a URL knob (`overlay-config.md` rule 13): it is a property of the Browser
-    Source itself, so nothing overrides it but resizing the source. This reaches the **overflow**
-    settings only — the standalone route's other knobs (`?class=`, `?metrics=`) keep the precedence
-    rule 13 already gives them.
+    budget (rule 2) and `maxRows`. `maxRows: "auto"` means the slot budget alone. The derived slot
+    height is itself neither a profile field nor a URL knob (`overlay-config.md` rule 13) and nothing
+    overrides it but resizing the source. This reaches the **overflow** settings only — the
+    standalone route's other knobs (`?class=`, `?metrics=`) keep the precedence rule 13 already
+    gives them.
 
 ### What gets a row
 

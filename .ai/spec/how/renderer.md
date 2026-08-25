@@ -85,8 +85,8 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   header/row tokens, so a theme override cannot desync it), floored at zero and re-derived on
   `resize`. `TowerPage.svelte` also resolves the profile (`loadConfig`, as `DriverPage`/
   `QualifyingPage` do) so the tower's `maxRows`/`cycle` reach the standalone route.
-  [PLANNED: #140 — today `TowerPage` passes neither `slotHeight` nor `maxRows`/`cycle`, so the
-  standalone budget is `Infinity` and cycling is inert.]
+  [PLANNED: #140 — `TowerPage` supplies neither today.] Rationale:
+  `docs/decisions/0005-standalone-tower-slot-height.md`.
 - The Vite/Svelte scaffold's `#app` centering and themed background are neutralized at runtime in
   `App.svelte` for real routes; the scaffold landing (`{:else}`) is leftover template and not a
   product route.
