@@ -161,28 +161,40 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 
 ### Producer feed status in the editor
 
-Decision record: `docs/decisions/0006-config-producer-feed-status.md`.
+Decision records: `docs/decisions/0006-config-producer-feed-status.md` (the readout),
+`docs/decisions/0007-config-feed-reconnect.md` (the two failure states and the Reconnect control).
 
 25. **The editor reports live producer feed status.** `/config` opens its own SSE connection
     against the producer URL currently in the editor, holds it open for the life of the page, and
     renders a **feed-status readout** in the Producer section beside the SSE URL field. The readout
-    is in exactly one of three states, and the state is driven **only** by the connection's own
+    is in exactly one of four states, and the state is driven **only** by the connection's own
     lifecycle:
 
     | State | Entered when |
     |---|---|
-    | *connecting* | a connection is opened — on mount, and on every reopen (rule 27) |
+    | *connecting* | a connection is opened — on mount, on every reopen (rule 27), on every reconnect (rule 30) |
     | *connected* | that connection is established |
-    | *disconnected* | that connection fails or drops |
+    | *retrying* | that connection fails and the transport will re-attempt it unaided |
+    | *stopped* | that connection fails and the transport will not re-attempt it |
 
     Each state's rendered text names its subject (rule 29); the literal strings are pinned in
-    `how/config-editor.md`. *Connecting* is the state on mount. A failure returns the readout to
-    *disconnected* from any state, and a later success returns it to *connected*, so a feed that
-    drops while `/config` is open is visible without a reload. A URL the connection cannot be opened
-    against at all — a half-typed one that settles past rule 27's debounce — is a failed connection
-    like any other: the readout reads *disconnected*, and the failure never escapes the editor,
-    which keeps rendering and keeps accepting edits. The editor's connection is closed when the page
-    unmounts — an unmounted editor never reconnects and never renders.
+    `how/config-editor.md`. *Retrying* and *stopped* are both "not connected" on air and their
+    rendered text says so; what separates them is that only *retrying* resolves itself, which the
+    text also says. *Connecting* is the state on mount.
+
+    Which of the two a failure produces is read from the transport's own state at the moment that
+    failure is reported. It is never inferred from elapsed time: rule 26's ban on timers holds
+    unchanged, and the readout MUST NOT decay from *retrying* to *stopped* on its own. A transport
+    that keeps re-attempting reports each attempt's failure separately, and every one of those
+    leaves the readout *retrying* — the state is recomputed from each failure and never latched
+    from the first. A success from any state returns the readout to *connected*, so a feed that
+    drops while `/config` is open and then heals itself is visible without a reload.
+
+    A URL the connection cannot be opened against at all — a half-typed one that settles past
+    rule 27's debounce — is *stopped*, because there is no connection to re-attempt anything; and
+    the failure never escapes the editor, which keeps rendering and keeps accepting edits. The
+    editor's connection is closed when the page unmounts — an unmounted editor never reconnects and
+    never renders.
 
 26. **Feed status is connection state, not data flow.** An open connection that is delivering no
     `state` events MUST still read *connected*. The editor MUST NOT implement stall, timeout, or
@@ -223,6 +235,25 @@ Decision record: `docs/decisions/0006-config-producer-feed-status.md`.
     add no `ⓘ`; the Producer section's existing `producerSrc` help already explains the field they
     sit beside. Feed status is transient UI state — it is **not** written to the config, so the
     profile shape and `configVersion` are unchanged.
+
+30. **A Reconnect control re-arms the readout.** The Producer section renders a **Reconnect**
+    control whenever the feed readout is *retrying* or *stopped*, and does not render it while the
+    readout is *connecting* or *connected* — in those two states the control is **absent**, not
+    merely inert. Its presence is governed by "not connected" and nothing finer: it does not appear
+    or vanish as the transport cycles between *retrying* and *stopped*.
+
+    Activating the control closes the current connection and opens a new one against the producer
+    URL the editor's config holds at that moment, **immediately**. Rule 27's debounce governs a
+    *changed* URL settling and MUST NOT delay an explicit reconnect; a reopen rule 27 already has
+    pending is cancelled by the reconnect, so an operator who edits the URL and reconnects without
+    waiting gets one connection against the edited value rather than two. The readout resets to
+    *connecting* and the control disappears with it. What follows is an ordinary connection: it
+    reaches *connected*, *retrying* or *stopped* by rule 25 like any other, the control returns if
+    it fails, and a later edit to the URL field still reopens the connection under rule 27.
+
+    Reconnect is a **control**, so — unlike rule 29's readouts — it MUST carry a `configHelp.js`
+    entry and an ⓘ (rules 16–19). It writes nothing: `producer.src`, the rest of the profile, the
+    OBS Browser Source URL and `configVersion` are all unchanged by pressing it.
 
 ## Configuration Surface
 

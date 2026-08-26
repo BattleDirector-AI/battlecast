@@ -1,19 +1,23 @@
-/* `/config` producer feed status (#158) — `.ai/spec/what/overlay-config.md` rules 25–29.
+/* `/config` producer feed status (#158, #160) — `.ai/spec/what/overlay-config.md` rules 25–30.
  *
- * Pins the readout's three states, that it tracks the connection rather than the data, that it
- * follows the configured producer URL from any source, where on the page it renders, and that the
- * preview stays on the fixture regardless.
- * Rationale: `docs/decisions/0006-config-producer-feed-status.md`.
+ * Pins the readout's four states, that it tracks the connection rather than the data, that it
+ * follows the configured producer URL from any source, where on the page it renders, that the
+ * preview stays on the fixture regardless, and the Reconnect control that re-arms it.
+ * Rationale: `docs/decisions/0006-config-producer-feed-status.md` (the readout) and
+ * `docs/decisions/0007-config-feed-reconnect.md` (the two failure states, the control).
  *
  * Environment: `happy-dom` has no `EventSource`, so one is stubbed and `emit()` stands in for the
- * browser dispatching `open` / `error` / `state`. The reopen is debounced, so the whole file runs
- * on fake timers.
+ * browser dispatching `open` / `error` / `state`. The two failure states are a `readyState`
+ * distinction rather than an event one, so the double models the transport's state machine too and
+ * the failures are driven through `failRetrying()` / `failStopped()`. The reopen is debounced, so
+ * the whole file runs on fake timers.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import ConfigPage from './ConfigPage.svelte'
 import { DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
+import { FIELD_HELP } from '../../lib/configHelp.js'
 import { FakeEventSource, RefusingEventSource } from '../../lib/testing/fakeEventSource.js'
 import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
 
@@ -55,6 +59,27 @@ const previewNames = (container) =>
   Array.from(container.querySelectorAll('[data-testid="driver-name"]')).map((el) =>
     el.textContent.trim(),
   )
+
+/* The four rendered readouts, pinned in `.ai/spec/how/config-editor.md`. `RETRYING` contains
+ * `STOPPED` as a substring, which is why every assertion below is an exact `toBe`. */
+const CONNECTING = 'Producer feed: connecting…'
+const CONNECTED = 'Producer feed: connected'
+const RETRYING = 'Producer feed: not connected — retrying…'
+const STOPPED = 'Producer feed: not connected'
+
+/** The Reconnect control, or `null` — the rule-30 states where it must be absent are assertions. */
+const reconnectControl = (view) => view.queryByTestId('feed-reconnect')
+
+/** Press it, failing by name rather than as `null.click is not a function`. */
+function pressReconnect(view) {
+  const el = reconnectControl(view)
+  if (!el) {
+    throw new Error(
+      'the editor renders no Reconnect control while the producer feed is not connected (rule 30)',
+    )
+  }
+  return fireEvent.click(el)
+}
 
 /** Mount and let onMount's server probe settle. */
 async function mount() {
@@ -198,6 +223,408 @@ describe('rule 25 — the editor reports live feed status from its own connectio
     expect(mounted.closed).toBe(true)
     expect(FakeEventSource.opened.length).toBe(openedBefore)
     expect(FakeEventSource.live).toHaveLength(0)
+  })
+})
+
+describe('rule 25 — the two not-connected states, told apart by the transport (#160)', () => {
+  /* Measured in headless Chromium (ADR 0007): a refused connection retries ~every 5 s with
+   * `readyState` CONNECTING and heals itself; a host that answers with a 404 fires one `error` at
+   * CLOSED and never tries again. Both read "not connected" on air, and only one resolves itself,
+   * so the readout has to say which. */
+
+  it('reads "not connected — retrying…" for a failure the transport will re-attempt', async () => {
+    const { getByTestId } = await mount()
+
+    feed().failRetrying()
+    await tick()
+
+    expect(feedText(getByTestId)).toBe(RETRYING)
+  })
+
+  it('reads a bare "not connected" for a failure the transport has abandoned', async () => {
+    // Green guard: this is the state the three-state readout already had, and it must not become
+    // the retrying one when the retrying one is added.
+    const { getByTestId } = await mount()
+
+    feed().failStopped()
+    await tick()
+
+    expect(feedText(getByTestId)).toBe(STOPPED)
+    expect(feedText(getByTestId)).not.toMatch(/retry/i)
+  })
+
+  it('tells the two apart on the same page, from the transport alone', async () => {
+    // The test a hardcoded readout cannot pass: one page, both failures, different words. The
+    // second is the failure this issue exists for — a host that answers, but not with a stream.
+    const { getByTestId } = await mount()
+    const seen = []
+
+    feed().failRetrying()
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    await fireEvent.input(getByTestId('producer-src'), {
+      target: { value: 'http://race-pc.lan:9100/wrong-path' },
+    })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    feed().failStopped()
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    expect(seen).toEqual([RETRYING, CONNECTING, STOPPED])
+  })
+
+  it('re-reads the state from every failure instead of latching the first', async () => {
+    // A retrying transport reports each attempt separately. A readout that latched on the first
+    // `error` would be stuck in whichever state the transport happened to be in seconds ago.
+    const { getByTestId } = await mount()
+    const es = feed()
+    const seen = []
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      es.failRetrying()
+      await tick()
+      seen.push(feedText(getByTestId))
+    }
+
+    expect(seen).toEqual([RETRYING, RETRYING, RETRYING, RETRYING])
+  })
+
+  it('follows one connection from retrying INTO stopped, with no reopen in between', async () => {
+    // The test above repeats a single failure policy, so a latched readout and a recomputed one
+    // agree in all four positions and it cannot tell them apart. This one changes the policy
+    // mid-connection, which is the only way that difference becomes visible.
+    //
+    // It is also ADR 0007's headline scenario, reached from a working configuration: the producer
+    // is not up yet, so the browser retries; then its HTTP server binds the port before the event
+    // route is live and answers 404, and the transport abandons the connection for good. Same
+    // `EventSource` throughout — nothing reopens it, so nothing else can correct the readout. A
+    // latched one would keep promising a retry that is never coming, which is precisely the false
+    // reassurance the two states exist to prevent.
+    const { getByTestId } = await mount()
+    const es = feed()
+    const seen = []
+
+    es.failRetrying()
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    es.failRetrying()
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    // The port is bound now, but answers with something that is not an event stream.
+    es.failStopped()
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    expect(seen).toEqual([RETRYING, RETRYING, STOPPED])
+    expect(FakeEventSource.opened, 'the sequence must run on ONE connection').toHaveLength(1)
+  })
+
+  it('never decays from retrying to stopped on its own — rule 26 still bans timers', async () => {
+    // "It has been retrying a while, it is probably dead" is exactly the invented number rule 26
+    // forbids, and it would be wrong: a refused connection retries correctly and indefinitely.
+    const { getByTestId } = await mount()
+
+    feed().failRetrying()
+    await tick()
+    await vi.advanceTimersByTimeAsync(300_000)
+    await tick()
+
+    expect(feedText(getByTestId)).toBe(RETRYING)
+  })
+
+  it('shows a mid-stream drop as retrying, then reads connected when it heals', async () => {
+    // The measured second case: the producer dies, the browser retries, and ~3 s later `open`
+    // fires again. Nothing is pressed and nothing is reloaded — the page just has to say so.
+    const { getByTestId } = await mount()
+    const es = feed()
+    const seen = [feedText(getByTestId)]
+
+    es.emit('open')
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    es.failRetrying()
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    es.emit('open')
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    expect(seen).toEqual([CONNECTING, CONNECTED, RETRYING, CONNECTED])
+  })
+
+  it('reads stopped, not retrying, for a URL the browser refuses to construct', async () => {
+    // Green guard, and the one that kills "default to retrying unless proved otherwise": nothing
+    // was constructed, so there is no connection in existence to re-attempt anything.
+    const { getByTestId } = await mount()
+    vi.stubGlobal('EventSource', RefusingEventSource)
+
+    await fireEvent.input(getByTestId('producer-src'), { target: { value: 'http://' } })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+    await tick()
+
+    expect(RefusingEventSource.refused).toEqual(['http://'])
+    expect(feedText(getByTestId)).toBe(STOPPED)
+    expect(feedText(getByTestId)).not.toMatch(/retry/i)
+  })
+})
+
+describe('rule 30 — the Reconnect control (#160)', () => {
+  it('renders no Reconnect control while connecting or connected', async () => {
+    // Green guard. The control is ABSENT in these states, not present-and-inert: an operator
+    // watching a healthy feed must not be offered a button that would reset it.
+    const view = await mount()
+    expect(feedText(view.getByTestId)).toBe(CONNECTING)
+    expect(reconnectControl(view)).toBeNull()
+
+    feed().emit('open')
+    await tick()
+    expect(feedText(view.getByTestId)).toBe(CONNECTED)
+    expect(reconnectControl(view)).toBeNull()
+  })
+
+  it('renders it in BOTH not-connected states, not only the abandoned one', async () => {
+    // Gating on "stopped" would make the control appear and vanish as the transport cycles, and
+    // would force the broadcaster to diagnose which failure they are in before pressing anything.
+    const view = await mount()
+
+    feed().failRetrying()
+    await tick()
+    expect(reconnectControl(view), 'no Reconnect control while the transport is retrying').not.toBeNull()
+
+    await fireEvent.input(view.getByTestId('producer-src'), {
+      target: { value: 'http://race-pc.lan:9100/wrong-path' },
+    })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+    await tick()
+    expect(reconnectControl(view), 'the control must go while connecting').toBeNull()
+
+    feed().failStopped()
+    await tick()
+    expect(reconnectControl(view), 'no Reconnect control after the transport stopped').not.toBeNull()
+  })
+
+  it('closes the dead connection, opens a new one against the URL in the field, and resets the readout', async () => {
+    const view = await mount()
+    const first = feed()
+    first.failStopped()
+    await tick()
+    const openedBefore = FakeEventSource.opened.length
+
+    await pressReconnect(view)
+    await tick()
+
+    expect(first.closed).toBe(true)
+    expect(FakeEventSource.opened.length - openedBefore).toBe(1)
+    expect(FakeEventSource.live).toHaveLength(1)
+    expect(FakeEventSource.last).not.toBe(first)
+    expect(FakeEventSource.last.url).toBe(DEFAULT_FEED)
+    expect(feedText(view.getByTestId)).toBe(CONNECTING)
+    expect(reconnectControl(view), 'the control must go with the reset to connecting').toBeNull()
+  })
+
+  it('opens immediately — rule 27’s debounce governs a changed URL, not a button press', async () => {
+    // Not one timer is advanced before the assertion. A reconnect wired into the debounced reopen
+    // would leave the operator looking at an unchanged readout for half a second.
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+    const openedBefore = FakeEventSource.opened.length
+
+    await pressReconnect(view)
+    await tick()
+
+    expect(FakeEventSource.opened.length - openedBefore).toBe(1)
+
+    // ...and it does not fire a second time once the debounce window would have elapsed.
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 3)
+    await tick()
+    expect(FakeEventSource.opened.length - openedBefore).toBe(1)
+    expect(FakeEventSource.live).toHaveLength(1)
+  })
+
+  it('uses the URL just typed and cancels the reopen rule 27 still has pending', async () => {
+    // The natural sequence is "fix the URL, then press Reconnect" — which leaves a rule-27 reopen
+    // counting down. Ignoring it costs a second connection to the same place moments later.
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+    const openedBefore = FakeEventSource.opened.length
+
+    await fireEvent.input(view.getByTestId('producer-src'), {
+      target: { value: 'http://race-pc.lan:9100/events' },
+    })
+    await tick()
+    await pressReconnect(view)
+    await tick()
+
+    expect(FakeEventSource.last.url).toBe('http://race-pc.lan:9100/events')
+    expect(FakeEventSource.opened.length - openedBefore).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 3)
+    await tick()
+
+    expect(FakeEventSource.opened.length - openedBefore).toBe(1)
+    expect(FakeEventSource.live).toHaveLength(1)
+    expect(FakeEventSource.last.url).toBe('http://race-pc.lan:9100/events')
+  })
+
+  it('is an ordinary connection afterwards — it can fail again and the control comes back', async () => {
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+
+    await pressReconnect(view)
+    await tick()
+    expect(feedText(view.getByTestId)).toBe(CONNECTING)
+
+    feed().failStopped()
+    await tick()
+
+    expect(feedText(view.getByTestId)).toBe(STOPPED)
+    expect(reconnectControl(view), 'the control must return when the reconnect fails too').not.toBeNull()
+  })
+
+  it('leaves rule 27 working — a later URL edit still reopens the connection', async () => {
+    // The reconnect has to record the URL it opened against, exactly as an edit does. If it left
+    // stale bookkeeping behind, the next edit would look like "no change" and never reopen.
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+    await pressReconnect(view)
+    await tick()
+    const reconnected = FakeEventSource.last
+
+    await fireEvent.input(view.getByTestId('producer-src'), {
+      target: { value: 'http://race-pc.lan:9100/events' },
+    })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+    await tick()
+
+    expect(reconnected.closed).toBe(true)
+    expect(FakeEventSource.live).toHaveLength(1)
+    expect(FakeEventSource.last.url).toBe('http://race-pc.lan:9100/events')
+    expect(feedText(view.getByTestId)).toBe(CONNECTING)
+  })
+
+  it('writes nothing — the URL field, the OBS URL and the exported profile are untouched', async () => {
+    const view = await mount()
+    const urlBefore = view.getByTestId('producer-src').value
+    const obsBefore = view.getByTestId('obs-url').textContent
+    feed().failStopped()
+    await tick()
+
+    await pressReconnect(view)
+    await tick()
+
+    expect(view.getByTestId('producer-src').value).toBe(urlBefore)
+    expect(view.getByTestId('obs-url').textContent).toBe(obsBefore)
+
+    let exported = null
+    vi.stubGlobal(
+      'Blob',
+      class {
+        constructor(parts) {
+          exported = String(parts[0])
+        }
+      },
+    )
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:captured')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    await fireEvent.click(view.getByTestId('export'))
+
+    const profile = JSON.parse(exported)
+    expect(profile.configVersion).toBe('1')
+    expect(profile.producer.src).toBe(urlBefore)
+    expect(exported).not.toMatch(/reconnect|feedStatus|Producer feed/i)
+  })
+
+  it('leaves an EMPTY URL field empty — the default it resolves to is never written back', async () => {
+    // The gap the test above cannot see. That one starts from a config whose `producer.src`
+    // already equals the URL the connection resolves to, so an implementation that writes the
+    // resolved URL back into the config on every reconnect is a value-preserving no-op there and
+    // passes unnoticed.
+    //
+    // An empty field is the case rule 27 actually cares about. It means "inherit the default",
+    // and it resolves to the default for the CONNECTION only. Stamping that resolution into
+    // `producer.src` would turn an inherited default into an address the broadcaster never typed,
+    // which then survives a save and an export — pinning a profile to localhost on a machine
+    // where the producer lives somewhere else, from a button that rule 30 says writes nothing.
+    const view = await mount()
+    const field = view.getByTestId('producer-src')
+
+    await fireEvent.input(field, { target: { value: '' } })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+    await tick()
+    expect(field.value).toBe('')
+    expect(feed().url, 'an empty field still connects to the default (rule 27)').toBe(DEFAULT_FEED)
+
+    feed().failStopped()
+    await tick()
+    await pressReconnect(view)
+    await tick()
+
+    expect(FakeEventSource.last.url).toBe(DEFAULT_FEED)
+    expect(field.value, 'Reconnect wrote the URL it resolved into the field').toBe('')
+
+    let exported = null
+    vi.stubGlobal(
+      'Blob',
+      class {
+        constructor(parts) {
+          exported = String(parts[0])
+        }
+      },
+    )
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:captured')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    await fireEvent.click(view.getByTestId('export'))
+
+    expect(
+      JSON.parse(exported).producer.src,
+      'the exported profile carries a producer URL nobody typed',
+    ).toBe('')
+  })
+
+  it('reads "Reconnect" — every other assertion here reaches it by testid', async () => {
+    // A button with no text at all satisfies the rest of this suite: correctly gated, correctly
+    // wired, in the right section, and invisible on the page. Rule 30 and `how/config-editor.md`
+    // both name the control, so the word it renders is part of the contract.
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+
+    expect(reconnectControl(view).textContent.trim()).toBe('Reconnect')
+  })
+
+  it('carries help copy and an ⓘ, because it is a control and not a readout (rules 16-19)', async () => {
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+
+    expect(
+      typeof FIELD_HELP.feedReconnect,
+      'no configHelp entry for the Reconnect control (rules 16-19)',
+    ).toBe('string')
+    // Written for a broadcaster with no repo: rule 16 bans codebase and protocol identifiers.
+    expect(FIELD_HELP.feedReconnect).not.toMatch(/readyState|EventSource|SSE|rule \d|#\d/i)
+    expect(FIELD_HELP.feedReconnect.toLowerCase()).toMatch(/connect/)
+
+    const tip = view.queryByTestId('help-reconnect')
+    expect(tip, 'no ⓘ beside the Reconnect control (rules 16-19)').not.toBeNull()
+    expect(view.queryByTestId('help-reconnect-text')).toBeNull()
+
+    await fireEvent.click(tip)
+    await tick()
+
+    expect(view.getByTestId('help-reconnect-text').textContent.trim()).toBe(FIELD_HELP.feedReconnect)
   })
 })
 
