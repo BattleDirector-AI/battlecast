@@ -12,8 +12,10 @@ export class FakeEventSource {
   /** Every connection ever opened, in order, closed or not. */
   static opened = []
 
+  /** The single cleanup entry point for *both* doubles — see `RefusingEventSource` below. */
   static reset() {
     FakeEventSource.opened = []
+    RefusingEventSource.refused = []
   }
 
   /** The connections still open, in the order they were opened. */

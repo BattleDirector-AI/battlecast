@@ -4,13 +4,14 @@
  * Rules: `.ai/spec/how/renderer.md`, "One SSE client, in `lib/`, not per route".
  * Rationale: `docs/decisions/0006-config-producer-feed-status.md`.
  *
- * Separate from `sseClient.test.js` (the client's behavior contract) because it imports nothing
+ * Separate from `sseClient.test.js` (the client's behavior contract) because it imports no module
  * under test, so it runs — and reports what is actually in the tree — whether or not the shared
  * client exists yet.
  */
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
-import { join, resolve, dirname } from 'node:path'
+import { join, resolve, dirname, relative, sep } from 'node:path'
+import { inlineEventSourceOffenders } from './testing/sourceScan.js'
 
 // Vite rewrites `import.meta.url` to an http:// URL under Vitest, so anchor on the project root
 // instead — `process.cwd()` is `app/` (where vite.config.js and the `test` block live).
@@ -97,16 +98,25 @@ describe('the SSE client lives in exactly one place', () => {
     expect(wiring).toEqual(FEED_PAGES.map((page) => `${page} → src/lib/sseClient.js`))
   })
 
-  it('has no route opening an EventSource of its own', () => {
-    // The other half of the rename escape hatch: inlining `new EventSource(...)` into a page needs
-    // no import at all, so every import-shaped assertion above would still pass.
-    const offenders = []
-    for (const [abs, path] of sourceFiles(ROUTES)) {
-      if (/\.test\.js$/.test(path)) continue // suites stub the global; that is the point
-      if (/new\s+EventSource\s*\(/.test(readFileSync(abs, 'utf8'))) {
-        offenders.push(`src/routes/${path}`)
-      }
-    }
-    expect(offenders).toEqual([])
+  it('aims the constructor scan at all of src/, and finds no module opening one of its own', () => {
+    // The other half of the rename escape hatch: inlining an `EventSource` construction into a
+    // page needs no import at all, so every import-shaped assertion above would still pass. The
+    // scan lives in `testing/sourceScan.js`; `sourceScan.test.js` pins its exclusions and drives
+    // it over trees where a wide root and a narrow one give different answers.
+    //
+    // The root is reported alongside the result, because the argument is the whole of #164:
+    // aiming this at `ROUTES` — already in scope above — leaves the suite green while restoring
+    // precisely the blind spot the issue was filed for, and worse, because all three of the
+    // scanner's exclusions are `lib/`-rooted and go inert under a `routes/` root.
+    //
+    // Reading `root` in both places catches *rebinding* it. It does not catch passing something
+    // else to the scan while `root` stays as it is — the two still name a root separately, and
+    // convention is all that keeps them equal. Making that structural means returning the root
+    // with the offenders, which changes the scanner's contract; #168 carries it.
+    const root = SRC
+    expect({
+      scanning: relative(process.cwd(), root).split(sep).join('/'),
+      offenders: inlineEventSourceOffenders(root),
+    }).toEqual({ scanning: 'src', offenders: [] })
   })
 })

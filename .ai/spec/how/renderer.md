@@ -72,10 +72,25 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 - **One SSE client, in `lib/`, not per route.** `src/lib/sseClient.js` is the only one; every route
   page and `/config` import it from there. It sits in `lib/` rather than a route folder because
   `/config` imports it and is not an overlay route. Do **not** add a per-route copy, do **not**
-  import an SSE client across route folders, and do **not** construct an `EventSource` in a route —
-  `sseClient.consolidation.test.js` fails on each. `resolveSpeedUnit` (`?unit=`) is a URL-knob
-  resolver, not connection logic: it belongs in `overlayConfig.js` beside `pickProducerSrc` and
-  `parseTowerMetricsParam`. Rationale: `docs/decisions/0006-config-producer-feed-status.md`.
+  import an SSE client across route folders, and do **not** construct an `EventSource` **anywhere
+  under `src/`** — `sseClient.consolidation.test.js` fails on each. The constructor scan is
+  `inlineEventSourceOffenders(srcRoot)` in `src/lib/testing/sourceScan.js`: it walks every `.js` and
+  `.svelte` file beneath the root it is given and returns the offenders as sorted paths relative to
+  that root. It excludes exactly three things — `lib/sseClient.js` itself, any `*.test.js` (suites
+  stub the global; that is the point), and everything under `lib/testing/` (the shared doubles,
+  which describe the transport in prose). `sourceScan.test.js` drives it over synthetic trees and
+  then over the real `src/`. The match is raw text, so it cannot tell code from a comment: a literal
+  `new EventSource(...)` written in a comment outside those exclusions trips it. That false positive
+  is loud and names the file, so it is a note rather than a reason to parse. The same textual match
+  sets the limit in the other direction, and the pattern is an exhaustive list rather than a general
+  rule: the constructor is caught bare or reached through `window`, `globalThis`, or `self`, and
+  nothing else. Any other route to it escapes — another handle on the same object
+  (`new top.EventSource(...)`, `new document.defaultView.EventSource(...)`), an alias
+  (`const E = EventSource`), `Reflect.construct`. Seeing `EventSource` beside `new` is *not*
+  sufficient to conclude the scan caught it. Closing that needs a parse rather than a longer list.
+  `resolveSpeedUnit` (`?unit=`) is a URL-knob resolver, not connection logic: it belongs in
+  `overlayConfig.js` beside `pickProducerSrc` and `parseTowerMetricsParam`.
+  Rationale: `docs/decisions/0006-config-producer-feed-status.md`.
 - **`onError` is the transport's, not the parser's.** The shared client invokes `onError` when the
   `EventSource` itself fails or drops, and never for a payload it cannot parse — a malformed `state`
   event is logged and dropped, and delivery continues. `/config` renders `onError` as "not
