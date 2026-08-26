@@ -112,7 +112,9 @@ path you care about is the measured one, the default suite will not reach it —
 ## Phase 5 — Verify, then draft the PR
 
 ```bash
-cd app && npx vitest run          # new tests RED for the right reason; everything else GREEN
+cd app && npx vitest run          # any new test meant to be RED fails for the right reason;
+                                  # everything else GREEN. An all-green run is the correct
+                                  # result when the rule was already satisfied — not a mistake.
 npm run lint                      # must be clean — CI gates on it
 ```
 
@@ -130,13 +132,23 @@ spec is approved — `git commit --amend` and `git push --force-with-lease` rath
 another commit. `git log --oneline origin/next..HEAD` must show one commit when you hand off.
 
 The PR body must state:
-- **"Spec + failing tests only — no implementation"**, unmissably.
+- **That this commit contains no implementation**, unmissably — and, next to it, what the tests
+  actually do, because that differs by issue. When they are red, say
+  **"Spec + failing tests only — no implementation"**. When the rule turns out to be already
+  satisfied by shipped code and the tests are the ones it was simply missing, say *that* instead:
+  the tests pass, the tests are the deliverable, and no implementation commit is coming. Never
+  claim tests are failing when they are not.
 - The new rule numbers, quoted.
-- Each test and its exact assertion, with a table of which are red and which are green guards.
-- The pasted failure output proving they fail for the right reason.
+- Each test and its exact assertion, with a table sorting them into three kinds: which are red,
+  which are green regression guards riding along, and which are passing tests that are themselves
+  the deliverable — the ones a rule was missing and the shipped code already satisfies. The third
+  kind is not a guard and must not be filed as one.
+- The pasted failure output for the red tests, proving they fail for the right reason. If nothing
+  is red, say so explicitly and paste nothing — do not manufacture a failure in order to have
+  output to show.
 - Every judgement call a reviewer should challenge, named explicitly.
-- `Closes #<issue>` — this same PR carries the implementation commit and closes the issue when
-  it merges.
+- `Closes #<issue>` — this PR closes the issue when it merges, whether or not an implementation
+  commit follows.
 
 Keep it a **draft** until the implementation commit lands — or, for an issue whose whole
 deliverable is spec + tests, until review passes, then merge it with `implement-spec`'s **Phase
