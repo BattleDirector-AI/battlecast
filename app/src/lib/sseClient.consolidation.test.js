@@ -104,19 +104,23 @@ describe('the SSE client lives in exactly one place', () => {
     // scan lives in `testing/sourceScan.js`; `sourceScan.test.js` pins its exclusions and drives
     // it over trees where a wide root and a narrow one give different answers.
     //
-    // The root is reported alongside the result, because the argument is the whole of #164:
-    // aiming this at `ROUTES` — already in scope above — leaves the suite green while restoring
-    // precisely the blind spot the issue was filed for, and worse, because all three of the
-    // scanner's exclusions are `lib/`-rooted and go inert under a `routes/` root.
+    // The root is asserted on, because the argument is the whole of #164: aiming this at `ROUTES`
+    // — already in scope above — restores precisely the blind spot the issue was filed for, and
+    // worse, because the scanner's exclusions are `lib/`-rooted and go inert under a `routes/` root.
     //
-    // Reading `root` in both places catches *rebinding* it. It does not catch passing something
-    // else to the scan while `root` stays as it is — the two still name a root separately, and
-    // convention is all that keeps them equal. Making that structural means returning the root
-    // with the offenders, which changes the scanner's contract; #168 carries it.
-    const root = SRC
+    // The root asserted on is the one the *scan* reports walking, not one this file names beside
+    // the call. Naming it twice only caught rebinding the variable: passing `ROUTES` to the scan
+    // while the variable stayed `SRC` was a one-token edit that reverted #164 with all five of
+    // these tests green.
+    const scanned = inlineEventSourceOffenders(SRC)
+    expect(
+      scanned,
+      'inlineEventSourceOffenders returns a bare array instead of { root, offenders }, so this ' +
+        'assertion has no way to name the tree the scan actually walked',
+    ).toMatchObject({ root: expect.any(String), offenders: expect.any(Array) })
     expect({
-      scanning: relative(process.cwd(), root).split(sep).join('/'),
-      offenders: inlineEventSourceOffenders(root),
+      scanning: relative(process.cwd(), scanned.root).split(sep).join('/'),
+      offenders: scanned.offenders,
     }).toEqual({ scanning: 'src', offenders: [] })
   })
 })
