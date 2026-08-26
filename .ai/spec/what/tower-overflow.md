@@ -13,6 +13,39 @@ cycles. Renderable from `spec/v1` today — no new producer field.
 2. The tower fills its slot with as many whole rows as fit beneath the header. If not even one row
    fits, it renders the header alone — never a partial or overflowing row.
 
+### Where the slot comes from
+
+Decision record: `docs/decisions/0005-standalone-tower-slot-height.md`.
+
+18. **Both entry points bound the tower.** The tower has a bounded slot on every
+    route it renders on, and rules 1–17 apply identically on both. Inside `/all` the slot is the
+    tower widget's configured height (`h`). On the standalone `/tower` route the slot is **derived
+    from the Browser Source viewport**: the viewport height less the route's safe-area inset at the
+    top and the bottom, floored at zero. `/all`'s budget still comes from its configured slot and
+    never from the viewport.
+19. **The derived slot tracks the viewport.** A Browser Source can be resized while
+    it is running, so `/tower` re-derives its slot height — and therefore its row budget — whenever
+    the viewport changes size, and re-fits to the new size. Rule 11's window stability does not
+    extend across a resize: the cycling window returns to its first page, as it does on a
+    session-phase change (rule 17).
+20. **Overflow configuration reaches both entry points.** The standalone route reads
+    the tower's `maxRows` and `cycle` settings from the same loaded profile `/all` reads them from
+    (`overlay-config.md` rules 11–12), so one profile configures the tower identically on both
+    routes. An explicit integer `maxRows` still caps: the effective budget is the smaller of the slot
+    budget (rule 2) and `maxRows`. `maxRows: "auto"` means the slot budget alone. The derived slot
+    height is itself neither a profile field nor a URL knob (`overlay-config.md` rule 13) and nothing
+    overrides it but resizing the source. This reaches the **overflow** settings only — the
+    standalone route's other knobs (`?class=`, `?metrics=`) keep the precedence rule 13 already
+    gives them.
+21. **A resize burst re-fits once per animation frame.** Rule 19's re-fit is coalesced. A
+    `resize` event re-fits immediately when no frame is already pending; every event arriving
+    while one is pending is dropped and replaced by a single catch-up re-fit taken when that
+    frame comes due, and the catch-up uses the size the viewport ended at, never an intermediate
+    one. The catch-up opens the next frame's gate in turn, so a drag that runs across many
+    frames still re-fits at most once per frame. A burst therefore re-fits twice however many
+    events it emits — once at the size the drag started from, once at the size it settled on —
+    and the tower keeps the leading budget in between.
+
 ### What gets a row
 
 3. The visible rows are **pinned rows** plus a **cycling window** over everyone else.
@@ -65,6 +98,10 @@ cycles. Renderable from `spec/v1` today — no new producer field.
 
 These rules apply to the **flat** standings tower (a single running-order list). A class-grouped
 tower is outside their scope and is bounded only by rule 1.
+
+They apply on **both** entry points the flat tower renders on — the tower widget inside `/all` and
+the standalone `/tower` Browser Source — which differ only in where the slot height comes from
+(rule 18).
 
 ## Constraints
 

@@ -1,4 +1,4 @@
-import { it, expect, afterEach, vi } from 'vitest'
+import { it, expect, afterEach, vi, beforeEach } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/svelte'
 import { tick } from 'svelte'
 
@@ -15,7 +15,15 @@ vi.mock('../../lib/configApi.js', () => ({
 }))
 
 import ConfigPage from './ConfigPage.svelte'
+import { FakeEventSource } from '../../lib/testing/fakeEventSource.js'
 import * as api from '../../lib/configApi.js'
+
+// The editor holds a producer feed connection open for its status readout (#158);
+// happy-dom has no EventSource. Stub the shared double so mounting is inert here.
+beforeEach(() => {
+  FakeEventSource.reset()
+  vi.stubGlobal('EventSource', FakeEventSource)
+})
 
 afterEach(() => {
   cleanup()

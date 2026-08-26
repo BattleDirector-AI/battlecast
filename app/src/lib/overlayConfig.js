@@ -10,7 +10,7 @@
  * - Geometry model is ABSOLUTE PX against a fixed 1920x1080 canvas (LMU's supported
  *   resolution). The stage is scaled uniformly to the viewport by the render page,
  *   so a broadcaster gets the same layout at any Browser Source size.
- * - `loadConfig()` mirrors `resolveSrc()` in ../routes/tower/sseClient.js and
+ * - `loadConfig()` mirrors `resolveSrc()` in ./sseClient.js and
  *   resolves with precedence: explicit URL params -> fetched profile JSON ->
  *   built-in default. Nothing provided => default layout, so existing `/all` users
  *   are unbroken.
@@ -18,7 +18,7 @@
  *   a warning and falls back rather than rendering blank or throwing.
  */
 
-import { DEFAULT_SRC } from '../routes/tower/sseClient.js'
+import { DEFAULT_SRC } from './sseClient.js'
 
 /** Config contract version, numbered independently of the app release and the
  *  spec `schemaVersion`. */
@@ -347,6 +347,26 @@ export function isLowerThird(key) {
   return LOWER_THIRD_KEYS.includes(key)
 }
 
+/** Widgets that paint one of the plate tokens and therefore read `plateAlpha`: the
+ *  tower and battle box (panel + header bar), the driver/qualifying lower-third card,
+ *  and the race-control/on-board header bar. `logos` composites its images straight
+ *  over the video with no panel behind them. */
+export const PLATE_WIDGET_KEYS = Object.freeze([
+  'tower',
+  'battle',
+  'driver',
+  'qualifying',
+  'racecontrol',
+  'onboard',
+])
+
+/** Whether a widget renders a background plate (so the config UI surfaces its
+ *  plate-opacity knob). Withholding the control is a UI decision only — `plateAlpha`
+ *  stays normalized onto every widget either way. */
+export function rendersPlate(key) {
+  return PLATE_WIDGET_KEYS.includes(key)
+}
+
 /** Deep clone that works in Node >=17 / happy-dom (structuredClone) with a JSON
  *  fallback. DEFAULT_CONFIG is frozen, so callers must clone before mutating. */
 function clone(value) {
@@ -612,4 +632,21 @@ export function pickProducerSrc(search, config) {
   const fromProfile = config?.producer?.src
   if (fromProfile && String(fromProfile).trim()) return String(fromProfile).trim()
   return DEFAULT_SRC
+}
+
+/**
+ * Resolve the speed display unit for the standalone `/onboard` route from a `?unit=`
+ * query param (`kmh` | `mph`, case-insensitive), defaulting to `kmh`. On `/all` the
+ * unit comes from the saved overlay config instead; this is the per-Browser-Source
+ * knob for the standalone route, mirroring `?src=` / `?class=`.
+ *
+ * A URL knob like `pickProducerSrc` and `parseTowerMetricsParam`, not connection logic —
+ * it lives here rather than in the SSE client (#158, ADR 0006). `OnBoardHudPage` calls it
+ * bare, so the parameter default is load-bearing.
+ */
+export function resolveSpeedUnit(
+  search = typeof window !== 'undefined' ? window.location.search : '',
+) {
+  const raw = new URLSearchParams(search || '').get('unit')
+  return String(raw || '').trim().toLowerCase() === 'mph' ? 'mph' : 'kmh'
 }

@@ -13,6 +13,7 @@
     TOWER_METRIC_FIELDS,
     normalizeConfig,
     isLowerThird,
+    rendersPlate,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
@@ -24,6 +25,7 @@
   } from '../../lib/configHelp.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
+  import { connect as connectFeed, DEFAULT_SRC } from '../../lib/sseClient.js'
   import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
 
   // Preview snapshot. `race-close-battle.json` is the canonical NO-telemetry fixture (so
@@ -65,7 +67,8 @@
   let profiles = $state([])
   let serverLogos = $state([])
   let serverUp = $state(false)
-  let status = $state('Not connected to a server — changes can be exported as config.json.')
+  // Names its subject (rule 29): this line is the PROFILE SERVER, never the race feed.
+  let status = $state('No profile server — changes can be exported as config.json.')
   let previewScale = $state(0.4)
   let previewWrap = $state(null)
   let copied = $state(false)
@@ -78,9 +81,16 @@
 
   onMount(() => {
     refreshFromServer()
+    openFeed(feedUrl)
+    feedStarted = true
     fitPreview()
     if (typeof window !== 'undefined') window.addEventListener('resize', fitPreview)
     return () => {
+      // The feed goes first: it is the one thing here that outlives the DOM if left alone.
+      // Both the live connection AND a debounce still counting down — an edit that had not
+      // settled by unmount must not open a connection from an editor that no longer exists.
+      clearTimeout(feedDebounceTimer)
+      closeFeed()
       if (typeof window === 'undefined') return
       window.removeEventListener('resize', fitPreview)
       // Also drop any in-flight drag listeners so unmounting mid-drag can't leak them.
@@ -93,7 +103,7 @@
   async function refreshFromServer() {
     serverUp = await api.serverAvailable()
     if (!serverUp) return
-    status = 'Connected.'
+    status = 'Profile server connected.'
     try {
       profiles = await api.listProfiles()
       serverLogos = await api.listLogos()
@@ -101,6 +111,101 @@
       status = `Server error: ${err.message}`
     }
   }
+
+  // ---- producer feed status (rules 25-30) ----------------------------------
+  // The editor holds its own SSE connection open purely to report whether the race feed is
+  // reaching this machine. Snapshots are DISCARDED — the preview stays on the sample fixture
+  // (rule 28) — and the readout is the transport's lifecycle and nothing else: no stall
+  // detection, no last-snapshot age, no timer (rule 26). Two independent readouts share this
+  // page and must not be conflated: this one is the race feed, `status` is the profile server.
+  const FEED_DEBOUNCE_MS = 500
+  const FEED_TEXT = {
+    connecting: 'Producer feed: connecting…',
+    connected: 'Producer feed: connected',
+    retrying: 'Producer feed: not connected — retrying…',
+    stopped: 'Producer feed: not connected',
+  }
+  /** `EventSource.CLOSED` — read as a number so it needs no global at module scope. */
+  const TRANSPORT_CLOSED = 2
+
+  let feedStatus = $state('connecting')
+  let feedDisconnect = null
+  let feedDebounceTimer = null
+  let feedStarted = false
+  /** The URL the current connection was opened against — plain, so it never re-triggers. */
+  let openedFeedUrl = null
+
+  // Read from the CONFIG, not from the input event: a profile load replaces the whole config,
+  // `producer.src` included, and must move the connection exactly as a typed edit does (rule 27).
+  // Empty or whitespace falls back to the default, so the readout describes the URL a Browser
+  // Source built from this profile would actually use (rule 8's precedence tail).
+  const feedUrl = $derived(String(config.producer?.src ?? '').trim() || DEFAULT_SRC)
+
+  function closeFeed() {
+    if (feedDisconnect) feedDisconnect()
+    feedDisconnect = null
+  }
+
+  function openFeed(url) {
+    closeFeed()
+    feedStatus = 'connecting'
+    openedFeedUrl = url
+    try {
+      feedDisconnect = connectFeed(url, () => {}, {
+        onOpen: () => (feedStatus = 'connected'),
+        // WHICH failure this is comes from the transport's own state at the moment it reports
+        // one, never from elapsed time (rule 26 bans that outright, ageing 'retrying' into
+        // 'stopped' included). CLOSED is the browser having abandoned the connection — a host
+        // that answered with something that is not an event stream; anything else is an attempt
+        // it will make again unaided. Recomputed on every failure rather than latched on the
+        // first, because a retrying transport reports each attempt separately (rule 25).
+        onError: (event) => {
+          feedStatus = event?.target?.readyState === TRANSPORT_CLOSED ? 'stopped' : 'retrying'
+        },
+      })
+    } catch (err) {
+      // The browser refuses to open some URLs — `http://` with no host throws from the
+      // EventSource constructor synchronously, before any listener is attached, so the failure
+      // arrives as an exception rather than an `error` event. A half-typed URL that settles past
+      // the debounce is exactly that. It is a failed connection like any other: report it and
+      // keep the editor editable, don't let it escape mount or an input handler (rule 25).
+      console.warn('[battlecast] could not open the producer feed:', err)
+      feedDisconnect = null
+      // 'stopped', not 'retrying': nothing was constructed, so there is no connection in
+      // existence to re-attempt anything (rule 25).
+      feedStatus = 'stopped'
+    }
+  }
+
+  // Rule 30's gate: "not connected" and nothing finer, so the control does not appear and vanish
+  // as the transport cycles between its two failures. Absent in the other two states, not inert.
+  const feedNotConnected = $derived(feedStatus === 'retrying' || feedStatus === 'stopped')
+
+  function reconnectFeed() {
+    // Immediate: rule 27's debounce absorbs a burst of keystrokes, and a button press is neither
+    // a burst nor ambiguous — half a second of nothing would read as a broken button. It also
+    // drops a reopen that debounce still has pending, so the natural "fix the URL, then
+    // reconnect" costs one connection against the corrected value rather than two (rule 30).
+    clearTimeout(feedDebounceTimer)
+    feedDebounceTimer = null
+    // `openFeed` records `openedFeedUrl`, so a later edit still reopens under rule 27.
+    openFeed(feedUrl)
+  }
+
+  $effect(() => {
+    const url = feedUrl // tracked first, so a later change re-runs this even when we bail below
+    if (!feedStarted) return // onMount owns the first connection
+    // Cancel any pending reopen BEFORE the equality bail, not after. An edit that is reverted
+    // inside the debounce window lands here with `url === openedFeedUrl` and nothing to do — but
+    // a timer armed for the abandoned URL is still counting down, and bailing first would let it
+    // fire, close the good connection, and leave the editor talking to a URL the config no longer
+    // holds. Nothing would ever correct it: `feedUrl` is back where it started, so this effect
+    // never runs again (rule 27).
+    clearTimeout(feedDebounceTimer)
+    if (url === openedFeedUrl) return
+    // Debounced so a typed URL costs one connection, not one per keystroke.
+    feedDebounceTimer = setTimeout(() => openFeed(url), FEED_DEBOUNCE_MS)
+  })
 
   function fitPreview() {
     const avail = previewWrap?.clientWidth || 800
@@ -516,6 +621,32 @@
                 />
               </label>
             </div>
+            {#if rendersPlate(key)}
+              <!-- #145: how see-through this widget's background plate is. Scales the
+                   three plate tokens together (AllView's plateVars); the text, bars and
+                   borders drawn on top are deliberately untouched - this is the plate,
+                   not element opacity. Only the widgets that paint a plate get it. -->
+              <label class="checkline plate-row">
+                plate opacity
+                <HelpTip
+                  text={FIELD_HELP.plateAlpha}
+                  label="plate opacity"
+                  testid="help-plate-alpha-{key}"
+                />
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  data-testid="plate-alpha-{key}"
+                  value={w.plateAlpha}
+                  oninput={(e) => setField(key, 'plateAlpha', Number(e.currentTarget.value))}
+                />
+                <span class="plate-value" data-testid="plate-alpha-value-{key}"
+                  >{Number(w.plateAlpha).toFixed(2)}</span
+                >
+              </label>
+            {/if}
             {#if widgetSupportsAutoHide(key)}
               <label class="checkline">
                 <input
@@ -853,6 +984,25 @@
             placeholder="http://localhost:8080/events"
           />
         </label>
+        <!-- Beside the URL field, deliberately NOT beside the header's server line: adjacency is
+             what makes one readout readable as the other (rule 29). -->
+        <span class="feed-status feed-status--{feedStatus}" data-testid="feed-status"
+          >{FEED_TEXT[feedStatus]}</span
+        >
+        <!-- Rule 30: rendered only while the feed is not connected, and a sibling of the ⓘ rather
+             than its parent — HelpTip is itself a <button>. -->
+        {#if feedNotConnected}
+          <span class="feed-reconnect">
+            <button type="button" data-testid="feed-reconnect" onclick={reconnectFeed}
+              >Reconnect</button
+            >
+            <HelpTip
+              text={FIELD_HELP.feedReconnect}
+              label="the Reconnect button"
+              testid="help-reconnect"
+            />
+          </span>
+        {/if}
       </section>
 
       <section class="panel__group">
@@ -1091,6 +1241,18 @@
   .checkline input {
     width: auto;
   }
+  /* The slider takes the spare width; the readout keeps a fixed, tabular column so
+     dragging it does not shuffle the row. */
+  .plate-row input[type='range'] {
+    flex: 1;
+    padding: 0;
+  }
+  .plate-value {
+    min-width: 2.2rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: #e7ecf3;
+  }
   .trigger-row {
     margin-top: 0.5rem;
   }
@@ -1162,5 +1324,37 @@
     margin-top: 0.35rem;
     font-size: 0.72rem;
     color: #6f7c90;
+  }
+  .feed-status {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    color: #9aa7ba;
+  }
+  .feed-status--connected {
+    color: #2ed9a6;
+  }
+  .feed-status--retrying,
+  .feed-status--stopped {
+    color: #ff8b7a;
+  }
+  .feed-reconnect {
+    display: flex;
+    align-items: center;
+    margin-top: 0.4rem;
+  }
+  .feed-reconnect button {
+    padding: 0.25rem 0.6rem;
+    border: 1px solid #3a4354;
+    border-radius: 4px;
+    background: #1b2029;
+    color: #cbd5e3;
+    font-size: 0.72rem;
+    cursor: pointer;
+  }
+  .feed-reconnect button:hover,
+  .feed-reconnect button:focus-visible {
+    border-color: #2ed9a6;
+    color: #2ed9a6;
   }
 </style>

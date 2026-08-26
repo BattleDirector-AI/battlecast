@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import DriverLowerThird from './DriverLowerThird.svelte'
-  import { connect } from '../tower/sseClient.js'
+  import { connect } from '../../lib/sseClient.js'
   import { loadConfig, pickProducerSrc, DEFAULT_CONFIG, normalizeConfig } from '../../lib/overlayConfig.js'
 
   // Standalone driver lower-third Browser Source. Like /tower and /all it is driven
