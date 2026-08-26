@@ -68,10 +68,12 @@ lives in the repo-root `ARCHITECTURE.md`, `README.md`, and `docs/`.
   renumber. Removing a rule leaves a gap; inserting one between existing rules uses a sub-number
   (`16a`, `16b`); a genuinely new rule takes the next free number even if it lands in an earlier
   section. Two rules must never share a number.
-- **Planned changes:** behavior that is specified but not yet shipped is marked `[PLANNED]` (or
-  `[PLANNED: #123]`) inline next to the rule it affects, and the marker is dropped once the rule text
-  describes what actually ships. Work items themselves live in GitHub issues and `docs/plans/`, not
-  in these specs.
+- **Present-tense behavior only:** `what/` states what the system does — behavior that has shipped
+  and behavior being built right now — in the present tense. No `[PLANNED]`, `[PROPOSED]`,
+  "deferred until…", or other forward-looking or process language: a spec states what the system
+  does, not what our workflow intends to do next. Scope boundaries ("these rules cover the flat
+  tower; grouped is out of scope") are behavioral and belong; promises about future work do not.
+  Work items themselves live in GitHub issues and `docs/plans/`, not in these specs.
 - **Authority:** `what/` specs are authoritative for behavior; `how/` specs for implementation.
   When they conflict, what/ wins. For the *data payload*, root `spec/v1/schema.json` is the
   literal source of truth for field names/types; `what/protocol-contract.md` summarizes intent.

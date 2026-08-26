@@ -5,14 +5,17 @@ description: Turn a GitHub issue into a spec + failing tests draft PR — read t
 
 # Spec-First Pass
 
-battlecast works spec-first: a feature lands as **spec + failing tests** in a draft PR,
-gets approved, and only then gets implemented (see the `implement-spec` skill). The failing
-tests are the executable statement of the spec — that they fail is the deliverable, not a
-problem to fix.
+battlecast works spec-first. A feature lands as **one draft PR carrying exactly two commits**:
+this pass writes the spec + failing tests as the first commit, and once that is approved the
+`implement-spec` skill adds the production code as the second commit to the *same* PR, which
+then merges once. There is no second PR, and the spec never merges unimplemented. (An issue
+whose *whole* deliverable is spec + tests — a rule the code already satisfies, tests it was
+simply missing — lands as one commit and merges once review passes.) The failing tests are the
+executable statement of the spec — that they fail is the deliverable, not a problem to fix.
 
 **The one rule that matters: do not implement anything.** If you find yourself editing a
 `.svelte` component or a non-test `.js` module to make something pass, stop — that is the
-next PR.
+next pass on this same branch.
 
 ## Phase 0 — Set up
 
@@ -40,7 +43,8 @@ them.** Issue bodies go stale and are sometimes simply wrong — #140 asserted t
 built on a false premise is worse than no spec.
 
 Then read, in this order:
-- `.ai/spec/README.md` — especially **Conventions** (rule numbering, `[PLANNED]`, authority).
+- `.ai/spec/README.md` — especially **Conventions** (rule numbering, present-tense rules,
+  authority).
 - The relevant `what/` file — behavioral rules. This is what you are changing.
 - The paired `how/` file (see the README's Cross-Reference table) — codebase navigation.
 - `CONTRIBUTING.md` — the testing bar.
@@ -66,8 +70,11 @@ Rules live in `.ai/spec/what/<area>.md`. The conventions are non-negotiable:
 - **Rule numbers are stable identifiers.** Never renumber. A new rule takes the **next free
   number even if it lands in an earlier section** — that is explicitly allowed. Inserting
   between existing rules uses a sub-number (`16a`). Two rules never share a number.
-- Mark unshipped behavior `[PLANNED: #<issue>]` inline. **The marker is dropped by the
-  implementation PR**, not by this one.
+- **Write every rule in the present tense, as behavior the system has.** No `[PLANNED]`,
+  `[PROPOSED]`, "deferred until…", or other forward-looking or process language, and no issue
+  number used as a work-item pointer — the failing tests, not a marker, are what record that the
+  behavior is not built yet. (Widget identifiers like `#21`/`#22` are names, not work items, and
+  stay.) Scope boundaries are behavioral and fine; notes about our workflow are not.
 - Behavior goes in `what/`; mechanism and file-level guidance go in `how/`. If the behavior
   is unchanged and only the mechanism is wrong, this is a `how/`-only change with **no new
   `what/` rule** — say so explicitly rather than inventing a rule to look thorough.
@@ -118,16 +125,23 @@ git push -u origin spec/<issue>-<slug>
 gh pr create --draft --base next
 ```
 
+**The pass lands as exactly one commit.** If it iterates — you apply review findings before the
+spec is approved — `git commit --amend` and `git push --force-with-lease` rather than appending
+another commit. `git log --oneline origin/next..HEAD` must show one commit when you hand off.
+
 The PR body must state:
 - **"Spec + failing tests only — no implementation"**, unmissably.
 - The new rule numbers, quoted.
 - Each test and its exact assertion, with a table of which are red and which are green guards.
 - The pasted failure output proving they fail for the right reason.
 - Every judgement call a reviewer should challenge, named explicitly.
-- `Refs #<issue>` — **not** `Closes`, since this does not implement it.
+- `Closes #<issue>` — this same PR carries the implementation commit and closes the issue when
+  it merges.
 
-Keep it a **draft**. CI's `test` job will fail, and that is correct — say so in the body so
-nobody "fixes" it.
+Keep it a **draft** until the implementation commit lands — or, for an issue whose whole
+deliverable is spec + tests, until review passes, then merge it with `implement-spec`'s **Phase
+7**, which carries the merge steps and the `--delete-branch` footgun. While tests are red CI's
+`test` job will fail, and that is correct — say so in the body so nobody "fixes" it.
 
 ## Gotchas
 
@@ -136,6 +150,7 @@ nobody "fixes" it.
   three-line edit into a whole-file diff. Check `git diff --stat` is surgical.
 - **Git Bash mangles `.ai/` in revision syntax.** `git show 'origin/next:.ai/spec/...'` fails
   with "ambiguous argument". Prefix with `MSYS_NO_PATHCONV=1`.
-- **Don't bundle unrelated cleanup silently.** If you spot stale `[PLANNED]` markers or
-  similar while in the file, fix them in a **separate commit**, describe it in the PR body,
-  and offer to split it out.
+- **Don't bundle unrelated cleanup silently.** The pass is one commit, so an unrelated fix — a
+  legacy `[PLANNED]` marker, a stale line you happen to be sitting on — rides along invisibly
+  unless you name it. Either leave it alone, or fix it and describe it in the PR body, offering
+  to split it into its own PR.
