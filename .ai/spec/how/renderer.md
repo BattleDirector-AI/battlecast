@@ -81,7 +81,13 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   which describe the transport in prose). `sourceScan.test.js` drives it over synthetic trees and
   then over the real `src/`. The match is raw text, so it cannot tell code from a comment: a literal
   `new EventSource(...)` written in a comment outside those exclusions trips it. That false positive
-  is loud and names the file, so it is a note rather than a reason to parse.
+  is loud and names the file, so it is a note rather than a reason to parse. The same textual match
+  sets the limit in the other direction, and the pattern is an exhaustive list rather than a general
+  rule: the constructor is caught bare or reached through `window`, `globalThis`, or `self`, and
+  nothing else. Any other route to it escapes — another handle on the same object
+  (`new top.EventSource(...)`, `new document.defaultView.EventSource(...)`), an alias
+  (`const E = EventSource`), `Reflect.construct`. Seeing `EventSource` beside `new` is *not*
+  sufficient to conclude the scan caught it. Closing that needs a parse rather than a longer list.
   `resolveSpeedUnit` (`?unit=`) is a URL-knob resolver, not connection logic: it belongs in
   `overlayConfig.js` beside `pickProducerSrc` and `parseTowerMetricsParam`.
   Rationale: `docs/decisions/0006-config-producer-feed-status.md`.

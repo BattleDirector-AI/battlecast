@@ -77,15 +77,52 @@ describe('the inline-EventSource scan', () => {
       // this file importing a second client and fails the guard it exists to strengthen. Same
       // blindness as the constructor scan; the exclusions are the only thing holding it off.
       'lib/overlayConfig.js': 'export const isFeed = (x) => x instanceof EventSource\n',
+      // `feed.js` beside `feed/` puts walk order and sorted order in conflict: the walker recurses
+      // into `feed/` the moment it meets it, so `feed/probe.js` is *found* first, while `.` sorts
+      // before `/` so `feed.js` must be *returned* first. Without the final sort this pair is the
+      // wrong way round.
+      'lib/feed.js': CONNECT,
+      'lib/feed/probe.js': CONNECT,
       'components/Ticker.svelte': `<script>\n${CONNECT}</script>\n`,
       'routes/tower/TowerPage.svelte': `<script>\n${CONNECT}</script>\n`,
+      // The exclusion is the whole path `lib/sseClient.js`, not any file so named. A per-route copy
+      // is exactly what #158 deleted and what the sibling checks in `sseClient.consolidation.test.js`
+      // forbid; matching it by suffix would hide an inlined constructor in the resurrected copy.
+      'routes/tower/sseClient.js': CONNECT,
       'routes/tower/notes.md': 'Call `new EventSource(url)` here and the guard should not care.\n',
     })
 
     expect(scan(root)).toEqual([
       'components/Ticker.svelte',
+      'lib/feed.js',
+      'lib/feed/probe.js',
       'lib/feedProbe.js',
       'routes/tower/TowerPage.svelte',
+      'routes/tower/sseClient.js',
+    ])
+  })
+
+  it('reads a construction however it is spelled, but only where the name is spelled out', async () => {
+    const scan = await loadScan()
+    expect(scan, MISSING).toBeTypeOf('function')
+
+    const root = tree({
+      'lib/spaced.js': 'export const c = (u) => new  EventSource (u)\n',
+      'lib/windowFeed.js': 'export const c = (u) => new window.EventSource(u)\n',
+      'lib/globalFeed.js': 'export const c = (u) => new globalThis.EventSource(u)\n',
+      'lib/selfFeed.js': 'export const c = (u) => new self.EventSource(u)\n',
+      // The other edge of a raw-text match, asserted as an absence so the caveat in
+      // `how/renderer.md` is a fact about this code rather than a claim about it: a construction
+      // that never spells `EventSource` next to `new` is not seen. Closing this needs a parse, not
+      // a longer regex.
+      'lib/aliased.js': 'const E = EventSource\nexport const c = (u) => new E(u)\n',
+    })
+
+    expect(scan(root)).toEqual([
+      'lib/globalFeed.js',
+      'lib/selfFeed.js',
+      'lib/spaced.js',
+      'lib/windowFeed.js',
     ])
   })
 
