@@ -89,9 +89,8 @@ re-fits the stage. The SSE feed is **not** touched — a config edit never recon
 - **Per-widget controls are gated by a shared predicate, never by an inline key list.**
   `widgetSupportsAutoHide(key)` (`widgetIdle.js`) gates "hide when idle" and `isLowerThird(key)`
   (`overlayConfig.js`) gates the trigger knobs, so the applicability rule lives in one testable place
-  instead of the markup. The plate-opacity control (`what/overlay-config.md` rule 23,
-  `[PLANNED: #145]`) follows the same shape: a `plateAlpha` control shown only for the six
-  plate-rendering widgets, driven by a predicate exported alongside `isLowerThird` rather than a
-  `{#if key === …}` chain.
+  instead of the markup. The plate-opacity control (`what/overlay-config.md` rule 23) follows the same
+  shape: `rendersPlate(key)` (`overlayConfig.js`, exported alongside `isLowerThird`) gates a
+  `plateAlpha` control onto the six plate-rendering widgets, rather than a `{#if key === …}` chain.
 - **The editor is the only writer.** Render pages must never `PUT` config. If a new setting needs to
   be tunable, it gets a control here plus a `configHelp.js` entry — not a second write path.

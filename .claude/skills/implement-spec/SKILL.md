@@ -5,9 +5,11 @@ description: Implement an approved spec-first draft PR — make the failing test
 
 # Implement Against an Approved Spec
 
-The second half of the flow the `spec-first-pass` skill starts. The branch already carries an
-approved spec and tests that fail. Your job is the production code that makes them green —
-nothing else.
+The second half of the flow the `spec-first-pass` skill starts. The branch and its draft PR
+already carry an approved spec and tests that fail, as a single commit. Your job is the
+production code that makes them green — nothing else — added as a **second commit to that same
+PR**. You do not open a new PR; that one PR merges once, at the end of this skill. (A PR whose
+whole deliverable was spec + tests never reaches this skill — it merges straight from review.)
 
 **The one rule that matters: the tests and the spec are the contract, and you do not get to
 change them.** If a test looks wrong, stop and report it. Editing the test to match the code
@@ -18,7 +20,7 @@ inverts the whole process and is the single failure mode this flow exists to pre
 ```bash
 git fetch origin
 git checkout <the existing spec/ branch>      # do NOT create a new one
-git log --oneline origin/next..HEAD           # confirm the spec + tests commits are here
+git log --oneline origin/next..HEAD           # expect exactly one commit: the spec + tests
 cd app && npx vitest run                      # record the baseline: N passing, M failing
 ```
 
@@ -54,14 +56,16 @@ Watch for:
 - **Svelte 5 runes.** `$state`/`$derived`/`$effect` used without effect loops or needless
   re-runs.
 
-## Phase 3 — Drop the `[PLANNED]` markers
+## Phase 3 — Clear any legacy `[PLANNED]` marker
 
-The spec README: the marker "is dropped once the rule text describes what actually ships."
-Once your code ships the behavior, remove `[PLANNED: #<issue>]` from the rules it covers.
+Specs are written in the present tense and carry no `[PLANNED]` markers, so there is usually
+nothing to do here. Older work left a few behind, though: if a spec file **this change touches** —
+the `what/` rules you implemented, the paired `how/` file — still carries a legacy
+`[PLANNED: #<issue>]` next to behavior your code now ships, delete the marker text so it does not
+get orphaned.
 
-**This is the only spec edit permitted in this phase, and only the marker text** — do not
-reword the rule. Skipping it leaves the spec describing shipped behavior as planned, which
-misleads every agent that reads it next.
+**This is the only spec edit permitted in this phase, and only the marker text** — do not reword
+the rule, and do not go hunting through files unrelated to this change.
 
 ## Phase 4 — Verify (all of it, before committing)
 
@@ -87,7 +91,13 @@ git commit                        # type(scope): summary, e.g. feat(config): / f
 git push origin <branch>
 ```
 
-Leave the PR a **draft**. Do not mark it ready, do not merge, do not rewrite its description.
+**The implementation lands as exactly one commit.** If this pass iterates — you apply the Phase 6
+review findings before the PR is approved — `git commit --amend` and `git push --force-with-lease`
+rather than appending another commit. Before merging, `git log --oneline origin/next..HEAD` must
+show exactly two commits: spec + tests, then implementation.
+
+Leave the PR a **draft** until Phase 7. Do not mark it ready, do not merge, do not rewrite its
+description.
 
 ## Phase 6 — Code review
 
