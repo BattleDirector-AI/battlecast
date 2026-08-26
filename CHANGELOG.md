@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-26
+
 ### Added
 
 - **`/config` tells you whether the race feed is actually live (#158, ADR 0006).** The Producer
