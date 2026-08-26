@@ -365,6 +365,66 @@ describe('rule 27 — the connection follows the configured producer URL, deboun
     expect(FakeEventSource.last.url).toBe('http://race-pc.lan:9100/events')
     expect(feedText(getByTestId)).toBe('Producer feed: connecting…')
   })
+
+  it('leaves a healthy connection alone when an edit is reverted inside the debounce window', async () => {
+    // A typed edit that is undone before it settles must cost nothing. The pending reopen has to
+    // be cancelled by the revert itself — "the URL is back where it started, so there is nothing
+    // to do" is only true if the timer armed for the abandoned URL is also dropped. Otherwise it
+    // fires, closes a connection that was fine, and reopens against a URL the config no longer
+    // holds — and nothing corrects it, because `producer.src` never changes again.
+    const { getByTestId } = await mount()
+    const original = feed()
+    original.emit('open')
+    await tick()
+    const field = getByTestId('producer-src')
+
+    await fireEvent.input(field, { target: { value: 'http://race-pc.lan:9100/events' } })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS - 100) // still pending
+    await fireEvent.input(field, { target: { value: DEFAULT_FEED } })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 3) // well past both windows
+    await tick()
+
+    // Nothing was ever opened against the abandoned URL, and the original is still the live one.
+    expect(FakeEventSource.opened.map((es) => es.url)).toEqual([DEFAULT_FEED])
+    expect(original.closed).toBe(false)
+    expect(FakeEventSource.live).toEqual([original])
+    // Still reading the state of the connection that never dropped — not a fresh "connecting…".
+    expect(feedText(getByTestId)).toBe('Producer feed: connected')
+  })
+
+  it('reconnects when a URL the browser refused is edited back to one that worked', async () => {
+    // The refused URL still has to be recorded as the one currently open, even though opening it
+    // threw. If the failure left the LAST GOOD url recorded instead, typing that url back would
+    // look like "no change" and the editor would sit disconnected forever with a URL that works
+    // in the field — the exact misdiagnosis rule 25's readout exists to prevent.
+    const { getByTestId } = await mount()
+    const first = feed()
+    first.emit('open')
+    await tick()
+    const field = getByTestId('producer-src')
+
+    vi.stubGlobal('EventSource', RefusingEventSource)
+    await fireEvent.input(field, { target: { value: 'http://' } })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+    await tick()
+    expect(first.closed).toBe(true)
+    expect(feedText(getByTestId)).toBe('Producer feed: not connected')
+
+    // Back to the URL that was working a moment ago.
+    vi.stubGlobal('EventSource', FakeEventSource)
+    await fireEvent.input(field, { target: { value: DEFAULT_FEED } })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+    await tick()
+
+    expect(FakeEventSource.live).toHaveLength(1)
+    expect(FakeEventSource.last.url).toBe(DEFAULT_FEED)
+    expect(FakeEventSource.last).not.toBe(first) // a NEW connection, not the closed one
+    expect(feedText(getByTestId)).toBe('Producer feed: connecting…')
+
+    FakeEventSource.last.emit('open')
+    await tick()
+    expect(feedText(getByTestId)).toBe('Producer feed: connected')
+  })
 })
 
 describe('rule 28 — the preview never renders live data', () => {

@@ -1,7 +1,8 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import ConfigPage from './ConfigPage.svelte'
+import { FakeEventSource } from '../../lib/testing/fakeEventSource.js'
 import { WIDGET_KEYS, TOWER_METRIC_FIELDS, DRIVER_INFO_FIELDS } from '../../lib/overlayConfig.js'
 import {
   WIDGET_HELP,
@@ -9,6 +10,13 @@ import {
   TOWER_METRIC_HELP,
   DRIVER_INFO_HELP,
 } from '../../lib/configHelp.js'
+
+// The editor holds a producer feed connection open for its status readout (#158);
+// happy-dom has no EventSource. Stub the shared double so mounting is inert here.
+beforeEach(() => {
+  FakeEventSource.reset()
+  vi.stubGlobal('EventSource', FakeEventSource)
+})
 
 afterEach(() => {
   cleanup()

@@ -10,7 +10,7 @@ import {
 // Namespace import as well: `resolveSpeedUnit` moves here with the SSE merge (#158, ADR 0006), and
 // a namespace read makes its absence fail the assertion below rather than the whole file.
 import * as overlayConfig from './overlayConfig.js'
-import { DEFAULT_SRC } from '../routes/tower/sseClient.js'
+import { DEFAULT_SRC } from './sseClient.js'
 import lowerThird from '../routes/all/fixtures/profile-lower-third.json'
 import towerOnly from '../routes/all/fixtures/profile-tower-only.json'
 
