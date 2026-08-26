@@ -25,7 +25,7 @@ import AllView from '../all/AllView.svelte'
 // The page opens an SSE feed on mount; happy-dom has no EventSource. Capture the
 // state callback instead so a test can push fixtures at it.
 const sse = vi.hoisted(() => ({ emit: null }))
-vi.mock('./sseClient.js', () => ({
+vi.mock('../../lib/sseClient.js', () => ({
   DEFAULT_SRC: 'http://localhost:8080/events',
   resolveSrc: () => 'http://producer.test/events',
   connect: (_url, onState) => {

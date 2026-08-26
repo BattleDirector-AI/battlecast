@@ -7,7 +7,10 @@ import {
   DEFAULT_CONFIG,
   CONFIG_VERSION,
 } from './overlayConfig.js'
-import { DEFAULT_SRC } from '../routes/tower/sseClient.js'
+// Namespace import as well: `resolveSpeedUnit` moves here with the SSE merge (#158, ADR 0006), and
+// a namespace read makes its absence fail the assertion below rather than the whole file.
+import * as overlayConfig from './overlayConfig.js'
+import { DEFAULT_SRC } from './sseClient.js'
 import lowerThird from '../routes/all/fixtures/profile-lower-third.json'
 import towerOnly from '../routes/all/fixtures/profile-tower-only.json'
 
@@ -434,3 +437,39 @@ const CYCLE_DEFAULTS_SHAPE = {
   pinScope: 'overall',
   pinSubject: true,
 }
+
+describe('resolveSpeedUnit — the standalone /onboard ?unit= knob (#158, ADR 0006)', () => {
+  // Lives here, beside `pickProducerSrc` and `parseTowerMetricsParam`: it resolves a URL knob, it
+  // was never connection logic. It arrives with the SSE merge, and it arrived with no behavioral
+  // coverage of any kind — nothing in the repo tested `?unit=` before this.
+  it('reads mph from ?unit=, case-insensitively', () => {
+    expect(overlayConfig.resolveSpeedUnit('?unit=mph')).toBe('mph')
+    // Live behavior today (`routes/onboard/sseClient.js` lowercases before comparing). A merge
+    // that dropped the lowercasing would leave `?unit=MPH` silently rendering km/h.
+    expect(overlayConfig.resolveSpeedUnit('?unit=MPH')).toBe('mph')
+    expect(overlayConfig.resolveSpeedUnit('?unit=  mph  ')).toBe('mph')
+  })
+
+  it('falls back to km/h for kmh, absent, and unrecognized units', () => {
+    expect(overlayConfig.resolveSpeedUnit('?unit=kmh')).toBe('kmh')
+    expect(overlayConfig.resolveSpeedUnit('')).toBe('kmh')
+    expect(overlayConfig.resolveSpeedUnit('?other=1')).toBe('kmh')
+    expect(overlayConfig.resolveSpeedUnit('?unit=')).toBe('kmh')
+    expect(overlayConfig.resolveSpeedUnit('?unit=furlongs')).toBe('kmh')
+  })
+
+  it('called with NO argument, reads the page URL', () => {
+    // `OnBoardHudPage` calls it bare and relies on the parameter default — the same trap as
+    // `resolveSrc()`, and the reason `?unit=mph` would die quietly in the move. See ADR 0006.
+    const original = window.location.href
+    try {
+      history.replaceState({}, '', '/onboard?unit=mph')
+      expect(overlayConfig.resolveSpeedUnit()).toBe('mph')
+
+      history.replaceState({}, '', '/onboard')
+      expect(overlayConfig.resolveSpeedUnit()).toBe('kmh')
+    } finally {
+      history.replaceState({}, '', original)
+    }
+  })
+})

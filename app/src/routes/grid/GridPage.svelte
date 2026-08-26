@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import GridSlide from './GridSlide.svelte'
-  import { connect, resolveSrc } from '../tower/sseClient.js'
+  import { connect, resolveSrc } from '../../lib/sseClient.js'
 
   let snapshot = $state(null)
 

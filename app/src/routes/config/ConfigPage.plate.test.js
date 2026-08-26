@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/svelte'
 import { tick } from 'svelte'
 
@@ -21,6 +21,7 @@ vi.mock('../../lib/configApi.js', () => ({
 }))
 
 import ConfigPage from './ConfigPage.svelte'
+import { FakeEventSource } from '../../lib/testing/fakeEventSource.js'
 import * as api from '../../lib/configApi.js'
 import { WIDGET_KEYS, normalizeConfig } from '../../lib/overlayConfig.js'
 
@@ -29,6 +30,13 @@ import { WIDGET_KEYS, normalizeConfig } from '../../lib/overlayConfig.js'
  *  images straight over the video with no panel behind them. */
 const PLATED = ['tower', 'battle', 'driver', 'qualifying', 'racecontrol', 'onboard']
 const UNPLATED = WIDGET_KEYS.filter((key) => !PLATED.includes(key))
+
+// The editor holds a producer feed connection open for its status readout (#158);
+// happy-dom has no EventSource. Stub the shared double so mounting is inert here.
+beforeEach(() => {
+  FakeEventSource.reset()
+  vi.stubGlobal('EventSource', FakeEventSource)
+})
 
 afterEach(() => {
   cleanup()

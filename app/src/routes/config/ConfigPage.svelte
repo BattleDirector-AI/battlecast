@@ -25,6 +25,7 @@
   } from '../../lib/configHelp.js'
   import * as editor from '../../lib/configEditor.js'
   import * as api from '../../lib/configApi.js'
+  import { connect as connectFeed, DEFAULT_SRC } from '../../lib/sseClient.js'
   import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
 
   // Preview snapshot. `race-close-battle.json` is the canonical NO-telemetry fixture (so
@@ -66,7 +67,8 @@
   let profiles = $state([])
   let serverLogos = $state([])
   let serverUp = $state(false)
-  let status = $state('Not connected to a server — changes can be exported as config.json.')
+  // Names its subject (rule 29): this line is the PROFILE SERVER, never the race feed.
+  let status = $state('No profile server — changes can be exported as config.json.')
   let previewScale = $state(0.4)
   let previewWrap = $state(null)
   let copied = $state(false)
@@ -79,9 +81,16 @@
 
   onMount(() => {
     refreshFromServer()
+    openFeed(feedUrl)
+    feedStarted = true
     fitPreview()
     if (typeof window !== 'undefined') window.addEventListener('resize', fitPreview)
     return () => {
+      // The feed goes first: it is the one thing here that outlives the DOM if left alone.
+      // Both the live connection AND a debounce still counting down — an edit that had not
+      // settled by unmount must not open a connection from an editor that no longer exists.
+      clearTimeout(feedDebounceTimer)
+      closeFeed()
       if (typeof window === 'undefined') return
       window.removeEventListener('resize', fitPreview)
       // Also drop any in-flight drag listeners so unmounting mid-drag can't leak them.
@@ -94,7 +103,7 @@
   async function refreshFromServer() {
     serverUp = await api.serverAvailable()
     if (!serverUp) return
-    status = 'Connected.'
+    status = 'Profile server connected.'
     try {
       profiles = await api.listProfiles()
       serverLogos = await api.listLogos()
@@ -102,6 +111,73 @@
       status = `Server error: ${err.message}`
     }
   }
+
+  // ---- producer feed status (rules 25-29) ----------------------------------
+  // The editor holds its own SSE connection open purely to report whether the race feed is
+  // reaching this machine. Snapshots are DISCARDED — the preview stays on the sample fixture
+  // (rule 28) — and the readout is the transport's lifecycle and nothing else: no stall
+  // detection, no last-snapshot age, no timer (rule 26). Two independent readouts share this
+  // page and must not be conflated: this one is the race feed, `status` is the profile server.
+  const FEED_DEBOUNCE_MS = 500
+  const FEED_TEXT = {
+    connecting: 'Producer feed: connecting…',
+    connected: 'Producer feed: connected',
+    disconnected: 'Producer feed: not connected',
+  }
+
+  let feedStatus = $state('connecting')
+  let feedDisconnect = null
+  let feedDebounceTimer = null
+  let feedStarted = false
+  /** The URL the current connection was opened against — plain, so it never re-triggers. */
+  let openedFeedUrl = null
+
+  // Read from the CONFIG, not from the input event: a profile load replaces the whole config,
+  // `producer.src` included, and must move the connection exactly as a typed edit does (rule 27).
+  // Empty or whitespace falls back to the default, so the readout describes the URL a Browser
+  // Source built from this profile would actually use (rule 8's precedence tail).
+  const feedUrl = $derived(String(config.producer?.src ?? '').trim() || DEFAULT_SRC)
+
+  function closeFeed() {
+    if (feedDisconnect) feedDisconnect()
+    feedDisconnect = null
+  }
+
+  function openFeed(url) {
+    closeFeed()
+    feedStatus = 'connecting'
+    openedFeedUrl = url
+    try {
+      feedDisconnect = connectFeed(url, () => {}, {
+        onOpen: () => (feedStatus = 'connected'),
+        onError: () => (feedStatus = 'disconnected'),
+      })
+    } catch (err) {
+      // The browser refuses to open some URLs — `http://` with no host throws from the
+      // EventSource constructor synchronously, before any listener is attached, so the failure
+      // arrives as an exception rather than an `error` event. A half-typed URL that settles past
+      // the debounce is exactly that. It is a failed connection like any other: report it and
+      // keep the editor editable, don't let it escape mount or an input handler (rule 25).
+      console.warn('[battlecast] could not open the producer feed:', err)
+      feedDisconnect = null
+      feedStatus = 'disconnected'
+    }
+  }
+
+  $effect(() => {
+    const url = feedUrl // tracked first, so a later change re-runs this even when we bail below
+    if (!feedStarted) return // onMount owns the first connection
+    // Cancel any pending reopen BEFORE the equality bail, not after. An edit that is reverted
+    // inside the debounce window lands here with `url === openedFeedUrl` and nothing to do — but
+    // a timer armed for the abandoned URL is still counting down, and bailing first would let it
+    // fire, close the good connection, and leave the editor talking to a URL the config no longer
+    // holds. Nothing would ever correct it: `feedUrl` is back where it started, so this effect
+    // never runs again (rule 27).
+    clearTimeout(feedDebounceTimer)
+    if (url === openedFeedUrl) return
+    // Debounced so a typed URL costs one connection, not one per keystroke.
+    feedDebounceTimer = setTimeout(() => openFeed(url), FEED_DEBOUNCE_MS)
+  })
 
   function fitPreview() {
     const avail = previewWrap?.clientWidth || 800
@@ -880,6 +956,11 @@
             placeholder="http://localhost:8080/events"
           />
         </label>
+        <!-- Beside the URL field, deliberately NOT beside the header's server line: adjacency is
+             what makes one readout readable as the other (rule 29). -->
+        <span class="feed-status feed-status--{feedStatus}" data-testid="feed-status"
+          >{FEED_TEXT[feedStatus]}</span
+        >
       </section>
 
       <section class="panel__group">
@@ -1201,5 +1282,17 @@
     margin-top: 0.35rem;
     font-size: 0.72rem;
     color: #6f7c90;
+  }
+  .feed-status {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    color: #9aa7ba;
+  }
+  .feed-status--connected {
+    color: #2ed9a6;
+  }
+  .feed-status--disconnected {
+    color: #ff8b7a;
   }
 </style>

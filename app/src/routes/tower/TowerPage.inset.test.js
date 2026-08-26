@@ -18,7 +18,7 @@ import { render, cleanup } from '@testing-library/svelte'
 import TowerPage from './TowerPage.svelte'
 
 const sse = vi.hoisted(() => ({ emit: null }))
-vi.mock('./sseClient.js', () => ({
+vi.mock('../../lib/sseClient.js', () => ({
   DEFAULT_SRC: 'http://localhost:8080/events',
   resolveSrc: () => 'http://producer.test/events',
   connect: (_url, onState) => {

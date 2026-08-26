@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import StandingsTower from './StandingsTower.svelte'
-  import { connect, resolveSrc } from './sseClient.js'
+  import { connect, resolveSrc } from '../../lib/sseClient.js'
   import {
     TOWER_METRICS_DEFAULTS,
     parseTowerMetricsParam,

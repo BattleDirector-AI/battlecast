@@ -62,7 +62,7 @@ Packaging lives **outside** `server/` so the server stays plain-Node runnable:
 ## Implementation Notes
 
 - The server never touches the producer state feed — that stays a client-out SSE connection from the
-  browser (`app/src/routes/*/sseClient.js`). Do not add a state-feed proxy here.
+  browser (`app/src/lib/sseClient.js`). Do not add a state-feed proxy here.
 - Port `7397` deliberately sits above the sim `_397` family (rF2 :5397, LMU :6397) so it never
   collides with a sim on the same machine.
 - `static.js` resolves **disk before embedded**. Do not invert this: a dev checkout must keep serving
