@@ -63,7 +63,18 @@ gh pr create --base prerelease --head release/X.Y.Z \
   --body "Integrates next into prerelease ahead of the vX.Y.Z cut. See CHANGELOG.md."
 ```
 
-Wait for CI (`lint`, `test`, `build`) green: `gh pr checks <n> --watch`. Then merge:
+Wait for CI green: `gh pr checks <n> --watch`. CI runs **five** jobs — `lint`, `test`,
+`compliance`, `server`, `mock`. There is no `build` job; the build is a step inside `test`,
+so do not wait for a sixth. **"no checks" or "cancelled" is not the same as passing** —
+during a GitHub Actions incident a PR can report no checks at all. Confirm a run actually
+registered against the SHA you are about to merge:
+
+```bash
+gh run list --commit "$(git rev-parse HEAD)" --json databaseId,workflowName,status,conclusion \
+  -q '.[] | "\(.databaseId) \(.workflowName) \(.status) \(.conclusion // "-")"'
+```
+
+Then merge:
 ```bash
 gh pr merge <n> --merge
 ```
@@ -135,6 +146,62 @@ gh pr create --base next --head backmerge/vX.Y.Z \
 ```
 Merge once CI is green (`gh pr merge <n> --merge`). Delete the `release/X.Y.Z` and
 `backmerge/vX.Y.Z` helper branches once merged.
+
+## Phase 6 — Announce on Discord
+
+Post the release to the **battlecast `#announcements`** channel in the BattleDirector AI
+Discord. Do this **last**, after Phase 5 — the post carries a download link, so nothing
+should go out until the tag, the GitHub release and its `.exe` asset all exist and the
+back-merge is clean.
+
+**Where it goes.** Guild `1476282641274634325` (BattleDirector AI), channel
+`1542291495099433010` — the `#announcements` inside the **Battlecast** category. That is
+*not* the same channel as the `#announcements` under **BattleDirector**
+(`1487105208617013490`), which carries BattleDirector's own releases. Discord allows the
+duplicate name; the category is what distinguishes them. Post to the wrong one and it
+lands in the wrong product's feed, so use the id, never the name.
+
+**Prerequisite.** The `discord` MCP server must be connected (`mcp__discord__*` tools
+present). It is registered at **user scope** and reads its token from the gitignored
+`.discord` via `node --env-file`. A server added mid-session is not available until Claude
+restarts. See the `discord-mcp-setup` memory for the wiring and the drive-letter-casing
+trap that makes a locally-scoped server silently fail to load.
+
+**Draft it from the CHANGELOG entry you just wrote**, in the house style the server already
+uses:
+
+- The whole body sits in a ``` fence.
+- First line: `battlecast vX.Y.Z — lowercase human subtitle` saying what the release is
+  *for*, not what it contains.
+- A short prose paragraph framing the release, often referring back to what the previous
+  one set up.
+- Then `What you'll notice` and `Fixed` sections, `•` bullets, broadcaster-facing prose.
+  The CHANGELOG's Added/Fixed entries port over with light editing — the register is
+  already right. **Drop the Internal section**; it is contributor-facing and means nothing
+  to a broadcaster.
+- **Put the links *outside* the fence.** Discord does not linkify URLs inside a code block,
+  and the download is the point of the post. Verify afterwards that the sent message came
+  back with `embeds: 1` — that is the proof Discord treated the URL as a real link.
+
+```
+**Download** (Windows, no install needed)
+https://github.com/BattleDirector-AI/battlecast/releases/download/vX.Y.Z/battlecast-vX.Y.Z-windows-x64.exe
+
+**Full notes:** https://github.com/BattleDirector-AI/battlecast/releases/tag/vX.Y.Z
+```
+
+Get the exact asset URL from the release rather than composing it by hand:
+
+```bash
+gh release view vX.Y.Z --json url,assets -q '.url, (.assets[] | "\(.name) -> \(.url)")'
+```
+
+**Show the draft and get approval before sending.** This is the one step of the release
+that is *not* covered by the standing unattended authorization: that authorization was
+written for git and GitHub steps, and this posts to a shared community server where a bad
+post is visible to members immediately. Send with `mcp__discord__discord_send`
+(`channelId`, `message`), then read it back with `mcp__discord__discord_read_messages`
+(`limit: 1`) to confirm it landed and embedded.
 
 ## Hotfix flow (urgent fix to already-released code)
 
