@@ -76,7 +76,10 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   the pure selection functions (`selectPins`/`selectRows`), and drives `createTowerCycle` for the
   page cursor + frozen window membership. `happy-dom` does no layout, so the measured budget and the
   CSS clamp are verified in a real browser (as the #118 clamp was); the selection/stability logic is
-  unit-tested in `towerCycle.test.js`.
+  unit-tested in `towerCycle.test.js`. **`happy-dom` also pumps no animation frames**, so any path
+  that defers to `requestAnimationFrame` is unreachable unless a test stubs the frame and pumps it
+  by hand: the resize coalescing shipped in #153 was invisible to the whole suite until #155 stubbed
+  it. Treat frame timing like layout — deliberately stubbed here, and confirmed in a real browser.
 - **Where `slotHeight` comes from** (behavior in `what/tower-overflow.md` rules 18–20): `/all`
   (`AllView.svelte`) passes the tower widget's configured `h`. The standalone route
   (`TowerPage.svelte`) has no configured slot, so it **derives** one from the viewport:
@@ -94,10 +97,16 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   “measure, don't hardcode” applied one level further down; the header/row tokens
   (`--bc-widget-header` / `--bc-row-standard`) are read as custom properties because they are
   design values with no resolved-layout equivalent to read instead.
-- **Re-fitting coalesces to one measurement per frame**. A resize burst (an operator
-  dragging the source) would otherwise re-measure and reassign the budget on every event, and each
-  budget change returns the cycling window to its first page (`what/tower-overflow.md` rule 19).
-  Coalesce through `requestAnimationFrame` so a drag settles once.
+- **Re-fitting coalesces to one measurement per frame** (behavior in
+  `what/tower-overflow.md` rule 21). A resize burst (an operator dragging the source) would
+  otherwise re-measure and reassign the budget on every event, and each budget change returns the
+  cycling window to its first page (rule 19). `TowerPage.svelte` coalesces through
+  `requestAnimationFrame`: the leading event measures at once, opens a frame-long gate and drops
+  every event inside it, and the frame's callback takes the one trailing catch-up measurement, so
+  a drag settles on the size it ended at. A queued frame is cancelled on teardown — nothing may
+  measure an unmounted page. Covered by `TowerPage.resizeCoalescing.test.js`, which drives the
+  gate under a stubbed `requestAnimationFrame` and a hand-pumped frame, because `happy-dom` runs
+  none of its own.
 - The Vite/Svelte scaffold's `#app` centering and themed background are neutralized at runtime in
   `App.svelte` for real routes; the scaffold landing (`{:else}`) is leftover template and not a
   product route.

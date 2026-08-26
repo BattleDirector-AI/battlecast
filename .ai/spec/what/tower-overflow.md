@@ -37,6 +37,14 @@ Decision record: `docs/decisions/0005-standalone-tower-slot-height.md`.
     overrides it but resizing the source. This reaches the **overflow** settings only — the
     standalone route's other knobs (`?class=`, `?metrics=`) keep the precedence rule 13 already
     gives them.
+21. **A resize burst re-fits once per animation frame.** Rule 19's re-fit is coalesced. A
+    `resize` event re-fits immediately when no frame is already pending; every event arriving
+    while one is pending is dropped and replaced by a single catch-up re-fit taken when that
+    frame comes due, and the catch-up uses the size the viewport ended at, never an intermediate
+    one. The catch-up opens the next frame's gate in turn, so a drag that runs across many
+    frames still re-fits at most once per frame. A burst therefore re-fits twice however many
+    events it emits — once at the size the drag started from, once at the size it settled on —
+    and the tower keeps the leading budget in between.
 
 ### What gets a row
 
