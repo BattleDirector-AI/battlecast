@@ -9,8 +9,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 |---|---|---|
 | `src/App.svelte` | route dispatch, `OVERLAY_ROUTES`, `FULL_BLEED_ROUTES` | Pathname → page component; full-bleed/transparent/motion boot setup. |
 | `src/main.js` | — | Mounts the app. |
-| `src/routes/<w>/sseClient.js` | `connect` (all routes); **tower** also exports `parseState`, `resolveSrc`, `DEFAULT_SRC`, `SUPPORTED_SCHEMA_VERSION`; battle/racecontrol/onboard inline the parse + a local `KNOWN_SCHEMA_VERSION` + the default URL string (onboard adds `resolveSpeedUnit`) | Open EventSource, parse `state` events, warn on unknown `schemaVersion`. Same behavior across routes; only the tower client is factored into named exports. |
-| `src/lib/overlayConfig.js` | `loadConfig`, `normalizeConfig`, `resolveWidgets`, `pickProducerSrc`, `parseTowerMetricsParam`, `DEFAULT_CONFIG`, `WIDGET_KEYS` | Config contract: load, normalize, order widgets, pick producer URL, parse `?metrics=`. |
+| `src/lib/sseClient.js` | `connect(url, onState, { onOpen, onError })`, `parseState`, `resolveSrc`, `DEFAULT_SRC`, `SUPPORTED_SCHEMA_VERSION` | **The** SSE client — one module, imported by every route page and by `/config`. Open the `EventSource`, parse `state` events, warn on unknown `schemaVersion`, report transport lifecycle via `{ onOpen, onError }`. |
+| `src/routes/{tower,battle,racecontrol,onboard}/sseClient.js` | `connect`, `resolveSrc` (+ `parseState`, `DEFAULT_SRC`, `SUPPORTED_SCHEMA_VERSION` on tower; `resolveSpeedUnit` on onboard) | The four drifted per-route copies still in the tree; five other pages import the tower's across a directory boundary. They **merge into `src/lib/sseClient.js`** (and `resolveSpeedUnit` into `overlayConfig.js`) — see the implementation note below and ADR 0006. |
+| `src/lib/overlayConfig.js` | `loadConfig`, `normalizeConfig`, `resolveWidgets`, `pickProducerSrc`, `parseTowerMetricsParam`, `resolveSpeedUnit`, `DEFAULT_CONFIG`, `WIDGET_KEYS` | Config contract: load, normalize, order widgets, pick producer URL, parse `?metrics=` and `?unit=`. `resolveSpeedUnit` is the `?unit=` knob; it arrives here with the SSE merge above. |
 | `src/lib/configHelp.js` | `WIDGET_HELP`, `FIELD_HELP`, `TOWER_METRIC_HELP`, `DRIVER_INFO_HELP` | Broadcaster-facing help copy for every `/config` control. Data, not markup — `configHelp.test.js` asserts it covers the config surface exactly. |
 | `src/lib/HelpTip.svelte` | — | The ⓘ affordance: click to reveal, Escape/outside-click to dismiss, flips to stay in the viewport, and cancels its own click so it never toggles the control it sits beside. |
 | `src/lib/motion.js` | `resolveMotion`, `applyMotion`, `prefersReducedMotion` | Motion policy → `<html data-motion>`. |
@@ -30,7 +31,11 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 2. A route shell resolves its producer URL (`resolveSrc` / `pickProducerSrc`) and — for `/all` —
    loads config via `loadConfig(location.search)`.
 3. `sseClient.connect(url, onState)` opens the `EventSource`, listens for `state`, `parseState`
-   parses JSON and warns on unknown `schemaVersion`, and each snapshot flows into the widget.
+   parses JSON and warns on unknown `schemaVersion`, and each snapshot flows into the widget. Today
+   the page reaches that `connect` through its route's own `sseClient.js` (or the tower's); after
+   the merge every page imports `src/lib/sseClient.js`. Render pages pass `onState` only; `/config`
+   is the one caller that also passes `{ onOpen, onError }`, because it renders the connection
+   itself (`how/config-editor.md`).
 4. Widgets render from the latest snapshot. Lower-thirds run their fire/dwell state machine
    (`lowerThirdTrigger.js` + `LowerThirdShell.svelte`); `/all` applies `hideWhenIdle` via
    `isWidgetIdle`.
@@ -64,6 +69,19 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 
 ## Implementation Notes
 
+- **One SSE client, in `lib/`, not per route.** `src/lib/sseClient.js` is the only one; every route
+  page and `/config` import it from there. It sits in `lib/` rather than a route folder because
+  `/config` imports it and is not an overlay route. Do **not** add a per-route copy, do **not**
+  import an SSE client across route folders, and do **not** construct an `EventSource` in a route —
+  `sseClient.consolidation.test.js` fails on each. `resolveSpeedUnit` (`?unit=`) is a URL-knob
+  resolver, not connection logic: it belongs in `overlayConfig.js` beside `pickProducerSrc` and
+  `parseTowerMetricsParam`. Rationale: `docs/decisions/0006-config-producer-feed-status.md`.
+- **`onError` is the transport's, not the parser's.** The shared client invokes `onError` when the
+  `EventSource` itself fails or drops, and never for a payload it cannot parse — a malformed `state`
+  event is logged and dropped, and delivery continues. `/config` renders `onError` as "not
+  connected" (`what/overlay-config.md` rule 25), so routing a parse failure through it would report
+  a dead feed on a healthy connection, which rule 26 forbids outright. The tower's copy does call
+  `onError` on a parse failure; the merge deliberately does not carry that over.
 - **happy-dom test env defaults `prefers-reduced-motion: reduce` to true.** Motion now gates on
   `data-motion`, not the media query, so this no longer silently disables animation paths — but
   motion tests still stamp `data-motion` explicitly (`*.motion.test.js`).

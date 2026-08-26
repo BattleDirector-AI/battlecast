@@ -13,10 +13,15 @@ the client-side pieces that read config back on the render path. Behavioral rule
 | `src/lib/configEditor.js` | `setWidgetField`, `moveWidget`, `resizeWidget`, `setCanvas`, `setWidgetVisible`, `setWidgetHideWhenIdle`, `setLogoRotation`, `addLogoImage`/`removeLogoImage`/`moveLogoImage`, `setProducerSrc`, `setProfileName`, `buildObsUrl` | **Pure** edit operations over a config. Each returns a *new* normalized config; no DOM, no I/O. |
 | `src/lib/configApi.js` | `serverAvailable`, `listProfiles`, `getProfile`, `saveProfile`, `deleteProfile`, `listLogos`, `uploadLogo`, `deleteLogo` | Thin client for the companion server's config/asset API. Every call takes an injectable `fetchImpl`. |
 | `src/lib/configWatch.js` | `watchConfig` | Live reload on the **render** path: poll the resolved config, fire `onChange` only when it actually differs. |
+| `src/lib/sseClient.js` | `connect(url, onState, { onOpen, onError })`, `DEFAULT_SRC` | The shared SSE client (`how/renderer.md`). `/config` is its only caller that passes `onOpen`/`onError`, because it renders the connection state rather than the snapshots. |
 | `src/lib/configHelp.js` | `WIDGET_HELP`, `FIELD_HELP`, `TOWER_METRIC_HELP`, `DRIVER_INFO_HELP` | Broadcaster-facing help copy for every control — data, not markup. |
 | `src/lib/HelpTip.svelte` | — | The ⓘ affordance: click to reveal, `Escape`/outside-click to dismiss, flips to stay in the viewport, cancels its own click. |
 | `src/lib/overlayConfig.js` | `normalizeConfig`, `DEFAULT_CONFIG`, `WIDGET_KEYS`, `TOWER_METRIC_FIELDS`, `DRIVER_INFO_FIELDS`, `isLowerThird` | The config contract the editor edits and the render path loads (see `how/renderer.md`). |
-| `src/routes/config/ConfigPage.{test,help,upload}.test.js` | Vitest | Editor behavior, help coverage, and logo-upload suites. |
+| `src/routes/config/ConfigPage.{test,help,upload,plate}.test.js` | Vitest | Editor behavior, help coverage, logo-upload, and plate-opacity suites. |
+| `src/routes/config/ConfigPage.feedStatus.test.js` | Vitest | Feed-status readout: three states, where it renders, debounced reopen on a typed edit *and* on a profile load, a URL the browser refuses, fixture-only preview, teardown with a debounce in flight. Stubs `EventSource` (happy-dom has none) and uses fake timers for the debounce. |
+| `src/lib/sseClient.test.js` | Vitest | The shared client's behavior: `state` delivery from a fixture, `onOpen`/`onError` lifecycle, disposer. |
+| `src/lib/sseClient.consolidation.test.js` | Vitest | Structural guard — one client, no per-route copies, no cross-route SSE imports. Reads the tree, imports nothing, so it runs whether or not the shared client exists. |
+| `src/lib/testing/fakeEventSource.js` | `FakeEventSource`, `RefusingEventSource` | The stand-in the two suites above share — `happy-dom` has no `EventSource`. `emit()` plays the browser's part; a closed connection emits nothing; `RefusingEventSource` is the URL the browser will not construct. Not a `*.test.js`, so vitest does not collect it. |
 | `src/lib/config{Editor,Api,Watch,Help}.test.js` | Vitest | Unit suites for each module above — pure functions, injected `fetch`, fake timers. |
 
 ## Data Flow
@@ -34,6 +39,36 @@ canvas pixels, not screen pixels.
 **Server presence.** `onMount` → `refreshFromServer()` → `serverAvailable()`. True ⇒ profile list and
 logo list load and the write controls are live. False ⇒ the editor degrades to client-only authoring
 (`exportJson()` downloads a `config.json` to commit for static mode); the status line says so.
+
+**Producer feed status (rules 25–29).** `onMount` also calls
+`sseClient.connect(feedUrl, () => {}, { onOpen, onError })` — an `onState` that throws the snapshot
+away, because the editor renders the *connection*, not the data. `feedStatus` is a three-valued
+`$state` (`'connecting' | 'connected' | 'disconnected'`) set to `'connecting'` at open, `'connected'`
+by `onOpen`, `'disconnected'` by `onError`. The Producer section renders its label from that into
+`[data-testid="feed-status"]`, inside the same `<section>` as `[data-testid="producer-src"]` — and
+deliberately *not* beside the header's `[data-testid="status"]` server line, which is the adjacency
+rule 29 exists to prevent.
+
+The rendered strings, which `what/` states the constraint on rather than pinning:
+
+| Readout | State | Text |
+|---|---|---|
+| feed — `[data-testid="feed-status"]` | `connecting` | `Producer feed: connecting…` |
+| | `connected` | `Producer feed: connected` |
+| | `disconnected` | `Producer feed: not connected` |
+| companion server — `[data-testid="status"]` | server answers | `Profile server connected.` |
+| | no server answers | `No profile server — changes can be exported as config.json.` |
+
+The feed URL is `config.producer.src` (falling back to `DEFAULT_SRC` when it is empty or
+whitespace), read from the config rather than from the input event, so a profile load — which
+replaces the whole config, `producer.src` included — moves the connection exactly as a typed edit
+does. A change is debounced **500 ms** before the old disposer runs and a new `connect` opens, so a
+typed URL costs one connection, not one per keystroke. `new EventSource('http://')` throws
+synchronously, so the `connect` call is guarded: a URL the browser refuses to open leaves the
+readout `'disconnected'` rather than propagating out of mount or an edit handler. Teardown runs the
+disposer *and* clears any pending debounce timer, so unmounting mid-edit opens nothing. Two
+independent concerns share the page and must not be conflated: this readout is the **race feed**;
+the header status line is the **companion server**.
 
 **Live reload (read path, rule 22).** `AllPage.svelte` calls `watchConfig(location.search, …,
 { initial: resolved })` after its initial `loadConfig`. Each tick re-resolves the config through the
@@ -62,12 +97,20 @@ re-fits the stage. The SSE feed is **not** touched — a config edit never recon
 - **Help copy is data.** `configHelp.js` is keyed by widget and logical field name; the editor
   renders from it and tests assert the maps match the iterated config surface exactly. Adding a knob
   without help is a failing test (rules 18-19).
+- **Feed status is transport state, never data state.** It is derived from `open` and `error` on
+  the `EventSource` alone. Do not wire it to `state`-event arrival, a last-snapshot timestamp, or
+  any timer — `what/overlay-config.md` rule 26 forbids stall detection outright. This is also why
+  the shared client's `onError` fires for transport errors only (`how/renderer.md`): a snapshot the
+  editor cannot parse would otherwise read as a dropped feed on a connection that is perfectly
+  healthy. The snapshots the editor receives are discarded; the preview stays on the fixture
+  (rule 28).
 
 ## Integration Points
 
 | Consumer | Provider | Mechanism |
 |---|---|---|
 | `ConfigPage` | companion server | `configApi.js` → `GET/PUT/POST/DELETE /api/profiles`, `/api/logos`. |
+| `ConfigPage` | producer | `sseClient.connect(…, { onOpen, onError })` — status readout only, snapshots discarded. |
 | `ConfigPage` | `AllView` | Renders the real composite widget tree as the live preview. |
 | `ConfigPage` | `spec/v1/fixtures/race-close-battle.json` | Preview snapshot, **augmented on a copy** (see notes). |
 | `AllPage` (render path) | `configWatch.js` → `overlayConfig.loadConfig` | 5 s poll → swap layout without a refresh. |

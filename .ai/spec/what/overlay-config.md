@@ -159,6 +159,71 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     the API's `no-cache` headers (`companion-server.md` rule 15) so a poll sees fresh state rather
     than a stale cached copy.
 
+### Producer feed status in the editor
+
+Decision record: `docs/decisions/0006-config-producer-feed-status.md`.
+
+25. **The editor reports live producer feed status.** `/config` opens its own SSE connection
+    against the producer URL currently in the editor, holds it open for the life of the page, and
+    renders a **feed-status readout** in the Producer section beside the SSE URL field. The readout
+    is in exactly one of three states, and the state is driven **only** by the connection's own
+    lifecycle:
+
+    | State | Entered when |
+    |---|---|
+    | *connecting* | a connection is opened — on mount, and on every reopen (rule 27) |
+    | *connected* | that connection is established |
+    | *disconnected* | that connection fails or drops |
+
+    Each state's rendered text names its subject (rule 29); the literal strings are pinned in
+    `how/config-editor.md`. *Connecting* is the state on mount. A failure returns the readout to
+    *disconnected* from any state, and a later success returns it to *connected*, so a feed that
+    drops while `/config` is open is visible without a reload. A URL the connection cannot be opened
+    against at all — a half-typed one that settles past rule 27's debounce — is a failed connection
+    like any other: the readout reads *disconnected*, and the failure never escapes the editor,
+    which keeps rendering and keeps accepting edits. The editor's connection is closed when the page
+    unmounts — an unmounted editor never reconnects and never renders.
+
+26. **Feed status is connection state, not data flow.** An open connection that is delivering no
+    `state` events MUST still read *connected*. The editor MUST NOT implement stall, timeout, or
+    last-snapshot-age detection: `protocol-contract.md` rule 3 forbids assuming a cadence, so a
+    paused sim, a replay, and a between-sessions producer are indistinguishable from a hung one.
+    Arrival of a `state` event is not a state transition either — the editor discards the snapshot
+    (rule 28) — and neither is a snapshot it cannot parse: a malformed payload on a healthy
+    connection leaves the readout reading *connected*, because the transport is fine. If a producer
+    can detect its own stall it reports it as a payload field, per *dumb overlay, smart producer*.
+
+27. **The connection follows the configured producer URL.** The connection tracks `producer.src` in
+    the editor's config wherever that value comes from — a typed edit to the Producer SSE URL field,
+    a profile load that replaces the whole config, any other write. When it changes, the current
+    connection is closed and one is opened against the new value, debounced identically in every
+    case so that a settled change costs one connection, not one per keystroke; the interval is
+    pinned in `how/config-editor.md`. Each reopen resets the readout to *connecting*. An **empty or
+    whitespace-only** value connects to the default producer URL (`http://localhost:8080/events`),
+    matching rule 8's precedence tail, so the readout always describes the URL a Browser Source
+    built from this profile would actually use.
+
+28. **The preview never renders live data.** The editor's connection is diagnostic. Snapshots it
+    receives are discarded: the live preview keeps rendering the bundled sample fixture in every
+    feed state, so every widget stays populated and positionable and the drag/resize target does not
+    reflow at feed cadence. There is no live-preview mode and no sample/live toggle.
+
+29. **Each status readout names its own subject.** The editor renders two independent status
+    readouts and neither may be phrased so that it could be read as the other. The
+    **companion-server** line reports profile and logo persistence, and MUST name that subject in
+    both of its resting messages — the one shown when the server answers and the one shown when no
+    server does; a bare `Connected.` is specifically prohibited, because on a page whose main job is
+    pointing the overlay at a producer it reads as a claim about the race feed. Its other messages
+    (save, load, upload, delete, copy outcomes) are unaffected. The **feed** readout is rule 25's:
+    it names the producer feed, and it sits in the Producer section beside the URL field rather than
+    beside the server line, so neither readout can be mistaken for the other by adjacency. Literal
+    wording for both: `how/config-editor.md`.
+
+    Neither readout is a control, so rules 16–19 require no `configHelp.js` entry for them and they
+    add no `ⓘ`; the Producer section's existing `producerSrc` help already explains the field they
+    sit beside. Feed status is transient UI state — it is **not** written to the config, so the
+    profile shape and `configVersion` are unchanged.
+
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
