@@ -112,7 +112,7 @@
     }
   }
 
-  // ---- producer feed status (rules 25-29) ----------------------------------
+  // ---- producer feed status (rules 25-30) ----------------------------------
   // The editor holds its own SSE connection open purely to report whether the race feed is
   // reaching this machine. Snapshots are DISCARDED — the preview stays on the sample fixture
   // (rule 28) — and the readout is the transport's lifecycle and nothing else: no stall
@@ -122,8 +122,11 @@
   const FEED_TEXT = {
     connecting: 'Producer feed: connecting…',
     connected: 'Producer feed: connected',
-    disconnected: 'Producer feed: not connected',
+    retrying: 'Producer feed: not connected — retrying…',
+    stopped: 'Producer feed: not connected',
   }
+  /** `EventSource.CLOSED` — read as a number so it needs no global at module scope. */
+  const TRANSPORT_CLOSED = 2
 
   let feedStatus = $state('connecting')
   let feedDisconnect = null
@@ -150,7 +153,15 @@
     try {
       feedDisconnect = connectFeed(url, () => {}, {
         onOpen: () => (feedStatus = 'connected'),
-        onError: () => (feedStatus = 'disconnected'),
+        // WHICH failure this is comes from the transport's own state at the moment it reports
+        // one, never from elapsed time (rule 26 bans that outright, ageing 'retrying' into
+        // 'stopped' included). CLOSED is the browser having abandoned the connection — a host
+        // that answered with something that is not an event stream; anything else is an attempt
+        // it will make again unaided. Recomputed on every failure rather than latched on the
+        // first, because a retrying transport reports each attempt separately (rule 25).
+        onError: (event) => {
+          feedStatus = event?.target?.readyState === TRANSPORT_CLOSED ? 'stopped' : 'retrying'
+        },
       })
     } catch (err) {
       // The browser refuses to open some URLs — `http://` with no host throws from the
@@ -160,8 +171,25 @@
       // keep the editor editable, don't let it escape mount or an input handler (rule 25).
       console.warn('[battlecast] could not open the producer feed:', err)
       feedDisconnect = null
-      feedStatus = 'disconnected'
+      // 'stopped', not 'retrying': nothing was constructed, so there is no connection in
+      // existence to re-attempt anything (rule 25).
+      feedStatus = 'stopped'
     }
+  }
+
+  // Rule 30's gate: "not connected" and nothing finer, so the control does not appear and vanish
+  // as the transport cycles between its two failures. Absent in the other two states, not inert.
+  const feedNotConnected = $derived(feedStatus === 'retrying' || feedStatus === 'stopped')
+
+  function reconnectFeed() {
+    // Immediate: rule 27's debounce absorbs a burst of keystrokes, and a button press is neither
+    // a burst nor ambiguous — half a second of nothing would read as a broken button. It also
+    // drops a reopen that debounce still has pending, so the natural "fix the URL, then
+    // reconnect" costs one connection against the corrected value rather than two (rule 30).
+    clearTimeout(feedDebounceTimer)
+    feedDebounceTimer = null
+    // `openFeed` records `openedFeedUrl`, so a later edit still reopens under rule 27.
+    openFeed(feedUrl)
   }
 
   $effect(() => {
@@ -961,6 +989,20 @@
         <span class="feed-status feed-status--{feedStatus}" data-testid="feed-status"
           >{FEED_TEXT[feedStatus]}</span
         >
+        <!-- Rule 30: rendered only while the feed is not connected, and a sibling of the ⓘ rather
+             than its parent — HelpTip is itself a <button>. -->
+        {#if feedNotConnected}
+          <span class="feed-reconnect">
+            <button type="button" data-testid="feed-reconnect" onclick={reconnectFeed}
+              >Reconnect</button
+            >
+            <HelpTip
+              text={FIELD_HELP.feedReconnect}
+              label="the Reconnect button"
+              testid="help-reconnect"
+            />
+          </span>
+        {/if}
       </section>
 
       <section class="panel__group">
@@ -1292,7 +1334,27 @@
   .feed-status--connected {
     color: #2ed9a6;
   }
-  .feed-status--disconnected {
+  .feed-status--retrying,
+  .feed-status--stopped {
     color: #ff8b7a;
+  }
+  .feed-reconnect {
+    display: flex;
+    align-items: center;
+    margin-top: 0.4rem;
+  }
+  .feed-reconnect button {
+    padding: 0.25rem 0.6rem;
+    border: 1px solid #3a4354;
+    border-radius: 4px;
+    background: #1b2029;
+    color: #cbd5e3;
+    font-size: 0.72rem;
+    cursor: pointer;
+  }
+  .feed-reconnect button:hover,
+  .feed-reconnect button:focus-visible {
+    border-color: #2ed9a6;
+    color: #2ed9a6;
   }
 </style>

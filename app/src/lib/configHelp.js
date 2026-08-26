@@ -154,6 +154,11 @@ export const FIELD_HELP = Object.freeze({
     'The live race feed this overlay reads — your producer application’s address. battlecast ' +
     'connects out to it, so the producer has to be running already. A ?src= parameter on a ' +
     'Browser Source URL overrides it for that source.',
+  feedReconnect:
+    'Open a fresh connection to the producer straight away, using the address above. Some ' +
+    'failures the overlay retries on its own, but one it gives up on for good — so if the line ' +
+    'above still says not connected after you have started the producer or fixed the address, ' +
+    'this is what unsticks it without reloading the page. It changes no setting.',
   obsUrl:
     'Copy this into an OBS Browser Source (set the source to your canvas size). It already ' +
     'carries the profile and producer selected above.',

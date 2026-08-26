@@ -293,6 +293,38 @@ describe('rule 25 — the two not-connected states, told apart by the transport 
     expect(seen).toEqual([RETRYING, RETRYING, RETRYING, RETRYING])
   })
 
+  it('follows one connection from retrying INTO stopped, with no reopen in between', async () => {
+    // The test above repeats a single failure policy, so a latched readout and a recomputed one
+    // agree in all four positions and it cannot tell them apart. This one changes the policy
+    // mid-connection, which is the only way that difference becomes visible.
+    //
+    // It is also ADR 0007's headline scenario, reached from a working configuration: the producer
+    // is not up yet, so the browser retries; then its HTTP server binds the port before the event
+    // route is live and answers 404, and the transport abandons the connection for good. Same
+    // `EventSource` throughout — nothing reopens it, so nothing else can correct the readout. A
+    // latched one would keep promising a retry that is never coming, which is precisely the false
+    // reassurance the two states exist to prevent.
+    const { getByTestId } = await mount()
+    const es = feed()
+    const seen = []
+
+    es.failRetrying()
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    es.failRetrying()
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    // The port is bound now, but answers with something that is not an event stream.
+    es.failStopped()
+    await tick()
+    seen.push(feedText(getByTestId))
+
+    expect(seen).toEqual([RETRYING, RETRYING, STOPPED])
+    expect(FakeEventSource.opened, 'the sequence must run on ONE connection').toHaveLength(1)
+  })
+
   it('never decays from retrying to stopped on its own — rule 26 still bans timers', async () => {
     // "It has been retrying a while, it is probably dead" is exactly the invented number rule 26
     // forbids, and it would be wrong: a refused connection retries correctly and indefinitely.
@@ -512,6 +544,64 @@ describe('rule 30 — the Reconnect control (#160)', () => {
     expect(profile.configVersion).toBe('1')
     expect(profile.producer.src).toBe(urlBefore)
     expect(exported).not.toMatch(/reconnect|feedStatus|Producer feed/i)
+  })
+
+  it('leaves an EMPTY URL field empty — the default it resolves to is never written back', async () => {
+    // The gap the test above cannot see. That one starts from a config whose `producer.src`
+    // already equals the URL the connection resolves to, so an implementation that writes the
+    // resolved URL back into the config on every reconnect is a value-preserving no-op there and
+    // passes unnoticed.
+    //
+    // An empty field is the case rule 27 actually cares about. It means "inherit the default",
+    // and it resolves to the default for the CONNECTION only. Stamping that resolution into
+    // `producer.src` would turn an inherited default into an address the broadcaster never typed,
+    // which then survives a save and an export — pinning a profile to localhost on a machine
+    // where the producer lives somewhere else, from a button that rule 30 says writes nothing.
+    const view = await mount()
+    const field = view.getByTestId('producer-src')
+
+    await fireEvent.input(field, { target: { value: '' } })
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+    await tick()
+    expect(field.value).toBe('')
+    expect(feed().url, 'an empty field still connects to the default (rule 27)').toBe(DEFAULT_FEED)
+
+    feed().failStopped()
+    await tick()
+    await pressReconnect(view)
+    await tick()
+
+    expect(FakeEventSource.last.url).toBe(DEFAULT_FEED)
+    expect(field.value, 'Reconnect wrote the URL it resolved into the field').toBe('')
+
+    let exported = null
+    vi.stubGlobal(
+      'Blob',
+      class {
+        constructor(parts) {
+          exported = String(parts[0])
+        }
+      },
+    )
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:captured')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    await fireEvent.click(view.getByTestId('export'))
+
+    expect(
+      JSON.parse(exported).producer.src,
+      'the exported profile carries a producer URL nobody typed',
+    ).toBe('')
+  })
+
+  it('reads "Reconnect" — every other assertion here reaches it by testid', async () => {
+    // A button with no text at all satisfies the rest of this suite: correctly gated, correctly
+    // wired, in the right section, and invisible on the page. Rule 30 and `how/config-editor.md`
+    // both name the control, so the word it renders is part of the contract.
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+
+    expect(reconnectControl(view).textContent.trim()).toBe('Reconnect')
   })
 
   it('carries help copy and an ⓘ, because it is a control and not a readout (rules 16-19)', async () => {
