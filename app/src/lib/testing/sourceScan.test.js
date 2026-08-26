@@ -231,6 +231,138 @@ describe('the inline-EventSource scan', () => {
     })
   })
 
+  /* The three tests below pin behavior the scanner's own comments call load-bearing and nothing
+   * else asserts. Each was found by mutating the stripper and watching the suite stay green — a
+   * comment claiming an invariant is not a test of it, and every one of these mutations makes the
+   * guard *easier* to pass than the raw-text match it replaced. */
+
+  it('does not blank a file on a comment opener that never closes', async () => {
+    const scan = await loadScan()
+    expect(scan, MISSING).toBeTypeOf('function')
+
+    const root = tree({
+      // `return` is a word, not a punctuator, so the regex after it is not recognised as one and
+      // the `/*` inside its character class is read as a comment opener. Nothing closes it.
+      'lib/charClass.js':
+        'export function has(s) {\n  return /[/*]/.test(s)\n}\n' +
+        'export const c = (u) => new EventSource(u)\n',
+      // The same opener reached through markup, where there is no JavaScript to misread at all.
+      'components/Glob.svelte':
+        '<!-- matches the /* glob -->\n<script>\n' + CONNECT + '</script>\n',
+      // Negative control: a block comment that *does* close still takes its own contents.
+      'lib/closed.js': '/* was `new EventSource(url)` */\nexport const c = 1\n',
+    })
+
+    expect(
+      scan(root),
+      'an unclosed comment opener runs the strip to end of file, so every construction below it ' +
+        'disappears — and both files here are valid, so this is an evasion rather than a ' +
+        'diagnostic: it makes the guard easier to pass than the raw-text match it replaced',
+    ).toEqual({ root, offenders: ['components/Glob.svelte', 'lib/charClass.js'] })
+  })
+
+  it('keeps the tokens either side of a block comment apart', async () => {
+    const scan = await loadScan()
+    expect(scan, MISSING).toBeTypeOf('function')
+
+    const root = tree({
+      'lib/spliced.js': 'export const c = (u) => new/* the transport */EventSource(u)\n',
+    })
+
+    expect(
+      scan(root),
+      'a stripped comment leaves nothing behind, so the tokens it sat between are spliced into ' +
+        'one — `new/* x */EventSource(u)` becomes `newEventSource(u)`, which the pattern does ' +
+        'not match. Replacing a comment with a space is what stops that being an evasion',
+    ).toEqual({ root, offenders: ['lib/spliced.js'] })
+  })
+
+  it('knows a regex literal by everything that can precede one, not by one punctuator', async () => {
+    const scan = await loadScan()
+    expect(scan, MISSING).toBeTypeOf('function')
+
+    // Every fixture is the same shape: a regex ending in `\//`, then a live construction later on
+    // the same line. A `/` the stripper does not recognise as opening a regex leaves the `//`
+    // inside it looking like a line comment, which takes the construction with it to end of line.
+    // Only the token before the regex differs — punctuators, then the keyword class, which a
+    // character-by-character look behind cannot see at all. `=` is already covered above.
+    const REGEX = '/https:\\/\\//'
+    const root = tree({
+      // `>` is the one that matters most here: an arrow precedes nearly every regex written in
+      // this codebase, so losing it would be the widest hole of the twenty.
+      'lib/afterArrow.js': `export const c = (u) => ${REGEX}.test(u) && new EventSource(u)\n`,
+      // Keywords are the other half of the question, and a punctuator list alone cannot see them:
+      // the character before the regex is an identifier character, which reads as division.
+      'lib/afterReturn.js':
+        `export function pick(u) {\n  return ${REGEX}.test(u) ? new EventSource(u) : null\n}\n`,
+      'lib/afterTypeof.js': `const x = typeof ${REGEX}.source; export const c = (u) => new EventSource(u)\n`,
+      'lib/afterAwait.js': `export const c = async (u) => await ${REGEX}.test(u) || new EventSource(u)\n`,
+      'lib/afterParen.js': `export const c = (u) => (${REGEX}.test(u) && new EventSource(u))\n`,
+      'lib/afterComma.js': `export const p = [1, ${REGEX}]; export const c = (u) => new EventSource(u)\n`,
+      'lib/afterColon.js': `export const o = { p: ${REGEX} }; export const c = (u) => new EventSource(u)\n`,
+      'lib/afterBracket.js': `export const p = [${REGEX}]; export const c = (u) => new EventSource(u)\n`,
+      'lib/afterSemicolon.js': `const a = 1;${REGEX}.test(a); export const c = (u) => new EventSource(u)\n`,
+      'lib/afterAnd.js': `export const c = (u) => u && ${REGEX}.test(u) && new EventSource(u)\n`,
+      'lib/afterQuestion.js': `export const c = (u) => (u ? ${REGEX}.test(u) : 0) || new EventSource(u)\n`,
+    })
+
+    expect(
+      scan(root),
+      'a regex literal is only recognised after some of the punctuators one can follow, so after ' +
+        'the rest of them its contents are read as code and the `//` inside it strips the ' +
+        'construction beside it — the same evasion as reading a URL string as a comment',
+    ).toEqual({
+      root,
+      offenders: [
+        'lib/afterAnd.js',
+        'lib/afterArrow.js',
+        'lib/afterAwait.js',
+        'lib/afterBracket.js',
+        'lib/afterColon.js',
+        'lib/afterComma.js',
+        'lib/afterParen.js',
+        'lib/afterQuestion.js',
+        'lib/afterReturn.js',
+        'lib/afterSemicolon.js',
+        'lib/afterTypeof.js',
+      ],
+    })
+  })
+
+  it('does not put a file into string context on a delimiter that never closes on its line', async () => {
+    const scan = await loadScan()
+    expect(scan, MISSING).toBeTypeOf('function')
+
+    const root = tree({
+      // An apostrophe in prose is not a string, and neither is the `/` of a closing tag reached
+      // with `<` behind it. A quote that ran on to the next one anywhere in the file would invert
+      // the parity of every string after it, and that cuts both ways. Here it is the false
+      // positive: the apostrophes in the first and last lines would pair, so the comment between
+      // them survives stripping and prose about the transport is an offender again.
+      'components/Notes.svelte':
+        "<p>don't stop</p>\n<script>\n" +
+        '/* was `new EventSource(url)` before #158 */\nexport const c = 1\n' +
+        "</script>\n<p>it's fine</p>\n",
+      // And here it is the miss, which is the worse half. The apostrophe in `don't` would pair
+      // with the quote opening the URL, leaving the URL's own text outside any string — so its
+      // `//` reads as a comment and takes the construction on that line with it.
+      'components/Feed.svelte':
+        "<p>don't stop</p>\n<script>\n" +
+        "const url = 'http://host/stream'; export const c = () => new EventSource(url)\n" +
+        '</script>\n',
+      // Present so the assertion is not satisfied by a scan that walked nothing.
+      'lib/live.js': CONNECT,
+    })
+
+    expect(
+      scan(root),
+      'a quote with no partner on its line opens a string that runs to the next one anywhere in ' +
+        'the file, which inverts the parity of every string after it: a comment inside the ' +
+        'runaway span survives stripping (prose becomes an offender) and a URL literal left ' +
+        'outside a string has its `//` read as a comment (a real construction is missed)',
+    ).toEqual({ root, offenders: ['components/Feed.svelte', 'lib/live.js'] })
+  })
+
   it('reports the real src/ tree as carrying no second client', async () => {
     const scan = await loadScan()
     expect(scan, MISSING).toBeTypeOf('function')

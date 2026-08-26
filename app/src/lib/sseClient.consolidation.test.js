@@ -11,7 +11,11 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join, resolve, dirname, relative, sep } from 'node:path'
-import { inlineEventSourceOffenders } from './testing/sourceScan.js'
+import {
+  importedSpecifiers,
+  inlineEventSourceOffenders,
+  sourceFiles,
+} from './testing/sourceScan.js'
 
 // Vite rewrites `import.meta.url` to an http:// URL under Vitest, so anchor on the project root
 // instead — `process.cwd()` is `app/` (where vite.config.js and the `test` block live).
@@ -37,22 +41,12 @@ const routeDirs = readdirSync(ROUTES, { withFileTypes: true })
   .map((e) => e.name)
   .sort()
 
-/** Walk a tree, yielding `[absolutePath, pathRelativeToRoot]` for every `.js`/`.svelte` file. */
-function* sourceFiles(root, rel = '') {
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    const abs = join(root, entry.name)
-    const path = rel ? `${rel}/${entry.name}` : entry.name
-    if (entry.isDirectory()) {
-      yield* sourceFiles(abs, path)
-      continue
-    }
-    if (/\.(js|svelte)$/.test(entry.name)) yield [abs, path]
-  }
-}
+/* The tree walk and the specifier read both come from `testing/sourceScan.js`, which is the other
+ * half of this guard: one source reader, so comment stripping and a filesystem-independent walk
+ * order cannot land in only one of the two checks. */
 
-/** The module specifiers a file imports from. */
-const importsOf = (abs) =>
-  [...readFileSync(abs, 'utf8').matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1])
+/** The module specifiers a file imports from — comments stripped, strings not. */
+const importsOf = (abs) => importedSpecifiers(readFileSync(abs, 'utf8'))
 
 describe('the SSE client lives in exactly one place', () => {
   it('provides the shared client at src/lib/sseClient.js', () => {
@@ -74,8 +68,21 @@ describe('the SSE client lives in exactly one place', () => {
     // Covers both directions. The routes -> routes hop is the obvious one; `overlayConfig.js`
     // importing DEFAULT_SRC from `routes/tower/sseClient.js` is the lib/ -> routes/ one, which
     // also means deleting the tower copy is not a leaf operation.
+    // Where this walk is aimed is as load-bearing here as it is for the constructor scan below,
+    // and it was as unpinned: `sourceFiles(ROUTES)`, or narrowing to `join(SRC, 'lib')`, left this
+    // suite green while closing the check to one subtree — and the `lib/` -> `routes/` hop named
+    // above is precisely what a one-subtree walk stops seeing. So the root is taken from the
+    // scan's own result rather than named here, and what the walk reached is asserted.
+    const { root } = inlineEventSourceOffenders(SRC)
+    const walked = [...sourceFiles(root)]
+    expect({
+      scanning: relative(process.cwd(), root).split(sep).join('/'),
+      reachedLib: walked.some(([, path]) => path.startsWith('lib/')),
+      reachedRoutes: walked.some(([, path]) => path.startsWith('routes/')),
+    }).toEqual({ scanning: 'src', reachedLib: true, reachedRoutes: true })
+
     const offenders = []
-    for (const [abs, path] of sourceFiles(SRC)) {
+    for (const [abs, path] of walked) {
       for (const spec of importsOf(abs)) {
         if (!/sseClient\.js$/.test(spec)) continue
         // Resolve the specifier — `./sseClient.js` from lib/ IS the shared client.

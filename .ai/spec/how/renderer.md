@@ -102,11 +102,26 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   conclude the scan caught it. Closing that needs a parse rather than a longer list. One false
   positive is left, in the other direction: a construction written in a `.svelte` **markup** comment
   (`<!-- -->`), which is not JavaScript comment syntax and is not stripped. It is loud and names the
-  file. The import half of the guard reads specifiers through `importedSpecifiers(source)` from the
-  same module, which strips comments the same way; it excludes **nothing**, `*.test.js` included, so
-  a suite that needs to name an import of a second client assembles the specifier from pieces rather
-  than spelling it whole. Excluding suites instead would exempt exactly the files most likely to
-  resurrect one.
+  file. The stripper reads a whole `.svelte` file as JavaScript, which costs two more: markup text
+  carrying a bare `//` (`<p>see https://x</p>`) is stripped from there to the end of that line, and
+  a backtick inside a string inside a `${...}` interpolation ends the template early. Both are
+  bounded — the first by the line, the second by the next backtick — and neither has an instance
+  under `src/`. A delimiter with no partner on its line, and a comment opener that never closes, are
+  each treated as a lone character rather than running on, so a stray apostrophe in prose cannot
+  invert the parity of every string after it — which would both revive prose as an offender and
+  hide a real construction behind a URL literal that is no longer a string. Telling a regex literal
+  from division is what makes "strings and regex literals are not stripped" true, and it is decided
+  by the token in front of the `/`: any of a list of punctuators, or any of a list of keywords
+  (`return`, `typeof`, `case`, `await` and the rest). The keyword list is needed because the
+  character before the regex is otherwise just a letter — `return /^https?:\/\//.test(u)` reads as
+  division, and the `\/\/` inside then reads as a comment and takes the construction on that line.
+  Both lists are explicit, so a keyword outside the second one reopens exactly that gap; failing to
+  recognise a regex is the unsafe direction, and over-recognising one is not, since a recognised
+  regex is kept verbatim. The import half of the guard reads specifiers through
+  `importedSpecifiers(source)` from the same module, which strips comments the same way; it excludes
+  **nothing**, `*.test.js` included, so a suite that needs to name an import of a second client
+  assembles the specifier from pieces rather than spelling it whole. Excluding suites instead would
+  exempt exactly the files most likely to resurrect one.
   `resolveSpeedUnit` (`?unit=`) is a URL-knob resolver, not connection logic: it belongs in
   `overlayConfig.js` beside `pickProducerSrc` and `parseTowerMetricsParam`.
   Rationale: `docs/decisions/0006-config-producer-feed-status.md`.
