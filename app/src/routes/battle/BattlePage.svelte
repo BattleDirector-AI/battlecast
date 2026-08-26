@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import BattleBox from './BattleBox.svelte'
-  import { connect, resolveSrc } from './sseClient.js'
+  import { connect, resolveSrc } from '../../lib/sseClient.js'
 
   let snapshot = $state(null)
 

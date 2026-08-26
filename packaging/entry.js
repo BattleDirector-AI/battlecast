@@ -16,7 +16,7 @@ import path from 'node:path'
 import { createApp } from '../server/lib/createApp.js'
 import { EMBEDDED_DIST } from './build/embedded-dist.generated.js'
 
-// The app's built-in DEFAULT_SRC (app/src/routes/tower/sseClient.js). Demo mode
+// The app's built-in DEFAULT_SRC (app/src/lib/sseClient.js). Demo mode
 // binds the mock here so `/all` needs no ?src= at all.
 const DEMO_PRODUCER_PORT = 8080
 

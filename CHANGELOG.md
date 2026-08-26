@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **`/config` tells you whether the race feed is actually live (#158, ADR 0006).** The Producer
+  section now carries a status readout beside the SSE URL field, driven by a real connection the
+  editor opens itself. Until now `/config` was the one page in the app that never used the URL you
+  typed into it — its preview renders a bundled fixture, so the page looked identical whether the
+  producer was running, misconfigured, or absent, and the only "Connected." on screen referred to
+  the companion server that stores profiles, not to the race feed at all. A broadcaster who loaded
+  `/all` into OBS and saw an empty overlay had to diagnose by elimination: wrong URL, dead
+  producer, or a layout with everything hidden. The readout is deliberately connection state, not
+  data flow — a producer sitting idle between sessions still reads as connected — and it is
+  transient UI, never written into the saved profile.
+
+- **A feed that will heal itself now looks different from one that won't — plus a Reconnect
+  control (#160, ADR 0007).** "Not connected" is two different situations and the right response
+  to each is opposite. Opening battlecast before the producer, or a producer restarting
+  mid-session, recovers on its own: the readout says *retrying* and the correct action is to wait.
+  But a host that answers without serving an event stream — a URL on the wrong port or path, or a
+  producer that binds its port a moment before its event route goes live — makes the browser give
+  up permanently, after a single silent failure. That last one is a startup race an ordinary
+  broadcaster can lose just by launching things in the wrong order, and it left the editor dead
+  until the page was reloaded, with nothing on screen admitting it. That state now reads *stopped*,
+  and a **Reconnect** button appears whenever the feed is *retrying* or *stopped* to re-arm it in
+  place. The three-state behavior was measured against headless Chromium — the same engine OBS's
+  Browser Source runs — rather than assumed.
+
+- **Plate opacity is now a control in the `/config` widget row (#145).** `plateAlpha` shipped in
+  0.8.0 but could only be set by hand-editing a profile. Each of the six plate-painting widgets
+  (tower, battle, driver, qualifying, race control, on-board) gets a slider with its current value
+  shown to two decimals, so a broadcaster can dial a panel back over busy footage without leaving
+  the page. `logos` composites straight over the video with no panel, so it gets no control — and
+  withholding it never rewrites a hand-authored value that is already there.
+
+- **Standalone `/tower` sizes itself to its Browser Source (#140, ADR 0005).** A Browser Source
+  pointed straight at `/tower` had no configured slot to measure, so the row budget was unbounded
+  and the tower simply grew with the field — OBS then cropped whatever didn't fit, and the
+  pinning-and-cycling behavior added in 0.8.0 stayed inert because it needs a finite budget. The
+  route now derives its budget from the viewport it was given, so a large field pins and cycles
+  on `/tower` exactly as it does inside `/all`. The route also resolves the saved profile for the
+  first time, so the tower's `maxRows` and `cycle` settings finally reach it.
+
+### Changed
+
+- **One SSE client for the whole app (#158).** The overlay routes had drifted into four separate
+  copies of the same connection code. They are now a single `app/src/lib/sseClient.js`, so
+  reconnect behavior and error reporting are identical on every route instead of varying by which
+  copy a page happened to import.
+
+### Fixed
+
+- **An oversized standalone tower on any theme not authored in pixels (#152).** The `/tower` inset
+  was read as a custom property's authored text rather than a resolved length: `48px` parsed
+  correctly by luck, but a theme writing `3rem` parsed to `3` — a plausible, positive number that
+  slipped past the sanity check and produced a slot about 90px too tall, which is precisely the
+  oversized tower the derived slot exists to prevent. The inset is now taken from the element's
+  computed padding, which the browser has already resolved to pixels whatever unit the token used,
+  and each edge is measured independently.
+
+- **Dragging a `/tower` source no longer flickers the standings (#152).** A resize burst now
+  re-fits at most once per animation frame and settles on the size the drag ended at. Every budget
+  change returns the cycling window to its first page, so an uncoalesced drag paged the tower
+  rapidly while you were still sizing it.
+
+### Internal
+
+Contributor- and agent-facing only; no effect on what renders.
+
+- Test coverage for the standalone tower's resize coalescing, which was specified but never
+  asserted (#155).
+- The guard that keeps SSE connection code consolidated now scans all of `src/` rather than one
+  directory, parses code instead of matching raw text (so a mention in a comment no longer trips
+  it), reports which tree it read, and its test double resets cleanly (#164, #168).
+- Spec-first workflow skills for the repo's issue → spec → implementation flow, and corrections to
+  them: one PR with two commits rather than two PRs, PR-body rules that no longer assume the tests
+  start red, and a phase that no longer assumes every issue has tests to write (#154, #161, #163,
+  #166).
+- `.ai/spec/` structure aligned with the current codebase — duplicate rule identifiers resolved, a
+  module map added for the `/config` editor, and `ARCHITECTURE.md` refreshed for the packaged
+  binary and recent ADRs (#149).
+
 ## [0.10.0] - 2026-08-24
 
 ### Added

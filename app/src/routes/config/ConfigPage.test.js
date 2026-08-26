@@ -1,11 +1,19 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import ConfigPage from './ConfigPage.svelte'
+import { FakeEventSource } from '../../lib/testing/fakeEventSource.js'
 import AllView from '../all/AllView.svelte'
 import { DEFAULT_CONFIG, normalizeConfig } from '../../lib/overlayConfig.js'
 import * as editor from '../../lib/configEditor.js'
 import snapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
+
+// The editor holds a producer feed connection open for its status readout (#158);
+// happy-dom has no EventSource. Stub the shared double so mounting is inert here.
+beforeEach(() => {
+  FakeEventSource.reset()
+  vi.stubGlobal('EventSource', FakeEventSource)
+})
 
 afterEach(() => {
   cleanup()

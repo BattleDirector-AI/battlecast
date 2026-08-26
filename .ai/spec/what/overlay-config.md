@@ -68,6 +68,9 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     (default 8, floored at 4), `pinTop` (default 3), `pinScope` (`"overall"` default | `"class"`),
     `pinSubject` (default true). Additive + defaulted, so existing profiles render identically until a
     field exceeds what the tower can show. Behavior is specified in `what/tower-overflow.md`.
+    These two knobs configure the tower on **both** entry points — the widget inside
+    `/all` and the standalone `/tower` Browser Source, which derives its slot height from its own
+    viewport (`tower-overflow.md` rules 18–20).
 
 13. **URL-only knobs** (not stored in a profile) layer on top of the loaded config per Browser
     Source: `?class=<vehicle_class>` is a **cross-route field filter** read by `/tower`, `/all`,
@@ -80,6 +83,33 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     the tower's `classDisplay`/`towerMetrics`, the lower-third triggers, and the on-board HUD unit).
     This **includes the tower's overflow settings** — `maxRows` and the `cycle` pinned-rows/window
     knobs — so cycling is configured through the UI, not only by hand-editing the profile JSON.
+
+15. **Per-widget plate opacity.** `plateAlpha` (`[0,1]`, default `0.82`) sets the opacity of a
+    widget's background **plate** — the translucent panel behind its content — **not** the whole
+    widget: text, borders, and bars stay full-strength (deliberately not element `opacity`, which
+    would dim everything and hurt legibility). Default `0.82` so existing profiles render
+    identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
+    widgets that render a background plate.
+
+23. **Plate opacity is tunable from the editor.** The `/config` editor exposes a
+    plate-opacity control in the widget row — rule 14's control surface — for each widget that
+    renders a background plate, so rule 15's broadcaster judgement call ("a more see-through plate
+    over busy footage") never requires hand-editing a profile JSON or a round-trip through
+    Export/Import. The **plate-rendering widgets** are the six that paint one of the plate tokens:
+    `tower` and `battle` (panel + header bar), `driver` and `qualifying` (the shared lower-third
+    card), `racecontrol` and `onboard` (header-bar plate). `logos` composites its images straight
+    over the video with no panel behind them, so it gets **no** control — gated the same way
+    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all seven. The
+    control spans the full `[0,1]` range in steps of `0.01`, starts at the `0.82` default, and
+    renders its current value as text beside it — two decimals, matching the step — so the setting is
+    readable at a glance instead of inferred from a slider position. Per rule 16 it carries its own
+    help copy, and per rule 19 the coverage tests then require it.
+
+24. **Withholding the control does not change the config.** `plateAlpha` stays
+    normalized onto every widget (rule 11) whether or not the editor offers a control for it. A
+    profile carrying a hand-authored `plateAlpha` for a non-plate widget keeps that value through a
+    load → edit → save cycle: the editor never rewrites a knob it declines to show, and rule 6's
+    forward-compat guarantee is unaffected.
 
 ### Editor help content
 
@@ -118,20 +148,112 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     lower-thirds hide themselves between camera cuts (rules 13-19) — both otherwise look like a
     broken overlay rather than a deliberate rule.
 
-15. **Per-widget plate opacity.** `plateAlpha` (`[0,1]`, default `0.82`) sets the opacity of a
-    widget's background **plate** — the translucent panel behind its content — **not** the whole
-    widget: text, borders, and bars stay full-strength (deliberately not element `opacity`, which
-    would dim everything and hurt legibility). Default `0.82` so existing profiles render
-    identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
-    widgets that render a background plate.
+### Live reload
 
-16. **Live config reload.** A render page re-reads its profile at runtime and applies a change
+22. **Live config reload.** A render page re-reads its profile at runtime and applies a change
     without a manual Browser Source refresh: it re-resolves the config (same precedence as rule 4) on
     a modest interval and, when the result differs, swaps to the new layout **immediately and without
     transition** — a config edit is an operator action, not a broadcast reveal, so animating a
     geometry change mid-show would read as a glitch. A missed or failed poll just delays the change
     (best-effort, like the initial load); the producer feed and widget state are unaffected. Relies on
-    the API's `no-cache` (rule 3) so a poll sees fresh state rather than a stale cached copy.
+    the API's `no-cache` headers (`companion-server.md` rule 15) so a poll sees fresh state rather
+    than a stale cached copy.
+
+### Producer feed status in the editor
+
+Decision records: `docs/decisions/0006-config-producer-feed-status.md` (the readout),
+`docs/decisions/0007-config-feed-reconnect.md` (the two failure states and the Reconnect control).
+
+25. **The editor reports live producer feed status.** `/config` opens its own SSE connection
+    against the producer URL currently in the editor, holds it open for the life of the page, and
+    renders a **feed-status readout** in the Producer section beside the SSE URL field. The readout
+    is in exactly one of four states, and the state is driven **only** by the connection's own
+    lifecycle:
+
+    | State | Entered when |
+    |---|---|
+    | *connecting* | a connection is opened — on mount, on every reopen (rule 27), on every reconnect (rule 30) |
+    | *connected* | that connection is established |
+    | *retrying* | that connection fails and the transport will re-attempt it unaided |
+    | *stopped* | that connection fails and the transport will not re-attempt it |
+
+    Each state's rendered text names its subject (rule 29); the literal strings are pinned in
+    `how/config-editor.md`. *Retrying* and *stopped* are both "not connected" on air and their
+    rendered text says so; what separates them is that only *retrying* resolves itself, which the
+    text also says. *Connecting* is the state on mount.
+
+    Which of the two a failure produces is read from the transport's own state at the moment that
+    failure is reported. It is never inferred from elapsed time: rule 26's ban on timers holds
+    unchanged, and the readout MUST NOT decay from *retrying* to *stopped* on its own. A transport
+    that keeps re-attempting reports each attempt's failure separately, and every one of those
+    leaves the readout *retrying* — the state is recomputed from each failure and never latched
+    from the first. A success from any state returns the readout to *connected*, so a feed that
+    drops while `/config` is open and then heals itself is visible without a reload.
+
+    A URL the connection cannot be opened against at all — a half-typed one that settles past
+    rule 27's debounce — is *stopped*, because there is no connection to re-attempt anything; and
+    the failure never escapes the editor, which keeps rendering and keeps accepting edits. The
+    editor's connection is closed when the page unmounts — an unmounted editor never reconnects and
+    never renders.
+
+26. **Feed status is connection state, not data flow.** An open connection that is delivering no
+    `state` events MUST still read *connected*. The editor MUST NOT implement stall, timeout, or
+    last-snapshot-age detection: `protocol-contract.md` rule 3 forbids assuming a cadence, so a
+    paused sim, a replay, and a between-sessions producer are indistinguishable from a hung one.
+    Arrival of a `state` event is not a state transition either — the editor discards the snapshot
+    (rule 28) — and neither is a snapshot it cannot parse: a malformed payload on a healthy
+    connection leaves the readout reading *connected*, because the transport is fine. If a producer
+    can detect its own stall it reports it as a payload field, per *dumb overlay, smart producer*.
+
+27. **The connection follows the configured producer URL.** The connection tracks `producer.src` in
+    the editor's config wherever that value comes from — a typed edit to the Producer SSE URL field,
+    a profile load that replaces the whole config, any other write. When it changes, the current
+    connection is closed and one is opened against the new value, debounced identically in every
+    case so that a settled change costs one connection, not one per keystroke; the interval is
+    pinned in `how/config-editor.md`. Each reopen resets the readout to *connecting*. An **empty or
+    whitespace-only** value connects to the default producer URL (`http://localhost:8080/events`),
+    matching rule 8's precedence tail, so the readout always describes the URL a Browser Source
+    built from this profile would actually use.
+
+28. **The preview never renders live data.** The editor's connection is diagnostic. Snapshots it
+    receives are discarded: the live preview keeps rendering the bundled sample fixture in every
+    feed state, so every widget stays populated and positionable and the drag/resize target does not
+    reflow at feed cadence. There is no live-preview mode and no sample/live toggle.
+
+29. **Each status readout names its own subject.** The editor renders two independent status
+    readouts and neither may be phrased so that it could be read as the other. The
+    **companion-server** line reports profile and logo persistence, and MUST name that subject in
+    both of its resting messages — the one shown when the server answers and the one shown when no
+    server does; a bare `Connected.` is specifically prohibited, because on a page whose main job is
+    pointing the overlay at a producer it reads as a claim about the race feed. Its other messages
+    (save, load, upload, delete, copy outcomes) are unaffected. The **feed** readout is rule 25's:
+    it names the producer feed, and it sits in the Producer section beside the URL field rather than
+    beside the server line, so neither readout can be mistaken for the other by adjacency. Literal
+    wording for both: `how/config-editor.md`.
+
+    Neither readout is a control, so rules 16–19 require no `configHelp.js` entry for them and they
+    add no `ⓘ`; the Producer section's existing `producerSrc` help already explains the field they
+    sit beside. Feed status is transient UI state — it is **not** written to the config, so the
+    profile shape and `configVersion` are unchanged.
+
+30. **A Reconnect control re-arms the readout.** The Producer section renders a **Reconnect**
+    control whenever the feed readout is *retrying* or *stopped*, and does not render it while the
+    readout is *connecting* or *connected* — in those two states the control is **absent**, not
+    merely inert. Its presence is governed by "not connected" and nothing finer: it does not appear
+    or vanish as the transport cycles between *retrying* and *stopped*.
+
+    Activating the control closes the current connection and opens a new one against the producer
+    URL the editor's config holds at that moment, **immediately**. Rule 27's debounce governs a
+    *changed* URL settling and MUST NOT delay an explicit reconnect; a reopen rule 27 already has
+    pending is cancelled by the reconnect, so an operator who edits the URL and reconnects without
+    waiting gets one connection against the edited value rather than two. The readout resets to
+    *connecting* and the control disappears with it. What follows is an ordinary connection: it
+    reaches *connected*, *retrying* or *stopped* by rule 25 like any other, the control returns if
+    it fails, and a later edit to the URL field still reopens the connection under rule 27.
+
+    Reconnect is a **control**, so — unlike rule 29's readouts — it MUST carry a `configHelp.js`
+    entry and an ⓘ (rules 16–19). It writes nothing: `producer.src`, the rest of the profile, the
+    OBS Browser Source URL and `configVersion` are all unchanged by pressing it.
 
 ## Configuration Surface
 

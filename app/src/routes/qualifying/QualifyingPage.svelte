@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import QualifyingLowerThird from './QualifyingLowerThird.svelte'
-  import { connect } from '../tower/sseClient.js'
+  import { connect } from '../../lib/sseClient.js'
   import { loadConfig, pickProducerSrc, DEFAULT_CONFIG, normalizeConfig } from '../../lib/overlayConfig.js'
 
   // Standalone qualifying/sector lower-third Browser Source. Like /driver it is

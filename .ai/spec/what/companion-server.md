@@ -69,6 +69,14 @@ profiles and upload logo images. Implementation: `server/`; see `how/server.md`.
     app and config API, and the overlay connects out to whatever producer `?src=` or the active
     profile names. The mock is never started implicitly.
 
+### Cache policy
+
+15. Config/asset API JSON responses and served logo assets carry **`Cache-Control: no-cache`** —
+    they are live state, not cacheable build output, so the browser revalidates. Both a manual
+    Browser Source refresh and the render path's live config reload
+    (`overlay-config.md` rule 22) depend on this: without it a poll can keep seeing a stale profile
+    after a save. Built app assets under the static handler are not covered by this rule.
+
 ## Configuration Surface
 
 | Flag / env | Default | Purpose |

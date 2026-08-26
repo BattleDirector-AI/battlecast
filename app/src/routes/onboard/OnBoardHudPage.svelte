@@ -1,8 +1,8 @@
 <script>
   import { onMount } from 'svelte'
   import OnBoardHud, { resolveIdentity } from './OnBoardHud.svelte'
-  import { connect, resolveSrc, resolveSpeedUnit } from './sseClient.js'
-  import { DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
+  import { connect, resolveSrc } from '../../lib/sseClient.js'
+  import { DEFAULT_CONFIG, resolveSpeedUnit } from '../../lib/overlayConfig.js'
 
   let snapshot = $state(null)
   // Speed display unit is a per-Browser-Source knob on the standalone route (`?unit=`);

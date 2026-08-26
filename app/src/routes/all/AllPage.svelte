@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import AllView from './AllView.svelte'
-  import { connect } from '../tower/sseClient.js'
+  import { connect } from '../../lib/sseClient.js'
   import { loadConfig, pickProducerSrc, DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
   import { watchConfig } from '../../lib/configWatch.js'
   import { resolveMotion, applyMotion } from '../../lib/motion.js'

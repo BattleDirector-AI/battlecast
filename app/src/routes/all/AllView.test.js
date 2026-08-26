@@ -116,6 +116,40 @@ describe('AllView — per-widget plate opacity (#117)', () => {
     expect(b.getPropertyValue('--bc-header')).toBe('rgba(var(--bc-header-rgb), 0.94)')
   })
 
+  /* Rule 15's whole point: `plateAlpha` dims the PLATE, never the widget. Compare
+   * the slot's complete inline style at 0.2 against the 0.82 default — the only
+   * declarations allowed to differ are the three plate tokens. Element `opacity`,
+   * the text tokens and the hairline token must be absent from both, so text,
+   * numbers and borders keep resolving to their full-strength :root values. */
+  it('dims only the plate: no element opacity, no text or hairline token touched', () => {
+    const declarationsOf = (config) => {
+      const { container } = render(AllView, { snapshot: closeBattle, config })
+      const slot = container.querySelector('[data-testid="widget-tower"]')
+      const style = slot.style
+      const out = {}
+      for (let i = 0; i < style.length; i++) out[style.item(i)] = style.getPropertyValue(style.item(i))
+      const text = slot.textContent
+      cleanup()
+      return { out, text }
+    }
+
+    const base = declarationsOf(normalizeConfig({}))
+    const dim = declarationsOf(normalizeConfig({ widgets: { tower: { plateAlpha: 0.2 } } }))
+
+    // Same set of declarations either way — nothing new appears to dim the widget.
+    expect(Object.keys(dim.out).sort()).toEqual(Object.keys(base.out).sort())
+    const changed = Object.keys(dim.out).filter((prop) => dim.out[prop] !== base.out[prop])
+    expect(changed.sort()).toEqual(['--bc-header', '--bc-plate', '--bc-plate-dense'])
+    // Never element opacity, and never an override of the text/border colors.
+    for (const prop of ['opacity', '--bc-text', '--bc-text-2', '--bc-hairline', '--bc-divider']) {
+      expect(base.out[prop], `${prop} declared at the default`).toBeUndefined()
+      expect(dim.out[prop], `${prop} declared at plateAlpha 0.2`).toBeUndefined()
+    }
+    // The tower's rendered content is byte-identical: only the plate got quieter.
+    expect(dim.text).toBe(base.text)
+    expect(dim.text).toContain('Verstappen')
+  })
+
   it('clamps every scaled plate token to 1 at plateAlpha = 1', () => {
     const cfg = normalizeConfig({ widgets: { tower: { plateAlpha: 1 } } })
     const { container } = render(AllView, { snapshot: closeBattle, config: cfg })

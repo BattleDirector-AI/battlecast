@@ -1,7 +1,8 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import ConfigPage from './ConfigPage.svelte'
+import { FakeEventSource } from '../../lib/testing/fakeEventSource.js'
 import { WIDGET_KEYS, TOWER_METRIC_FIELDS, DRIVER_INFO_FIELDS } from '../../lib/overlayConfig.js'
 import {
   WIDGET_HELP,
@@ -9,6 +10,13 @@ import {
   TOWER_METRIC_HELP,
   DRIVER_INFO_HELP,
 } from '../../lib/configHelp.js'
+
+// The editor holds a producer feed connection open for its status readout (#158);
+// happy-dom has no EventSource. Stub the shared double so mounting is inert here.
+beforeEach(() => {
+  FakeEventSource.reset()
+  vi.stubGlobal('EventSource', FakeEventSource)
+})
 
 afterEach(() => {
   cleanup()
@@ -124,6 +132,33 @@ describe('config editor: help popovers', () => {
       await fireEvent.keyDown(document, { key: 'Escape' })
       await tick()
     }
+  })
+
+  /* SPEC-FIRST (#145): `what/overlay-config.md` rule 23 puts a plate-opacity control
+   * in every plate-rendering widget row, so rule 16 requires it to be explained in
+   * the UI. RED until the control (and its ⓘ) render. */
+  it('explains the plate-opacity control on every widget that offers one', async () => {
+    const { container } = render(ConfigPage)
+
+    for (const key of ['tower', 'battle', 'driver', 'qualifying', 'racecontrol', 'onboard']) {
+      expect(container.querySelector(`[data-testid="help-plate-alpha-${key}-text"]`)).toBeNull()
+
+      const btn = container.querySelector(`[data-testid="help-plate-alpha-${key}"]`)
+      expect(btn, `no plate-opacity help for ${key}`).toBeTruthy()
+
+      await fireEvent.click(btn)
+      await tick()
+      const pop = container.querySelector(`[data-testid="help-plate-alpha-${key}-text"]`)
+      expect(pop, `plate-opacity help for ${key} did not open`).toBeTruthy()
+      expect(pop.textContent.trim()).toBe(FIELD_HELP.plateAlpha)
+
+      await fireEvent.keyDown(document, { key: 'Escape' })
+      await tick()
+    }
+
+    // The copy has to say the thing rule 15 exists for, or it explains nothing.
+    expect(FIELD_HELP.plateAlpha.toLowerCase()).toMatch(/panel|plate/)
+    expect(FIELD_HELP.plateAlpha.toLowerCase()).toMatch(/full strength|stay|not affected/)
   })
 
   it('labels each ⓘ for screen readers with the control it explains', () => {

@@ -85,6 +85,10 @@ export const FIELD_HELP = Object.freeze({
   hideWhenIdle:
     'Drop this widget out of the overlay completely while it has nothing to show, instead of ' +
     'leaving an empty panel on screen. Only offered for widgets that can be idle.',
+  plateAlpha:
+    'How solid the dark panel behind this widget looks. Turn it down to let busy footage show ' +
+    'through — the names, numbers, bars and outlines drawn on top stay at full strength either ' +
+    'way, so the widget never gets harder to read. Only offered for widgets that have a panel.',
 
   // --- lower-thirds: driver + qualifying ---
   trigger:
@@ -150,6 +154,11 @@ export const FIELD_HELP = Object.freeze({
     'The live race feed this overlay reads — your producer application’s address. battlecast ' +
     'connects out to it, so the producer has to be running already. A ?src= parameter on a ' +
     'Browser Source URL overrides it for that source.',
+  feedReconnect:
+    'Open a fresh connection to the producer straight away, using the address above. Some ' +
+    'failures the overlay retries on its own, but one it gives up on for good — so if the line ' +
+    'above still says not connected after you have started the producer or fixed the address, ' +
+    'this is what unsticks it without reloading the page. It changes no setting.',
   obsUrl:
     'Copy this into an OBS Browser Source (set the source to your canvas size). It already ' +
     'carries the profile and producer selected above.',
