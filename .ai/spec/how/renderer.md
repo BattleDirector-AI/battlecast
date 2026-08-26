@@ -75,19 +75,53 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   import an SSE client across route folders, and do **not** construct an `EventSource` **anywhere
   under `src/`** — `sseClient.consolidation.test.js` fails on each. The constructor scan is
   `inlineEventSourceOffenders(srcRoot)` in `src/lib/testing/sourceScan.js`: it walks every `.js` and
-  `.svelte` file beneath the root it is given and returns the offenders as sorted paths relative to
-  that root. It excludes exactly three things — `lib/sseClient.js` itself, any `*.test.js` (suites
-  stub the global; that is the point), and everything under `lib/testing/` (the shared doubles,
-  which describe the transport in prose). `sourceScan.test.js` drives it over synthetic trees and
-  then over the real `src/`. The match is raw text, so it cannot tell code from a comment: a literal
-  `new EventSource(...)` written in a comment outside those exclusions trips it. That false positive
-  is loud and names the file, so it is a note rather than a reason to parse. The same textual match
-  sets the limit in the other direction, and the pattern is an exhaustive list rather than a general
-  rule: the constructor is caught bare or reached through `window`, `globalThis`, or `self`, and
-  nothing else. Any other route to it escapes — another handle on the same object
-  (`new top.EventSource(...)`, `new document.defaultView.EventSource(...)`), an alias
-  (`const E = EventSource`), `Reflect.construct`. Seeing `EventSource` beside `new` is *not*
-  sufficient to conclude the scan caught it. Closing that needs a parse rather than a longer list.
+  `.svelte` file beneath the root it is given and returns `{ root, offenders }` — the root it
+  actually walked, echoed back, and the offending paths relative to that root, sorted. **The root is
+  part of the result because where the scan is aimed is the whole of the guard.** A caller that
+  names a root of its own and asserts on that name passes just as happily when the scan was handed a
+  different one, so the assertion reads the root out of the result. Entries are sorted within each
+  directory as the walk goes, so walk order is the same on every filesystem rather than
+  `readdirSync`'s (which is filesystem-defined — NTFS returns case-insensitive order, ext4 with
+  `dir_index` returns hash order). That walker is exported as `sourceFiles(root)` and is the only
+  one: the import half of the guard walks the tree with the same generator.
+  **Comments are stripped before matching; strings and regex literals are not.** A literal
+  `new EventSource(...)` written in prose is not an offender, while the same call written a
+  semicolon after a URL string — or after a regex ending in `\//` — on the same line still is. That
+  leaves exactly two exclusions: `lib/sseClient.js` itself, and any `*.test.js`, which stubs the
+  global (that is the point) and may hold fixture source in a string constant, which is scanned, not
+  stripped. `lib/testing/` is **not** excluded — the doubles there describe the transport in
+  comments, which now costs nothing, and a double that opened a real connection would be an offender
+  like any other module. `sourceScan.test.js` drives the scan over synthetic trees and then over the
+  real `src/`. What still escapes is worth knowing exactly, because the check is text either way,
+  and the pattern is an exhaustive list rather than a general rule: the constructor is caught bare or
+  reached through `window`, `globalThis`, or `self`, and nothing else. Any other route to it escapes
+  — another handle on the same object (`new top.EventSource(...)`,
+  `new document.defaultView.EventSource(...)`), an alias (`const E = EventSource`),
+  `Reflect.construct`. Only `.js` and `.svelte` are read, so a `.ts` or `.mjs` module would not be
+  scanned at all (none exist under `src/`). Seeing `EventSource` beside `new` is *not* sufficient to
+  conclude the scan caught it. Closing that needs a parse rather than a longer list. One false
+  positive is left, in the other direction: a construction written in a `.svelte` **markup** comment
+  (`<!-- -->`), which is not JavaScript comment syntax and is not stripped. It is loud and names the
+  file. The stripper reads a whole `.svelte` file as JavaScript, which costs two more: markup text
+  carrying a bare `//` (`<p>see https://x</p>`) is stripped from there to the end of that line, and
+  a backtick inside a string inside a `${...}` interpolation ends the template early. Both are
+  bounded — the first by the line, the second by the next backtick — and neither has an instance
+  under `src/`. A delimiter with no partner on its line, and a comment opener that never closes, are
+  each treated as a lone character rather than running on, so a stray apostrophe in prose cannot
+  invert the parity of every string after it — which would both revive prose as an offender and
+  hide a real construction behind a URL literal that is no longer a string. Telling a regex literal
+  from division is what makes "strings and regex literals are not stripped" true, and it is decided
+  by the token in front of the `/`: any of a list of punctuators, or any of a list of keywords
+  (`return`, `typeof`, `case`, `await` and the rest). The keyword list is needed because the
+  character before the regex is otherwise just a letter — `return /^https?:\/\//.test(u)` reads as
+  division, and the `\/\/` inside then reads as a comment and takes the construction on that line.
+  Both lists are explicit, so a keyword outside the second one reopens exactly that gap; failing to
+  recognise a regex is the unsafe direction, and over-recognising one is not, since a recognised
+  regex is kept verbatim. The import half of the guard reads specifiers through
+  `importedSpecifiers(source)` from the same module, which strips comments the same way; it excludes
+  **nothing**, `*.test.js` included, so a suite that needs to name an import of a second client
+  assembles the specifier from pieces rather than spelling it whole. Excluding suites instead would
+  exempt exactly the files most likely to resurrect one.
   `resolveSpeedUnit` (`?unit=`) is a URL-knob resolver, not connection logic: it belongs in
   `overlayConfig.js` beside `pickProducerSrc` and `parseTowerMetricsParam`.
   Rationale: `docs/decisions/0006-config-producer-feed-status.md`.
