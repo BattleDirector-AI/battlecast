@@ -167,6 +167,27 @@ present). It is registered at **user scope** and reads its token from the gitign
 restarts. See the `discord-mcp-setup` memory for the wiring and the drive-letter-casing
 trap that makes a locally-scoped server silently fail to load.
 
+The channel is **member-only and writable only by `admins` and `BD Bot`** — the bot posts
+through an explicit channel overwrite, not through `@everyone`. If a send fails with *"The
+bot is not a member of the target Discord server or lacks required permissions"*, distrust
+it: that is the MCP server's catch-all for every error, and the bot is almost certainly a
+member. Get the real code from Discord before changing any permission:
+
+```bash
+node --env-file=.discord -e 'fetch("https://discord.com/api/v10/channels/1542291495099433010",
+  {headers:{Authorization:`Bot ${process.env.DISCORD_TOKEN}`}}).then(async r=>
+  console.log(r.status, await r.text()))'
+```
+
+`50013 Missing Permissions` means a permission is absent — `MANAGE_ROLES` ("Manage
+Permissions") is the one needed to edit any overwrite, and is separate from
+`MANAGE_CHANNELS`. `50001 Missing Access` means the bot cannot see the channel at all: it
+has been locked out by a channel or category overwrite, and only Administrator bypasses
+that, so recovery needs a human in the Discord UI. Check the **HTTP status** before parsing
+any response — a `403` body has no `permission_overwrites` field, which reads exactly like
+"no permissions are set" and sends the diagnosis the wrong way. Details in the
+`discord-channel-permissions` memory.
+
 **Draft it from the CHANGELOG entry you just wrote**, in the house style the server already
 uses:
 
