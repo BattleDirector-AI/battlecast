@@ -141,6 +141,11 @@
   // Source built from this profile would actually use (rule 8's precedence tail).
   const feedUrl = $derived(String(config.producer?.src ?? '').trim() || DEFAULT_SRC)
 
+  // Rule 31: named regardless of HOW the field got here — a blank field falling back to the
+  // default, or a profile (fresh, or saved before this rule existed) that already carries the
+  // literal default string. A value comparison, not an "was this ever edited" flag.
+  const usingDefaultProducer = $derived(feedUrl === DEFAULT_SRC)
+
   function closeFeed() {
     if (feedDisconnect) feedDisconnect()
     feedDisconnect = null
@@ -984,6 +989,16 @@
             placeholder="http://localhost:8080/events"
           />
         </label>
+        <!-- Rule 31: named from the RESOLVED url, not from whether the field was ever touched, so
+             it covers a blank field and a profile that already carries the literal default alike.
+             Distinct from the feed-status readout below (rule 29) — this states which URL is in
+             effect, never whether it answers. -->
+        {#if usingDefaultProducer}
+          <p class="producer-default-notice" data-testid="producer-default-notice">
+            This still points at the bundled demo producer’s address, {DEFAULT_SRC} — not your
+            own. Enter your producer’s real address above.
+          </p>
+        {/if}
         <!-- Beside the URL field, deliberately NOT beside the header's server line: adjacency is
              what makes one readout readable as the other (rule 29). -->
         <span class="feed-status feed-status--{feedStatus}" data-testid="feed-status"
@@ -1323,6 +1338,13 @@
     display: block;
     margin-top: 0.35rem;
     font-size: 0.72rem;
+    color: #6f7c90;
+  }
+  .producer-default-notice {
+    margin: 0.35rem 0 0;
+    font-size: 0.72rem;
+    /* Deliberately the same neutral tone as .copy-hint, not the feed-status warning colors
+       (#2ed9a6/#ff8b7a) — this states a value, not a connection failure (rule 29/31). */
     color: #6f7c90;
   }
   .feed-status {

@@ -30,3 +30,5 @@ venv/
 packaging/build/
 # `bun build --compile` scratch file, left behind if the compile aborts
 *.bun-build
+# Discord bot credentials for release announcements (token — never commit)
+.discord

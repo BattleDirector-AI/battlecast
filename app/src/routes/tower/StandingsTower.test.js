@@ -126,6 +126,60 @@ describe('StandingsTower — on-camera highlight', () => {
   })
 })
 
+describe('StandingsTower — class badge shows the producer\'s own string', () => {
+  // The badge's registry (classMeta.js) only curates a color for five classes; the
+  // LABEL must always be the producer's own string, never a generic placeholder for
+  // a class the registry doesn't recognize. `race-close-battle.json` already uses
+  // 'F1' for every car, which isn't in the registry — a real, previously-untested
+  // case, not a fixture built to order.
+  const classBadge = (slotId) => rowFor(slotId).querySelector('.bc-class-chip').textContent.trim()
+
+  it('shows the raw class string for a class the registry does not recognize (F1)', () => {
+    render(StandingsTower, { snapshot: closeBattle })
+    expect(classBadge('car-1')).toBe('F1')
+  })
+
+  it('still shows a registered class\'s own label (GTP), unchanged by the fix', () => {
+    render(StandingsTower, { snapshot: multiClass })
+    const gtpRow = multiClass.vehicles.find((v) => v.vehicle_class === 'GTP')
+    expect(classBadge(gtpRow.slot_id)).toBe('GTP')
+  })
+
+  it('uppercases a lowercase/mixed-case class string (JS, not left to CSS text-transform)', () => {
+    // happy-dom's `textContent` reads the literal text node, not the CSS-painted
+    // form — a viewer sees the same thing either way, but the DOM must already
+    // carry the canonical form for anything that reads it directly.
+    const mixedCase = {
+      ...closeBattle,
+      vehicles: closeBattle.vehicles.map((v) => ({ ...v, vehicle_class: 'gte' })),
+    }
+    render(StandingsTower, { snapshot: mixedCase })
+    expect(classBadge('car-1')).toBe('GTE')
+  })
+
+  it('falls back to the generic placeholder for a whitespace-only class, not a blank chip', () => {
+    const blankClass = {
+      ...closeBattle,
+      vehicles: closeBattle.vehicles.map((v) => ({ ...v, vehicle_class: '   ' })),
+    }
+    render(StandingsTower, { snapshot: blankClass })
+    expect(classBadge('car-1')).toBe('CLS')
+  })
+
+  it('falls back to a generic placeholder only when the vehicle has no class at all', () => {
+    const noClass = {
+      ...closeBattle,
+      vehicles: closeBattle.vehicles.map((v) => {
+        const clone = { ...v }
+        delete clone.vehicle_class
+        return clone
+      }),
+    }
+    render(StandingsTower, { snapshot: noClass })
+    expect(classBadge('car-1')).toBe('CLS')
+  })
+})
+
 describe('StandingsTower — rendering details', () => {
   it('shows position numerals and the session-mode header', () => {
     render(StandingsTower, { snapshot: closeBattle })

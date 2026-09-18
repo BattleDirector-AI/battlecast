@@ -8,19 +8,19 @@
   --bc-font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
 
   /* ---- Sizes (px @ 1920x1080) ---- */
-  --bc-size-name: 19px;          /* driver name (standard) */
-  --bc-size-name-compact: 15px;  /* driver name (compact) */
-  --bc-size-pos: 19px;           /* position numeral (standard) */
-  --bc-size-pos-compact: 14px;   /* position numeral (compact) */
-  --bc-size-gap: 14px;           /* gap / interval (standard) */
-  --bc-size-gap-compact: 12px;   /* gap / interval (compact) */
-  --bc-size-chip: 10px;          /* class chip label (standard) */
-  --bc-size-chip-compact: 8px;   /* class chip label (compact) */
-  --bc-size-label: 11px;         /* section / UI labels (standard) */
-  --bc-size-label-compact: 9px;  /* section / UI labels (compact) */
-  --bc-size-carnum: 12px;        /* car number */
-  --bc-size-battle-pos: 20px;    /* battle box focus position */
-  --bc-size-battle-name: 21px;   /* battle box focus name */
+  --bc-size-name: 22px;          /* driver name (standard) */
+  --bc-size-name-compact: 17px;  /* driver name (compact) */
+  --bc-size-pos: 22px;           /* position numeral (standard) */
+  --bc-size-pos-compact: 16px;   /* position numeral (compact) */
+  --bc-size-gap: 16px;           /* gap / interval (standard) */
+  --bc-size-gap-compact: 13px;   /* gap / interval (compact) */
+  --bc-size-chip: 11px;          /* class chip label (standard) */
+  --bc-size-chip-compact: 9px;   /* class chip label (compact) */
+  --bc-size-label: 12px;         /* section / UI labels (standard) */
+  --bc-size-label-compact: 10px; /* section / UI labels (compact) */
+  --bc-size-carnum: 13px;        /* car number */
+  --bc-size-battle-pos: 23px;    /* battle box focus position */
+  --bc-size-battle-name: 24px;   /* battle box focus name */
 
   /* ---- Weights ---- */
   --bc-weight-name: 600;         /* driver names */

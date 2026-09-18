@@ -85,39 +85,52 @@
        reveal. Without this the trigger's in-place re-fire (which correctly keeps
        `shown` true across the cut) never toggles `{#if}`, so the reveal never
        replays and the name would silently swap. Under reduced motion the exit is
-       duration 0, so this stays an instant swap. -->
-  {#key resolved.slotId}
-    <LowerThirdShell>
-      <section
-        class="bc-lt"
-        class:bc-lt--degraded={resolved.state === 'degraded'}
-        data-testid="driver-lower-third"
-        data-state={resolved.state}
-        data-recut-key={resolved.slotId ?? 'none'}
-        aria-label="On-camera driver"
-      >
-        <span class="bc-lt__accent" aria-hidden="true"></span>
-        <div class="bc-lt__body">
-          <div class="bc-lt__meta">
-            <span class="bc-lt__label">ON CAMERA</span>
-            {#if position != null}
-              <span class="bc-lt__pos" data-testid="driver-lt-pos">P{position}</span>
-            {/if}
-            {#if carClass}
-              <ClassChip {carClass} size="compact" />
-            {/if}
+       duration 0, so this stays an instant swap.
+
+       `.lt3-anchor` (#185): the exiting old plate and the entering new plate are
+       BOTH children of this div for the ~620ms they briefly coexist mid-recut. It
+       stays mounted across the `{#key}` swap (only its contents remount), so it's
+       the stable `position: relative` anchor `LowerThirdShell`'s now-absolute `.lt3`
+       positions itself against — without it the two plates are normal-flow block
+       siblings and the entering one is shoved down by the exiting one's height. -->
+  <div class="lt3-anchor">
+    {#key resolved.slotId}
+      <LowerThirdShell>
+        <section
+          class="bc-lt"
+          class:bc-lt--degraded={resolved.state === 'degraded'}
+          data-testid="driver-lower-third"
+          data-state={resolved.state}
+          data-recut-key={resolved.slotId ?? 'none'}
+          aria-label="On-camera driver"
+        >
+          <span class="bc-lt__accent" aria-hidden="true"></span>
+          <div class="bc-lt__body">
+            <div class="bc-lt__meta">
+              <span class="bc-lt__label">ON CAMERA</span>
+              {#if position != null}
+                <span class="bc-lt__pos" data-testid="driver-lt-pos">P{position}</span>
+              {/if}
+              {#if carClass}
+                <ClassChip {carClass} size="compact" />
+              {/if}
+            </div>
+            <span class="bc-lt__name" data-testid="driver-lt-name">{displayName}</span>
           </div>
-          <span class="bc-lt__name" data-testid="driver-lt-name">{displayName}</span>
-        </div>
-      </section>
-    </LowerThirdShell>
-  {/key}
+        </section>
+      </LowerThirdShell>
+    {/key}
+  </div>
 {/if}
 
 <style>
   /* The plate chrome (background, blur, border, radius, shadow) and the
      entrance/exit motion now live in LowerThirdShell; this owns only the card's
      inner layout. */
+  .lt3-anchor {
+    position: relative;
+  }
+
   .bc-lt {
     box-sizing: border-box;
     display: flex;
