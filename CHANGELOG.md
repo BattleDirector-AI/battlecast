@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-18
+
+### Fixed
+
+- **`/config` names the demo producer's address instead of leaving it looking configured
+  (#183, ADR 0008).** A profile that never set its own producer resolves to the bundled demo
+  producer's address, `http://localhost:8080/events` — a literal value baked in by
+  `normalizeConfig`, not blank, so an untouched profile's URL field looked exactly like a
+  broadcaster's own deliberately-typed one. A broadcaster whose own producer wasn't running on
+  port 8080 saw a fully "configured" page and an empty overlay, with no signal pointing at the
+  actual cause. The Producer section now names that address as the demo producer's whenever the
+  resolved URL matches it, whether the field is blank or already carries the literal default —
+  the same check covers profiles saved before this fix existed.
+
+- **Overlay text bumped for readability (#186).** Base sizes in `typography.css` were small
+  relative to the project's stated 1920×1080 reference — `--bc-size-name` at 19px, comparable
+  broadcast graphics typically run 24-28px+. Every size token is up roughly 13-19%, dialed back
+  from a larger first pass that clipped names and gaps inside the standings tower's fixed-width
+  row.
+
+- **A camera cut mid-dwell no longer visibly bumps the driver name-tag (#185).** Cutting to a new
+  driver while the previous card was still showing forced a fresh reveal of the new card while the
+  old one played its ~620ms exit — and for that overlap, the two plates were plain flow siblings
+  with no shared anchor, so the entering card was pushed down by the exiting card's own height
+  until the old one cleared, then snapped back up. Confirmed live (a forced mid-dwell recut showed
+  an exact 82px displacement, self-correcting ~646ms later) before anchoring both plates to the
+  same position so they crossfade in place instead of displacing each other. A cut that arrives
+  after the previous card has already auto-hidden was never affected.
+
+- **Class badges show the producer's own class, not a generic placeholder (#190).** The registry
+  behind the tower's class chip only recognizes five classes (GTP/LMP2/GT3/GT4/TCR); anything
+  else — GTE being the obvious gap for endurance-style series — degraded to a meaningless "CLS"
+  badge instead of the real name. The chip now always renders the producer's own string.
+
+- **Unrecognized classes get a real color instead of flat gray, grouped by name family (#192, ADR
+  0009).** A class outside the five-entry registry is hashed into a color, deterministically, so
+  it never changes across a reload; a driver-category variant of another class — a name ending in
+  "Am", "Pro", "Pro-Am", "Gold", "Silver", "Bronze", or "Platinum" — shares its base class's hue at
+  a different shade (including when the base is one of the five curated classes, e.g. "TCR Am"
+  reads as a shade of TCR's own orange) rather than an unrelated color.
+
+### Internal
+
+Contributor- and agent-facing only; no effect on what renders.
+
+- The release-cut skill documents how to diagnose a failed Discord announcement post, and its own
+  Discord-announcement phase (#180, #181, #182).
+
 ## [0.11.0] - 2026-08-26
 
 ### Added

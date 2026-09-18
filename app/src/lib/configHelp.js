@@ -152,8 +152,10 @@ export const FIELD_HELP = Object.freeze({
     'normally. A ?motion= parameter overrides this per Browser Source.',
   producerSrc:
     'The live race feed this overlay reads — your producer application’s address. battlecast ' +
-    'connects out to it, so the producer has to be running already. A ?src= parameter on a ' +
-    'Browser Source URL overrides it for that source.',
+    'connects out to it, so the producer has to be running already. Left as-is, this points at ' +
+    'the bundled demo producer (http://localhost:8080/events), not your own — replace it with ' +
+    'your producer’s real address. A ?src= parameter on a Browser Source URL overrides it for ' +
+    'that source.',
   feedReconnect:
     'Open a fresh connection to the producer straight away, using the address above. Some ' +
     'failures the overlay retries on its own, but one it gives up on for good — so if the line ' +

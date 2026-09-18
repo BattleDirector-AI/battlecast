@@ -72,7 +72,21 @@
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
 
-    position: relative;
+    /* Absolute, not relative: a mid-dwell re-cut (#64's {#key}) keeps the OLD plate
+       mounted for its full exit while the NEW plate mounts immediately (#185) — for
+       that overlap both are children of the same `.lt3-anchor` (DriverLowerThird /
+       QualifyingLowerThird). Without this they are two normal-flow block siblings and
+       the entering plate is pushed down by the exiting one's height, then snaps up
+       when it's removed. Anchored to `.lt3-anchor`'s top-left so both plates render
+       in the SAME box and crossfade in place, which is what the shared `lt3-plate-in`/
+       `lt3-plate-out` keyframes (translateX/skewX around the same origin) already
+       assume. Width is explicit because absolute positioning no longer inherits the
+       block-level "fill my container" default; height stays intentionally unset —
+       each plate still sizes to its own content, only its origin is pinned. */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
     box-sizing: border-box;
     /* The bar sweeps beyond the plate edges; clip it (and the content wipe) to
        the plate's rounded frame. */

@@ -255,6 +255,24 @@ Decision records: `docs/decisions/0006-config-producer-feed-status.md` (the read
     entry and an ⓘ (rules 16–19). It writes nothing: `producer.src`, the rest of the profile, the
     OBS Browser Source URL and `configVersion` are all unchanged by pressing it.
 
+### Naming the demo fallback
+
+31. **The Producer section names it when the resolved URL is the bundled demo producer's.** Rule
+    27's default and the value `normalizeConfig` bakes into an untouched profile
+    (`DEFAULT_CONFIG.producer.src`) are the same literal address, `http://localhost:8080/events` —
+    so a freshly created or never-edited profile reads no differently in the URL field than one a
+    broadcaster deliberately pointed at their own producer running on that address. Whenever the
+    URL the feed connects to (rule 27's resolution — the trimmed field value, or the default when
+    the field is empty or whitespace) equals that literal default, the Producer section renders an
+    always-visible note identifying it as the bundled demo producer's address, not a configured
+    one, and telling the broadcaster to replace it with their own producer's. The note is derived
+    purely from the resolved URL — never from whether the field has been edited, has focus, or
+    matches its placeholder — so it reappears the instant the field is cleared back to empty and
+    disappears the instant it holds anything else. It is not the feed-status readout (rule 25): it
+    states which URL is in effect, never whether that URL answers, and per rule 29 it MUST NOT be
+    phrased so it could be mistaken for that readout on a panel that already carries one status
+    line. Decision record: `docs/decisions/0008-producer-src-default-visibility.md`.
+
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
