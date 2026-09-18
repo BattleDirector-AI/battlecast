@@ -157,6 +157,15 @@ describe('StandingsTower — class badge shows the producer\'s own string', () =
     expect(classBadge('car-1')).toBe('GTE')
   })
 
+  it('falls back to the generic placeholder for a whitespace-only class, not a blank chip', () => {
+    const blankClass = {
+      ...closeBattle,
+      vehicles: closeBattle.vehicles.map((v) => ({ ...v, vehicle_class: '   ' })),
+    }
+    render(StandingsTower, { snapshot: blankClass })
+    expect(classBadge('car-1')).toBe('CLS')
+  })
+
   it('falls back to a generic placeholder only when the vehicle has no class at all', () => {
     const noClass = {
       ...closeBattle,
