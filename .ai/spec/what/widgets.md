@@ -132,10 +132,29 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 30. **A class chip's label is the producer's own `vehicle_class` string, verbatim — never a generic
     placeholder.** The class registry (`classMeta.js`) curates a distinct color for a small set of
     known classes; it does not gate what text renders. A class outside that registry still shows
-    exactly what the producer sent, in a neutral color, rather than degrading to a meaningless
-    placeholder that discards the producer's data. Applies everywhere a class chip renders: the
-    tower (rules 3, 5), the driver lower-third's class chip (rule 18), and the grid/results group
-    headers (rule 27).
+    exactly what the producer sent, rather than degrading to a meaningless placeholder that
+    discards the producer's data. Applies everywhere a class chip renders: the tower (rules 3, 5),
+    the driver lower-third's class chip (rule 18), and the grid/results group headers (rule 27).
+    Rule 31 governs that class's *color*.
+31. **A class outside the curated registry gets a deterministic color hashed from its own name, not
+    a flat neutral one** — the same class string always resolves to the same color across reloads,
+    from a palette independent of the five curated classes' colors. A class that is a
+    driver-category **variant** of another — its name ending in a recognized trailing word or
+    phrase (`Pro`, `Am`, `Pro-Am`/`ProAm`/`Pro Am`, `Gold`, `Silver`, `Bronze`, `Platinum`) — shares
+    its base class's hue at a different **shade**: brighter for the higher tier
+    (`Pro`/`Gold`/`Platinum`), darker/muted for the lower (`Am`/`Silver`/`Bronze`), so `"LMGT3"` and
+    `"LMGT3 Am"` read as the same family rather than two unrelated colors. This applies **even when
+    the base class is one of the five curated ones** — `"TCR Am"` shares curated TCR's own hue,
+    shaded, rather than hashing an unrelated palette color; only an *exact* match on a curated key
+    (no trailing modifier) renders that class's literal curated color unchanged. A class with no
+    recognized trailing word, or whose entire name IS one (with nothing in front of it — a bare
+    `"Am"` or `"Pro-Am"` sent as a class name by itself), is its own family with no shade
+    adjustment, canonicalized so every spelling of the same phrase still resolves identically.
+    Family detection needs only the one class string — it does not require knowing every other
+    class present in the field. A genuinely
+    **absent** `vehicle_class` (not merely one outside the registry) keeps the flat neutral
+    placeholder color, since there is no name to derive a family/hue from. Decision record:
+    `docs/decisions/0009-class-color-palette-for-unregistered-classes.md`.
 
 ## Constraints
 
