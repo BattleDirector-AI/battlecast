@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { WIDGET_HELP, FIELD_HELP, TOWER_METRIC_HELP, DRIVER_INFO_HELP } from './configHelp.js'
-import { WIDGET_KEYS, TOWER_METRIC_FIELDS, DRIVER_INFO_FIELDS } from './overlayConfig.js'
+import {
+  WIDGET_KEYS,
+  TOWER_METRIC_FIELDS,
+  DRIVER_INFO_FIELDS,
+  DEFAULT_CONFIG,
+} from './overlayConfig.js'
 
 /* Coverage, not prose review: these bind the help copy to the config surface the
  * editor actually iterates, so a knob added to `overlayConfig.js` without help
@@ -106,5 +111,12 @@ describe('configHelp explains the surprising behaviors', () => {
   it('explains that the producer must already be running', () => {
     expect(FIELD_HELP.producerSrc.toLowerCase()).toMatch(/producer/)
     expect(FIELD_HELP.producerSrc.toLowerCase()).toMatch(/running/)
+  })
+
+  it('warns that an untouched field is the bundled demo producer, not a real one (rule 31, #183)', () => {
+    expect(FIELD_HELP.producerSrc.toLowerCase()).toMatch(/demo/)
+    // Pinned to the actual default, not a bare /8080/, so the copy can't drift from
+    // DEFAULT_CONFIG.producer.src while this test stays green.
+    expect(FIELD_HELP.producerSrc).toContain(DEFAULT_CONFIG.producer.src)
   })
 })
