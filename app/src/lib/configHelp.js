@@ -171,6 +171,12 @@ export const FIELD_HELP = Object.freeze({
   logoOrder:
     '"sequential" plays the logos in the order listed above. "shuffle" mixes them up, so the same ' +
     'sponsor is not always first.',
+  classColors:
+    'Give a class its own color instead of the one battlecast picks automatically. Type the class ' +
+    'exactly as your producer sends it (e.g. "GTP" or "LMGT3 Am"), pick a color, and it applies ' +
+    'everywhere that class appears — the standings tower, battle box, lower-thirds, grid and ' +
+    'results. A class with no entry here keeps its automatic color; removing an entry returns it ' +
+    'to that automatic color too.',
 })
 
 /** Per-metric help for the tower's "tower metrics shown" group. Called out

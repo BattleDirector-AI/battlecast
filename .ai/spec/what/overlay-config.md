@@ -111,6 +111,28 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     load → edit → save cycle: the editor never rewrites a knob it declines to show, and rule 6's
     forward-compat guarantee is unaffected.
 
+### Class color overrides
+
+32. **`theme.classColors`** (default `{}`) maps a class-name key — normalized the same way
+    `classMeta.js` normalizes `vehicle_class` (trim, lowercase) — to a 6-digit hex color
+    (`#rrggbb`; case-insensitive on input, no shorthand 3-digit form, no alpha channel).
+    Normalization drops any entry whose key is blank after trimming or whose value is not a
+    well-formed 6-digit hex string; a dropped entry is not replaced or coerced — the class it named
+    simply has no override, exactly as if the entry had never been added. Also drops any
+    prototype-polluting key (`__proto__`, `constructor`, `prototype`), the same defense already
+    applied to `widgets` keys (rule 6's normalization). The map is unbounded and freeform — nothing
+    constrains its keys to a fixed or curated set of class names. `widgets.md` rule 32 specifies how
+    a resolved entry applies to rendering.
+
+33. **The `/config` editor exposes a Class Colors section** — rule 14's control surface, keyed by
+    class name rather than by widget. A broadcaster adds a row (a class-name field plus a color
+    picker) for any class string, edits or removes an existing row, and sees the change reflected in
+    the live preview immediately, the same as any other editor control. There is no pre-seeded or
+    fixed list of rows: every row is one the broadcaster has explicitly added, and an empty map
+    renders no rows. Removing a row's override returns that class to rule 31's default. Per rule 16
+    the section carries its own summary and the color-picker control carries a `configHelp.js` entry
+    and an ⓘ (rules 17-19).
+
 ### Editor help content
 
 16. **Every control the editor renders MUST be explained in the UI itself.** A broadcaster reaches
@@ -276,7 +298,8 @@ Decision records: `docs/decisions/0006-config-producer-feed-status.md` (the read
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
-`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{}`, `reducedMotion`.
+`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors}`,
+`reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +

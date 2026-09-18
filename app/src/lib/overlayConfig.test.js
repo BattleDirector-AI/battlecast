@@ -473,3 +473,68 @@ describe('resolveSpeedUnit — the standalone /onboard ?unit= knob (#158, ADR 00
     }
   })
 })
+
+/* SPEC-FIRST (#197): encodes `.ai/spec/what/overlay-config.md` rule 32 — `theme.classColors`
+ * normalization. RED until normalizeConfig grows the field. */
+describe('normalizeConfig — theme.classColors (#197, ADR 0010)', () => {
+  it('defaults to an empty map', () => {
+    expect(normalizeConfig({}).theme.classColors).toEqual({})
+    expect(normalizeConfig({ theme: {} }).theme.classColors).toEqual({})
+  })
+
+  it('keeps a well-formed entry, normalizing the key (trim, lowercase)', () => {
+    const cfg = normalizeConfig({ theme: { classColors: { '  GTP  ': '#123ABC' } } })
+    expect(cfg.theme.classColors).toEqual({ gtp: '#123ABC' })
+  })
+
+  it('accepts any class string, not just the five curated classes', () => {
+    const cfg = normalizeConfig({
+      theme: { classColors: { gte: '#ABCDEF', 'lmgt3 am': '#111222', F1: '#ff0000' } },
+    })
+    expect(cfg.theme.classColors).toEqual({ gte: '#ABCDEF', 'lmgt3 am': '#111222', f1: '#ff0000' })
+  })
+
+  it('drops an entry whose value is not a well-formed 6-digit hex color', () => {
+    const cfg = normalizeConfig({
+      theme: {
+        classColors: {
+          gtp: '#123456', // kept, for contrast
+          lmp2: 'red', // named CSS color, not hex — dropped
+          gt3: '#12345', // 5 digits — dropped
+          gt4: '#1234567', // 7 digits — dropped
+          tcr: '#GGGGGG', // not hex digits — dropped
+          gte: '#abc', // shorthand 3-digit form — dropped, native picker never emits this
+          f1: 'javascript:alert(1)', // not a color at all — dropped
+        },
+      },
+    })
+    expect(cfg.theme.classColors).toEqual({ gtp: '#123456' })
+  })
+
+  it('drops an entry whose key is blank after trimming', () => {
+    const cfg = normalizeConfig({ theme: { classColors: { '   ': '#123456', gtp: '#654321' } } })
+    expect(cfg.theme.classColors).toEqual({ gtp: '#654321' })
+  })
+
+  it('ignores __proto__ / constructor / prototype keys (no prototype pollution)', () => {
+    const raw = JSON.parse(
+      '{"theme":{"classColors":{"__proto__":{"polluted":"yes"},"constructor":"#123456","prototype":"#123456","gtp":"#123456"}}}',
+    )
+    const cfg = normalizeConfig(raw)
+    expect(cfg.theme.classColors).toEqual({ gtp: '#123456' })
+    expect({}.polluted).toBeUndefined()
+    delete Object.prototype.polluted
+  })
+
+  it('is unbounded — an arbitrary number of overrides all survive normalization', () => {
+    const many = {}
+    for (let i = 0; i < 40; i++) many[`class-${i}`] = '#010203'
+    expect(Object.keys(normalizeConfig({ theme: { classColors: many } }).theme.classColors)).toHaveLength(40)
+  })
+
+  it('round-trips through a JSON save/reload cycle unchanged', () => {
+    const saved = normalizeConfig({ theme: { classColors: { gtp: '#123456', gte: '#abcdef' } } })
+    const reloaded = normalizeConfig(JSON.parse(JSON.stringify(saved)))
+    expect(reloaded.theme.classColors).toEqual({ gtp: '#123456', gte: '#abcdef' })
+  })
+})

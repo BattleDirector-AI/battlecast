@@ -10,12 +10,20 @@ import { classColor, classMeta, resolveFallbackColor, CLASS_META } from './class
  * same hue at a different shade — never a flat neutral color, and never actually
  * random (the same string must always resolve to the same color). A variant of a
  * CURATED class (e.g. "TCR Am") groups onto THAT class's own hue, not a hashed
- * unrelated one. */
+ * unrelated one.
+ *
+ * Rule 32 / ADR 0010 (#197): `classColor`'s old exact-match `var(--bc-class-*)`
+ * short-circuit for the five curated classes is gone — EVERY class, curated or
+ * not, computes its default through this same deterministic algorithm. Verified
+ * (ADR 0010) that hexToHsl→hslToHex round-trips losslessly for all five curated
+ * hexes, so an unmodified curated class renders the identical color it always
+ * has, as a literal hex now rather than a var() reference. */
 
-describe('classMeta — curated classes are untouched by the fallback palette', () => {
-  it('still returns the curated var() for a known class', () => {
-    expect(classColor('gt3')).toBe(`var(${CLASS_META.gt3.cssVar})`)
-    expect(classColor('GTP')).toBe(`var(${CLASS_META.gtp.cssVar})`)
+describe('classMeta — curated classes get their default through the same deterministic algorithm (ADR 0010)', () => {
+  it('an unmodified curated class resolves to its own established hex, not a var() reference', () => {
+    expect(classColor('gt3')).toBe(CLASS_META.gt3.hex)
+    expect(classColor('GTP')).toBe(CLASS_META.gtp.hex)
+    expect(classColor('gt3')).toMatch(/^#[0-9A-F]{6}$/)
   })
 
   it("CLASS_META's duplicated hex values stay in sync with colors.css", () => {
@@ -35,9 +43,9 @@ describe('classMeta — curated classes are untouched by the fallback palette', 
 
 describe('classMeta — a variant of a CURATED class shares that class\'s hue (not a hashed one)', () => {
   it('TCR and TCR Am share TCR\'s own hue, Am darker', () => {
-    // Calling resolveFallbackColor('TCR') directly (bypassing classColor's
-    // exact-match var() short-circuit) just to read TCR's own hue/lightness math
-    // for comparison — classColor('TCR') itself is covered separately below.
+    // Calling resolveFallbackColor('TCR') directly just to read TCR's own
+    // hue/lightness math for comparison — classColor('TCR') itself is covered
+    // separately below.
     const base = resolveFallbackColor('TCR')
     const am = resolveFallbackColor('TCR Am')
     expect(am.curatedKey).toBe('tcr')
@@ -53,10 +61,10 @@ describe('classMeta — a variant of a CURATED class shares that class\'s hue (n
     expect(pro.lightness).toBeGreaterThan(base.lightness)
   })
 
-  it('classColor(\'TCR Am\') is a real color, not the flat neutral placeholder, and not the plain TCR var()', () => {
+  it('classColor(\'TCR Am\') is a real color, not the flat neutral placeholder, and not plain TCR\'s color', () => {
     const tcr = classColor('TCR')
     const tcrAm = classColor('TCR Am')
-    expect(tcr).toBe(`var(${CLASS_META.tcr.cssVar})`) // unmodified curated class: unchanged token
+    expect(tcr).toBe(CLASS_META.tcr.hex) // unmodified curated class: unchanged color
     expect(tcrAm).not.toBe('var(--bc-text-2)')
     expect(tcrAm).not.toBe(tcr) // a distinct shade, not identical to the base
   })
@@ -202,5 +210,52 @@ describe('classMeta — only a genuinely absent class stays neutral', () => {
     expect(classColor('')).toBe('var(--bc-text-2)')
     expect(classColor(undefined)).toBe('var(--bc-text-2)')
     expect(resolveFallbackColor('   ')).toBeNull()
+  })
+})
+
+/* SPEC-FIRST (#197): `.ai/spec/what/widgets.md` rule 32 / ADR 0010 — a broadcaster override
+ * (`theme.classColors`) takes precedence over the deterministic default for an EXACT normalized
+ * class-string match, and does not cascade to a driver-category variant of the same family. RED
+ * until `classColor` accepts and applies an overrides map. */
+describe('classColor — broadcaster overrides take precedence (rule 32, ADR 0010)', () => {
+  it('an override on a curated class replaces its established default', () => {
+    expect(classColor('gtp', { gtp: '#123456' })).toBe('#123456')
+    expect(classColor('gtp', { gtp: '#123456' })).not.toBe(CLASS_META.gtp.hex)
+  })
+
+  it('an override on a non-curated class replaces the hashed default', () => {
+    expect(classColor('F1', { f1: '#abcdef' })).toBe('#abcdef')
+  })
+
+  it('the override key match is case-insensitive on the class string, matching classMeta\'s own normalization', () => {
+    expect(classColor('GTP', { gtp: '#123456' })).toBe('#123456')
+  })
+
+  it('an override does NOT cascade to a driver-category variant of the same family', () => {
+    // Overriding "tcr" must not recolor "tcr am" — that stays on rule 31's
+    // family-shared-hue default unless it has its own entry. Asserts the override
+    // on "tcr" itself in the SAME test (not just elsewhere in this file) so a
+    // "wrong implementation" that ignores overrides entirely — which would also
+    // leave "tcr am" untouched — cannot pass this test.
+    const overrides = { tcr: '#123456' }
+    expect(classColor('TCR', overrides)).toBe('#123456')
+    const overriddenAm = classColor('TCR Am', overrides)
+    expect(overriddenAm).not.toBe('#123456')
+    expect(overriddenAm).toBe(resolveFallbackColor('TCR Am').hex)
+  })
+
+  it('an exact entry for the variant itself is honored', () => {
+    expect(classColor('TCR Am', { 'tcr am': '#654321' })).toBe('#654321')
+  })
+
+  it('a class with no matching entry keeps resolving through the default, overrides present or not', () => {
+    expect(classColor('gt3', { gtp: '#123456' })).toBe(CLASS_META.gt3.hex)
+    expect(classColor('gt3', {})).toBe(CLASS_META.gt3.hex)
+    expect(classColor('gt3', undefined)).toBe(CLASS_META.gt3.hex)
+  })
+
+  it('overrides never apply to a genuinely absent class — it keeps the flat neutral color', () => {
+    expect(classColor(undefined, { gtp: '#123456' })).toBe('var(--bc-text-2)')
+    expect(classColor('   ', { gtp: '#123456' })).toBe('var(--bc-text-2)')
   })
 })
