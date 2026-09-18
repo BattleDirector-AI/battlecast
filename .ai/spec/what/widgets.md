@@ -127,6 +127,16 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     The predicate reads the same snapshot/config the widget renders from, so auto-hide can never
     disagree with what the widget would draw.
 
+### Class badges
+
+30. **A class chip's label is the producer's own `vehicle_class` string, verbatim — never a generic
+    placeholder.** The class registry (`classMeta.js`) curates a distinct color for a small set of
+    known classes; it does not gate what text renders. A class outside that registry still shows
+    exactly what the producer sent, in a neutral color, rather than degrading to a meaningless
+    placeholder that discards the producer's data. Applies everywhere a class chip renders: the
+    tower (rules 3, 5), the driver lower-third's class chip (rule 18), and the grid/results group
+    headers (rule 27).
+
 ## Constraints
 
 - No widget may derive a semantic fact by scanning `vehicles[]`; it reads the producer-set field
