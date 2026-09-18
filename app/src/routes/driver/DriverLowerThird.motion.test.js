@@ -125,6 +125,36 @@ describe('DriverLowerThird — exit animates under real motion (#68)', () => {
     ).toBe('C. Leclerc')
   })
 
+  it('the exiting and entering plates share one stable anchor, not the raw container (#185)', async () => {
+    // #185: a mid-dwell recut keeps the old plate mounted for its full exit while
+    // the new one mounts immediately, so for ~620ms both exist at once. Pre-fix
+    // they were plain flow siblings of whatever rendered this component, so the
+    // entering plate was pushed down by the still-exiting one's height. The fix
+    // anchors both under one `.lt3-anchor` div (LowerThirdShell's `.lt3` is
+    // `position: absolute` against it) — this asserts that structure directly.
+    // happy-dom resolves neither `getComputedStyle` nor scoped `<style>` text for
+    // Svelte components (verified: both come back empty here), so this can't
+    // assert the CSS position value itself, only the DOM shape the fix requires.
+    const { container, rerender } = render(DriverLowerThird, {
+      snapshot: subjectA,
+      widget: { trigger: 'dwell', dwellSeconds: 6 },
+    })
+    await tick()
+
+    await rerender({ snapshot: subjectB, widget: { trigger: 'dwell', dwellSeconds: 6 } })
+    await tick()
+
+    const exiting = container.querySelector('.lt3.lt3--exit')
+    const incoming = container.querySelector('.lt3:not(.lt3--exit)')
+    expect(exiting).not.toBeNull() // old plate still animating out
+    expect(incoming).not.toBeNull() // new plate already mounted
+
+    const anchor = container.querySelector('.lt3-anchor')
+    expect(anchor).not.toBeNull()
+    expect(exiting.parentElement).toBe(anchor)
+    expect(incoming.parentElement).toBe(anchor)
+  })
+
   it('rapid A->B->A cuts do not strand or stack plates', async () => {
     const { container, rerender } = render(DriverLowerThird, {
       snapshot: subjectA,

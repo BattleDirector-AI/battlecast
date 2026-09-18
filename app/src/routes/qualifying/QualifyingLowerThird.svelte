@@ -171,74 +171,84 @@
 </script>
 
 {#if shown && card}
-  {#key recutKey}
-    <LowerThirdShell>
-      <section
-        class="bc-qt"
-        class:bc-qt--flash={isFlash}
-        data-testid="qualifying-lower-third"
-        data-state={card.state}
-        data-recut-key={isFlash ? `flash-${cbToken}` : (resolved.slotId ?? 'none')}
-        aria-label="On-camera driver timing"
-      >
-        <span class="bc-qt__accent" aria-hidden="true"></span>
-        <div class="bc-qt__body">
-          <div class="bc-qt__head">
-            <span class="bc-qt__label" data-testid="qt-label">{isFlash ? 'CLASS BEST' : 'TIMING'}</span>
-            {#if card.position != null}
-              <span class="bc-qt__pos" data-testid="qt-pos">P{card.position}</span>
-            {/if}
-            <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
-            {#if card.carClass}
-              <ClassChip carClass={card.carClass} size="compact" />
-            {/if}
-          </div>
+  <!-- `.lt3-anchor` (#185): stays mounted across the `{#key}` swap so it's the
+       stable `position: relative` anchor the shell's now-absolute `.lt3` positions
+       against — see DriverLowerThird.svelte for the full mid-recut mechanism this
+       fixes (both widgets share LowerThirdShell). -->
+  <div class="lt3-anchor">
+    {#key recutKey}
+      <LowerThirdShell>
+        <section
+          class="bc-qt"
+          class:bc-qt--flash={isFlash}
+          data-testid="qualifying-lower-third"
+          data-state={card.state}
+          data-recut-key={isFlash ? `flash-${cbToken}` : (resolved.slotId ?? 'none')}
+          aria-label="On-camera driver timing"
+        >
+          <span class="bc-qt__accent" aria-hidden="true"></span>
+          <div class="bc-qt__body">
+            <div class="bc-qt__head">
+              <span class="bc-qt__label" data-testid="qt-label">{isFlash ? 'CLASS BEST' : 'TIMING'}</span>
+              {#if card.position != null}
+                <span class="bc-qt__pos" data-testid="qt-pos">P{card.position}</span>
+              {/if}
+              <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
+              {#if card.carClass}
+                <ClassChip carClass={card.carClass} size="compact" />
+              {/if}
+            </div>
 
-          <div class="bc-qt__times">
-            <div class="bc-qt__cell bc-qt__cell--best">
-              <span class="bc-qt__cell-label">BEST</span>
-              <span class="bc-qt__cell-value" data-testid="qt-best">{fmtLapTime(card.best)}</span>
-            </div>
-            <div class="bc-qt__cell">
-              <span class="bc-qt__cell-label">LAST</span>
-              <span class="bc-qt__cell-value" data-testid="qt-last">{fmtLapTime(card.last)}</span>
-            </div>
-            <div class="bc-qt__sectors" data-testid="qt-sectors">
-              {#each ['S1', 'S2', 'S3'] as name, i (name)}
-                <div class="bc-qt__cell bc-qt__cell--sector">
-                  <span class="bc-qt__cell-label">{name}</span>
-                  <span class="bc-qt__cell-value" data-testid="qt-{name.toLowerCase()}"
-                    >{fmtSector(card.sectors[i])}</span
+            <div class="bc-qt__times">
+              <div class="bc-qt__cell bc-qt__cell--best">
+                <span class="bc-qt__cell-label">BEST</span>
+                <span class="bc-qt__cell-value" data-testid="qt-best">{fmtLapTime(card.best)}</span>
+              </div>
+              <div class="bc-qt__cell">
+                <span class="bc-qt__cell-label">LAST</span>
+                <span class="bc-qt__cell-value" data-testid="qt-last">{fmtLapTime(card.last)}</span>
+              </div>
+              <div class="bc-qt__sectors" data-testid="qt-sectors">
+                {#each ['S1', 'S2', 'S3'] as name, i (name)}
+                  <div class="bc-qt__cell bc-qt__cell--sector">
+                    <span class="bc-qt__cell-label">{name}</span>
+                    <span class="bc-qt__cell-value" data-testid="qt-{name.toLowerCase()}"
+                      >{fmtSector(card.sectors[i])}</span
+                    >
+                  </div>
+                {/each}
+              </div>
+              {#if hasTarget}
+                <div class="bc-qt__cell bc-qt__cell--target" data-testid="qt-target-cell">
+                  <span class="bc-qt__cell-label">TARGET</span>
+                  <span class="bc-qt__cell-value" data-testid="qt-target"
+                    >{fmtLapTime(card.target)}</span
                   >
                 </div>
-              {/each}
-            </div>
-            {#if hasTarget}
-              <div class="bc-qt__cell bc-qt__cell--target" data-testid="qt-target-cell">
-                <span class="bc-qt__cell-label">TARGET</span>
-                <span class="bc-qt__cell-value" data-testid="qt-target"
-                  >{fmtLapTime(card.target)}</span
+                <div
+                  class="bc-qt__cell bc-qt__cell--delta"
+                  class:bc-qt__cell--ahead={card.delta != null && card.delta <= 0}
+                  data-testid="qt-delta-cell"
                 >
-              </div>
-              <div
-                class="bc-qt__cell bc-qt__cell--delta"
-                class:bc-qt__cell--ahead={card.delta != null && card.delta <= 0}
-                data-testid="qt-delta-cell"
-              >
-                <span class="bc-qt__cell-label">Δ</span>
-                <span class="bc-qt__cell-value" data-testid="qt-delta">{fmtDelta(card.delta)}</span>
-              </div>
-            {/if}
+                  <span class="bc-qt__cell-label">Δ</span>
+                  <span class="bc-qt__cell-value" data-testid="qt-delta">{fmtDelta(card.delta)}</span>
+                </div>
+              {/if}
+            </div>
           </div>
-        </div>
-      </section>
-    </LowerThirdShell>
-  {/key}
+        </section>
+      </LowerThirdShell>
+    {/key}
+  </div>
 {/if}
 
 <style>
   /* The plate chrome and the entrance/exit motion now live in LowerThirdShell;
      this owns only the timing bar's inner layout. */
+  .lt3-anchor {
+    position: relative;
+  }
+
   .bc-qt {
     box-sizing: border-box;
     display: flex;
