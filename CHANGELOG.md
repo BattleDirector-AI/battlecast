@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Broadcasters can override any class's color from `/config`, with no fixed list (#197, ADR
+  0010).** A new Class Colors section adds a row per class — any producer class string, not just
+  the five previously-curated ones — with a color picker; the override applies everywhere a class
+  chip or class bar renders (`/all` and the standalone `/tower`, `/driver`, `/qualifying`,
+  `/battle`, `/grid`, and `/results` routes). Every class's default color, curated or not, is now
+  computed the same deterministic way, so an unmodified class renders exactly as it always has.
+
+### Fixed
+
+- **The `/config` producer feed status is now announced to screen readers, and Reconnect keeps
+  keyboard focus instead of dropping it (#174, ADR 0011).** The feed-status readout carries
+  `role="status"`, so every state change — connected, retrying, stopped — is announced as it
+  happens, whether or not anything was pressed. Activating Reconnect no longer drops keyboard
+  focus to the top of the page when the button unmounts in the same tick; it lands back on the
+  readout instead.
+
 ## [0.11.1] - 2026-09-18
 
 ### Fixed
