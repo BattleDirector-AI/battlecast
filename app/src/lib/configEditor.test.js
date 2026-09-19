@@ -11,6 +11,8 @@ import {
   moveLogoImage,
   setLogoRotation,
   setProducerSrc,
+  setClassColor,
+  removeClassColor,
   buildObsUrl,
 } from './configEditor.js'
 import { DEFAULT_CONFIG } from './overlayConfig.js'
@@ -74,6 +76,44 @@ describe('configEditor — logo rotation', () => {
     const cfg = setLogoRotation(DEFAULT_CONFIG, { perSlotSeconds: 4, order: 'shuffle' })
     expect(cfg.logoRotation.perSlotSeconds).toBe(4)
     expect(cfg.logoRotation.order).toBe('shuffle')
+  })
+})
+
+/* SPEC-FIRST (#197): `.ai/spec/what/overlay-config.md` rules 32-33 — the editor's Class Colors
+ * section is freeform (any class string, no seeded rows). RED until these pure ops exist. */
+describe('configEditor — class color overrides (#197)', () => {
+  it('adds a freeform class-color entry, normalizing the class name', () => {
+    const cfg = setClassColor(DEFAULT_CONFIG, '  F1  ', '#123456')
+    expect(cfg.theme.classColors).toEqual({ f1: '#123456' })
+  })
+
+  it('is not limited to the five curated classes', () => {
+    const cfg = setClassColor(DEFAULT_CONFIG, 'GTE', '#abcdef')
+    expect(cfg.theme.classColors).toEqual({ gte: '#abcdef' })
+  })
+
+  it('editing an existing entry overwrites it rather than adding a second one', () => {
+    let cfg = setClassColor(DEFAULT_CONFIG, 'gtp', '#111111')
+    cfg = setClassColor(cfg, 'GTP', '#222222') // same class, different casing
+    expect(cfg.theme.classColors).toEqual({ gtp: '#222222' })
+  })
+
+  it('adding more than one entry keeps them independent', () => {
+    let cfg = setClassColor(DEFAULT_CONFIG, 'gtp', '#111111')
+    cfg = setClassColor(cfg, 'gt3', '#222222')
+    expect(cfg.theme.classColors).toEqual({ gtp: '#111111', gt3: '#222222' })
+  })
+
+  it('removes a class-color entry without disturbing the others', () => {
+    let cfg = setClassColor(DEFAULT_CONFIG, 'gtp', '#111111')
+    cfg = setClassColor(cfg, 'gt3', '#222222')
+    cfg = removeClassColor(cfg, 'gtp')
+    expect(cfg.theme.classColors).toEqual({ gt3: '#222222' })
+  })
+
+  it('a malformed hex value is dropped by normalization on the way out', () => {
+    const cfg = setClassColor(DEFAULT_CONFIG, 'gtp', 'not-a-color')
+    expect(cfg.theme.classColors).toEqual({})
   })
 })
 

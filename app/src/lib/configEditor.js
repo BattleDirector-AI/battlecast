@@ -3,7 +3,7 @@
  * and stay reactive, and so the logic is trivially unit-testable without a DOM.
  * The config shape is the contract from app/src/lib/overlayConfig.js. */
 
-import { normalizeConfig, MIN_CANVAS } from './overlayConfig.js'
+import { normalizeConfig, normalizeClassColors, MIN_CANVAS } from './overlayConfig.js'
 
 /** Clamp a widget's geometry so it stays a sane box within the given canvas. */
 function clampGeometry(w, canvas) {
@@ -111,6 +111,29 @@ export function moveLogoImage(config, index, delta) {
 export function setProducerSrc(config, src) {
   const next = normalizeConfig(config)
   next.producer = { ...next.producer, src: src || '' }
+  return next
+}
+
+/** Add or edit a freeform class-color override (rules 32-33, ADR 0010). `className` is
+ *  normalized by `normalizeConfig` on the way out, so editing an existing class
+ *  (any casing/whitespace) overwrites its one entry rather than adding a second. A
+ *  malformed `hex` is silently dropped by that same normalization. */
+export function setClassColor(config, className, hex) {
+  const next = normalizeConfig(config)
+  next.theme = {
+    ...next.theme,
+    classColors: normalizeClassColors({ ...next.theme.classColors, [className]: hex }),
+  }
+  return next
+}
+
+/** Remove one class-color override, leaving the others untouched. */
+export function removeClassColor(config, className) {
+  const next = normalizeConfig(config)
+  const key = String(className ?? '').trim().toLowerCase()
+  const classColors = { ...next.theme.classColors }
+  delete classColors[key]
+  next.theme = { ...next.theme, classColors }
   return next
 }
 

@@ -111,6 +111,10 @@ heuristic already gets the stated examples (LMGT3/LMGT3 Am, Hypercar/Hypercar Am
   not a broadcaster-configurable value. The separate, already-tracked feature (#59) is a
   broadcaster mapping an arbitrary class string to a custom label + hex color; this decision governs
   only the automatic default when no such mapping exists.
+  **Update (ADR 0010, #197):** the override half of #59 shipped scoped to color only (the label
+  stays the producer's own string per rule 30, unaffected), and folds the *default* this decision
+  describes into the same mechanism the override uses — see ADR 0010 for what changed and what
+  didn't.
 - Two classes with unrelated names can still hash to the same hue (12 slots, unbounded possible
   class names) — accepted as an ordinary hash-bucket collision; text labels (#190) remain the
   disambiguator, exactly as they would if a producer sent two curated classes with colors that

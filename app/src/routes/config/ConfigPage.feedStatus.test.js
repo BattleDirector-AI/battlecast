@@ -941,3 +941,102 @@ describe('rule 29 — each status readout names its own subject', () => {
     expect(exported).not.toMatch(/feedStatus|Producer feed/)
   })
 })
+
+/* SPEC-FIRST (#174): `.ai/spec/what/overlay-config.md` rules 34-35 — the feed-status readout is
+ * an accessible live region, and activating Reconnect keeps keyboard focus in the Producer
+ * section instead of dropping it to `<body>`. Rationale:
+ * `docs/decisions/0011-feed-status-accessibility.md`. RED until the readout carries `role="status"`
+ * and the reconnect handler moves focus. */
+describe('rules 34-35 — feed-status accessibility (#174)', () => {
+  it('the readout carries role="status" in every one of the four states', async () => {
+    const view = await mount()
+    const readout = () => view.getByTestId('feed-status')
+
+    expect(readout().getAttribute('role'), 'connecting').toBe('status')
+
+    feed().emit('open')
+    await tick()
+    expect(feedText(view.getByTestId)).toBe(CONNECTED)
+    expect(readout().getAttribute('role'), 'connected').toBe('status')
+
+    feed().failRetrying()
+    await tick()
+    expect(feedText(view.getByTestId)).toBe(RETRYING)
+    expect(readout().getAttribute('role'), 'retrying').toBe('status')
+
+    feed().failStopped()
+    await tick()
+    expect(feedText(view.getByTestId)).toBe(STOPPED)
+    expect(readout().getAttribute('role'), 'stopped').toBe('status')
+  })
+
+  it('activating Reconnect moves focus to the feed-status readout, not <body>', async () => {
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+
+    await pressReconnect(view)
+    await tick()
+
+    expect(feedText(view.getByTestId)).toBe(CONNECTING)
+    expect(document.activeElement, 'focus was not moved to the readout').toBe(
+      view.getByTestId('feed-status'),
+    )
+  })
+
+  it('the readout already reads the new status AT THE MOMENT focus moves — no stale-then-correct double announcement', async () => {
+    // A screen reader announces whatever the element's accessible text is at the instant focus
+    // lands on it. If the DOM still held the pre-press text at that instant, the operator would
+    // hear the stale value, then a SEPARATE live-region announcement a beat later once the real
+    // state commits — two announcements instead of one coherent one. `await tick()` before an
+    // assertion (as every other test here does) can't see this: it only proves the DOM is
+    // eventually correct, not what it was at the moment focus() actually ran. So this test hooks
+    // focus() itself to snapshot the text synchronously, at the true moment of the call.
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+
+    const readout = view.getByTestId('feed-status')
+    let textWhenFocused = null
+    const originalFocus = readout.focus.bind(readout)
+    readout.focus = (...args) => {
+      textWhenFocused = readout.textContent.trim()
+      return originalFocus(...args)
+    }
+
+    await pressReconnect(view)
+
+    expect(textWhenFocused, 'focus() was never called').not.toBeNull()
+    expect(textWhenFocused).toBe(CONNECTING)
+  })
+
+  it('moves focus on a PRESS but NOT on an unprompted recovery of the same control', async () => {
+    // Both halves in one test, deliberately: an implementation that never moves focus at all
+    // would vacuously pass a test that only checked the negative case. The first half proves
+    // focus-on-press actually works here; the second proves the SAME unmount does not move
+    // focus when the operator didn't cause it — the transport can heal itself with nothing
+    // pressed, and the operator may be focused anywhere else on the page at that moment.
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+    await pressReconnect(view)
+    await tick()
+    expect(document.activeElement, 'focus-on-press did not fire at all').toBe(
+      view.getByTestId('feed-status'),
+    )
+
+    feed().failRetrying()
+    await tick()
+    expect(reconnectControl(view)).not.toBeNull()
+    const elsewhere = view.getByTestId('profile-name')
+    elsewhere.focus()
+    expect(document.activeElement).toBe(elsewhere)
+
+    feed().emit('open') // heals on its own — no button was pressed this time
+    await tick()
+
+    expect(feedText(view.getByTestId)).toBe(CONNECTED)
+    expect(reconnectControl(view)).toBeNull()
+    expect(document.activeElement, 'focus moved even though nothing was pressed').toBe(elsewhere)
+  })
+})
