@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-19
+
 ### Added
 
 - **Broadcasters can override any class's color from `/config`, with no fixed list (#197, ADR
