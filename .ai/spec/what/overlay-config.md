@@ -277,6 +277,26 @@ Decision records: `docs/decisions/0006-config-producer-feed-status.md` (the read
     entry and an ⓘ (rules 16–19). It writes nothing: `producer.src`, the rest of the profile, the
     OBS Browser Source URL and `configVersion` are all unchanged by pressing it.
 
+### Feed-status accessibility
+
+Decision record: `docs/decisions/0011-feed-status-accessibility.md`.
+
+34. **The feed-status readout is an accessible live region.** `[data-testid="feed-status"]` carries
+    `role="status"` at all times, so every transition among rule 25's four states — an explicit
+    Reconnect press, or an unprompted drop/recovery with nothing pressed at all — is announced to
+    assistive technology as it happens, not only visible to a sighted operator watching the text
+    change.
+
+35. **Activating Reconnect moves keyboard focus to the feed-status readout, not to `<body>`.** The
+    control (rule 30) unmounts in the same tick its own press resolves the readout out of "not
+    connected," and with no explicit target the browser drops focus to `<body>` — losing a
+    keyboard operator's position in a long, dense panel. Pressing Reconnect moves focus to
+    `[data-testid="feed-status"]` (rule 34) instead, landing the operator back in the section they
+    were already working in. This applies **only** to the control's own activation: the same
+    unmount happening because the feed recovered on its own, with nothing pressed, MUST NOT move
+    focus — an operator working elsewhere on the page must not have focus pulled out from under
+    them by a state change they didn't initiate.
+
 ### Naming the demo fallback
 
 31. **The Producer section names it when the resolved URL is the bundled demo producer's.** Rule
