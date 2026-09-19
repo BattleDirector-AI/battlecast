@@ -8,7 +8,9 @@
   // in registry order, each group in finishing order with class positions restarting
   // at 1 — optionally narrowed to a single class. All SSE wiring + URL parsing lives
   // in ResultsPage. Mirrors the grid slide (#24) grouping convention.
-  let { snapshot = null, classFilter = null, label = 'RESULTS' } = $props()
+  // `classColors` (rule 32, ADR 0010): resolved `theme.classColors` overrides from the
+  // saved profile, or `{}` when none is loaded/configured.
+  let { snapshot = null, classFilter = null, label = 'RESULTS', classColors = {} } = $props()
 
   // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
   // => show every class, each in its own group.
@@ -59,7 +61,7 @@
     <span class="results__title">{label}</span>
     {#if filterKey !== null}
       <span class="results__filter" data-testid="results-filter">
-        <ClassChip carClass={filterKey} />
+        <ClassChip carClass={filterKey} {classColors} />
       </span>
     {/if}
   </header>
@@ -81,7 +83,7 @@
           data-class={group.carClass}
         >
           <header class="group__head">
-            <ClassChip carClass={group.carClass} />
+            <ClassChip carClass={group.carClass} {classColors} />
             <span class="group__count">{group.cars.length} cars</span>
           </header>
           <ol class="group__rows">
@@ -103,7 +105,7 @@
               >
                 <span
                   class="row__classbar"
-                  style:background={classColor(v.vehicle_class)}
+                  style:background={classColor(v.vehicle_class, classColors)}
                   aria-hidden="true"
                 ></span>
                 <span class="col col--pos row__pos">{i + 1}</span>

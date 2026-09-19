@@ -155,6 +155,16 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     **absent** `vehicle_class` (not merely one outside the registry) keeps the flat neutral
     placeholder color, since there is no name to derive a family/hue from. Decision record:
     `docs/decisions/0009-class-color-palette-for-unregistered-classes.md`.
+32. **A broadcaster can override any class's color**, via `theme.classColors`
+    (`overlay-config.md` rules 32-33) — a freeform map, not limited to the five curated classes or
+    to any other fixed set. The map is keyed the same way rule 31 normalizes a class string (trim,
+    lowercase); when a class's normalized string has an entry, that entry's color replaces rule 31's
+    result for that **exact** string only — it does not cascade to a driver-category variant
+    sharing the same family root (an override on `"tcr"` does not recolor `"tcr am"`; a broadcaster
+    who wants that adds a separate `"tcr am"` entry). A class with no matching entry keeps resolving
+    through rule 31 unchanged, including a curated class's own established color. Applies everywhere
+    rule 30/31 apply — every class-chip and class-bar render site. Decision record:
+    `docs/decisions/0010-class-color-override-matrix.md`.
 
 ## Constraints
 

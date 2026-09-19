@@ -42,7 +42,7 @@
 
   // `widget` carries the per-widget lower-third config (trigger, dwellSeconds,
   // showOnConnect) alongside geometry; only lower-thirds read those knobs.
-  let { snapshot = null, widget = {} } = $props()
+  let { snapshot = null, widget = {}, classColors = {} } = $props()
 
   const resolved = $derived(resolveSubject(snapshot))
   const active = $derived(resolved.state !== 'invalid')
@@ -112,7 +112,7 @@
                 <span class="bc-lt__pos" data-testid="driver-lt-pos">P{position}</span>
               {/if}
               {#if carClass}
-                <ClassChip {carClass} size="compact" />
+                <ClassChip {carClass} size="compact" {classColors} />
               {/if}
             </div>
             <span class="bc-lt__name" data-testid="driver-lt-name">{displayName}</span>

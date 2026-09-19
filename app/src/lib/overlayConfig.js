@@ -152,7 +152,10 @@ export const DEFAULT_CONFIG = Object.freeze({
     },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
-  theme: {},
+  // `classColors` (rule 32, ADR 0010): a freeform broadcaster override map, class-name key
+  // (normalized like `vehicle_class` elsewhere) -> 6-digit hex. Empty by default — no override,
+  // no seeded/curated entries.
+  theme: { classColors: {} },
   // Overlay-wide motion opt-out. The overlay animates by default (see lib/motion.js —
   // OBS/CEF reports reduced-motion, which must NOT silently kill the reveals); set true
   // to turn transitions down. A `?motion=` URL param overrides this per Browser Source.
@@ -404,6 +407,35 @@ function normalizeModes(value, fallback) {
   return cleaned.length ? cleaned : [...fallback]
 }
 
+// Prototype-polluting keys, same set `normalizeConfig` already drops from `widgets` —
+// a JSON-parsed profile can carry these as OWN keys.
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+/** A well-formed 6-digit hex color: no shorthand 3-digit form, no alpha channel — the
+ *  shape a native `<input type="color">` always emits. */
+const HEX_COLOR = /^#[0-9a-f]{6}$/i
+
+/** Normalize `theme.classColors` (rule 32, ADR 0010): a freeform map, class-name key ->
+ *  6-digit hex. Keys are trimmed/lowercased the same way `classMeta.js` normalizes
+ *  `vehicle_class`; an entry whose key is blank after trimming, whose value is not a
+ *  well-formed hex color, or whose key is a prototype-polluting one, is dropped
+ *  entirely — not coerced or replaced, so that class simply keeps its default. */
+export function normalizeClassColors(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {}
+  const out = {}
+  for (const rawKey of Object.keys(src)) {
+    // Normalize BEFORE checking against the unsafe set — a padded or differently-cased
+    // variant (" Constructor ", "__PROTO__") must be caught too, not just an exact-cased
+    // match on the raw key.
+    const key = rawKey.trim().toLowerCase()
+    if (!key || UNSAFE_KEYS.has(key)) continue
+    const value = src[rawKey]
+    if (typeof value !== 'string' || !HEX_COLOR.test(value)) continue
+    out[key] = value
+  }
+  return out
+}
+
 /** Split a comma list (`?hide=battle,logos`) into trimmed non-empty tokens. */
 function splitList(raw) {
   return String(raw || '')
@@ -431,7 +463,7 @@ export function normalizeConfig(raw) {
     out.logoRotation = { ...out.logoRotation, ...src.logoRotation }
   }
   if (src.theme && typeof src.theme === 'object') {
-    out.theme = { ...out.theme, ...src.theme }
+    out.theme = { ...out.theme, ...src.theme, classColors: normalizeClassColors(src.theme.classColors) }
   }
   // Overlay-wide motion opt-out (see lib/motion.js). Defaults false (animate).
   out.reducedMotion = typeof src.reducedMotion === 'boolean' ? src.reducedMotion : false

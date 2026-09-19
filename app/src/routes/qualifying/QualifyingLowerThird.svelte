@@ -37,7 +37,7 @@
 
   // `widget` carries the per-widget lower-third config (trigger / dwellSeconds /
   // showOnConnect) plus the #22 knobs (`modes`, `fireOnClassBest`).
-  let { snapshot = null, widget = {} } = $props()
+  let { snapshot = null, widget = {}, classColors = {} } = $props()
 
   const resolved = $derived(resolveSubject(snapshot))
   const vehicle = $derived(resolved.vehicle)
@@ -195,7 +195,7 @@
               {/if}
               <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
               {#if card.carClass}
-                <ClassChip carClass={card.carClass} size="compact" />
+                <ClassChip carClass={card.carClass} size="compact" {classColors} />
               {/if}
             </div>
 

@@ -203,16 +203,21 @@ export function resolveFallbackColor(carClass) {
   }
 }
 
-/** CSS color for a class: the curated `var()` for an EXACT match on one of the
- *  five known classes (unchanged token reference, so nothing about a plain
- *  curated class's rendering changes), the neutral placeholder for no class at
- *  all, or a deterministic color for anything else — including a variant of a
- *  curated class, which now resolves through `resolveFallbackColor` too so it
- *  shares that class's hue instead of hashing an unrelated one (rule 31). */
-export function classColor(carClass) {
+/** CSS color for a class: a broadcaster's `theme.classColors` override for an
+ *  EXACT (trim, lowercase) match (rule 32, ADR 0010) takes precedence over
+ *  everything else and does not cascade to a driver-category variant of the
+ *  same family; otherwise the flat neutral placeholder for no class at all, or
+ *  the deterministic algorithm (rule 31) for every other class alike —
+ *  including the five previously-curated ones, which land on the exact same
+ *  hex they always have (verified lossless in ADR 0010) since there is no
+ *  longer a separate exact-match `var()` short-circuit for them. `overrides`
+ *  is the already-normalized `theme.classColors` map (or omitted/`{}`). */
+export function classColor(carClass, overrides) {
   const trimmed = carClass != null ? String(carClass).trim() : ''
-  const exact = trimmed ? ownLookup(CLASS_META, trimmed.toLowerCase()) : null
-  if (exact) return `var(${exact.cssVar})`
+  if (!trimmed) return `var(${FALLBACK.cssVar})`
+  const key = trimmed.toLowerCase()
+  const override = overrides && typeof overrides === 'object' ? ownLookup(overrides, key) : undefined
+  if (override) return override
   const resolved = resolveFallbackColor(carClass)
   return resolved ? resolved.hex : `var(${FALLBACK.cssVar})`
 }

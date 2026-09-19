@@ -334,6 +334,20 @@
   const moveRotation = (i, delta) => (config = editor.moveLogoImage(config, i, delta))
   const setRotation = (patch) => (config = editor.setLogoRotation(config, patch))
 
+  // ---- class color overrides (#197, rules 32-33, ADR 0010) -------------------
+  // Freeform: no seeded/curated rows. The "new entry" fields are local UI state,
+  // not part of the config, until Add is pressed.
+  let newClassColorName = $state('')
+  let newClassColorHex = $state('#ffffff')
+  const setClassColor = (name, hex) => (config = editor.setClassColor(config, name, hex))
+  const removeClassColor = (name) => (config = editor.removeClassColor(config, name))
+  function addClassColor() {
+    if (!newClassColorName.trim()) return
+    setClassColor(newClassColorName, newClassColorHex)
+    newClassColorName = ''
+    newClassColorHex = '#ffffff'
+  }
+
   // Delete a logo from the server entirely (not just this rotation), then drop it
   // from the rotation too so we don't point at a now-missing asset.
   async function deleteServerLogo(logo) {
@@ -911,6 +925,48 @@
         {/each}
       </section>
 
+      <section class="panel__group" data-testid="class-colors-section">
+        <h2>
+          Class Colors
+          <HelpTip text={FIELD_HELP.classColors} label="class colors" testid="help-class-colors" />
+        </h2>
+        <ul class="logo-list" data-testid="class-color-list">
+          {#each Object.entries(config.theme.classColors) as [key, hex] (key)}
+            <li data-testid="class-color-row-{key}">
+              <span class="logo-url" data-testid="class-color-name-{key}">{key.toUpperCase()}</span>
+              <input
+                type="color"
+                class="class-color-swatch"
+                data-testid="class-color-picker-{key}"
+                value={hex}
+                oninput={(e) => setClassColor(key, e.currentTarget.value)}
+              />
+              <button
+                type="button"
+                aria-label="remove {key}"
+                data-testid="class-color-remove-{key}"
+                onclick={() => removeClassColor(key)}
+              >✕</button>
+            </li>
+          {/each}
+        </ul>
+        <div class="class-color-add">
+          <input
+            type="text"
+            data-testid="class-color-new-name"
+            placeholder="Class name (e.g. GTE)"
+            bind:value={newClassColorName}
+          />
+          <input
+            type="color"
+            class="class-color-swatch"
+            data-testid="class-color-new-picker"
+            bind:value={newClassColorHex}
+          />
+          <button type="button" data-testid="class-color-add" onclick={addClassColor}>Add</button>
+        </div>
+      </section>
+
       <section class="panel__group">
         <h2>Logo rotation<HelpTip text={FIELD_HELP.logoUpload} label="logo rotation" testid="help-logos" /></h2>
         <label title={serverUp ? undefined : 'Start the companion server (make dev) to upload logos'}>
@@ -1311,6 +1367,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .class-color-add {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .class-color-add input[type='text'] {
+    flex: 1;
+  }
+  .class-color-swatch {
+    flex: 0 0 auto;
+    width: 2.2rem;
+    height: 1.7rem;
+    padding: 0.1rem;
   }
   .hint {
     color: #6f7c90;
