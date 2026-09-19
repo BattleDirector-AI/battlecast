@@ -49,6 +49,9 @@
   // while it has nothing to show (e.g. the battle box in clear air).
   const normalized = $derived(normalizeConfig(config))
   const canvas = $derived(normalized.canvas)
+  // Broadcaster class-color overrides (rule 32, ADR 0010) — resolved once here and
+  // threaded to every widget that renders a class chip or class bar.
+  const classColors = $derived(normalized.theme.classColors)
   const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard'])
   const widgets = $derived(
     resolveWidgets(normalized)
@@ -95,6 +98,7 @@
           maxRows={normalized.widgets.tower?.maxRows}
           cycle={normalized.widgets.tower?.cycle}
           slotHeight={normalized.widgets.tower?.h}
+          {classColors}
         />
       {:else if w.key === 'battle'}
         <BattleBox
@@ -102,13 +106,14 @@
           relationship={snapshot?.relationship ?? {}}
           vehicles={snapshot?.vehicles ?? []}
           mode={snapshot?.mode ?? null}
+          {classColors}
         />
       {:else if w.key === 'logos'}
         <LogoRotation rotation={normalized.logoRotation} />
       {:else if w.key === 'driver'}
-        <DriverLowerThird {snapshot} widget={w} />
+        <DriverLowerThird {snapshot} widget={w} {classColors} />
       {:else if w.key === 'qualifying'}
-        <QualifyingLowerThird {snapshot} widget={w} />
+        <QualifyingLowerThird {snapshot} widget={w} {classColors} />
       {:else if w.key === 'racecontrol'}
         <RaceControlStatus session={snapshot?.session ?? null} mode={snapshot?.mode ?? null} />
       {:else if w.key === 'onboard'}
@@ -120,6 +125,7 @@
           {subjectSlotId}
           {subjectActive}
           driverWidget={onboardGate}
+          {classColors}
         />
       {/if}
     </div>

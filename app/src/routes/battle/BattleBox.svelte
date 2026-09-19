@@ -45,7 +45,7 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import IntensityMeter from '../../design/IntensityMeter.svelte'
 
-  let { subject = {}, relationship = {}, vehicles = [], mode = null } = $props()
+  let { subject = {}, relationship = {}, vehicles = [], mode = null, classColors = {} } = $props()
 
   const racing = $derived(isRacingMode(mode))
   const active = $derived(isActiveBattle(relationship))
@@ -82,7 +82,7 @@
   <header class="bc-battle__header">
     <span class="bc-battle__title">{active ? headerLabel : 'BATTLE FOR POSITION'}</span>
     {#if active && carClass}
-      <ClassChip {carClass} size="compact" />
+      <ClassChip {carClass} size="compact" {classColors} />
     {/if}
   </header>
 

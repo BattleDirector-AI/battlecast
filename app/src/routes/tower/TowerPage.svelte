@@ -136,6 +136,7 @@
     maxRows={tower?.maxRows}
     cycle={tower?.cycle}
     {slotHeight}
+    classColors={config.theme.classColors}
   />
 </div>
 

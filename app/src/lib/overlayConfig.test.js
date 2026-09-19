@@ -526,6 +526,16 @@ describe('normalizeConfig — theme.classColors (#197, ADR 0010)', () => {
     delete Object.prototype.polluted
   })
 
+  it('also catches a padded or differently-cased unsafe key, not just an exact match', () => {
+    const raw = JSON.parse(
+      '{"theme":{"classColors":{"  Constructor  ":"#123456","__PROTO__":{"polluted":"yes"},"  PROTOTYPE ":"#654321","gtp":"#111111"}}}',
+    )
+    const cfg = normalizeConfig(raw)
+    expect(cfg.theme.classColors).toEqual({ gtp: '#111111' })
+    expect({}.polluted).toBeUndefined()
+    delete Object.prototype.polluted
+  })
+
   it('is unbounded — an arbitrary number of overrides all survive normalization', () => {
     const many = {}
     for (let i = 0; i < 40; i++) many[`class-${i}`] = '#010203'
