@@ -7,7 +7,9 @@
   // whatever snapshot it is handed as a per-class starting order, sorted strictly
   // by `position`, optionally narrowed to a single class. All SSE wiring + URL
   // parsing lives in GridPage. Mirrors the results slide (#23) conventions.
-  let { snapshot = null, classFilter = null, label = 'STARTING GRID' } = $props()
+  // `classColors` (rule 32, ADR 0010): resolved `theme.classColors` overrides from the
+  // saved profile, or `{}` when none is loaded/configured.
+  let { snapshot = null, classFilter = null, label = 'STARTING GRID', classColors = {} } = $props()
 
   // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
   // => show every class, each in its own group.
@@ -58,7 +60,7 @@
     <span class="grid__title">{label}</span>
     {#if filterKey !== null}
       <span class="grid__filter" data-testid="grid-filter">
-        <ClassChip carClass={filterKey} />
+        <ClassChip carClass={filterKey} {classColors} />
       </span>
     {/if}
   </header>
@@ -80,7 +82,7 @@
           data-class={group.carClass}
         >
           <header class="group__head">
-            <ClassChip carClass={group.carClass} />
+            <ClassChip carClass={group.carClass} {classColors} />
             <span class="group__count">{group.cars.length} cars</span>
           </header>
           <!-- Conventional staggered two-column grid: the front car sits on the
@@ -96,7 +98,7 @@
               >
                 <span
                   class="cell__classbar"
-                  style:background={classColor(v.vehicle_class)}
+                  style:background={classColor(v.vehicle_class, classColors)}
                   aria-hidden="true"
                 ></span>
                 <span class="cell__pos">{v.position}</span>

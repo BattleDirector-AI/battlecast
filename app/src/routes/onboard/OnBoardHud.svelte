@@ -125,6 +125,7 @@
     subjectSlotId = null,
     subjectActive = false,
     driverWidget = null,
+    classColors = {},
   } = $props()
 
   const t = $derived(resolveTelemetry(telemetry))
@@ -180,7 +181,7 @@
       {/if}
       {#if identity.class}
         <span class="bc-onboard__class" data-testid="onboard-driver-class">
-          <ClassChip carClass={identity.class} size="compact" />
+          <ClassChip carClass={identity.class} size="compact" {classColors} />
         </span>
       {/if}
       {#if carLine}

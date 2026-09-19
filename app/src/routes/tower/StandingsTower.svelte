@@ -33,6 +33,9 @@
     maxRows = 'auto',
     cycle = null,
     slotHeight = null,
+    // Broadcaster class-color overrides (rule 32, ADR 0010) — the resolved
+    // `theme.classColors` map, or `{}` when the caller has none.
+    classColors = {},
   } = $props()
 
   // Normalize the metric toggles once — tolerate a partial/garbage object so a caller
@@ -351,11 +354,11 @@
     {/if}
     <span
       class="row__classbar"
-      style:background={classColor(v.vehicle_class)}
+      style:background={classColor(v.vehicle_class, classColors)}
       aria-hidden="true"
     ></span>
     <span class="row__pos">{positionText}</span>
-    <ClassChip carClass={v.vehicle_class} size="compact" />
+    <ClassChip carClass={v.vehicle_class} size="compact" {classColors} />
     {#if classBadge}
       <span class="row__classpos" data-testid="class-pos">{classBadge}</span>
     {/if}
@@ -435,7 +438,7 @@
         {/if}
         {#if filterKey !== null}
           <span class="tower__filter" data-testid="tower-filter">
-            <ClassChip carClass={filterKey} size="compact" />
+            <ClassChip carClass={filterKey} size="compact" {classColors} />
           </span>
         {/if}
       </span>
@@ -453,10 +456,10 @@
           <header class="group__head">
             <span
               class="group__bar"
-              style:background={classColor(group.carClass)}
+              style:background={classColor(group.carClass, classColors)}
               aria-hidden="true"
             ></span>
-            <ClassChip carClass={group.carClass} size="compact" />
+            <ClassChip carClass={group.carClass} size="compact" {classColors} />
             <span class="group__count">{group.cars.length} cars</span>
           </header>
           <ol class="tower__rows">

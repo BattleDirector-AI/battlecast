@@ -4,7 +4,7 @@
    * preview, manage the logo carousel, pick the producer, and save/load named
    * profiles via the companion server — no code or CSS editing. Degrades to
    * client-only authoring (export a config.json) when no server is running. */
-  import { onMount } from 'svelte'
+  import { onMount, flushSync } from 'svelte'
   import AllView from '../all/AllView.svelte'
   import {
     DEFAULT_CONFIG,
@@ -134,6 +134,9 @@
   let feedStarted = false
   /** The URL the current connection was opened against — plain, so it never re-triggers. */
   let openedFeedUrl = null
+  // Rule 35: Reconnect's own focus target. `bind:this` so the element persists across the
+  // status change (the span itself never unmounts — only the button beside it does).
+  let feedStatusEl = $state(null)
 
   // Read from the CONFIG, not from the input event: a profile load replaces the whole config,
   // `producer.src` included, and must move the connection exactly as a typed edit does (rule 27).
@@ -195,6 +198,16 @@
     feedDebounceTimer = null
     // `openFeed` records `openedFeedUrl`, so a later edit still reopens under rule 27.
     openFeed(feedUrl)
+    // Rule 35: this control's own activation unmounts it in the same tick (feedNotConnected
+    // flips false), which would otherwise drop focus to <body>. Only THIS call site moves
+    // focus — openFeed() itself is also reached by the debounced URL-edit path and an
+    // unprompted recovery, neither of which may steal focus from the operator.
+    // flushSync() commits `feedStatus = 'connecting'` to the DOM BEFORE focus moves — without
+    // it the readout still reads its pre-press text at the moment focus lands, so a screen
+    // reader announces the stale value and only gets "connecting…" a beat later from a
+    // separate live-region mutation, instead of one coherent announcement.
+    flushSync()
+    feedStatusEl?.focus()
   }
 
   $effect(() => {
@@ -333,6 +346,20 @@
   const removeFromRotation = (url) => (config = editor.removeLogoImage(config, url))
   const moveRotation = (i, delta) => (config = editor.moveLogoImage(config, i, delta))
   const setRotation = (patch) => (config = editor.setLogoRotation(config, patch))
+
+  // ---- class color overrides (#197, rules 32-33, ADR 0010) -------------------
+  // Freeform: no seeded/curated rows. The "new entry" fields are local UI state,
+  // not part of the config, until Add is pressed.
+  let newClassColorName = $state('')
+  let newClassColorHex = $state('#ffffff')
+  const setClassColor = (name, hex) => (config = editor.setClassColor(config, name, hex))
+  const removeClassColor = (name) => (config = editor.removeClassColor(config, name))
+  function addClassColor() {
+    if (!newClassColorName.trim()) return
+    setClassColor(newClassColorName, newClassColorHex)
+    newClassColorName = ''
+    newClassColorHex = '#ffffff'
+  }
 
   // Delete a logo from the server entirely (not just this rotation), then drop it
   // from the rotation too so we don't point at a now-missing asset.
@@ -911,6 +938,48 @@
         {/each}
       </section>
 
+      <section class="panel__group" data-testid="class-colors-section">
+        <h2>
+          Class Colors
+          <HelpTip text={FIELD_HELP.classColors} label="class colors" testid="help-class-colors" />
+        </h2>
+        <ul class="logo-list" data-testid="class-color-list">
+          {#each Object.entries(config.theme.classColors) as [key, hex] (key)}
+            <li data-testid="class-color-row-{key}">
+              <span class="logo-url" data-testid="class-color-name-{key}">{key.toUpperCase()}</span>
+              <input
+                type="color"
+                class="class-color-swatch"
+                data-testid="class-color-picker-{key}"
+                value={hex}
+                oninput={(e) => setClassColor(key, e.currentTarget.value)}
+              />
+              <button
+                type="button"
+                aria-label="remove {key}"
+                data-testid="class-color-remove-{key}"
+                onclick={() => removeClassColor(key)}
+              >✕</button>
+            </li>
+          {/each}
+        </ul>
+        <div class="class-color-add">
+          <input
+            type="text"
+            data-testid="class-color-new-name"
+            placeholder="Class name (e.g. GTE)"
+            bind:value={newClassColorName}
+          />
+          <input
+            type="color"
+            class="class-color-swatch"
+            data-testid="class-color-new-picker"
+            bind:value={newClassColorHex}
+          />
+          <button type="button" data-testid="class-color-add" onclick={addClassColor}>Add</button>
+        </div>
+      </section>
+
       <section class="panel__group">
         <h2>Logo rotation<HelpTip text={FIELD_HELP.logoUpload} label="logo rotation" testid="help-logos" /></h2>
         <label title={serverUp ? undefined : 'Start the companion server (make dev) to upload logos'}>
@@ -1000,8 +1069,15 @@
           </p>
         {/if}
         <!-- Beside the URL field, deliberately NOT beside the header's server line: adjacency is
-             what makes one readout readable as the other (rule 29). -->
-        <span class="feed-status feed-status--{feedStatus}" data-testid="feed-status"
+             what makes one readout readable as the other (rule 29). role="status" (rule 34) makes
+             every transition an accessible live-region announcement; tabindex="-1" (rule 35) makes
+             it a valid programmatic focus target without joining the tab order on its own. -->
+        <span
+          class="feed-status feed-status--{feedStatus}"
+          data-testid="feed-status"
+          role="status"
+          tabindex="-1"
+          bind:this={feedStatusEl}
           >{FEED_TEXT[feedStatus]}</span
         >
         <!-- Rule 30: rendered only while the feed is not connected, and a sibling of the ⓘ rather
@@ -1311,6 +1387,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .class-color-add {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .class-color-add input[type='text'] {
+    flex: 1;
+  }
+  .class-color-swatch {
+    flex: 0 0 auto;
+    width: 2.2rem;
+    height: 1.7rem;
+    padding: 0.1rem;
   }
   .hint {
     color: #6f7c90;

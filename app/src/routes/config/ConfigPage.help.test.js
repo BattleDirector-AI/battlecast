@@ -241,6 +241,8 @@ describe('config editor: help coverage cannot drift', () => {
       'help-logo-order',
       'help-producer',
       'help-obs-url',
+      // #197 / ADR 0010: the freeform Class Colors section, rule 33.
+      'help-class-colors',
     ]
     for (const testid of expected) {
       expect(container.querySelector(`[data-testid="${testid}"]`), `missing ${testid}`).toBeTruthy()

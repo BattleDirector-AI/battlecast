@@ -1,7 +1,9 @@
 <script>
   import { classMeta, classColor } from './classMeta.js'
 
-  let { carClass, leader = false, size = 'standard' } = $props()
+  // `classColors` (rule 32, ADR 0010): the resolved `theme.classColors` override map, or
+  // `{}` when the caller has none (e.g. a standalone route with no loaded profile).
+  let { carClass, leader = false, size = 'standard', classColors = {} } = $props()
 
   // The producer's own class string is the label, always — never the registry's
   // curated abbreviation. `classMeta`'s five entries exist only to pick a curated
@@ -18,7 +20,7 @@
   // already normalize an arbitrary producer string for display.
   const trimmedClass = $derived(carClass != null ? String(carClass).trim() : '')
   const label = $derived(trimmedClass ? trimmedClass.toUpperCase() : classMeta(carClass).short)
-  const color = $derived(classColor(carClass))
+  const color = $derived(classColor(carClass, classColors))
   const compact = $derived(size === 'compact')
 </script>
 
