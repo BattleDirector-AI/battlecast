@@ -984,6 +984,32 @@ describe('rules 34-35 — feed-status accessibility (#174)', () => {
     )
   })
 
+  it('the readout already reads the new status AT THE MOMENT focus moves — no stale-then-correct double announcement', async () => {
+    // A screen reader announces whatever the element's accessible text is at the instant focus
+    // lands on it. If the DOM still held the pre-press text at that instant, the operator would
+    // hear the stale value, then a SEPARATE live-region announcement a beat later once the real
+    // state commits — two announcements instead of one coherent one. `await tick()` before an
+    // assertion (as every other test here does) can't see this: it only proves the DOM is
+    // eventually correct, not what it was at the moment focus() actually ran. So this test hooks
+    // focus() itself to snapshot the text synchronously, at the true moment of the call.
+    const view = await mount()
+    feed().failStopped()
+    await tick()
+
+    const readout = view.getByTestId('feed-status')
+    let textWhenFocused = null
+    const originalFocus = readout.focus.bind(readout)
+    readout.focus = (...args) => {
+      textWhenFocused = readout.textContent.trim()
+      return originalFocus(...args)
+    }
+
+    await pressReconnect(view)
+
+    expect(textWhenFocused, 'focus() was never called').not.toBeNull()
+    expect(textWhenFocused).toBe(CONNECTING)
+  })
+
   it('moves focus on a PRESS but NOT on an unprompted recovery of the same control', async () => {
     // Both halves in one test, deliberately: an implementation that never moves focus at all
     // would vacuously pass a test that only checked the negative case. The first half proves

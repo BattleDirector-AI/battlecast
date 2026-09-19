@@ -54,3 +54,10 @@ nothing:
   `happy-dom` cannot observe at all (no layout engine — the same category of gap noted against
   #118 and #153), so a fix here would ship with no regression test. Left as unaddressed remainder
   of #174, worth a follow-up issue if it turns out to matter in practice.
+- The focus-move call lives only at `reconnectFeed`'s own call site, not as a parameter threaded
+  through `openFeed()` — deliberately, since `openFeed()` has two OTHER callers (the debounced
+  URL-edit effect, an unprompted recovery) that must never move focus. A future control that also
+  calls `openFeed()` as a direct user action (e.g. an explicit disconnect/switch-producer button)
+  needs this same `flushSync()` + `.focus()` pair copied to its own handler — there is no shared
+  mechanism that grants it automatically. Noted here so that omission doesn't silently reopen this
+  decision's gap for a call site that doesn't exist yet.

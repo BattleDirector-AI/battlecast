@@ -4,7 +4,7 @@
    * preview, manage the logo carousel, pick the producer, and save/load named
    * profiles via the companion server — no code or CSS editing. Degrades to
    * client-only authoring (export a config.json) when no server is running. */
-  import { onMount } from 'svelte'
+  import { onMount, flushSync } from 'svelte'
   import AllView from '../all/AllView.svelte'
   import {
     DEFAULT_CONFIG,
@@ -134,6 +134,9 @@
   let feedStarted = false
   /** The URL the current connection was opened against — plain, so it never re-triggers. */
   let openedFeedUrl = null
+  // Rule 35: Reconnect's own focus target. `bind:this` so the element persists across the
+  // status change (the span itself never unmounts — only the button beside it does).
+  let feedStatusEl = $state(null)
 
   // Read from the CONFIG, not from the input event: a profile load replaces the whole config,
   // `producer.src` included, and must move the connection exactly as a typed edit does (rule 27).
@@ -195,6 +198,16 @@
     feedDebounceTimer = null
     // `openFeed` records `openedFeedUrl`, so a later edit still reopens under rule 27.
     openFeed(feedUrl)
+    // Rule 35: this control's own activation unmounts it in the same tick (feedNotConnected
+    // flips false), which would otherwise drop focus to <body>. Only THIS call site moves
+    // focus — openFeed() itself is also reached by the debounced URL-edit path and an
+    // unprompted recovery, neither of which may steal focus from the operator.
+    // flushSync() commits `feedStatus = 'connecting'` to the DOM BEFORE focus moves — without
+    // it the readout still reads its pre-press text at the moment focus lands, so a screen
+    // reader announces the stale value and only gets "connecting…" a beat later from a
+    // separate live-region mutation, instead of one coherent announcement.
+    flushSync()
+    feedStatusEl?.focus()
   }
 
   $effect(() => {
@@ -1056,8 +1069,15 @@
           </p>
         {/if}
         <!-- Beside the URL field, deliberately NOT beside the header's server line: adjacency is
-             what makes one readout readable as the other (rule 29). -->
-        <span class="feed-status feed-status--{feedStatus}" data-testid="feed-status"
+             what makes one readout readable as the other (rule 29). role="status" (rule 34) makes
+             every transition an accessible live-region announcement; tabindex="-1" (rule 35) makes
+             it a valid programmatic focus target without joining the tab order on its own. -->
+        <span
+          class="feed-status feed-status--{feedStatus}"
+          data-testid="feed-status"
+          role="status"
+          tabindex="-1"
+          bind:this={feedStatusEl}
           >{FEED_TEXT[feedStatus]}</span
         >
         <!-- Rule 30: rendered only while the feed is not connected, and a sibling of the ⓘ rather
