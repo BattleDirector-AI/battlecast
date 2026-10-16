@@ -56,7 +56,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
-      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
@@ -67,7 +67,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
-      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
@@ -78,7 +78,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
-      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
@@ -92,7 +92,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
-      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
@@ -108,7 +108,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
-      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
@@ -125,7 +125,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
-      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
@@ -146,7 +146,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
-      towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
@@ -231,12 +231,14 @@ export const TOWER_METRICS_DEFAULTS = Object.freeze({
   pit: false,
   tire: false,
   fuel: false,
+  // #207 lap-time flash over the gap cell (widgets.md rules 40-42) — on by default.
+  lapFlash: true,
 })
 
 /** The tower-metric toggles, in render order. */
-export const TOWER_METRIC_FIELDS = Object.freeze(['interval', 'pit', 'tire', 'fuel'])
+export const TOWER_METRIC_FIELDS = Object.freeze(['interval', 'pit', 'tire', 'fuel', 'lapFlash'])
 
-/** Coerce an arbitrary `towerMetrics` into the full `{interval,pit,tire,fuel}` boolean
+/** Coerce an arbitrary `towerMetrics` into the full `{interval,pit,tire,fuel,lapFlash}` boolean
  *  shape, filling missing/garbage fields from `fallback`. */
 function normalizeTowerMetrics(value, fallback) {
   const src = value && typeof value === 'object' ? value : {}
@@ -286,7 +288,7 @@ function normalizeCycle(value, fallback) {
   }
 }
 
-/** Parse a `?metrics=` comma list (`interval,pit,tire,fuel`) from the standalone
+/** Parse a `?metrics=` comma list (`interval,pit,tire,fuel,lapflash`) from the standalone
  *  `/tower` route into the toggle shape — listed metrics on, the rest off. An
  *  absent/empty param returns null so the caller can fall back to the config default
  *  (interval on). Mirrors the 0.6.0 `?unit=mph` standalone knob. */
@@ -294,7 +296,8 @@ export function parseTowerMetricsParam(raw) {
   if (raw == null || !String(raw).trim()) return null
   const on = new Set(splitList(raw).map((s) => s.toLowerCase()))
   const out = {}
-  for (const field of TOWER_METRIC_FIELDS) out[field] = on.has(field)
+  // Case-insensitive match, so the camelCase `lapFlash` is reachable as `lapflash`.
+  for (const field of TOWER_METRIC_FIELDS) out[field] = on.has(field.toLowerCase())
   return out
 }
 

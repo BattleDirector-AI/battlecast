@@ -199,6 +199,10 @@ export const TOWER_METRIC_HELP = Object.freeze({
   fuel:
     'A fuel (or hybrid energy) level bar, for endurance broadcasts. Hidden in qualifying and ' +
     'practice.',
+  lapFlash:
+    'When a car completes a lap, its gap cell shows the new lap time for 5 seconds, then goes ' +
+    'back to the gap. Purple marks a session or class best and green a personal best, as the ' +
+    'producer flags them.',
 })
 
 /** Per-field help for the on-board HUD's "driver info shown" group. */
