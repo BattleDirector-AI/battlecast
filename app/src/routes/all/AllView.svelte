@@ -7,7 +7,14 @@
   import RaceControlStatus from '../racecontrol/RaceControlStatus.svelte'
   import OnBoardHud, { resolveIdentity } from '../onboard/OnBoardHud.svelte'
   import { resolveSubject } from '../driver/DriverLowerThird.svelte'
-  import { DEFAULT_CONFIG, normalizeConfig, resolveWidgets } from '../../lib/overlayConfig.js'
+  import {
+    DEFAULT_CONFIG,
+    normalizeConfig,
+    resolveWidgets,
+    rendersText,
+    textScaleFactor,
+  } from '../../lib/overlayConfig.js'
+  import { textScaleVars } from '../../design/typeScale.js'
   import { isWidgetIdle } from '../../lib/widgetIdle.js'
   import { createBattleGrace } from '../../lib/battleGrace.js'
 
@@ -42,6 +49,10 @@
       ` --bc-header: rgba(var(--bc-header-rgb), ${round3(clamp01(0.94 * f))})`
     )
   }
+
+  // #188 per-widget text size: a text widget off the `normal` preset gets every type-size
+  // token redeclared on its slot at base × factor (overlay-config.md rule 39).
+  const textVars = (w) => (rendersText(w.key) ? textScaleVars(textScaleFactor(w.textScale)) : '')
 
   // Config-driven layout: each widget is absolutely placed on the configured
   // canvas per its {x, y, w, h, z}. Only widgets that are `visible` AND have a
@@ -103,7 +114,7 @@
       class="widget-slot"
       data-testid="widget-{w.key}"
       data-widget={w.key}
-      style="left: {w.x}px; top: {w.y}px; width: {w.w}px; height: {w.h}px; z-index: {w.z}; {plateVars(w.plateAlpha)};"
+      style="left: {w.x}px; top: {w.y}px; width: {w.w}px; height: {w.h}px; z-index: {w.z}; {plateVars(w.plateAlpha)}; {textVars(w)}"
     >
       {#if w.key === 'tower'}
         <StandingsTower

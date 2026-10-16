@@ -3,7 +3,14 @@
  * and stay reactive, and so the logic is trivially unit-testable without a DOM.
  * The config shape is the contract from app/src/lib/overlayConfig.js. */
 
-import { normalizeConfig, normalizeClassColors, MIN_CANVAS } from './overlayConfig.js'
+import {
+  normalizeConfig,
+  normalizeClassColors,
+  MIN_CANVAS,
+  TEXT_SCALES,
+  textScaleFactor,
+  rendersText,
+} from './overlayConfig.js'
 
 /** Clamp a widget's geometry so it stays a sane box within the given canvas. */
 function clampGeometry(w, canvas) {
@@ -23,6 +30,18 @@ export function setWidgetField(config, key, field, value) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
   next.widgets[key] = clampGeometry({ ...next.widgets[key], [field]: value }, next.canvas)
+  return next
+}
+
+/** Set a widget's text-size preset, rescaling its width by new/old factor (rounded) so the
+ *  bigger text keeps its proportions (overlay-config.md rule 41). x/y/h are untouched apart
+ *  from the usual on-canvas clamp. */
+export function setWidgetTextScale(config, key, preset) {
+  const next = normalizeConfig(config)
+  const w = next.widgets[key]
+  if (!w || !rendersText(key) || !Object.prototype.hasOwnProperty.call(TEXT_SCALES, preset)) return next
+  const width = Math.round((w.w * textScaleFactor(preset)) / textScaleFactor(w.textScale))
+  next.widgets[key] = clampGeometry({ ...w, textScale: preset, w: width }, next.canvas)
   return next
 }
 

@@ -14,6 +14,8 @@
     normalizeConfig,
     isLowerThird,
     rendersPlate,
+    rendersText,
+    TEXT_SCALE_PRESETS,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
@@ -267,6 +269,8 @@
   const setField = (key, field, value) => (config = editor.setWidgetField(config, key, field, value))
   const setVisible = (key, visible) => (config = editor.setWidgetVisible(config, key, visible))
   const setHideWhenIdle = (key, hide) => (config = editor.setWidgetHideWhenIdle(config, key, hide))
+  // #188: the text-size preset; also rescales the widget's width (overlay-config rule 41).
+  const setTextScale = (key, preset) => (config = editor.setWidgetTextScale(config, key, preset))
   // Lower-third trigger knobs (only surfaced for lower-third widgets).
   const setTrigger = (key, value) => (config = editor.setWidgetField(config, key, 'trigger', value))
   const setDwellSeconds = (key, value) =>
@@ -677,6 +681,23 @@
                 <span class="plate-value" data-testid="plate-alpha-value-{key}"
                   >{Number(w.plateAlpha).toFixed(2)}</span
                 >
+              </label>
+            {/if}
+            {#if rendersText(key)}
+              <!-- #188: text size preset. Picking a bigger one widens the widget by the
+                   same ratio so its layout keeps its proportions. -->
+              <label class="num">
+                text size
+                <HelpTip text={FIELD_HELP.textScale} label="text size" testid="help-text-scale-{key}" />
+                <select
+                  data-testid="text-scale-{key}"
+                  value={w.textScale}
+                  onchange={(e) => setTextScale(key, e.currentTarget.value)}
+                >
+                  {#each TEXT_SCALE_PRESETS as preset (preset)}
+                    <option value={preset}>{preset}</option>
+                  {/each}
+                </select>
               </label>
             {/if}
             {#if widgetSupportsAutoHide(key)}
