@@ -51,6 +51,16 @@ unaffected.
 - **One global multiplier.** The issue explicitly asks for per-widget tuning: the
   tower's tight columns and the battle box's focus name need different answers.
 
+## Amendment (#215)
+
+The first cut rescaled `w` by the ratio of the new factor to the old. Near the canvas edge
+the keep-on-canvas clamp could move `x` or cap `w`, and that was not undone on going back to
+`normal`; repeated rounding also drifted odd widths by a pixel. The editor now records the
+widget's `normal` `x`/`w` (`textScaleOrigin`) when it leaves `normal`, computes every bigger
+preset from that, and restores it exactly on return. Rejected: documenting the exception
+(a round trip that doesn't round-trip), and refusing a preset that would not fit in place
+(it blocks the most useful case, a widget against the right edge).
+
 ## Consequences
 
 - With every tower column on, the tower is already cut off at ×1.00 today, and it

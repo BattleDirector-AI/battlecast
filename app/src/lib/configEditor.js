@@ -25,23 +25,59 @@ function clampGeometry(w, canvas) {
   }
 }
 
+/** A widget at a bigger text preset remembers its `normal` x/w (`textScaleOrigin`,
+ *  overlay-config.md rule 41a). After an editor geometry edit, move ONLY the part of the origin
+ *  the broadcaster asked to change: a new x moves the origin's x, a new w moves the origin's w
+ *  (÷ the factor). A vertical-only drag, a zero-pixel jitter, a height resize, or an x the
+ *  keep-on-canvas clamp moved on its own leaves the origin alone. */
+function trackOrigin(prev, placed, { x = false, w = false }) {
+  if (placed.textScale === 'normal' || !placed.textScaleOrigin) return placed
+  const origin = { ...placed.textScaleOrigin }
+  if (x && placed.x !== prev.x) origin.x = placed.x
+  if (w && placed.w !== prev.w) origin.w = Math.round(placed.w / textScaleFactor(placed.textScale))
+  return { ...placed, textScaleOrigin: origin }
+}
+
 /** Set one geometry/visibility/z field on a widget. */
 export function setWidgetField(config, key, field, value) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
-  next.widgets[key] = clampGeometry({ ...next.widgets[key], [field]: value }, next.canvas)
+  const prev = next.widgets[key]
+  const placed = clampGeometry({ ...prev, [field]: value }, next.canvas)
+  next.widgets[key] = trackOrigin(prev, placed, { x: field === 'x', w: field === 'w' })
   return next
 }
 
-/** Set a widget's text-size preset, rescaling its width by new/old factor (rounded) so the
- *  bigger text keeps its proportions (overlay-config.md rule 41). x/y/h are untouched apart
- *  from the usual on-canvas clamp. */
+/** Set a widget's text-size preset (overlay-config.md rule 41). Leaving `normal` records the
+ *  widget's normal x/w as `textScaleOrigin`; every bigger preset is computed from that origin
+ *  (never chained from the previous preset, so no rounding drift), then kept on canvas; going
+ *  back to `normal` restores the origin exactly and drops it. y/h never change. */
 export function setWidgetTextScale(config, key, preset) {
   const next = normalizeConfig(config)
   const w = next.widgets[key]
   if (!w || !rendersText(key) || !Object.prototype.hasOwnProperty.call(TEXT_SCALES, preset)) return next
-  const width = Math.round((w.w * textScaleFactor(preset)) / textScaleFactor(w.textScale))
-  next.widgets[key] = clampGeometry({ ...w, textScale: preset, w: width }, next.canvas)
+  if (preset === w.textScale) return next
+  // A profile can reach a bigger preset without an origin (hand-edited, or saved before
+  // origins existed): derive one from the current geometry.
+  const origin =
+    w.textScale === 'normal'
+      ? { x: w.x, w: w.w }
+      : w.textScaleOrigin ?? { x: w.x, w: Math.round(w.w / textScaleFactor(w.textScale)) }
+  const rest = { ...w }
+  delete rest.textScaleOrigin
+  next.widgets[key] =
+    preset === 'normal'
+      ? clampGeometry({ ...rest, textScale: 'normal', x: origin.x, w: origin.w }, next.canvas)
+      : clampGeometry(
+          {
+            ...rest,
+            textScale: preset,
+            x: origin.x,
+            w: Math.round(origin.w * textScaleFactor(preset)),
+            textScaleOrigin: origin,
+          },
+          next.canvas,
+        )
   return next
 }
 
@@ -49,7 +85,8 @@ export function setWidgetTextScale(config, key, preset) {
 export function moveWidget(config, key, x, y) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
-  next.widgets[key] = clampGeometry({ ...next.widgets[key], x, y }, next.canvas)
+  const prev = next.widgets[key]
+  next.widgets[key] = trackOrigin(prev, clampGeometry({ ...prev, x, y }, next.canvas), { x: true })
   return next
 }
 
@@ -57,7 +94,8 @@ export function moveWidget(config, key, x, y) {
 export function resizeWidget(config, key, w, h) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
-  next.widgets[key] = clampGeometry({ ...next.widgets[key], w, h }, next.canvas)
+  const prev = next.widgets[key]
+  next.widgets[key] = trackOrigin(prev, clampGeometry({ ...prev, w, h }, next.canvas), { w: true })
   return next
 }
 
