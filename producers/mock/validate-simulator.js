@@ -58,6 +58,14 @@ let raceTicks = 0;
 let prevMode = null;
 const gridViolations = [];
 const isLapCount = (n) => Number.isInteger(n) && n >= 0;
+// Local-yellow fields (ADR 0016). This is the mock producer's own output policy, stricter than
+// the contract (which allows any sector count, absent values, and involvement without sector
+// flags): every race tick carries `session.sector_flags` (three strings) and a boolean
+// `yellow_involved` on every car; a car is involved only while some sector is yellow or the
+// course is under FCY; and the race stages at least one local yellow
+// (a yellow sector outside FCY) with an involved car, so both overlay paths run live.
+let localYellowSeen = false;
+const yellowViolations = [];
 
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
@@ -117,6 +125,24 @@ for (let i = 0; i < TICKS; i++) {
         lapFieldViolations.push(`tick ${i}: ${v.driver_name} P${v.position} — ${problems.join(", ")}`);
       }
     }
+
+    const sectors = payload.session?.sector_flags;
+    const validSectors = Array.isArray(sectors) && sectors.length === 3 && sectors.every((f) => typeof f === "string");
+    const anyYellowSector = validSectors && sectors.some((f) => f.toLowerCase() === "yellow");
+    const fcy = payload.session?.full_course_yellow === true;
+    const yellowProblems = [];
+    if (!validSectors) yellowProblems.push(`sector_flags=${JSON.stringify(sectors)}`);
+    for (const v of payload.vehicles) {
+      if (typeof v.yellow_involved !== "boolean") {
+        yellowProblems.push(`${v.driver_name} yellow_involved=${JSON.stringify(v.yellow_involved)}`);
+      } else if (v.yellow_involved && !anyYellowSector && !fcy) {
+        yellowProblems.push(`${v.driver_name} involved with no yellow sector and no FCY`);
+      }
+    }
+    if (anyYellowSector && !fcy && payload.vehicles.some((v) => v.yellow_involved === true)) localYellowSeen = true;
+    if (yellowProblems.length > 0 && yellowViolations.length < 10) {
+      yellowViolations.push(`tick ${i}: ${yellowProblems.join(", ")}`);
+    }
   }
 
   const errors = validate(payload);
@@ -170,6 +196,17 @@ Unrealistic starting grid (#217; leader-to-last must be < ${START_SPREAD_MAX_SEC
   process.exit(1);
 }
 
+if (yellowViolations.length > 0) {
+  console.error("\nRace-phase local-yellow fields missing or inconsistent (ADR 0016):");
+  for (const v of yellowViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+if (!localYellowSeen) {
+  console.error("\nThe race phase never staged a local yellow (a yellow sector outside FCY with an involved car) — the local-yellow case is not exercised.");
+  process.exit(1);
+}
+
 if (!lappedSeen) {
   console.error("\nThe race phase never lapped a car (no laps_behind_leader >= 1) — the lapped-car case is not exercised.");
   process.exit(1);
@@ -181,3 +218,4 @@ console.log("Qualifying surfaced a notable.class_best_lap flag (class-best edge 
 console.log(`Lap times within [${LAP_MIN_FACTOR}x, ${LAP_MAX_FACTOR}x] of class base pace.`);
 console.log(`Starting grid within ${START_SPREAD_MAX_SECONDS}s, nobody lapped in the opening lap (#217).`);
 console.log("Race phase lapped a backmarker and carried valid laps_behind_* fields (ADR 0012).");
+console.log("Race phase staged a local yellow with valid sector_flags / yellow_involved fields (ADR 0016).");

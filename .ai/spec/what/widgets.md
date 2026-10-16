@@ -90,6 +90,15 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 42a. **The gap cell keeps its width.** The gap cell reserves room for an 8-character monospaced
     readout (`1:31.950`, `+205.000`, `+12 LAPS`) and never shrinks, so swapping a gap for a flashed
     lap time, `LEADER`, or a lap deficit does not move the name or the cells to its right.
+43. **Cars involved in a local yellow.** A row whose producer-sent `yellow_involved` is exactly
+    `true` carries a yellow edge on its leading side, beside the class bar (which stays), and the
+    row carries `data-yellow="true"`. Any other value — `false`, null, absent, the string
+    `"true"`, `1` — marks nothing. The mark follows the latest snapshot with no hold: the row
+    loses it as soon as a snapshot stops sending `true`. It applies in every mode and both
+    layouts, combines with the on-camera highlight rather than replacing it, changes no cell's
+    text, and has no config toggle. The tower reads only the car's own field — never
+    `session.sector_flags`, speed, or position — to decide involvement. Decision record:
+    `docs/decisions/0016-local-yellow-fields.md`.
 
 ### Battle box (`/battle`)
 
@@ -155,11 +164,22 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 
 ### Race Control (`/racecontrol`, session status #25)
 
-20. Renders **only** flag / FCY / Safety-Car status from the optional `session` object (`flag`,
-    `full_course_yellow`, `safety_car`). It does **NOT** render the timed/lap progress readout —
-    that lives in the standings-tower header (rule 9). Renders whenever
-    visible and there is flag/FCY/SC content, in every mode. Not a lower-third and not class-aware —
-    the trigger/`modes`/`classDisplay` knobs are inert for it.
+20. Renders **only** flag / FCY / Safety-Car / sector-yellow status from the optional `session`
+    object (`flag`, `full_course_yellow`, `safety_car`, `sector_flags` — rule 44). It does **NOT**
+    render the timed/lap progress readout — that lives in the standings-tower header (rule 9).
+    Renders whenever visible and there is flag/FCY/SC/sector-yellow content, in every mode. Not
+    a lower-third and not class-aware — the trigger/`modes`/`classDisplay` knobs are inert for it.
+44. **Sector yellows.** Each `session.sector_flags` entry that is the string `yellow` (trimmed,
+    case-insensitive) is a local yellow in sector *index + 1*. When at least one sector is yellow,
+    Race Control shows one chip (`data-testid="racecontrol-sector-yellow"`) reading `YELLOW`
+    followed by each yellow sector as `S<n>` in ascending order, separated by spaces —
+    `YELLOW S2`, `YELLOW S1 S3`. Any other entry (`green`, `none`, an unknown string, a
+    non-string) is not a yellow, and an absent, null, or non-array `sector_flags` shows no chip.
+    The chip alone is content: with no flag, FCY, or SC, Race Control still renders to show it.
+    It sits beside, and is independent of, the `flag` readout — a `yellow` flag and a sector chip
+    both show. Under a full-course yellow or a safety car the chip is not shown (the FCY/SC
+    badges already cover the whole course). A sector yellow does not start the caution pulse,
+    which stays FCY/SC only. Decision record: `docs/decisions/0016-local-yellow-fields.md`.
 
 ### On-board HUD (`/onboard`, #26)
 
