@@ -730,6 +730,15 @@
   }
 
   .row__gap {
+    /* Rule 42a: a fixed slot for an 8-character mono readout (1:31.950, +205.000,
+       +12 LAPS), sized off the gap token rather than the element's own font, so a lap
+       flash, LEADER, or a lap deficit never changes the cell's width or moves the row.
+       JetBrains Mono advances 0.6em a glyph (8 × 0.6 = 4.8); 5 leaves room for the
+       slightly wider fallback monospace faces. */
+    flex: 0 0 auto;
+    min-width: calc(var(--bc-size-gap) * 5);
+    text-align: right;
+    white-space: nowrap;
     font-family: var(--bc-font-mono);
     font-size: var(--bc-size-gap);
     font-weight: var(--bc-weight-num);

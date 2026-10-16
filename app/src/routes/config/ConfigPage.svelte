@@ -268,6 +268,9 @@
   // ---- widget field editing -------------------------------------------------
   const setField = (key, field, value) => (config = editor.setWidgetField(config, key, field, value))
   const setVisible = (key, visible) => (config = editor.setWidgetVisible(config, key, visible))
+  // Tower metric toggles are labelled by their key, except the lap flash, which is a
+  // behaviour rather than a column and whose camelCase key is no label (overlay-config 38).
+  const METRIC_LABEL = { lapFlash: { text: 'lap flash', help: 'the lap flash' } }
   const setHideWhenIdle = (key, hide) => (config = editor.setWidgetHideWhenIdle(config, key, hide))
   // #188: the text-size preset; also rescales the widget's width (overlay-config rule 41).
   const setTextScale = (key, preset) => (config = editor.setWidgetTextScale(config, key, preset))
@@ -832,10 +835,10 @@
                       checked={w.towerMetrics?.[field] === true}
                       onchange={(e) => setTowerMetric(key, field, e.currentTarget.checked)}
                     />
-                    {field}
+                    {METRIC_LABEL[field]?.text ?? field}
                     <HelpTip
                       text={TOWER_METRIC_HELP[field]}
-                      label="the {field} column"
+                      label={METRIC_LABEL[field]?.help ?? `the ${field} column`}
                       testid="help-tower-metric-{key}-{field}"
                     />
                   </label>
