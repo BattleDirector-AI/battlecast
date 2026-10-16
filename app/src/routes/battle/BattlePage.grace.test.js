@@ -236,3 +236,14 @@ describe('caution hides the battle box (rule 36)', () => {
     expect(text()).toContain('+0.4')
   })
 })
+
+describe('no timer outlives the page (#216)', () => {
+  it('unmounting /battle mid-hold leaves no pending timer', async () => {
+    await mountPage()
+    push(closeBattle)
+    push(idleSame())
+    advance(1000)
+    cleanup()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+})
