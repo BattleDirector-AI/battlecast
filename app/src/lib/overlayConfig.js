@@ -618,6 +618,18 @@ export function normalizeConfig(raw) {
           ? w.textScale
           : d.textScale ?? 'normal',
     }
+    // #215 editor bookkeeping (overlay-config.md rule 41b): the widget's `normal` x/w while it
+    // sits at a bigger preset. Kept only as two finite numbers off `normal`; never rendered.
+    const origin = w.textScaleOrigin
+    if (
+      normalizedWidgets[key].textScale !== 'normal' &&
+      origin &&
+      typeof origin === 'object' &&
+      Number.isFinite(origin.x) &&
+      Number.isFinite(origin.w)
+    ) {
+      normalizedWidgets[key].textScaleOrigin = { x: origin.x, w: origin.w }
+    }
   }
   out.widgets = normalizedWidgets
   return out
