@@ -61,6 +61,13 @@ preset from that, and restores it exactly on return. Rejected: documenting the e
 (a round trip that doesn't round-trip), and refusing a preset that would not fit in place
 (it blocks the most useful case, a widget against the right edge).
 
+A preview drag calls the editor on every pointer step. Comparing each step with the previous
+one meant a drag that left and came back to its start still rewrote the origin from the
+clamped position (1500 became 1426), so the round trip broke again (#222). A drag is now one
+edit, measured from where the pointer went down (rule 41c). Rejected: leaving it, on the
+grounds that the broadcaster did move the widget, since the widget ends where it began and
+nothing visible tells them the remembered position has changed.
+
 ## Consequences
 
 - With every tower column on, the tower is already cut off at ×1.00 today, and it

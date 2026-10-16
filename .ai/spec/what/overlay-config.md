@@ -174,6 +174,14 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     numbers on a widget whose preset is not `normal`, and drops it otherwise. Rendering never reads
     it: a widget renders at its stored `x` and `w`, so a hand-set `w` renders at exactly that `w`
     whatever its preset. Decision record: `docs/decisions/0015-per-widget-text-size.md`.
+41c. **A preview drag or resize is one edit, from where it began to where it is now.** Rule 41a
+    compares the widget's geometry at each pointer step with its geometry when the pointer went
+    down, never with the previous step, and starts from the origin the widget had at that moment.
+    So a drag that leaves and comes back to where it started — horizontally, or a resize back to
+    its starting `w` — ends with the origin it began with, and returning to `normal` lands exactly
+    where it would have without the drag; a drag that ends somewhere else moves the origin as one
+    rule 41a edit from the drag's start to its end, whatever path the pointer took in between.
+    Releasing the pointer ends the edit: the next drag compares with where that one finished.
 
 ### Class color overrides
 

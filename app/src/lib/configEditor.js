@@ -29,10 +29,12 @@ function clampGeometry(w, canvas) {
  *  overlay-config.md rule 41a). After an editor geometry edit, move ONLY the part of the origin
  *  the broadcaster asked to change: a new x moves the origin's x, a new w moves the origin's w
  *  (÷ the factor). A vertical-only drag, a zero-pixel jitter, a height resize, or an x the
- *  keep-on-canvas clamp moved on its own leaves the origin alone. */
+ *  keep-on-canvas clamp moved on its own leaves the origin alone. `prev` is the widget the edit
+ *  started from: for a preview drag that is the widget at pointerdown, so the whole drag is one
+ *  edit and a drag away and back leaves the origin as it was (rule 41c). */
 function trackOrigin(prev, placed, { x = false, w = false }) {
   if (placed.textScale === 'normal' || !placed.textScaleOrigin) return placed
-  const origin = { ...placed.textScaleOrigin }
+  const origin = { ...(prev.textScaleOrigin ?? placed.textScaleOrigin) }
   if (x && placed.x !== prev.x) origin.x = placed.x
   if (w && placed.w !== prev.w) origin.w = Math.round(placed.w / textScaleFactor(placed.textScale))
   return { ...placed, textScaleOrigin: origin }
@@ -81,21 +83,22 @@ export function setWidgetTextScale(config, key, preset) {
   return next
 }
 
-/** Move a widget to an absolute (x, y), clamped onto the canvas. */
-export function moveWidget(config, key, x, y) {
+/** Move a widget to an absolute (x, y), clamped onto the canvas. `from` is the widget where a
+ *  preview drag began (rule 41c); without it the edit starts from the current widget. */
+export function moveWidget(config, key, x, y, from) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
   const prev = next.widgets[key]
-  next.widgets[key] = trackOrigin(prev, clampGeometry({ ...prev, x, y }, next.canvas), { x: true })
+  next.widgets[key] = trackOrigin(from ?? prev, clampGeometry({ ...prev, x, y }, next.canvas), { x: true })
   return next
 }
 
-/** Resize a widget to (w, h), clamped. */
-export function resizeWidget(config, key, w, h) {
+/** Resize a widget to (w, h), clamped. `from` as for `moveWidget`. */
+export function resizeWidget(config, key, w, h, from) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
   const prev = next.widgets[key]
-  next.widgets[key] = trackOrigin(prev, clampGeometry({ ...prev, w, h }, next.canvas), { w: true })
+  next.widgets[key] = trackOrigin(from ?? prev, clampGeometry({ ...prev, w, h }, next.canvas), { w: true })
   return next
 }
 

@@ -251,9 +251,9 @@
     const dx = Math.round((event.clientX - drag.startX) / previewScale)
     const dy = Math.round((event.clientY - drag.startY) / previewScale)
     if (drag.mode === 'move') {
-      config = editor.moveWidget(config, drag.key, drag.orig.x + dx, drag.orig.y + dy)
+      config = editor.moveWidget(config, drag.key, drag.orig.x + dx, drag.orig.y + dy, drag.orig)
     } else {
-      config = editor.resizeWidget(config, drag.key, drag.orig.w + dx, drag.orig.h + dy)
+      config = editor.resizeWidget(config, drag.key, drag.orig.w + dx, drag.orig.h + dy, drag.orig)
     }
   }
   function endDrag() {
