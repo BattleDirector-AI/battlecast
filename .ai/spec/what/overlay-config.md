@@ -55,6 +55,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     |---|---|---|
     | `visible`, `x/y/w/h/z` | all | geometry + visibility |
     | `plateAlpha` | plated widgets | background-plate opacity (0.82 default; the plate only, not text/borders) |
+    | `textScale` | text-rendering widgets (all but logos) | `normal` / `large` / `larger` text size preset (rules 39–41) |
     | `hideWhenIdle` | supporting widgets (battle, logos, driver, qualifying) | auto-hide when idle |
     | `idleGraceSeconds` | battle | exit grace before an ended battle goes idle (rule 36) |
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
@@ -133,6 +134,30 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     the standalone `/tower` route `?metrics=` matches toggle names case-insensitively, so
     `?metrics=interval,lapflash` turns it on and a `?metrics=` list that omits it turns it off;
     with no `?metrics=` the default (on) applies.
+
+### Per-widget text size
+
+39. **`textScale`** is a per-widget text-size preset: `normal` (×1.00, the default), `large`
+    (×1.15), or `larger` (×1.30). Normalization keeps one of those three strings and replaces
+    anything else with `normal`. In `/all`, a widget whose preset is not `normal` has every
+    type-size token (`--bc-size-*`, `app/src/design/tokens/typography.css`) redeclared on its slot
+    at the token's base value times the factor, so all of that widget's text grows together and no
+    other widget's text changes. The preset changes text size only: spacing, row heights, the
+    plate, and the widget's configured geometry are untouched, and `normal` renders exactly as a
+    profile without the knob. Like `plateAlpha`, it is applied by `/all` only; standalone routes
+    render at `normal` size.
+40. **The editor exposes it in the widget row** — rule 14's control surface — as a select of the
+    three presets, for each text-rendering widget: `tower`, `battle`, `driver`, `qualifying`,
+    `racecontrol`, `onboard`. `logos` renders no text and gets no control. Per rule 16 it carries
+    help copy, per rule 19 the coverage tests require it, and like `plateAlpha` (rule 24)
+    withholding the control never rewrites a stored value.
+41. **Changing the preset in the editor rescales the widget's width** by the ratio of the new
+    factor to the old, rounded to a whole pixel — the default tower goes 380 → 437 at `large` →
+    494 at `larger`, and back to 380 at `normal` — so the larger text keeps the proportions it has
+    at `normal` instead of being squeezed into the old width. `x`, `y`, and `h` are unchanged.
+    Only an editor change does this: normalization and rendering never touch geometry, so a
+    profile with a hand-set `w` renders at exactly that `w` whatever its preset. Decision record:
+    `docs/decisions/0015-per-widget-text-size.md`.
 
 ### Class color overrides
 
