@@ -50,19 +50,21 @@ const GRID = [
   { number: 18, driver: "Stroll", classKey: "gt3", make: "Aston Martin", model: "Vantage GT3", backmarker: true },
 ];
 
-// In the RACE the `backmarker` car runs this many seconds a lap off its class pace (a car
-// nursing a problem), so the overall leader laps it inside the default race length and the
-// lapped-car tower path (laps_behind_*, ADR 0012) is exercised live. Qualifying is
-// unaffected, so its grid slot and timing stay realistic. 40s on GT3's 107s base keeps its
-// laps at ~1.37x (~1.43x with pace noise, a little more with the 2s sim-step quantization)
-// inside validate-simulator's 1.5x realism band — a thin margin, so don't raise it.
-// Being lapped by its own CLASS leader takes longer (~350s), so the grouped tower's
-// class-lap readout needs RACE_SECONDS >= ~400.
+// In the RACE the `backmarker` car picks up a problem BACKMARKER_ONSET_SECONDS after the
+// green flag and from then on runs BACKMARKER_PENALTY seconds a lap off its class pace. The
+// start stays a clean nose-to-tail grid (#217), and the overall leader still laps it inside
+// the default race length (~240 s on average), so the lapped-car tower path (laps_behind_*, ADR 0012)
+// is exercised live. Qualifying is unaffected, so its grid slot and timing stay realistic.
+// 40s on GT3's 107s base keeps its laps at ~1.37x (~1.43x with pace noise, a little more
+// with the 2s sim-step quantization) inside validate-simulator's 1.5x realism band — a thin
+// margin, so don't raise it. Being lapped by its own CLASS leader takes longer, so the
+// grouped tower's class-lap readout needs RACE_SECONDS >= ~500.
 const BACKMARKER_PENALTY = 40;
-// Starting-grid spread, as a fraction of a lap across the whole field. Small, like a
-// real grid: a wide spread put the back of the field more than a lap down by distance
-// before the green flag, i.e. "lapped" at the start.
-const GRID_SPREAD = 0.2;
+const BACKMARKER_ONSET_SECONDS = 15;
+// Starting-grid spread, as a fraction of a lap across the whole field. A real grid is
+// ~8 m a slot, so 14 cars fill ~100 m of a ~5 km lap: about 0.02 laps, ~2.1 s from
+// front to back in the first race snapshot (#217; validate-simulator pins it below 2.5 s).
+const GRID_SPREAD = 0.02;
 
 const LAP_UNIT = 1; // one arbitrary "distance around the lap" unit
 const CLOSE_BATTLE_WINDOW = 1.5; // seconds — matches the design system's intensity formula
@@ -551,7 +553,7 @@ function createSimulator(config = {}) {
     frozenOrder.forEach((slotId, i) => {
       const car = cars.find((c) => c.slot_id === slotId);
       car.distance = -i * (LAP_UNIT / n) * GRID_SPREAD;
-      car.pace = car.basePace + (car.backmarker ? BACKMARKER_PENALTY : 0);
+      car.pace = car.basePace;
       car.lapStartDistance = car.distance;
       car.lastLapClock = clock;
       car.last_lap = null;
@@ -694,6 +696,9 @@ function createSimulator(config = {}) {
       // Reset the per-step "just set a personal best" flag; only a lap completed
       // on THIS step in a running phase can set it true.
       car.improvedBestThisStep = false;
+      if (isRace && car.backmarker && phaseElapsed >= BACKMARKER_ONSET_SECONDS) {
+        car.pace = car.basePace + BACKMARKER_PENALTY;
+      }
       if (running) advanceCar(car, dtSeconds, clock, isRace);
     }
 
