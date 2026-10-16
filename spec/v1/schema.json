@@ -145,6 +145,21 @@
           "minimum": 0,
           "maximum": 1,
           "description": "Optional fuel OR hybrid-energy remaining for the vehicle, NORMALIZED to [0, 1] (1 = full, 0 = empty). Deliberately ONE field covering either resource — the producer defines which (combustion fuel or hybrid/EV energy) and the overlay renders a neutral resource bar making no ICE-vs-EV claim. Fixing a normalized fraction (rather than litres/percent) lets the consumer render a bar without a unit claim; a producer measuring in another unit MUST convert to [0, 1] before emitting. Null or absent when not available. The consumer clamps to [0, 1] defensively."
+        },
+        "laps_behind_leader": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Optional count of whole laps this vehicle is behind the OVERALL classification leader (`position` 1). 0, null, or absent = on the lead lap. Producer-owned (dumb overlay, smart producer): consumers MUST NOT derive it by scanning `vehicles[]`. When it is 1 or more a tower shows the lap deficit (e.g. `+1 LAP`) in place of the `gap_to_leader` time. A lapped vehicle's `gap_to_leader` SHOULD still carry its real time gap in seconds, and MUST NOT carry a `0` placeholder (0 means the leader)."
+        },
+        "laps_behind_ahead": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Optional count of whole laps this vehicle is behind the car immediately AHEAD in overall running order (`position` − 1) — the lap-deficit companion of `interval_ahead`. 0, null, or absent = on the same lap as the car ahead. Null or absent for the leader. Producer-owned; when it is 1 or more a tower's interval column shows the lap deficit in place of the `interval_ahead` time."
+        },
+        "laps_behind_class_leader": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Optional count of whole laps this vehicle is behind the leader of its OWN `vehicle_class` (the best-`position` car sharing its class). 0, null, or absent = on the class lead lap. Distinct from `laps_behind_leader`: in a multi-class race a class leader is routinely laps down overall while still leading its class. Producer-owned and NOT re-derivable from the overall field (a difference of two whole-lap counts can be off by one lap). A grouped-by-class tower reads it for the gap-to-class-leader cell."
         }
       }
     },

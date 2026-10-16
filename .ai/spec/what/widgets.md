@@ -46,6 +46,24 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 10. **`?class=` filter** — narrows the rendered field to a single `vehicle_class` (case-insensitive).
     A filter that matches nothing is an **explicit** state distinct from "no snapshot at all"; the
     tower surfaces which and never blanks silently.
+33. **Lapped cars, gap-to-leader (inline layout).** A non-leader row whose producer-sent
+    `laps_behind_leader` is 1 or more shows the lap deficit in its gap cell instead of a time:
+    `+1 LAP` for exactly one lap, `+N LAPS` for more (`+2 LAPS`). The lap deficit wins over
+    `gap_to_leader` whatever that holds — a real time, null, or a `0` placeholder. A row whose
+    `laps_behind_leader` is 0, null, absent, or not a finite number ≥ 1 renders its time gap
+    exactly as rule 1 describes; a fractional value renders its whole part (`1.6` → `+1 LAP`).
+    The leader row is unaffected (rule 2).
+34. **Lapped cars, interval column.** The interval column (rule 6) applies the same treatment to
+    `laps_behind_ahead`: 1 or more renders `+1 LAP` / `+N LAPS` in place of `interval_ahead`,
+    otherwise the time renders verbatim. Like the interval itself it is the overall car ahead, so
+    the grouped layout renders it identically to the inline one.
+35. **Lapped cars, grouped layout.** In the grouped layout a non-class-leader row reads its
+    producer-sent `laps_behind_class_leader`: 1 or more renders `+1 LAP` / `+N LAPS`; otherwise the
+    row shows the gap-to-class-leader time of rule 4. The overall `laps_behind_leader` plays **no**
+    part in the grouped gap cell — a class leader laps down overall still reads LEADER, and a car
+    on its class lead lap still shows a time, however many laps down overall both are. The tower
+    never derives a class lap deficit from the overall lap fields. Decision record:
+    `docs/decisions/0012-lap-deficit-fields.md`.
 
 ### Battle box (`/battle`)
 
@@ -169,7 +187,8 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 ## Constraints
 
 - No widget may derive a semantic fact by scanning `vehicles[]`; it reads the producer-set field
-  (`notable`, `target_lap`, `gap_to_leader`, `interval_ahead`, `battle_intensity`). The only
+  (`notable`, `target_lap`, `gap_to_leader`, `interval_ahead`, the `laps_behind_*` lap deficits,
+  `battle_intensity`). The only
   permitted arithmetic is exact math on producer-authored values (e.g. gap-to-class-leader
   subtraction). A class-relative *interval* is explicitly NOT re-derivable — render `interval_ahead`
   verbatim.

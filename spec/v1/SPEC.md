@@ -160,6 +160,30 @@ required-ness.
     defines which (combustion fuel or hybrid/EV energy) and the overlay renders a neutral
     resource bar making no ICE-vs-EV claim. Optional; the consumer clamps to `[0, 1]`.
 
+  - **`laps_behind_leader`** (integer ≥ 0) — whole laps this vehicle is behind the
+    **overall** leader (`position` 1). `0`, null, or absent means on the lead lap. A time
+    gap cannot say "one lap down", so this field carries the lap deficit and a tower shows
+    it (`+1 LAP`, `+2 LAPS`) in place of the `gap_to_leader` time whenever it is 1 or more.
+    A lapped vehicle's `gap_to_leader` **SHOULD** still carry its real time gap in seconds
+    (a grouped tower subtracts it, see below) and **MUST NOT** carry a `0` placeholder —
+    `0` means the leader.
+  - **`laps_behind_ahead`** (integer ≥ 0) — whole laps behind the car immediately
+    **ahead** in overall running order (`position` − 1): the lap-deficit companion of
+    `interval_ahead`, shown in the interval column in place of the time when it is 1 or
+    more. `0`, null, or absent means on the same lap as the car ahead; null or absent for
+    the leader.
+  - **`laps_behind_class_leader`** (integer ≥ 0) — whole laps behind the leader of the
+    vehicle's **own** `vehicle_class`. `0`, null, or absent means on the class lead lap.
+    In a multi-class race a class leader is routinely laps down overall while leading its
+    class, so a grouped-by-class tower needs this field for its gap-to-class-leader cell.
+    It is **not** re-derivable from `laps_behind_leader`: the difference of two whole-lap
+    counts can be off by one lap, so unlike the gap-to-class-leader *time* (exact
+    subtraction, above) the class lap deficit is a producer fact.
+
+  All three lap-deficit fields are race concepts; a producer omits them in a lap-timed
+  (qualifying / practice) session. Consumers read them, never derive them, and treat a
+  value that is not a number ≥ 1 as "on the same lap".
+
   These six per-vehicle metrics are consumed by the LMU-style richer standings tower — an
   **interval column** beside the gap-to-leader, plus config-gated **pit / tire / fuel**
   indicators a broadcaster enables for endurance density. They are kept **flat on

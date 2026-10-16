@@ -277,11 +277,57 @@ function testTowerMetricsFixturesValidateAgainstSchema() {
   );
 }
 
+// The lap-deficit fields (ADR 0012) — `laps_behind_leader`, `laps_behind_ahead`,
+// `laps_behind_class_leader` — are optional integers >= 0. The lapped fixture carries all
+// three and must validate; a payload with none must still validate; and the schema must
+// REJECT a negative, fractional, or string deficit, so a producer's bad value fails the
+// harness rather than slipping through `additionalProperties: true` untyped.
+function testLapDeficitFieldsValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+  const LAP_KEYS = ["laps_behind_leader", "laps_behind_ahead", "laps_behind_class_leader"];
+
+  const lapped = load("race-tower-lapped.json");
+  assert(
+    lapped.vehicles.some((v) => v.laps_behind_leader >= 1 && v.laps_behind_class_leader === 0) &&
+      lapped.vehicles.some((v) => v.laps_behind_class_leader >= 1),
+    "race-tower-lapped.json must carry a car lapped overall but on its class lead lap, and a car laps down on its class leader"
+  );
+  let result = validator.validate(lapped);
+  assert(result.valid, `expected race-tower-lapped.json to validate, got: ${result.errors.join("; ")}`);
+
+  const none = load("race-tower-metrics.json");
+  assert(
+    none.vehicles.every((v) => LAP_KEYS.every((k) => !(k in v))),
+    "race-tower-metrics.json is the no-lap-fields base and must NOT carry any laps_behind_* field"
+  );
+  result = validator.validate(none);
+  assert(result.valid, `expected a payload with NO lap-deficit fields to still validate, got: ${result.errors.join("; ")}`);
+
+  for (const key of LAP_KEYS) {
+    for (const bad of [-1, 1.5, "1"]) {
+      const payload = JSON.parse(JSON.stringify(lapped));
+      payload.vehicles[2][key] = bad;
+      result = validator.validate(payload);
+      assert(!result.valid, `expected ${key}: ${JSON.stringify(bad)} to FAIL schema validation, but it validated`);
+      assert(
+        result.errors.some((e) => e.includes(`/vehicles/2/${key}`)),
+        `expected the ${key}: ${JSON.stringify(bad)} error to name /vehicles/2/${key}, got: ${result.errors.join("; ")}`
+      );
+    }
+  }
+
+  console.log(
+    "PASS: lap-deficit fields (laps_behind_leader/ahead/class_leader) validate against schema.json, a payload with none still validates, and negative/fractional/string values are rejected (ADR 0012)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
   testVehicleIdentityFieldsValidateAgainstSchema();
   testTowerMetricsFixturesValidateAgainstSchema();
+  testLapDeficitFieldsValidateAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");
