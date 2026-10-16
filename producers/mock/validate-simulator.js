@@ -89,7 +89,8 @@ for (let i = 0; i < TICKS; i++) {
   prevMode = payload.mode;
   if (payload.mode === "race" && gridViolations.length < 10) {
     const last = payload.vehicles.reduce((a, b) => (b.position > a.position ? b : a));
-    if (raceTicks === 0 && !(last.gap_to_leader < START_SPREAD_MAX_SECONDS)) {
+    const spread = last.gap_to_leader;
+    if (raceTicks === 0 && !(typeof spread === "number" && spread < START_SPREAD_MAX_SECONDS)) {
       gridViolations.push(
         `tick ${i}: at the green flag the last car (${last.driver_name}) is ${last.gap_to_leader}s behind the leader`,
       );
