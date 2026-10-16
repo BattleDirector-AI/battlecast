@@ -64,6 +64,29 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     on its class lead lap still shows a time, however many laps down overall both are. The tower
     never derives a class lap deficit from the overall lap fields. Decision record:
     `docs/decisions/0012-lap-deficit-fields.md`.
+40. **Lap-time flash.** When a car completes a lap, its gap cell shows the new lap time in place
+    of its gap for **5 seconds**, then reverts to the gap. "Completed a lap" means: the car's
+    `slot_id` was in the previous snapshot this tower rendered, and its `last_lap` is now a finite
+    number > 0 that differs from the previous snapshot's value (including a previous null or absent
+    value — the car's first completed lap). The tower compares one car's own field across
+    snapshots; it never compares lap times between cars. No flash fires on the first snapshot after
+    the tower mounts, for a car that was not in the previous snapshot, for a re-sent unchanged
+    value, or when `last_lap` becomes null. The flash renders `last_lap` the way the lap-timed
+    leader cell does (`1:31.950`), applies to every row including the leader's (whose `LEADER` or
+    pole-lap cell it covers), in every mode and both layouts, and leaves the interval column and
+    every other cell unchanged. A further lap completed during a flash shows the newer time and
+    restarts the 5 seconds in place. It holds for the full 5 seconds whether or not more snapshots
+    arrive.
+41. **Flash tier from producer flags.** Each flash carries a tier taken from the car's producer-sent
+    `notable` flags in the snapshot that fired it, by precedence: `session_best_lap` → **session
+    best**, else `class_best_lap` → **class best**, else `personal_best_lap` → **personal best**,
+    else **plain**. While it flashes, the gap cell carries `data-lap-flash` = `session-best` |
+    `class-best` | `personal-best` | `none`, and carries no `data-lap-flash` otherwise. Session and class best are styled
+    purple and personal best green; plain uses the normal gap styling. The tier stays fixed for the
+    whole flash even if later snapshots change the flags. The tower never decides a tier by
+    comparing lap times.
+42. **The flash is a tower metric toggle.** `towerMetrics.lapFlash` (default **on**) gates rule 40;
+    off, no row ever flashes. Decision record: `docs/decisions/0014-tower-lap-time-flash.md`.
 
 ### Battle box (`/battle`)
 
