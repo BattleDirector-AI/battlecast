@@ -60,7 +60,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
     | `classDisplay` | tower | inline vs grouped multi-class layout |
-    | `towerMetrics` | tower | `{interval,pit,tire,fuel}` indicator toggles (interval on, rest off by default) |
+    | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
     | `maxRows`, `cycle` | tower | overflow row cap + pinned-rows/cycling-window config (see `tower-overflow.md`) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
 
@@ -123,6 +123,16 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     (`0`–`30`, step `1`) showing the current value, offered for `battle` only. Per rule 16 it carries
     its own help copy, and per rule 19 the coverage tests then require it. Like `plateAlpha`
     (rule 24), withholding the control from the other widgets never rewrites a stored value.
+
+### Tower lap-time flash toggle
+
+38. **`towerMetrics.lapFlash`** (default `true`) turns the tower's lap-time flash
+    (`widgets.md` rules 40–42) on or off. Normalization keeps a boolean and replaces anything else
+    with the default, like the other `towerMetrics` toggles. The editor offers it in the tower's
+    "tower metrics shown" group beside the other toggles, with its own help copy (rules 16, 19). On
+    the standalone `/tower` route `?metrics=` matches toggle names case-insensitively, so
+    `?metrics=interval,lapflash` turns it on and a `?metrics=` list that omits it turns it off;
+    with no `?metrics=` the default (on) applies.
 
 ### Class color overrides
 

@@ -29,9 +29,9 @@
   // GridPage / ResultsPage.
   const classFilter = params.get('class')
 
-  // Richer-tower metrics knob for the standalone route: `?metrics=interval,pit,tire,fuel`
-  // (listed = on, rest off). Absent falls back to the same default as /all — interval on,
-  // strategy cluster off. Mirrors the 0.6.0 `?unit=mph` standalone knob.
+  // Richer-tower metrics knob for the standalone route: `?metrics=interval,pit,tire,fuel,lapflash`
+  // (listed = on, rest off; case-insensitive). Absent falls back to the same default as
+  // /all — interval and the lap-time flash on, strategy cluster off. Mirrors the 0.6.0 `?unit=mph` standalone knob.
   const metrics = parseTowerMetricsParam(params.get('metrics')) ?? TOWER_METRICS_DEFAULTS
 
   // Tower overflow — where the slot comes from (tower-overflow rules 18–19, ADR 0005).
