@@ -47,8 +47,22 @@ const GRID = [
   { number: 14, driver: "Alonso", classKey: "gt3", make: "Ferrari", model: "296 GT3" },
   { number: 23, driver: "Albon", classKey: "gt3", make: "Porsche", model: "911 GT3 R" },
   { number: 22, driver: "Tsunoda", classKey: "gt3", make: "BMW", model: "M4 GT3" },
-  { number: 18, driver: "Stroll", classKey: "gt3", make: "Aston Martin", model: "Vantage GT3" },
+  { number: 18, driver: "Stroll", classKey: "gt3", make: "Aston Martin", model: "Vantage GT3", backmarker: true },
 ];
+
+// In the RACE the `backmarker` car runs this many seconds a lap off its class pace (a car
+// nursing a problem), so the overall leader laps it inside the default race length and the
+// lapped-car tower path (laps_behind_*, ADR 0012) is exercised live. Qualifying is
+// unaffected, so its grid slot and timing stay realistic. 40s on GT3's 107s base keeps its
+// laps at ~1.37x (~1.43x with pace noise, a little more with the 2s sim-step quantization)
+// inside validate-simulator's 1.5x realism band — a thin margin, so don't raise it.
+// Being lapped by its own CLASS leader takes longer (~350s), so the grouped tower's
+// class-lap readout needs RACE_SECONDS >= ~400.
+const BACKMARKER_PENALTY = 40;
+// Starting-grid spread, as a fraction of a lap across the whole field. Small, like a
+// real grid: a wide spread put the back of the field more than a lap down by distance
+// before the green flag, i.e. "lapped" at the start.
+const GRID_SPREAD = 0.2;
 
 const LAP_UNIT = 1; // one arbitrary "distance around the lap" unit
 const CLOSE_BATTLE_WINDOW = 1.5; // seconds — matches the design system's intensity formula
@@ -338,6 +352,32 @@ function intervalAheadMap(order, byLap) {
   return map;
 }
 
+/**
+ * Whole laps each car is behind the overall leader, the car immediately ahead, and its
+ * own class leader, keyed by slot_id — the spec-v1 `laps_behind_leader` /
+ * `laps_behind_ahead` / `laps_behind_class_leader` fields (ADR 0012). Measured on the
+ * same raw `distance` the running order and the time gaps are computed from, so a car
+ * the sim reports as more than a lap back by time is also reported a lap down. Only
+ * meaningful in a distance-classified phase (race / results); the leader has no one
+ * ahead (null).
+ */
+function lapDeficitMap(order) {
+  const map = new Map();
+  if (order.length === 0) return map;
+  const lapsBetween = (front, back) => Math.max(0, Math.floor((front.distance - back.distance) / LAP_UNIT));
+  const leader = order[0];
+  const classLeaders = new Map();
+  order.forEach((car, i) => {
+    if (!classLeaders.has(car.vehicle_class)) classLeaders.set(car.vehicle_class, car);
+    map.set(car.slot_id, {
+      laps_behind_leader: lapsBetween(leader, car),
+      laps_behind_ahead: i === 0 ? null : lapsBetween(order[i - 1], car),
+      laps_behind_class_leader: lapsBetween(classLeaders.get(car.vehicle_class), car),
+    });
+  });
+  return map;
+}
+
 /** A fresh, session-start field: no timing yet, staggered on the grid. `startClock`
  *  seeds each car's lap-timing baseline to the CURRENT sim clock — critical when the
  *  session loops back to qualifying at a non-zero clock, or the first completed lap
@@ -347,7 +387,7 @@ function makeCars(startClock = 0) {
   return GRID.map((entry, i) => {
     const skillOffset = ((i * 37) % 11) / 10 - 0.5; // deterministic spread, -0.5..+0.5s
     // Stagger the starting grid so the field doesn't begin perfectly bunched.
-    const distance = -i * (LAP_UNIT / GRID.length) * 2;
+    const distance = -i * (LAP_UNIT / GRID.length) * GRID_SPREAD;
     return {
       slot_id: `car-${entry.number}`,
       driver_name: entry.driver,
@@ -355,7 +395,9 @@ function makeCars(startClock = 0) {
       car_number: String(entry.number),
       make: entry.make,
       model: entry.model,
+      basePace: classPace(entry.classKey) + skillOffset,
       pace: classPace(entry.classKey) + skillOffset,
+      backmarker: entry.backmarker === true,
       noiseFactor: 0,
       distance,
       // Measure the first lap from the car's own staggered start (not 0), so the
@@ -508,7 +550,8 @@ function createSimulator(config = {}) {
     const n = cars.length;
     frozenOrder.forEach((slotId, i) => {
       const car = cars.find((c) => c.slot_id === slotId);
-      car.distance = -i * (LAP_UNIT / n) * 2;
+      car.distance = -i * (LAP_UNIT / n) * GRID_SPREAD;
+      car.pace = car.basePace + (car.backmarker ? BACKMARKER_PENALTY : 0);
       car.lapStartDistance = car.distance;
       car.lastLapClock = clock;
       car.last_lap = null;
@@ -691,6 +734,8 @@ function createSimulator(config = {}) {
     const gapToLeader = gapToLeaderMap(order, byLap);
     // Interval to the car immediately ahead (slice 3 of #20) — same phase treatment.
     const intervalAhead = intervalAheadMap(order, byLap);
+    // Lap deficits (ADR 0012) — a race concept, so only in the distance-classified phases.
+    const lapDeficits = byLap ? null : lapDeficitMap(order);
 
     const { subjectCar, relationship } = running ? runningDirector(order) : staticDirector(order);
 
@@ -721,6 +766,7 @@ function createSimulator(config = {}) {
           // pit stops never show in qualifying, and the additive-absent path stays
           // exercised live.
           interval_ahead: intervalAhead.get(car.slot_id) ?? null,
+          ...(lapDeficits ? lapDeficits.get(car.slot_id) : {}),
           ...(running ? { tire_compound: COMPOUNDS[car.tireCompoundIndex] } : {}),
           ...(isRace
             ? {
