@@ -87,6 +87,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     comparing lap times.
 42. **The flash is a tower metric toggle.** `towerMetrics.lapFlash` (default **on**) gates rule 40;
     off, no row ever flashes. Decision record: `docs/decisions/0014-tower-lap-time-flash.md`.
+42a. **The gap cell keeps its width.** The gap cell reserves room for an 8-character monospaced
+    readout (`1:31.950`, `+205.000`, `+12 LAPS`) and never shrinks, so swapping a gap for a flashed
+    lap time, `LEADER`, or a lap deficit does not move the name or the cells to its right.
 
 ### Battle box (`/battle`)
 
