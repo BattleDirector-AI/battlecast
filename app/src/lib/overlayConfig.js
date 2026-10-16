@@ -57,7 +57,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     battle: {
@@ -68,7 +68,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     logos: {
@@ -79,7 +79,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
@@ -93,7 +93,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
@@ -109,7 +109,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
@@ -126,7 +126,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
@@ -147,7 +147,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
   },
@@ -381,6 +381,32 @@ export const PLATE_WIDGET_KEYS = Object.freeze([
   'onboard',
 ])
 
+/** Per-widget text size presets (overlay-config.md rules 39-41, ADR 0015): the factor
+ *  every type-size token is scaled by. Exact-case keys; anything else is `normal`. */
+export const TEXT_SCALES = Object.freeze({ normal: 1, large: 1.15, larger: 1.3 })
+export const TEXT_SCALE_PRESETS = Object.freeze(Object.keys(TEXT_SCALES))
+
+/** Widgets that render text and so get a text-size control — every widget but `logos`. */
+export const TEXT_WIDGET_KEYS = Object.freeze([
+  'tower',
+  'battle',
+  'driver',
+  'qualifying',
+  'racecontrol',
+  'onboard',
+])
+
+/** Whether the config UI offers a text-size control for this widget. Withholding it is a
+ *  UI decision only — `textScale` stays normalized onto every widget either way. */
+export function rendersText(key) {
+  return TEXT_WIDGET_KEYS.includes(key)
+}
+
+/** The factor for a (normalized) preset; 1 for anything unknown. */
+export function textScaleFactor(preset) {
+  return Object.prototype.hasOwnProperty.call(TEXT_SCALES, preset) ? TEXT_SCALES[preset] : 1
+}
+
 /** Whether a widget renders a background plate (so the config UI surfaces its
  *  plate-opacity knob). Withholding the control is a UI decision only — `plateAlpha`
  *  stays normalized onto every widget either way. */
@@ -586,6 +612,11 @@ export function normalizeConfig(raw) {
         w.idleGraceSeconds,
         d.idleGraceSeconds ?? BATTLE_DEFAULTS.idleGraceSeconds,
       ),
+      // #188 per-widget text size preset — read by /all for the text-rendering widgets.
+      textScale:
+        typeof w.textScale === 'string' && Object.prototype.hasOwnProperty.call(TEXT_SCALES, w.textScale)
+          ? w.textScale
+          : d.textScale ?? 'normal',
     }
   }
   out.widgets = normalizedWidgets

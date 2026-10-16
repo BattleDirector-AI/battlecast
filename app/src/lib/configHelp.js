@@ -89,6 +89,11 @@ export const FIELD_HELP = Object.freeze({
     'When a battle ends, keep showing it for this many seconds before the box switches to clear ' +
     'air, so a fight that drifts in and out of range doesn’t make the box flicker. A camera cut ' +
     'to another car always updates it at once. 0 turns the hold off.',
+  textScale:
+    'Make this widget’s text bigger: normal, large (115%) or larger (130%). Picking a size also ' +
+    'widens the widget by the same amount, so its columns keep their room — check it still fits ' +
+    'beside its neighbours. Choosing normal again shrinks it back (a widget pushed against the ' +
+    'canvas edge may need nudging back into place).',
   plateAlpha:
     'How solid the dark panel behind this widget looks. Turn it down to let busy footage show ' +
     'through — the names, numbers, bars and outlines drawn on top stay at full strength either ' +
