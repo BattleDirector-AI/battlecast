@@ -130,7 +130,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 38. **`towerMetrics.lapFlash`** (default `true`) turns the tower's lap-time flash
     (`widgets.md` rules 40–42) on or off. Normalization keeps a boolean and replaces anything else
     with the default, like the other `towerMetrics` toggles. The editor offers it in the tower's
-    "tower metrics shown" group beside the other toggles, with its own help copy (rules 16, 19). On
+    "tower metrics shown" group beside the other toggles, labelled **lap flash** (not the raw key),
+    with its own help copy (rules 16, 19). On
     the standalone `/tower` route `?metrics=` matches toggle names case-insensitively, so
     `?metrics=interval,lapflash` turns it on and a `?metrics=` list that omits it turns it off;
     with no `?metrics=` the default (on) applies.
