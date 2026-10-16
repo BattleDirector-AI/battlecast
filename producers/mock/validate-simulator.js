@@ -44,6 +44,12 @@ const lapBandViolations = [];
 // last_lap persists for the ~50 ticks between a car's laps, so dedup per
 // (car, lap) to keep the report from filling with copies of one bad lap.
 const seenLapKeys = new Set();
+// Lap-deficit fields (ADR 0012): the race phase must lap at least one backmarker, carry
+// the three laps_behind_* fields as integers >= 0, and never send a lapped car's
+// gap_to_leader as a 0 placeholder.
+let lappedSeen = false;
+const lapFieldViolations = [];
+const isLapCount = (n) => Number.isInteger(n) && n >= 0;
 
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
@@ -67,6 +73,24 @@ for (let i = 0; i < TICKS; i++) {
           `tick ${i} (${payload.mode}): ${v.driver_name} [${v.vehicle_class}] last_lap=${v.last_lap.toFixed(1)}s ` +
             `= ${(v.last_lap / base).toFixed(2)}x base ${base}s`,
         );
+      }
+    }
+  }
+
+  if (payload.mode === "race") {
+    for (const v of payload.vehicles) {
+      const problems = [];
+      if (!isLapCount(v.laps_behind_leader)) problems.push(`laps_behind_leader=${v.laps_behind_leader}`);
+      if (!isLapCount(v.laps_behind_class_leader)) {
+        problems.push(`laps_behind_class_leader=${v.laps_behind_class_leader}`);
+      }
+      if (v.position > 1 && !isLapCount(v.laps_behind_ahead)) problems.push(`laps_behind_ahead=${v.laps_behind_ahead}`);
+      if (v.laps_behind_leader >= 1) {
+        lappedSeen = true;
+        if (v.gap_to_leader === 0) problems.push("lapped car with gap_to_leader 0 placeholder");
+      }
+      if (problems.length > 0 && lapFieldViolations.length < 10) {
+        lapFieldViolations.push(`tick ${i}: ${v.driver_name} P${v.position} — ${problems.join(", ")}`);
       }
     }
   }
@@ -109,7 +133,19 @@ if (lapBandViolations.length > 0) {
   process.exit(1);
 }
 
+if (lapFieldViolations.length > 0) {
+  console.error("\nRace-phase lap-deficit fields missing or invalid (ADR 0012):");
+  for (const v of lapFieldViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+if (!lappedSeen) {
+  console.error("\nThe race phase never lapped a car (no laps_behind_leader >= 1) — the lapped-car case is not exercised.");
+  process.exit(1);
+}
+
 console.log(`All ${TICKS} simulated ticks valid against spec/v1 required-field contract.`);
 console.log(`Phases covered: ${PHASES.map((m) => `${m} (${ticksByMode.get(m)} ticks)`).join(", ")}.`);
 console.log("Qualifying surfaced a notable.class_best_lap flag (class-best edge exercised).");
 console.log(`Lap times within [${LAP_MIN_FACTOR}x, ${LAP_MAX_FACTOR}x] of class base pace.`);
+console.log("Race phase lapped a backmarker and carried valid laps_behind_* fields (ADR 0012).");
