@@ -49,6 +49,14 @@ const seenLapKeys = new Set();
 // gap_to_leader as a 0 placeholder.
 let lappedSeen = false;
 const lapFieldViolations = [];
+// Starting grid realism (#217): a real grid packs 14 cars into ~100 m of a ~5 km lap, so at
+// the green flag the whole field sits within a couple of seconds of the leader, and nobody
+// can be a lap down during the opening lap.
+const START_SPREAD_MAX_SECONDS = 2.5;
+const OPENING_LAP_SECONDS = 60;
+let raceTicks = 0;
+let prevMode = null;
+const gridViolations = [];
 const isLapCount = (n) => Number.isInteger(n) && n >= 0;
 
 for (let i = 0; i < TICKS; i++) {
@@ -74,6 +82,21 @@ for (let i = 0; i < TICKS; i++) {
             `= ${(v.last_lap / base).toFixed(2)}x base ${base}s`,
         );
       }
+    }
+  }
+
+  raceTicks = payload.mode === "race" ? (prevMode === "race" ? raceTicks + 1 : 0) : 0;
+  prevMode = payload.mode;
+  if (payload.mode === "race" && gridViolations.length < 10) {
+    const last = payload.vehicles.reduce((a, b) => (b.position > a.position ? b : a));
+    if (raceTicks === 0 && !(last.gap_to_leader < START_SPREAD_MAX_SECONDS)) {
+      gridViolations.push(
+        `tick ${i}: at the green flag the last car (${last.driver_name}) is ${last.gap_to_leader}s behind the leader`,
+      );
+    }
+    if (raceTicks * DT_SECONDS < OPENING_LAP_SECONDS) {
+      const lapped = payload.vehicles.find((v) => v.laps_behind_leader >= 1);
+      if (lapped) gridViolations.push(`tick ${i}: ${lapped.driver_name} is a lap down ${raceTicks * DT_SECONDS}s into the race`);
     }
   }
 
@@ -139,6 +162,13 @@ if (lapFieldViolations.length > 0) {
   process.exit(1);
 }
 
+if (gridViolations.length > 0) {
+  console.error(`
+Unrealistic starting grid (#217; leader-to-last must be < ${START_SPREAD_MAX_SECONDS}s, nobody lapped in the opening lap):`);
+  for (const v of gridViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
 if (!lappedSeen) {
   console.error("\nThe race phase never lapped a car (no laps_behind_leader >= 1) — the lapped-car case is not exercised.");
   process.exit(1);
@@ -148,4 +178,5 @@ console.log(`All ${TICKS} simulated ticks valid against spec/v1 required-field c
 console.log(`Phases covered: ${PHASES.map((m) => `${m} (${ticksByMode.get(m)} ticks)`).join(", ")}.`);
 console.log("Qualifying surfaced a notable.class_best_lap flag (class-best edge exercised).");
 console.log(`Lap times within [${LAP_MIN_FACTOR}x, ${LAP_MAX_FACTOR}x] of class base pace.`);
+console.log(`Starting grid within ${START_SPREAD_MAX_SECONDS}s, nobody lapped in the opening lap (#217).`);
 console.log("Race phase lapped a backmarker and carried valid laps_behind_* fields (ADR 0012).");
