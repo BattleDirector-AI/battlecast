@@ -53,6 +53,28 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 12. **Idle behavior splits by cause.** Outside a racing mode (qualifying/practice/takeover) the
     battle box renders **nothing** at all. Within a racing mode but with no adjacent car to fight, it
     renders an **explicit placeholder** (e.g. "CLEAR AIR"). Both count as idle for `hideWhenIdle`.
+36. **Caution hides the battle box.** While the producer-sent `session.full_course_yellow` or
+    `session.safety_car` is `true`, the battle box renders **nothing**, exactly as outside a racing
+    mode (rule 12), whatever `relationship` holds, and counts as idle for `hideWhenIdle`. A local
+    `flag: "yellow"` alone does not hide it, and an absent `session` or absent/false caution fields
+    leave the box to rules 11–12 and 37. When caution clears, the box renders the current snapshot
+    at once.
+37. **Exit grace.** When the battle goes from active (rule 11) to idle — both gaps null — while the
+    subject's `slot_id` is unchanged, the box keeps rendering that **last active battle**: its gaps,
+    ahead/behind names, and intensity frozen at the last snapshot where it was active, for
+    `idleGraceSeconds` (default 5; `overlay-config.md` rule 36). It is not idle during the grace. If
+    the battle becomes active again within the grace, the box renders the live numbers and the exit
+    is cancelled; the next active → idle transition starts a fresh full grace. When the grace runs
+    out the box renders the clear-air placeholder (rule 12). `idleGraceSeconds: 0` turns the hold
+    off — the placeholder renders on the first idle snapshot.
+38. **The grace never outlives its subject.** A change of `subject.slot_id` ends any running grace
+    at once: the box renders the new subject's own snapshot — its battle if active, the placeholder
+    if not — and never shows the previous subject's frozen numbers against the new subject. Caution
+    (rule 36) and leaving a racing mode (rule 12) likewise end the grace at once.
+39. **Auto-hide follows the grace.** With `hideWhenIdle` on, the battle box stays rendered through
+    the grace (rule 37) and drops out only when the grace runs out, the subject changes to an idle
+    one (rule 38), or caution or a non-racing mode begins. Decision record:
+    `docs/decisions/0013-battle-box-exit-grace.md`.
 
 ### Subject-driven lower-thirds (`/driver` #21, `/qualifying` #22)
 
