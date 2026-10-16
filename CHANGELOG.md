@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-16
+
 ### Added
 
 - **The tower shows lapped cars as laps down, not as a bogus time (#203, ADR 0012).** Spec v1
