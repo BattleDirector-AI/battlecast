@@ -38,6 +38,14 @@
     if (!m) return false
     return !NON_RACING_MODES.has(m)
   }
+
+  // --- Caution gate (widgets.md rule 36) ---------------------------------------
+  // Under a full-course yellow or a safety car nobody is racing for position, so the box
+  // renders nothing, exactly as outside a racing mode. Both fields are producer-owned
+  // booleans; absent/false means no caution. A local `flag: "yellow"` does not count.
+  export function isCaution(session) {
+    return session?.full_course_yellow === true || session?.safety_car === true
+  }
 </script>
 
 <script>
@@ -45,9 +53,16 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import IntensityMeter from '../../design/IntensityMeter.svelte'
 
-  let { subject = {}, relationship = {}, vehicles = [], mode = null, classColors = {} } = $props()
+  let {
+    subject = {},
+    relationship = {},
+    vehicles = [],
+    mode = null,
+    session = null,
+    classColors = {},
+  } = $props()
 
-  const racing = $derived(isRacingMode(mode))
+  const racing = $derived(isRacingMode(mode) && !isCaution(session))
   const active = $derived(isActiveBattle(relationship))
   const intensity = $derived(
     typeof relationship?.battle_intensity === 'number' ? relationship.battle_intensity : 0

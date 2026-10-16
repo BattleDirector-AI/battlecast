@@ -85,6 +85,15 @@ export const FIELD_HELP = Object.freeze({
   hideWhenIdle:
     'Drop this widget out of the overlay completely while it has nothing to show, instead of ' +
     'leaving an empty panel on screen. Only offered for widgets that can be idle.',
+  idleGraceSeconds:
+    'When a battle ends, keep showing it for this many seconds before the box switches to clear ' +
+    'air, so a fight that drifts in and out of range doesn’t make the box flicker. A camera cut ' +
+    'to another car always updates it at once. 0 turns the hold off.',
+  textScale:
+    'Make this widget’s text bigger: normal, large (115%) or larger (130%). Picking a size also ' +
+    'widens the widget by the same amount, so its columns keep their room — check it still fits ' +
+    'beside its neighbours. Choosing normal again shrinks it back (a widget pushed against the ' +
+    'canvas edge may need nudging back into place).',
   plateAlpha:
     'How solid the dark panel behind this widget looks. Turn it down to let busy footage show ' +
     'through — the names, numbers, bars and outlines drawn on top stay at full strength either ' +
@@ -195,6 +204,10 @@ export const TOWER_METRIC_HELP = Object.freeze({
   fuel:
     'A fuel (or hybrid energy) level bar, for endurance broadcasts. Hidden in qualifying and ' +
     'practice.',
+  lapFlash:
+    'When a car completes a lap, its gap cell shows the new lap time for 5 seconds, then goes ' +
+    'back to the gap. Purple marks a session or class best and green a personal best, as the ' +
+    'producer flags them.',
 })
 
 /** Per-field help for the on-board HUD's "driver info shown" group. */

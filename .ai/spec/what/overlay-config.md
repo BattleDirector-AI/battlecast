@@ -55,11 +55,13 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     |---|---|---|
     | `visible`, `x/y/w/h/z` | all | geometry + visibility |
     | `plateAlpha` | plated widgets | background-plate opacity (0.82 default; the plate only, not text/borders) |
+    | `textScale` | text-rendering widgets (all but logos) | `normal` / `large` / `larger` text size preset (rules 39–41) |
     | `hideWhenIdle` | supporting widgets (battle, logos, driver, qualifying) | auto-hide when idle |
+    | `idleGraceSeconds` | battle | exit grace before an ended battle goes idle (rule 36) |
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
     | `classDisplay` | tower | inline vs grouped multi-class layout |
-    | `towerMetrics` | tower | `{interval,pit,tire,fuel}` indicator toggles (interval on, rest off by default) |
+    | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
     | `maxRows`, `cycle` | tower | overflow row cap + pinned-rows/cycling-window config (see `tower-overflow.md`) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
 
@@ -110,6 +112,76 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     profile carrying a hand-authored `plateAlpha` for a non-plate widget keeps that value through a
     load → edit → save cycle: the editor never rewrites a knob it declines to show, and rule 6's
     forward-compat guarantee is unaffected.
+
+### Battle box exit grace
+
+36. **`idleGraceSeconds`** (battle; default `5`) is how long the battle box holds an ended battle
+    before it goes idle (`widgets.md` rules 37–39). Normalization keeps a finite number clamped to
+    `[0, 30]` and replaces anything else (absent, null, a string, `NaN`) with the default `5`; `0`
+    turns the hold off. It is read from the loaded profile by both `/all` and the standalone
+    `/battle` route.
+37. **The editor exposes it in the battle row** — rule 14's control surface — as a number input
+    (`0`–`30`, step `1`) showing the current value, offered for `battle` only. Per rule 16 it carries
+    its own help copy, and per rule 19 the coverage tests then require it. Like `plateAlpha`
+    (rule 24), withholding the control from the other widgets never rewrites a stored value.
+
+### Tower lap-time flash toggle
+
+38. **`towerMetrics.lapFlash`** (default `true`) turns the tower's lap-time flash
+    (`widgets.md` rules 40–42) on or off. Normalization keeps a boolean and replaces anything else
+    with the default, like the other `towerMetrics` toggles. The editor offers it in the tower's
+    "tower metrics shown" group beside the other toggles, labelled **lap flash** (not the raw key),
+    with its own help copy (rules 16, 19). On
+    the standalone `/tower` route `?metrics=` matches toggle names case-insensitively, so
+    `?metrics=interval,lapflash` turns it on and a `?metrics=` list that omits it turns it off;
+    with no `?metrics=` the default (on) applies.
+
+### Per-widget text size
+
+39. **`textScale`** is a per-widget text-size preset: `normal` (×1.00, the default), `large`
+    (×1.15), or `larger` (×1.30). Normalization keeps one of those three strings and replaces
+    anything else with `normal`. In `/all`, a widget whose preset is not `normal` has every
+    type-size token (`--bc-size-*`, `app/src/design/tokens/typography.css`) redeclared on its slot
+    at the token's base value times the factor, so all of that widget's text grows together and no
+    other widget's text changes. The preset changes text size only: spacing, row heights, the
+    plate, and the widget's configured geometry are untouched, and `normal` renders exactly as a
+    profile without the knob. Like `plateAlpha`, it is applied by `/all` only; standalone routes
+    render at `normal` size.
+40. **The editor exposes it in the widget row** — rule 14's control surface — as a select of the
+    three presets, for each text-rendering widget: `tower`, `battle`, `driver`, `qualifying`,
+    `racecontrol`, `onboard`. `logos` renders no text and gets no control. Per rule 16 it carries
+    help copy, per rule 19 the coverage tests require it, and like `plateAlpha` (rule 24)
+    withholding the control never rewrites a stored value.
+41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
+    widget leaves `normal`, the editor records its `normal` `x` and `w` on the widget as
+    `textScaleOrigin: { x, w }`. At a bigger preset the widget's `x` is the origin's `x` and its
+    `w` is the origin's `w` × the factor, rounded to a whole pixel — the default tower goes 380 →
+    437 at `large` → 494 at `larger` — always computed from the origin, never from the previous
+    preset's width, so no rounding drift builds up. The editor's usual keep-on-canvas clamp then
+    applies (it may move `x` left or cap `w` at the canvas width). Returning to `normal` restores
+    the origin's `x` and `w` exactly, whatever the clamp did at the bigger preset, and removes
+    `textScaleOrigin`; only if the canvas itself has since shrunk does the keep-on-canvas clamp
+    adjust the restored geometry. `y` and `h` are never changed by a preset.
+41a. **Editing geometry at a bigger preset moves the origin with it.** While a widget is off
+    `normal`, an editor change the broadcaster makes to its `x` (dragging or typing) sets the
+    origin's `x` to the new `x`, and a change to its `w` (resizing or typing) sets the origin's `w`
+    to the new `w` ÷ the factor, rounded, so going back to `normal` lands where the broadcaster put
+    it. Each part moves only when that part is the one being changed: a vertical-only drag, a
+    zero-pixel drag, a height-only resize, or an `x` the keep-on-canvas clamp moved in answer to a
+    new `w` leaves the origin's other part untouched.
+41b. **The origin is editor bookkeeping.** `textScaleOrigin` is saved with the profile so a
+    reload keeps the round trip exact. Normalization keeps it only as an object of two finite
+    numbers on a widget whose preset is not `normal`, and drops it otherwise. Rendering never reads
+    it: a widget renders at its stored `x` and `w`, so a hand-set `w` renders at exactly that `w`
+    whatever its preset. Decision record: `docs/decisions/0015-per-widget-text-size.md`.
+41c. **A preview drag or resize is one edit, from where it began to where it is now.** Rule 41a
+    compares the widget's geometry at each pointer step with its geometry when the pointer went
+    down, never with the previous step, and starts from the origin the widget had at that moment.
+    So a drag that leaves and comes back to where it started — horizontally, or a resize back to
+    its starting `w` — ends with the origin it began with, and returning to `normal` lands exactly
+    where it would have without the drag; a drag that ends somewhere else moves the origin as one
+    rule 41a edit from the drag's start to its end, whatever path the pointer took in between.
+    Releasing the pointer ends the edit: the next drag compares with where that one finished.
 
 ### Class color overrides
 

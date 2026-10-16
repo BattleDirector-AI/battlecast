@@ -115,7 +115,11 @@ optional v1.x per-vehicle notability fields the overlay renders (it never derive
 itself): `notable.class_best_lap` / `session_best_lap` (the car holding the fastest
 `best_lap` in its class / overall), `notable.personal_best_lap` (the car that just
 improved its own best on this tick), plus `target_lap` (the class-best time to beat)
-and `delta_to_target` (`best_lap` minus that target). All are optional and additive —
+and `delta_to_target` (`best_lap` minus that target). In the race and results phases it
+also emits the lap deficits `laps_behind_leader` / `laps_behind_ahead` /
+`laps_behind_class_leader` (ADR 0012), and one GT3 car (Stroll) picks up a problem 15 s into the race and runs as a slow backmarker
+in the race so the leader laps it partway through a default-length race (being lapped by its
+own class leader, for the grouped tower, needs `RACE_SECONDS` of about 500 or more). All are optional and additive —
 `schemaVersion` stays `"1"`. See `docs/decisions/0002-lower-third-widgets.md`.
 
 Implementation: [`simulate.js`](simulate.js).
