@@ -108,6 +108,12 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     is cancelled; the next active → idle transition starts a fresh full grace. When the grace runs
     out the box renders the clear-air placeholder (rule 12). `idleGraceSeconds: 0` turns the hold
     off — the placeholder renders on the first idle snapshot.
+37a. **Changing the grace length mid-hold.** Setting `idleGraceSeconds` to `0` while a hold is
+    running ends it at once: the next snapshot renders the clear-air placeholder. Any other new
+    value leaves the running hold on its original length and applies from the next exit.
+37b. **A subject without a `slot_id` gets no hold.** The grace is keyed to `subject.slot_id`
+    (rule 38), so when the subject has none, an active → idle transition renders the placeholder at
+    once.
 38. **The grace never outlives its subject.** A change of `subject.slot_id` ends any running grace
     at once: the box renders the new subject's own snapshot — its battle if active, the placeholder
     if not — and never shows the previous subject's frozen numbers against the new subject. Caution
