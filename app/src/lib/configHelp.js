@@ -85,6 +85,10 @@ export const FIELD_HELP = Object.freeze({
   hideWhenIdle:
     'Drop this widget out of the overlay completely while it has nothing to show, instead of ' +
     'leaving an empty panel on screen. Only offered for widgets that can be idle.',
+  idleGraceSeconds:
+    'When a battle ends, keep showing it for this many seconds before the box switches to clear ' +
+    'air, so a fight that drifts in and out of range doesn’t make the box flicker. A camera cut ' +
+    'to another car always updates it at once. 0 turns the hold off.',
   plateAlpha:
     'How solid the dark panel behind this widget looks. Turn it down to let busy footage show ' +
     'through — the names, numbers, bars and outlines drawn on top stay at full strength either ' +

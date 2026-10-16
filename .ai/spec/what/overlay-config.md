@@ -56,6 +56,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `visible`, `x/y/w/h/z` | all | geometry + visibility |
     | `plateAlpha` | plated widgets | background-plate opacity (0.82 default; the plate only, not text/borders) |
     | `hideWhenIdle` | supporting widgets (battle, logos, driver, qualifying) | auto-hide when idle |
+    | `idleGraceSeconds` | battle | exit grace before an ended battle goes idle (rule 36) |
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
     | `classDisplay` | tower | inline vs grouped multi-class layout |
@@ -110,6 +111,18 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     profile carrying a hand-authored `plateAlpha` for a non-plate widget keeps that value through a
     load → edit → save cycle: the editor never rewrites a knob it declines to show, and rule 6's
     forward-compat guarantee is unaffected.
+
+### Battle box exit grace
+
+36. **`idleGraceSeconds`** (battle; default `5`) is how long the battle box holds an ended battle
+    before it goes idle (`widgets.md` rules 37–39). Normalization keeps a finite number clamped to
+    `[0, 30]` and replaces anything else (absent, null, a string, `NaN`) with the default `5`; `0`
+    turns the hold off. It is read from the loaded profile by both `/all` and the standalone
+    `/battle` route.
+37. **The editor exposes it in the battle row** — rule 14's control surface — as a number input
+    (`0`–`30`, step `1`) showing the current value, offered for `battle` only. Per rule 16 it carries
+    its own help copy, and per rule 19 the coverage tests then require it. Like `plateAlpha`
+    (rule 24), withholding the control from the other widgets never rewrites a stored value.
 
 ### Class color overrides
 

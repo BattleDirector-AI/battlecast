@@ -9,6 +9,7 @@
   import { resolveSubject } from '../driver/DriverLowerThird.svelte'
   import { DEFAULT_CONFIG, normalizeConfig, resolveWidgets } from '../../lib/overlayConfig.js'
   import { isWidgetIdle } from '../../lib/widgetIdle.js'
+  import { createBattleGrace } from '../../lib/battleGrace.js'
 
   // `preview` (the /config editor) disables the on-board HUD's lower-third hand-off so
   // the HUD is always visible for positioning/configuring — the hand-off is a runtime
@@ -52,11 +53,26 @@
   // Broadcaster class-color overrides (rule 32, ADR 0010) — resolved once here and
   // threaded to every widget that renders a class chip or class bar.
   const classColors = $derived(normalized.theme.classColors)
+  // Battle box exit grace (widgets.md rules 37-39, ADR 0013). Lives here, outside the
+  // battle slot, so `hideWhenIdle` unmounting the slot cannot kill a running hold — and
+  // both the auto-hide filter and the box read the same post-grace snapshot.
+  const graceSeconds = $derived(normalized.widgets.battle?.idleGraceSeconds)
+  const battleGrace = createBattleGrace({
+    onExpire: () => {
+      battleSnapshot = battleGrace.resolve(snapshot, graceSeconds)
+    },
+  })
+  // Re-resolves on every snapshot; writable so a grace that runs out with no new snapshot
+  // can re-render from the latest one.
+  let battleSnapshot = $derived(battleGrace.resolve(snapshot, graceSeconds))
+  $effect(() => () => battleGrace.destroy())
+
+  const idleCtx = (key) => ({ snapshot: key === 'battle' ? battleSnapshot : snapshot, config: normalized })
   const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard'])
   const widgets = $derived(
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
-      .filter((w) => !(w.hideWhenIdle && isWidgetIdle(w.key, { snapshot, config: normalized }))),
+      .filter((w) => !(w.hideWhenIdle && isWidgetIdle(w.key, idleCtx(w.key)))),
   )
 
   // On-board HUD (#26) inputs, resolved once here since the HUD needs both the
@@ -102,10 +118,11 @@
         />
       {:else if w.key === 'battle'}
         <BattleBox
-          subject={snapshot?.subject ?? {}}
-          relationship={snapshot?.relationship ?? {}}
-          vehicles={snapshot?.vehicles ?? []}
-          mode={snapshot?.mode ?? null}
+          subject={battleSnapshot?.subject ?? {}}
+          relationship={battleSnapshot?.relationship ?? {}}
+          vehicles={battleSnapshot?.vehicles ?? []}
+          mode={battleSnapshot?.mode ?? null}
+          session={battleSnapshot?.session ?? null}
           {classColors}
         />
       {:else if w.key === 'logos'}

@@ -57,7 +57,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto', plateAlpha: 0.82,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     battle: {
@@ -68,7 +68,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto', plateAlpha: 0.82,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     logos: {
@@ -79,7 +79,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto', plateAlpha: 0.82,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
@@ -93,7 +93,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto', plateAlpha: 0.82,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
@@ -109,7 +109,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto', plateAlpha: 0.82,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
@@ -126,7 +126,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto', plateAlpha: 0.82,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
@@ -147,7 +147,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { name: true, number: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false },
-      maxRows: 'auto', plateAlpha: 0.82,
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
   },
@@ -191,6 +191,21 @@ export const QUALIFYING_DEFAULTS = Object.freeze({
 export const TOWER_DEFAULTS = Object.freeze({
   classDisplay: 'inline',
 })
+
+/** Battle box exit grace (overlay-config.md rule 36, ADR 0013): how long an ended battle
+ *  stays on screen before the box goes idle. Only the battle box reads it; normalized onto
+ *  every widget for a uniform shape. */
+export const BATTLE_DEFAULTS = Object.freeze({
+  idleGraceSeconds: 5,
+})
+export const IDLE_GRACE_MAX_SECONDS = 30
+
+/** A finite number clamped to [0, IDLE_GRACE_MAX_SECONDS]; anything else (a string
+ *  included — no coercion) is the fallback. */
+function normalizeGraceSeconds(value, fallback) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  return Math.max(0, Math.min(IDLE_GRACE_MAX_SECONDS, value))
+}
 
 /** Widgets whose class-aware layout the config UI surfaces a `classDisplay` control
  *  for. Just the standings tower today. */
@@ -563,6 +578,11 @@ export function normalizeConfig(raw) {
       // #117 per-widget plate opacity — clamped to [0,1], default 0.82. Read by the
       // plated widgets; applied by the render page as a --bc-plate-alpha CSS var.
       plateAlpha: clamp01(w.plateAlpha, d.plateAlpha ?? 0.82),
+      // #204 battle box exit grace — only the battle box reads it.
+      idleGraceSeconds: normalizeGraceSeconds(
+        w.idleGraceSeconds,
+        d.idleGraceSeconds ?? BATTLE_DEFAULTS.idleGraceSeconds,
+      ),
     }
   }
   out.widgets = normalizedWidgets

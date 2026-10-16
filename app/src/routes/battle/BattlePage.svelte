@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import BattleBox from './BattleBox.svelte'
+  import { createBattleGrace } from '../../lib/battleGrace.js'
   import { connect, resolveSrc } from '../../lib/sseClient.js'
   import { loadConfig, DEFAULT_CONFIG, normalizeConfig } from '../../lib/overlayConfig.js'
 
@@ -9,6 +10,16 @@
   // reads them from — resolved once at mount. The producer feed URL keeps resolving
   // from ?src= alone, unaffected.
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
+
+  // Exit grace (widgets.md rules 37-38, ADR 0013), its length from the same profile.
+  const graceSeconds = $derived(config.widgets.battle?.idleGraceSeconds)
+  const grace = createBattleGrace({
+    onExpire: () => {
+      shown = grace.resolve(snapshot, graceSeconds)
+    },
+  })
+  // Writable so a grace that runs out with no new snapshot can re-render from the latest.
+  let shown = $derived(grace.resolve(snapshot, graceSeconds))
 
   onMount(() => {
     let cancelled = false
@@ -23,16 +34,18 @@
     return () => {
       cancelled = true
       disconnect()
+      grace.destroy()
     }
   })
 </script>
 
-{#if snapshot}
+{#if shown}
   <BattleBox
-    subject={snapshot.subject}
-    relationship={snapshot.relationship}
-    vehicles={snapshot.vehicles ?? []}
-    mode={snapshot.mode ?? null}
+    subject={shown.subject}
+    relationship={shown.relationship}
+    vehicles={shown.vehicles ?? []}
+    mode={shown.mode ?? null}
+    session={shown.session ?? null}
     classColors={config.theme.classColors}
   />
 {:else}

@@ -691,6 +691,27 @@
                 <HelpTip text={FIELD_HELP.hideWhenIdle} label="hide when idle" testid="help-hide-idle-{key}" />
               </label>
             {/if}
+            {#if key === 'battle'}
+              <!-- #204: how long an ended battle stays up before the box goes idle, so a
+                   producer flickering at its battle threshold doesn't blink the box. -->
+              <label class="num">
+                exit grace secs
+                <HelpTip
+                  text={FIELD_HELP.idleGraceSeconds}
+                  label="exit grace seconds"
+                  testid="help-idle-grace-{key}"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  step="1"
+                  data-testid="idle-grace-{key}"
+                  value={w.idleGraceSeconds}
+                  oninput={(e) => setField(key, 'idleGraceSeconds', Number(e.currentTarget.value))}
+                />
+              </label>
+            {/if}
             {#if isLowerThird(key)}
               <!-- Lower-third fire behavior: `dwell` shows on each camera cut then
                    auto-hides after N seconds; `persistent` stays while the subject

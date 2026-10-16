@@ -56,7 +56,11 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 - **Idle predicates co-locate the decision with the render.** `IDLE_PREDICATES` import the same
   guards the widgets use (`isActiveBattle`, `isDriverSubjectIdle`, `isQualifyingIdle`), so auto-hide
   can never disagree with what the widget would draw. Dwell-mode fire/hide timing lives *in* the
-  component, not in these stateless predicates.
+  component, not in these stateless predicates. The battle box's exit grace (`what/widgets.md`
+  rules 37–39) is the exception that needs time: a stateless snapshot predicate cannot see it, and
+  `/all` unmounting the slot on the first idle snapshot would kill the hold. The grace state has to
+  live where both `BattleBox` and the `/all` auto-hide filter can read it (or `/all` keeps the
+  battle slot mounted and lets the box report its own idleness) so the two still cannot disagree.
 
 ## Integration Points
 
