@@ -152,13 +152,28 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     `racecontrol`, `onboard`. `logos` renders no text and gets no control. Per rule 16 it carries
     help copy, per rule 19 the coverage tests require it, and like `plateAlpha` (rule 24)
     withholding the control never rewrites a stored value.
-41. **Changing the preset in the editor rescales the widget's width** by the ratio of the new
-    factor to the old, rounded to a whole pixel — the default tower goes 380 → 437 at `large` →
-    494 at `larger`, and back to 380 at `normal` — so the larger text keeps the proportions it has
-    at `normal` instead of being squeezed into the old width. `x`, `y`, and `h` are unchanged.
-    Only an editor change does this: normalization and rendering never touch geometry, so a
-    profile with a hand-set `w` renders at exactly that `w` whatever its preset. Decision record:
-    `docs/decisions/0015-per-widget-text-size.md`.
+41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
+    widget leaves `normal`, the editor records its `normal` `x` and `w` on the widget as
+    `textScaleOrigin: { x, w }`. At a bigger preset the widget's `x` is the origin's `x` and its
+    `w` is the origin's `w` × the factor, rounded to a whole pixel — the default tower goes 380 →
+    437 at `large` → 494 at `larger` — always computed from the origin, never from the previous
+    preset's width, so no rounding drift builds up. The editor's usual keep-on-canvas clamp then
+    applies (it may move `x` left or cap `w` at the canvas width). Returning to `normal` restores
+    the origin's `x` and `w` exactly, whatever the clamp did at the bigger preset, and removes
+    `textScaleOrigin`; only if the canvas itself has since shrunk does the keep-on-canvas clamp
+    adjust the restored geometry. `y` and `h` are never changed by a preset.
+41a. **Editing geometry at a bigger preset moves the origin with it.** While a widget is off
+    `normal`, an editor change the broadcaster makes to its `x` (dragging or typing) sets the
+    origin's `x` to the new `x`, and a change to its `w` (resizing or typing) sets the origin's `w`
+    to the new `w` ÷ the factor, rounded, so going back to `normal` lands where the broadcaster put
+    it. Each part moves only when that part is the one being changed: a vertical-only drag, a
+    zero-pixel drag, a height-only resize, or an `x` the keep-on-canvas clamp moved in answer to a
+    new `w` leaves the origin's other part untouched.
+41b. **The origin is editor bookkeeping.** `textScaleOrigin` is saved with the profile so a
+    reload keeps the round trip exact. Normalization keeps it only as an object of two finite
+    numbers on a widget whose preset is not `normal`, and drops it otherwise. Rendering never reads
+    it: a widget renders at its stored `x` and `w`, so a hand-set `w` renders at exactly that `w`
+    whatever its preset. Decision record: `docs/decisions/0015-per-widget-text-size.md`.
 
 ### Class color overrides
 
