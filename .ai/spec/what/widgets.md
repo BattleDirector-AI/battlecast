@@ -46,6 +46,50 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 10. **`?class=` filter** — narrows the rendered field to a single `vehicle_class` (case-insensitive).
     A filter that matches nothing is an **explicit** state distinct from "no snapshot at all"; the
     tower surfaces which and never blanks silently.
+33. **Lapped cars, gap-to-leader (inline layout).** A non-leader row whose producer-sent
+    `laps_behind_leader` is 1 or more shows the lap deficit in its gap cell instead of a time:
+    `+1 LAP` for exactly one lap, `+N LAPS` for more (`+2 LAPS`). The lap deficit wins over
+    `gap_to_leader` whatever that holds — a real time, null, or a `0` placeholder. A row whose
+    `laps_behind_leader` is 0, null, absent, or not a finite number ≥ 1 renders its time gap
+    exactly as rule 1 describes; a fractional value renders its whole part (`1.6` → `+1 LAP`).
+    The leader row is unaffected (rule 2).
+34. **Lapped cars, interval column.** The interval column (rule 6) applies the same treatment to
+    `laps_behind_ahead`: 1 or more renders `+1 LAP` / `+N LAPS` in place of `interval_ahead`,
+    otherwise the time renders verbatim. Like the interval itself it is the overall car ahead, so
+    the grouped layout renders it identically to the inline one.
+35. **Lapped cars, grouped layout.** In the grouped layout a non-class-leader row reads its
+    producer-sent `laps_behind_class_leader`: 1 or more renders `+1 LAP` / `+N LAPS`; otherwise the
+    row shows the gap-to-class-leader time of rule 4. The overall `laps_behind_leader` plays **no**
+    part in the grouped gap cell — a class leader laps down overall still reads LEADER, and a car
+    on its class lead lap still shows a time, however many laps down overall both are. The tower
+    never derives a class lap deficit from the overall lap fields. Decision record:
+    `docs/decisions/0012-lap-deficit-fields.md`.
+40. **Lap-time flash.** When a car completes a lap, its gap cell shows the new lap time in place
+    of its gap for **5 seconds**, then reverts to the gap. "Completed a lap" means: the car's
+    `slot_id` was in the previous snapshot this tower rendered, and its `last_lap` is now a finite
+    number > 0 that differs from the previous snapshot's value (including a previous null or absent
+    value — the car's first completed lap). The tower compares one car's own field across
+    snapshots; it never compares lap times between cars. No flash fires on the first snapshot after
+    the tower mounts, for a car that was not in the previous snapshot, for a re-sent unchanged
+    value, or when `last_lap` becomes null. The flash renders `last_lap` the way the lap-timed
+    leader cell does (`1:31.950`), applies to every row including the leader's (whose `LEADER` or
+    pole-lap cell it covers), in every mode and both layouts, and leaves the interval column and
+    every other cell unchanged. A further lap completed during a flash shows the newer time and
+    restarts the 5 seconds in place. It holds for the full 5 seconds whether or not more snapshots
+    arrive.
+41. **Flash tier from producer flags.** Each flash carries a tier taken from the car's producer-sent
+    `notable` flags in the snapshot that fired it, by precedence: `session_best_lap` → **session
+    best**, else `class_best_lap` → **class best**, else `personal_best_lap` → **personal best**,
+    else **plain**. While it flashes, the gap cell carries `data-lap-flash` = `session-best` |
+    `class-best` | `personal-best` | `none`, and carries no `data-lap-flash` otherwise. Session and class best are styled
+    purple and personal best green; plain uses the normal gap styling. The tier stays fixed for the
+    whole flash even if later snapshots change the flags. The tower never decides a tier by
+    comparing lap times.
+42. **The flash is a tower metric toggle.** `towerMetrics.lapFlash` (default **on**) gates rule 40;
+    off, no row ever flashes. Decision record: `docs/decisions/0014-tower-lap-time-flash.md`.
+42a. **The gap cell keeps its width.** The gap cell reserves room for an 8-character monospaced
+    readout (`1:31.950`, `+205.000`, `+12 LAPS`) and never shrinks, so swapping a gap for a flashed
+    lap time, `LEADER`, or a lap deficit does not move the name or the cells to its right.
 
 ### Battle box (`/battle`)
 
@@ -53,6 +97,34 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 12. **Idle behavior splits by cause.** Outside a racing mode (qualifying/practice/takeover) the
     battle box renders **nothing** at all. Within a racing mode but with no adjacent car to fight, it
     renders an **explicit placeholder** (e.g. "CLEAR AIR"). Both count as idle for `hideWhenIdle`.
+36. **Caution hides the battle box.** While the producer-sent `session.full_course_yellow` or
+    `session.safety_car` is `true`, the battle box renders **nothing**, exactly as outside a racing
+    mode (rule 12), whatever `relationship` holds, and counts as idle for `hideWhenIdle`. A local
+    `flag: "yellow"` alone does not hide it, and an absent `session` or absent/false caution fields
+    leave the box to rules 11–12 and 37. When caution clears, the box renders the current snapshot
+    at once.
+37. **Exit grace.** When the battle goes from active (rule 11) to idle — both gaps null — while the
+    subject's `slot_id` is unchanged, the box keeps rendering that **last active battle**: its gaps,
+    ahead/behind names, and intensity frozen at the last snapshot where it was active, for
+    `idleGraceSeconds` (default 5; `overlay-config.md` rule 36). It is not idle during the grace. If
+    the battle becomes active again within the grace, the box renders the live numbers and the exit
+    is cancelled; the next active → idle transition starts a fresh full grace. When the grace runs
+    out the box renders the clear-air placeholder (rule 12). `idleGraceSeconds: 0` turns the hold
+    off — the placeholder renders on the first idle snapshot.
+37a. **Changing the grace length mid-hold.** Setting `idleGraceSeconds` to `0` while a hold is
+    running ends it at once: the next snapshot renders the clear-air placeholder. Any other new
+    value leaves the running hold on its original length and applies from the next exit.
+37b. **A subject without a `slot_id` gets no hold.** The grace is keyed to `subject.slot_id`
+    (rule 38), so when the subject has none, an active → idle transition renders the placeholder at
+    once.
+38. **The grace never outlives its subject.** A change of `subject.slot_id` ends any running grace
+    at once: the box renders the new subject's own snapshot — its battle if active, the placeholder
+    if not — and never shows the previous subject's frozen numbers against the new subject. Caution
+    (rule 36) and leaving a racing mode (rule 12) likewise end the grace at once.
+39. **Auto-hide follows the grace.** With `hideWhenIdle` on, the battle box stays rendered through
+    the grace (rule 37) and drops out only when the grace runs out, the subject changes to an idle
+    one (rule 38), or caution or a non-racing mode begins. Decision record:
+    `docs/decisions/0013-battle-box-exit-grace.md`.
 
 ### Subject-driven lower-thirds (`/driver` #21, `/qualifying` #22)
 
@@ -169,7 +241,8 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 ## Constraints
 
 - No widget may derive a semantic fact by scanning `vehicles[]`; it reads the producer-set field
-  (`notable`, `target_lap`, `gap_to_leader`, `interval_ahead`, `battle_intensity`). The only
+  (`notable`, `target_lap`, `gap_to_leader`, `interval_ahead`, the `laps_behind_*` lap deficits,
+  `battle_intensity`). The only
   permitted arithmetic is exact math on producer-authored values (e.g. gap-to-class-leader
   subtraction). A class-relative *interval* is explicitly NOT re-derivable — render `interval_ahead`
   verbatim.

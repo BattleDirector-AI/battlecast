@@ -20,10 +20,10 @@
     classDisplay = 'inline',
     classFilter = null,
     // Richer-tower metric toggles (slice 3 of #20 → follow-on to #28):
-    // `{ interval, pit, tire, fuel }`. Which additive per-vehicle metrics this tower
-    // surfaces, each independent. The bare component defaults to ALL OFF (backward-
+    // `{ interval, pit, tire, fuel, lapFlash }`. Which additive per-vehicle metrics (and
+    // the lap-time flash) this tower surfaces, each independent. The bare component defaults to ALL OFF (backward-
     // compatible: an un-configured tower renders exactly as before); /all + the
-    // standalone route pass the config's `towerMetrics` (interval on by default).
+    // standalone route pass the config's `towerMetrics` (interval + lapFlash on by default).
     metrics = {},
     // Tower overflow — pinned rows + cycling window (ADR 0003 / .ai/spec tower-overflow.md).
     // `maxRows` ('auto' | integer cap) and `cycle` come from config; `slotHeight` is the
@@ -45,7 +45,65 @@
     pit: metrics?.pit === true,
     tire: metrics?.tire === true,
     fuel: metrics?.fuel === true,
+    lapFlash: metrics?.lapFlash === true,
   })
+
+  // ---- lap-time flash (#207, widgets.md rules 40-42, ADR 0014) -----------------
+  // When a car's OWN `last_lap` changes between snapshots, its gap cell shows the new lap
+  // time for LAP_FLASH_MS. Presentation only: one car's field compared with its previous
+  // value, never one car against another. The tier comes from the producer's `notable`
+  // flags in the snapshot that fired, frozen for the flash.
+  const LAP_FLASH_MS = 5000
+  let prevLaps = null // slot_id -> last_lap from the previous snapshot; null before the first
+  let flashes = $state({}) // slot_id -> { lap, tier }
+  const flashTimers = {}
+  const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key)
+  const flashTier = (notable) =>
+    notable?.session_best_lap === true
+      ? 'session-best'
+      : notable?.class_best_lap === true
+        ? 'class-best'
+        : notable?.personal_best_lap === true
+          ? 'personal-best'
+          : 'none'
+
+  function clearFlashes() {
+    for (const slot of Object.keys(flashTimers)) {
+      clearTimeout(flashTimers[slot])
+      delete flashTimers[slot]
+    }
+    flashes = {}
+  }
+
+  function startFlash(slot, lap, tier) {
+    clearTimeout(flashTimers[slot])
+    flashes = { ...flashes, [slot]: { lap, tier } }
+    flashTimers[slot] = setTimeout(() => {
+      delete flashTimers[slot]
+      const rest = { ...flashes }
+      delete rest[slot]
+      flashes = rest
+    }, LAP_FLASH_MS)
+  }
+
+  $effect(() => {
+    const vehicles = snapshot?.vehicles ?? []
+    const enabled = m.lapFlash
+    untrack(() => {
+      if (!enabled) clearFlashes()
+      const next = {}
+      for (const v of vehicles) {
+        const lap = v.last_lap
+        next[v.slot_id] = lap
+        const completed =
+          typeof lap === 'number' && Number.isFinite(lap) && lap > 0 &&
+          prevLaps !== null && hasOwn(prevLaps, v.slot_id) && prevLaps[v.slot_id] !== lap
+        if (enabled && completed) startFlash(v.slot_id, lap, flashTier(v.notable))
+      }
+      prevLaps = next
+    })
+  })
+  $effect(() => () => clearFlashes())
 
   const subjectSlot = $derived(snapshot?.subject?.slot_id ?? null)
 
@@ -262,11 +320,20 @@
         // negative never renders as '+-0.400'.
         `${seconds < 0 ? '' : '+'}${seconds.toFixed(3)}`
 
+  // Lapped cars (widgets.md rules 33-35, ADR 0012). The producer sends the lap deficit;
+  // anything that is not a finite number >= 1 means "same lap", and a fraction renders its
+  // whole part. A deficit wins over whatever time the producer sent alongside it.
+  const lapsDown = (val) => {
+    const n = finiteOrNull(val)
+    return n != null && n >= 1 ? Math.floor(n) : 0
+  }
+  const lapsText = (laps) => (laps === 1 ? '+1 LAP' : `+${laps} LAPS`)
+
   /** Inline layout: interval to the overall leader. The leader reads LEADER, or —
    *  in a lap-timed session — its best lap (the pole time) when it has one. */
   function overallGap(v) {
     if (v.position === 1) return { leader: true, lap: lapTimed ? (v.best_lap ?? null) : null }
-    return { leader: false, seconds: v.gap_to_leader ?? null }
+    return { leader: false, seconds: v.gap_to_leader ?? null, laps: lapsDown(v.laps_behind_leader) }
   }
 
   /** Grouped layout: interval to the class leader (first row in the group). The
@@ -277,7 +344,8 @@
     const lead = group.cars[0]?.gap_to_leader
     const own = v.gap_to_leader
     const seconds = own != null && lead != null ? Math.max(0, own - lead) : null
-    return { leader: false, seconds }
+    // The class lap deficit is a producer fact — never derived from the overall fields.
+    return { leader: false, seconds, laps: lapsDown(v.laps_behind_class_leader) }
   }
 
   // ---- richer-tower per-vehicle metrics (slice 3 of #20) --------------------
@@ -296,6 +364,8 @@
       typeof v?.tire_compound === 'string' && v.tire_compound.trim() ? v.tire_compound.trim() : null
     return {
       intervalAhead: finiteOrNull(v?.interval_ahead),
+      // The leader has no one ahead, whatever a producer sends.
+      lapsAhead: v?.position === 1 ? 0 : lapsDown(v?.laps_behind_ahead),
       pitStops: intOrNull(v?.pit_stops),
       inPit: v?.in_pit === true,
       tireCompound: compound,
@@ -322,6 +392,7 @@
 {#snippet towerRow(v, positionText, zebra, classBadge, gap)}
   {@const oncam = v.slot_id === subjectSlot}
   {@const vm = resolveVehicleMetrics(v)}
+  {@const flash = flashes[v.slot_id]}
   <!-- Per-cell visibility: the config toggle AND the field's presence AND, for the
        race-only metrics, that this is not a qualifying/practice board. Tire compound is
        exempt from the race gate. -->
@@ -365,22 +436,34 @@
     <span class="row__name" data-testid="driver-name">{fmtName(v.driver_name)}</span>
     <!-- Interval to the leader — overall leader in the inline layout, class leader in
          the grouped layout — from the producer's `gap_to_leader`. The leader reads
-         LEADER; an undetermined gap reads '—'. -->
-    {#if gap.leader && gap.lap != null}
+         LEADER; an undetermined gap reads '—'; a lapped car reads `+N LAP(S)`. -->
+    {#if flash}
+      <!-- Lap-time flash (rule 40): the just-completed lap over the gap, tiered (rule 41). -->
+      <span
+        class="row__gap row__gap--flash row__gap--flash-{flash.tier}"
+        data-testid="row-gap"
+        data-lap-flash={flash.tier}>{fmtLapTime(flash.lap)}</span
+      >
+    {:else if gap.leader && gap.lap != null}
       <!-- Lap-timed session: the leader's cell is its pole/benchmark lap time. -->
       <span class="row__gap row__gap--leadlap" data-testid="row-gap">{fmtLapTime(gap.lap)}</span>
     {:else if gap.leader}
       <span class="row__gap row__gap--leader" data-testid="row-gap">LEADER</span>
     {:else}
-      <span class="row__gap" data-testid="row-gap">{gapCell(gap.seconds)}</span>
+      <span class="row__gap" data-testid="row-gap"
+        >{gap.laps ? lapsText(gap.laps) : gapCell(gap.seconds)}</span
+      >
     {/if}
     <!-- Richer-tower metrics (slice 3 of #20), each config-gated by `metrics` and
          shown only when the producer supplied that field. The interval sits beside the
          gap as its own timing column; pit / tire / fuel form a compact strategy
          cluster. `gapCell` renders the interval identically to the gap ('—' when
-         null — e.g. the leader, who has no one ahead). -->
+         null — e.g. the leader, who has no one ahead), and `laps_behind_ahead`
+         replaces it with `+N LAP(S)`. -->
     {#if m.interval}
-      <span class="row__interval" data-testid="row-interval">{gapCell(vm.intervalAhead)}</span>
+      <span class="row__interval" data-testid="row-interval"
+        >{vm.lapsAhead ? lapsText(vm.lapsAhead) : gapCell(vm.intervalAhead)}</span
+      >
     {/if}
     {#if showPit}
       {#if vm.inPit}
@@ -647,6 +730,15 @@
   }
 
   .row__gap {
+    /* Rule 42a: a fixed slot for an 8-character mono readout (1:31.950, +205.000,
+       +12 LAPS), sized off the gap token rather than the element's own font, so a lap
+       flash, LEADER, or a lap deficit never changes the cell's width or moves the row.
+       JetBrains Mono advances 0.6em a glyph (8 × 0.6 = 4.8); 5 leaves room for the
+       slightly wider fallback monospace faces. */
+    flex: 0 0 auto;
+    min-width: calc(var(--bc-size-gap) * 5);
+    text-align: right;
+    white-space: nowrap;
     font-family: var(--bc-font-mono);
     font-size: var(--bc-size-gap);
     font-weight: var(--bc-weight-num);
@@ -668,6 +760,18 @@
      reference every delta below it is measured against. */
   .row__gap--leadlap {
     color: var(--bc-text);
+  }
+  /* Lap-time flash (rule 41): the new lap reads bright; session / class best purple,
+     personal best green, a plain lap in primary text. */
+  .row__gap--flash {
+    color: var(--bc-text);
+  }
+  .row__gap--flash-session-best,
+  .row__gap--flash-class-best {
+    color: var(--bc-lap-best);
+  }
+  .row__gap--flash-personal-best {
+    color: var(--bc-lap-pb);
   }
 
   /* ---- richer-tower metrics (slice 3 of #20) ------------------------------

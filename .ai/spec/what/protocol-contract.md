@@ -69,6 +69,13 @@ on a field name/type, `schema.json` wins.
     (`[0,1]`, clamped defensively), **`speed`** (canonical **km/h**; consumers convert to mph
     deterministically), **`gear`** (integer; `0`=neutral→`N`, `-1`=reverse→`R`, positive verbatim).
     High-churn channel; each field independently optional so a partial feed renders what it has.
+17. **Lap-deficit fields** (per-vehicle, same additive category): **`laps_behind_leader`**,
+    **`laps_behind_ahead`**, **`laps_behind_class_leader`** — integers ≥ 0, whole laps behind the
+    overall leader, the car immediately ahead, and the vehicle's own class leader respectively.
+    `0`/null/absent = same lap. The tower shows a lap deficit in place of the matching time
+    (`widgets.md` rules 33–35). A lapped vehicle's `gap_to_leader` stays a real time and is never a
+    `0` placeholder. The class field is a producer fact, not re-derivable from the overall one.
+    Decision record: `docs/decisions/0012-lap-deficit-fields.md`.
 15. **`session`** (open object) — session status: **`flag`** (free-form string;
     `green`/`yellow`/`red`/`checkered`/`white`/`none` common), **`full_course_yellow`** /
     **`safety_car`** (booleans, independent), timed fields **`time_remaining`** / **`session_length`**

@@ -10,7 +10,7 @@
  * The predicate reads the same snapshot/config the widget renders from, so the
  * decision can never disagree with what the widget would draw. */
 
-import { isActiveBattle, isRacingMode } from '../routes/battle/BattleBox.svelte'
+import { isActiveBattle, isRacingMode, isCaution } from '../routes/battle/BattleBox.svelte'
 import { isDriverSubjectIdle } from '../routes/driver/DriverLowerThird.svelte'
 import { isQualifyingIdle } from '../routes/qualifying/QualifyingLowerThird.svelte'
 
@@ -22,11 +22,14 @@ function validLogoImages(config) {
 
 /** key -> (ctx: { snapshot, config }) => true when the widget has nothing to show. */
 export const IDLE_PREDICATES = Object.freeze({
-  // Idle outside a racing mode (the battle box renders nothing there) OR when the
-  // on-camera car has no adjacent car to fight — so `hideWhenIdle` agrees with what
-  // BattleBox draws in both cases.
+  // Idle outside a racing mode or under caution (the battle box renders nothing there)
+  // OR when the on-camera car has no adjacent car to fight — so `hideWhenIdle` agrees
+  // with what BattleBox draws. `/all` passes the snapshot AFTER the exit grace
+  // (battleGrace.js), so a held battle is not idle.
   battle: ({ snapshot }) =>
-    !isRacingMode(snapshot?.mode) || !isActiveBattle(snapshot?.relationship),
+    !isRacingMode(snapshot?.mode) ||
+    isCaution(snapshot?.session) ||
+    !isActiveBattle(snapshot?.relationship),
   logos: ({ config }) => validLogoImages(config).length === 0,
   // Driver lower-third is idle when there's no valid/degraded subject to show. This
   // keeps persistent-mode auto-hide and the config surfacing consistent; note the

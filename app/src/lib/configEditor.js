@@ -3,7 +3,14 @@
  * and stay reactive, and so the logic is trivially unit-testable without a DOM.
  * The config shape is the contract from app/src/lib/overlayConfig.js. */
 
-import { normalizeConfig, normalizeClassColors, MIN_CANVAS } from './overlayConfig.js'
+import {
+  normalizeConfig,
+  normalizeClassColors,
+  MIN_CANVAS,
+  TEXT_SCALES,
+  textScaleFactor,
+  rendersText,
+} from './overlayConfig.js'
 
 /** Clamp a widget's geometry so it stays a sane box within the given canvas. */
 function clampGeometry(w, canvas) {
@@ -18,27 +25,80 @@ function clampGeometry(w, canvas) {
   }
 }
 
+/** A widget at a bigger text preset remembers its `normal` x/w (`textScaleOrigin`,
+ *  overlay-config.md rule 41a). After an editor geometry edit, move ONLY the part of the origin
+ *  the broadcaster asked to change: a new x moves the origin's x, a new w moves the origin's w
+ *  (÷ the factor). A vertical-only drag, a zero-pixel jitter, a height resize, or an x the
+ *  keep-on-canvas clamp moved on its own leaves the origin alone. `prev` is the widget the edit
+ *  started from: for a preview drag that is the widget at pointerdown, so the whole drag is one
+ *  edit and a drag away and back leaves the origin as it was (rule 41c). */
+function trackOrigin(prev, placed, { x = false, w = false }) {
+  if (placed.textScale === 'normal' || !placed.textScaleOrigin) return placed
+  const origin = { ...(prev.textScaleOrigin ?? placed.textScaleOrigin) }
+  if (x && placed.x !== prev.x) origin.x = placed.x
+  if (w && placed.w !== prev.w) origin.w = Math.round(placed.w / textScaleFactor(placed.textScale))
+  return { ...placed, textScaleOrigin: origin }
+}
+
 /** Set one geometry/visibility/z field on a widget. */
 export function setWidgetField(config, key, field, value) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
-  next.widgets[key] = clampGeometry({ ...next.widgets[key], [field]: value }, next.canvas)
+  const prev = next.widgets[key]
+  const placed = clampGeometry({ ...prev, [field]: value }, next.canvas)
+  next.widgets[key] = trackOrigin(prev, placed, { x: field === 'x', w: field === 'w' })
   return next
 }
 
-/** Move a widget to an absolute (x, y), clamped onto the canvas. */
-export function moveWidget(config, key, x, y) {
+/** Set a widget's text-size preset (overlay-config.md rule 41). Leaving `normal` records the
+ *  widget's normal x/w as `textScaleOrigin`; every bigger preset is computed from that origin
+ *  (never chained from the previous preset, so no rounding drift), then kept on canvas; going
+ *  back to `normal` restores the origin exactly and drops it. y/h never change. */
+export function setWidgetTextScale(config, key, preset) {
   const next = normalizeConfig(config)
-  if (!next.widgets[key]) return next
-  next.widgets[key] = clampGeometry({ ...next.widgets[key], x, y }, next.canvas)
+  const w = next.widgets[key]
+  if (!w || !rendersText(key) || !Object.prototype.hasOwnProperty.call(TEXT_SCALES, preset)) return next
+  if (preset === w.textScale) return next
+  // A profile can reach a bigger preset without an origin (hand-edited, or saved before
+  // origins existed): derive one from the current geometry.
+  const origin =
+    w.textScale === 'normal'
+      ? { x: w.x, w: w.w }
+      : w.textScaleOrigin ?? { x: w.x, w: Math.round(w.w / textScaleFactor(w.textScale)) }
+  const rest = { ...w }
+  delete rest.textScaleOrigin
+  next.widgets[key] =
+    preset === 'normal'
+      ? clampGeometry({ ...rest, textScale: 'normal', x: origin.x, w: origin.w }, next.canvas)
+      : clampGeometry(
+          {
+            ...rest,
+            textScale: preset,
+            x: origin.x,
+            w: Math.round(origin.w * textScaleFactor(preset)),
+            textScaleOrigin: origin,
+          },
+          next.canvas,
+        )
   return next
 }
 
-/** Resize a widget to (w, h), clamped. */
-export function resizeWidget(config, key, w, h) {
+/** Move a widget to an absolute (x, y), clamped onto the canvas. `from` is the widget where a
+ *  preview drag began (rule 41c); without it the edit starts from the current widget. */
+export function moveWidget(config, key, x, y, from) {
   const next = normalizeConfig(config)
   if (!next.widgets[key]) return next
-  next.widgets[key] = clampGeometry({ ...next.widgets[key], w, h }, next.canvas)
+  const prev = next.widgets[key]
+  next.widgets[key] = trackOrigin(from ?? prev, clampGeometry({ ...prev, x, y }, next.canvas), { x: true })
+  return next
+}
+
+/** Resize a widget to (w, h), clamped. `from` as for `moveWidget`. */
+export function resizeWidget(config, key, w, h, from) {
+  const next = normalizeConfig(config)
+  if (!next.widgets[key]) return next
+  const prev = next.widgets[key]
+  next.widgets[key] = trackOrigin(from ?? prev, clampGeometry({ ...prev, w, h }, next.canvas), { w: true })
   return next
 }
 

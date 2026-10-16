@@ -261,3 +261,22 @@ describe('config editor: help coverage cannot drift', () => {
     }
   })
 })
+
+/* #214 / overlay-config.md rule 38: the lap-time flash toggle is labelled for a
+ * broadcaster, not with its raw config key, and its ⓘ does not call it a column. */
+describe('config editor: lap flash toggle label', () => {
+  it('reads "lap flash", not "lapFlash"', () => {
+    const { container } = render(ConfigPage)
+    const box = container.querySelector('[data-testid="tower-metric-tower-lapFlash"]')
+    expect(box, 'no lapFlash checkbox').toBeTruthy()
+    const label = box.closest('label')
+    expect(label.textContent).toContain('lap flash')
+    expect(label.textContent).not.toContain('lapFlash')
+    const help = container.querySelector('[data-testid="help-tower-metric-tower-lapFlash"]')
+    expect(help.getAttribute('aria-label')).toContain('lap flash')
+    expect(help.getAttribute('aria-label')).not.toMatch(/column/)
+    // The other toggles keep their names.
+    const interval = container.querySelector('[data-testid="tower-metric-tower-interval"]').closest('label')
+    expect(interval.textContent).toContain('interval')
+  })
+})

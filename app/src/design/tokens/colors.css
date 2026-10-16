@@ -41,6 +41,10 @@
   --bc-up: #36D17A;
   --bc-down: #FF4D6D;
 
+  /* ---- Lap-time flash (tower, widgets.md rule 41) ---- */
+  --bc-lap-best: #B36BFF;      /* purple — session / class best lap */
+  --bc-lap-pb: var(--bc-up);   /* green — personal best */
+
   /* ---- Status ---- */
   --bc-live: #FF4536;
 

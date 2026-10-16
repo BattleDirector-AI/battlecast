@@ -37,7 +37,10 @@ replacement, not mutation. `saveProfile()` then `PUT`s that object to `/api/prof
 **Preview.** The editor renders the real `AllView` against a fixture snapshot, scaled by
 `previewScale` (`fitPreview()` fits the canvas into the panel, capped at 0.6). Pointer deltas are
 divided by that scale before reaching `moveWidget`/`resizeWidget`, so a drag moves the widget by
-canvas pixels, not screen pixels.
+canvas pixels, not screen pixels. `startDrag` snapshots the widget as `drag.orig`; every
+`pointermove` computes the new geometry from it, and the `textScaleOrigin` bookkeeping
+(`trackOrigin` in `configEditor.js`) must compare with that drag-start widget and its origin, not
+with the previous step's config (`what/overlay-config.md` rule 41c).
 
 **Server presence.** `onMount` → `refreshFromServer()` → `serverAvailable()`. True ⇒ profile list and
 logo list load and the write controls are live. False ⇒ the editor degrades to client-only authoring

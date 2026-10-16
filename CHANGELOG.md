@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **The tower shows lapped cars as laps down, not as a bogus time (#203, ADR 0012).** Spec v1
+  gains three optional per-vehicle integers — `laps_behind_leader`, `laps_behind_ahead` and
+  `laps_behind_class_leader` (`schemaVersion` stays `"1"`). A lapped car's gap cell reads
+  `+1 LAP` / `+N LAPS` instead of the `+0.000` a `0` placeholder used to print; the interval
+  column does the same from `laps_behind_ahead`, and a grouped tower reads the class field.
+  Producers should keep sending a real `gap_to_leader` for lapped cars, never a `0`
+  placeholder. The mock producer emits all three.
+- **The tower flashes each car's new lap time (#207, ADR 0014).** When a car completes a lap,
+  its gap cell shows the lap time for 5 seconds, colored purple for a session or class best and
+  green for a personal best, then reverts. It is a new tower metric, `lapFlash`, **on by
+  default**. A standalone `/tower?metrics=…` URL that lists its metrics turns off anything it
+  omits, so an existing `?metrics=interval,pit` URL has it off — add `lapflash` to the list to
+  keep it.
+- **Per-widget text size in `/config` (#188, #215, ADR 0015).** The tower, battle box, driver
+  and qualifying lower-thirds, Race Control and on-board HUD each get a Text size choice —
+  normal, large (×1.15) or larger (×1.30) — applied in `/all`. The editor widens the widget to
+  match so names don't get cut off, and switching back to normal puts the widget back exactly
+  where and how wide it was, even after it was moved or resized in between (#222).
+
+### Changed
+
+- **The battle box rides out a battle's flicker and steps aside under caution (#204, #216,
+  ADR 0013).** When a battle ends, the last one stays on screen for 5 seconds — a new battle
+  setting, `idleGraceSeconds` (0–30, `0` turns it off) — so a producer toggling a battle at its
+  threshold no longer makes the box blink. A camera cut, a caution or leaving a racing mode ends
+  the hold at once. Under a full-course yellow or a safety car the battle box hides entirely.
+- **The tower's gap column is right-aligned at a fixed width (#214),** so the cells no longer
+  shift as times change length or a lap flash comes and goes.
+
+### Internal
+
+- **The mock producer starts from a realistic grid (#217),** and its GT3 backmarker now picks
+  up its problem 15 seconds in and gets lapped, exercising the new lap-deficit fields.
+
 ## [0.12.0] - 2026-09-19
 
 ### Added

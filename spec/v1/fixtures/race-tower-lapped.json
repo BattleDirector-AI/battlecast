@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-6",
+      "driver_name": "Estre",
+      "vehicle_class": "GTP",
+      "position": 1,
+      "last_lap": 210.412,
+      "best_lap": 208.977,
+      "gap_to_leader": 0
+    },
+    {
+      "slot_id": "car-7",
+      "driver_name": "Conway",
+      "vehicle_class": "GTP",
+      "position": 2,
+      "last_lap": 210.880,
+      "best_lap": 209.304,
+      "gap_to_leader": 3.2,
+      "interval_ahead": 3.2
+    },
+    {
+      "slot_id": "car-92",
+      "driver_name": "Lietz",
+      "vehicle_class": "GT3",
+      "position": 3,
+      "last_lap": 229.115,
+      "best_lap": 227.640,
+      "gap_to_leader": 101.4,
+      "interval_ahead": 98.2,
+      "laps_behind_leader": 1,
+      "laps_behind_ahead": 1,
+      "laps_behind_class_leader": 0
+    },
+    {
+      "slot_id": "car-77",
+      "driver_name": "Ried",
+      "vehicle_class": "GT3",
+      "position": 4,
+      "last_lap": 229.430,
+      "best_lap": 228.012,
+      "gap_to_leader": 104.9,
+      "interval_ahead": 3.5,
+      "laps_behind_leader": 1,
+      "laps_behind_ahead": 0,
+      "laps_behind_class_leader": 0
+    },
+    {
+      "slot_id": "car-85",
+      "driver_name": "Bovy",
+      "vehicle_class": "GT3",
+      "position": 5,
+      "last_lap": 231.902,
+      "best_lap": 229.488,
+      "gap_to_leader": 205.0,
+      "interval_ahead": 100.1,
+      "laps_behind_leader": 2,
+      "laps_behind_ahead": 1,
+      "laps_behind_class_leader": 1
+    }
+  ],
+  "subject": {
+    "slot_id": "car-77",
+    "driver_name": "Ried"
+  },
+  "relationship": {
+    "gap_ahead": 3.5,
+    "gap_behind": 100.1,
+    "battle_intensity": 0.2
+  }
+}

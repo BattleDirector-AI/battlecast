@@ -47,8 +47,24 @@ const GRID = [
   { number: 14, driver: "Alonso", classKey: "gt3", make: "Ferrari", model: "296 GT3" },
   { number: 23, driver: "Albon", classKey: "gt3", make: "Porsche", model: "911 GT3 R" },
   { number: 22, driver: "Tsunoda", classKey: "gt3", make: "BMW", model: "M4 GT3" },
-  { number: 18, driver: "Stroll", classKey: "gt3", make: "Aston Martin", model: "Vantage GT3" },
+  { number: 18, driver: "Stroll", classKey: "gt3", make: "Aston Martin", model: "Vantage GT3", backmarker: true },
 ];
+
+// In the RACE the `backmarker` car picks up a problem BACKMARKER_ONSET_SECONDS after the
+// green flag and from then on runs BACKMARKER_PENALTY seconds a lap off its class pace. The
+// start stays a clean nose-to-tail grid (#217), and the overall leader still laps it inside
+// the default race length (~240 s on average), so the lapped-car tower path (laps_behind_*, ADR 0012)
+// is exercised live. Qualifying is unaffected, so its grid slot and timing stay realistic.
+// 40s on GT3's 107s base keeps its laps at ~1.37x (~1.43x with pace noise, a little more
+// with the 2s sim-step quantization) inside validate-simulator's 1.5x realism band — a thin
+// margin, so don't raise it. Being lapped by its own CLASS leader takes longer, so the
+// grouped tower's class-lap readout needs RACE_SECONDS >= ~500.
+const BACKMARKER_PENALTY = 40;
+const BACKMARKER_ONSET_SECONDS = 15;
+// Starting-grid spread, as a fraction of a lap across the whole field. A real grid is
+// ~8 m a slot, so 14 cars fill ~100 m of a ~5 km lap: about 0.02 laps, ~2.1 s from
+// front to back in the first race snapshot (#217; validate-simulator pins it below 2.5 s).
+const GRID_SPREAD = 0.02;
 
 const LAP_UNIT = 1; // one arbitrary "distance around the lap" unit
 const CLOSE_BATTLE_WINDOW = 1.5; // seconds — matches the design system's intensity formula
@@ -338,6 +354,32 @@ function intervalAheadMap(order, byLap) {
   return map;
 }
 
+/**
+ * Whole laps each car is behind the overall leader, the car immediately ahead, and its
+ * own class leader, keyed by slot_id — the spec-v1 `laps_behind_leader` /
+ * `laps_behind_ahead` / `laps_behind_class_leader` fields (ADR 0012). Measured on the
+ * same raw `distance` the running order and the time gaps are computed from, so a car
+ * the sim reports as more than a lap back by time is also reported a lap down. Only
+ * meaningful in a distance-classified phase (race / results); the leader has no one
+ * ahead (null).
+ */
+function lapDeficitMap(order) {
+  const map = new Map();
+  if (order.length === 0) return map;
+  const lapsBetween = (front, back) => Math.max(0, Math.floor((front.distance - back.distance) / LAP_UNIT));
+  const leader = order[0];
+  const classLeaders = new Map();
+  order.forEach((car, i) => {
+    if (!classLeaders.has(car.vehicle_class)) classLeaders.set(car.vehicle_class, car);
+    map.set(car.slot_id, {
+      laps_behind_leader: lapsBetween(leader, car),
+      laps_behind_ahead: i === 0 ? null : lapsBetween(order[i - 1], car),
+      laps_behind_class_leader: lapsBetween(classLeaders.get(car.vehicle_class), car),
+    });
+  });
+  return map;
+}
+
 /** A fresh, session-start field: no timing yet, staggered on the grid. `startClock`
  *  seeds each car's lap-timing baseline to the CURRENT sim clock — critical when the
  *  session loops back to qualifying at a non-zero clock, or the first completed lap
@@ -347,7 +389,7 @@ function makeCars(startClock = 0) {
   return GRID.map((entry, i) => {
     const skillOffset = ((i * 37) % 11) / 10 - 0.5; // deterministic spread, -0.5..+0.5s
     // Stagger the starting grid so the field doesn't begin perfectly bunched.
-    const distance = -i * (LAP_UNIT / GRID.length) * 2;
+    const distance = -i * (LAP_UNIT / GRID.length) * GRID_SPREAD;
     return {
       slot_id: `car-${entry.number}`,
       driver_name: entry.driver,
@@ -355,7 +397,9 @@ function makeCars(startClock = 0) {
       car_number: String(entry.number),
       make: entry.make,
       model: entry.model,
+      basePace: classPace(entry.classKey) + skillOffset,
       pace: classPace(entry.classKey) + skillOffset,
+      backmarker: entry.backmarker === true,
       noiseFactor: 0,
       distance,
       // Measure the first lap from the car's own staggered start (not 0), so the
@@ -508,7 +552,8 @@ function createSimulator(config = {}) {
     const n = cars.length;
     frozenOrder.forEach((slotId, i) => {
       const car = cars.find((c) => c.slot_id === slotId);
-      car.distance = -i * (LAP_UNIT / n) * 2;
+      car.distance = -i * (LAP_UNIT / n) * GRID_SPREAD;
+      car.pace = car.basePace;
       car.lapStartDistance = car.distance;
       car.lastLapClock = clock;
       car.last_lap = null;
@@ -651,6 +696,9 @@ function createSimulator(config = {}) {
       // Reset the per-step "just set a personal best" flag; only a lap completed
       // on THIS step in a running phase can set it true.
       car.improvedBestThisStep = false;
+      if (isRace && car.backmarker && phaseElapsed >= BACKMARKER_ONSET_SECONDS) {
+        car.pace = car.basePace + BACKMARKER_PENALTY;
+      }
       if (running) advanceCar(car, dtSeconds, clock, isRace);
     }
 
@@ -691,6 +739,8 @@ function createSimulator(config = {}) {
     const gapToLeader = gapToLeaderMap(order, byLap);
     // Interval to the car immediately ahead (slice 3 of #20) — same phase treatment.
     const intervalAhead = intervalAheadMap(order, byLap);
+    // Lap deficits (ADR 0012) — a race concept, so only in the distance-classified phases.
+    const lapDeficits = byLap ? null : lapDeficitMap(order);
 
     const { subjectCar, relationship } = running ? runningDirector(order) : staticDirector(order);
 
@@ -721,6 +771,7 @@ function createSimulator(config = {}) {
           // pit stops never show in qualifying, and the additive-absent path stays
           // exercised live.
           interval_ahead: intervalAhead.get(car.slot_id) ?? null,
+          ...(lapDeficits ? lapDeficits.get(car.slot_id) : {}),
           ...(running ? { tire_compound: COMPOUNDS[car.tireCompoundIndex] } : {}),
           ...(isRace
             ? {
