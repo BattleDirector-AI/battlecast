@@ -80,6 +80,18 @@ describe('StandingsTower local yellow — row mark (rule 43)', () => {
     expect(isMarked('car-1')).toEqual(MARKED)
     expect(row.getAttribute('data-oncam')).toBe('true')
     expect(row.getAttribute('aria-current')).toBe('true')
+    // The highlight itself, not just its attributes: the on-camera styling and its flash overlay.
+    expect(row.classList.contains('row--oncam')).toBe(true)
+    expect(row.querySelector('[data-testid="row-oncam-flash"]')).not.toBeNull()
+  })
+
+  it('keeps the class bar its class colour on a marked row', async () => {
+    const view = render(StandingsTower, { snapshot: withVehicle('car-16', { yellow_involved: false }) })
+    const before = rowFor('car-16').querySelector('.row__classbar').style.background
+    expect(before).not.toBe('')
+    await view.rerender({ snapshot: localYellow })
+    expect(isMarked('car-16')).toEqual(MARKED)
+    expect(rowFor('car-16').querySelector('.row__classbar').style.background).toBe(before)
   })
 
   it('clears the mark as soon as a snapshot stops sending true (no hold)', async () => {

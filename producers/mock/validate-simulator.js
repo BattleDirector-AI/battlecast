@@ -76,6 +76,14 @@ let progressiveFinishSeen = false;
 let dnfSeen = false;
 const finishViolations = [];
 let finishPrev = new Map();
+// Per race leg (#236): the tick each car turned 1 (finish order), each retired car's last_lap
+// when it turned 2 (a retired car stops, so it never completes another lap), whether anyone has
+// finished yet, and the previous race tick (to see results classify cars still running).
+let finishTick = new Map();
+let retiredLap = new Map();
+let anyFinished = false;
+let lastRaceTick = null;
+let resultsClassifiedSeen = false;
 const isFinishCode = (n) => Number.isInteger(n) && n >= 0 && n <= 3;
 
 for (let i = 0; i < TICKS; i++) {
@@ -148,6 +156,8 @@ for (let i = 0; i < TICKS; i++) {
         yellowProblems.push(`${v.driver_name} yellow_involved=${JSON.stringify(v.yellow_involved)}`);
       } else if (v.yellow_involved && !anyYellowSector && !fcy) {
         yellowProblems.push(`${v.driver_name} involved with no yellow sector and no FCY`);
+      } else if (v.yellow_involved && v.in_pit) {
+        yellowProblems.push(`${v.driver_name} involved while in the pit lane`);
       }
     }
     if (anyYellowSector && !fcy && payload.vehicles.some((v) => v.yellow_involved === true)) localYellowSeen = true;
@@ -156,7 +166,12 @@ for (let i = 0; i < TICKS; i++) {
     }
   }
 
-  if (payload.mode === "race" && raceTicks === 0) finishPrev = new Map();
+  if (payload.mode === "race" && raceTicks === 0) {
+    finishPrev = new Map();
+    finishTick = new Map();
+    retiredLap = new Map();
+    anyFinished = false;
+  }
   const finishProblems = [];
   if (payload.mode === "race" || payload.mode === "results") {
     const checkered = String(payload.session?.flag ?? "").toLowerCase() === "checkered";
@@ -169,6 +184,13 @@ for (let i = 0; i < TICKS; i++) {
       if (code === 2) dnfSeen = true;
       if (payload.mode === "race") {
         if (code === 1 && !checkered) finishProblems.push(`${v.driver_name} finished before the chequered flag`);
+        if (code === 1 && !finishTick.has(v.slot_id)) finishTick.set(v.slot_id, i);
+        if (code === 2) {
+          if (!retiredLap.has(v.slot_id)) retiredLap.set(v.slot_id, v.last_lap);
+          else if (v.last_lap !== retiredLap.get(v.slot_id)) {
+            finishProblems.push(`${v.driver_name} completed a lap after retiring`);
+          }
+        }
         const prev = finishPrev.get(v.slot_id);
         if (prev != null && prev !== 0 && code !== prev) {
           finishProblems.push(`${v.driver_name} changed from ${prev} to ${code}`);
@@ -178,12 +200,55 @@ for (let i = 0; i < TICKS; i++) {
         finishProblems.push(`${v.driver_name} unclassified (0) in results`);
       }
     }
+    // The leader takes the flag: on the first tick of the leg where anyone has finished, the car
+    // that led on the PREVIOUS tick is one of them (several cars can cross within one tick). The
+    // previous tick, because a finished car is re-ranked ahead of running cars on its lap, so this
+    // tick's P1 would pass for any lead-lap car taking the flag.
+    if (payload.mode === "race" && !anyFinished && payload.vehicles.some((v) => v.finish_status === 1)) {
+      anyFinished = true;
+      const prevLeader = lastRaceTick?.vehicles.find((v) => v.position === 1);
+      const leaderNow = payload.vehicles.find((v) => v.slot_id === prevLeader?.slot_id);
+      if (prevLeader && leaderNow?.finish_status !== 1) {
+        const first = payload.vehicles.find((v) => v.finish_status === 1);
+        finishProblems.push(`${first.driver_name} took the flag while leader ${prevLeader.driver_name} had not finished`);
+      }
+    }
     if (
       payload.mode === "race" &&
       payload.vehicles.some((v) => v.finish_status === 1) &&
       payload.vehicles.some((v) => v.finish_status === 0)
     ) {
       progressiveFinishSeen = true;
+    }
+    // Under the chequered flag the race clock and lap counter have run out.
+    if (payload.mode === "race" && checkered) {
+      for (const key of ["time_remaining", "laps_remaining"]) {
+        const value = payload.session?.[key];
+        if (value != null && value !== 0) finishProblems.push(`session.${key}=${value} under the chequered flag`);
+      }
+    }
+    // Finished cars rank by laps completed, then crossing order: on the same lap count, a car
+    // that finished on an earlier tick sits ahead of one that finished later. The payload has no
+    // laps-completed field, so `laps_behind_leader` stands in for it; between two finished cars
+    // the mock computes it from laps completed, so it is exact here.
+    const finished = payload.vehicles.filter((v) => v.finish_status === 1 && finishTick.has(v.slot_id));
+    for (const a of finished) {
+      for (const b of finished) {
+        const sameLaps = (a.laps_behind_leader ?? 0) === (b.laps_behind_leader ?? 0);
+        if (sameLaps && finishTick.get(a.slot_id) < finishTick.get(b.slot_id) && a.position > b.position) {
+          finishProblems.push(`${a.driver_name} finished before ${b.driver_name} but is classified behind`);
+        }
+      }
+    }
+    // Results classifies the cars that were still running when the race leg ended.
+    if (payload.mode === "results" && lastRaceTick) {
+      const stillRunning = lastRaceTick.vehicles.filter((v) => v.finish_status === 0).map((v) => v.slot_id);
+      if (
+        stillRunning.length > 0 &&
+        stillRunning.every((id) => payload.vehicles.find((v) => v.slot_id === id)?.finish_status === 1)
+      ) {
+        resultsClassifiedSeen = true;
+      }
     }
   } else {
     const carrier = payload.vehicles.find((v) => "finish_status" in v);
@@ -192,6 +257,7 @@ for (let i = 0; i < TICKS; i++) {
   if (finishProblems.length > 0 && finishViolations.length < 10) {
     finishViolations.push(`tick ${i} (${payload.mode}): ${finishProblems.join(", ")}`);
   }
+  lastRaceTick = payload.mode === "race" ? payload : payload.mode === "results" ? lastRaceTick : null;
 
   const errors = validate(payload);
   if (errors.length > 0) {
@@ -250,6 +316,39 @@ if (yellowViolations.length > 0) {
   process.exit(1);
 }
 
+// The backmarker only pits during its local-yellow window in a long race (its stint outlasts the
+// window at the 400 s used above), so run one long race leg just to check the pit-lane exclusion:
+// a car in the pit lane is never `yellow_involved` (SPEC.md; #234).
+{
+  const LONG_RACE_SECONDS = 2000;
+  const longRace = createSimulator({ lockPhase: "race", phaseSeconds: { race: LONG_RACE_SECONDS } });
+  // The window fractions mirror simulate.js LOCAL_YELLOW_START / LOCAL_YELLOW_END.
+  const involvedSlots = new Set();
+  let pitDuringWindow = false;
+  for (let t = 0; t < LONG_RACE_SECONDS; t += DT_SECONDS) {
+    const payload = longRace.step(DT_SECONDS);
+    const frac = t / LONG_RACE_SECONDS;
+    const inWindow = frac >= 0.1 && frac < 0.2;
+    for (const v of payload.vehicles) {
+      if (v.yellow_involved && v.in_pit) {
+        yellowViolations.push(`long race t=${t}s: ${v.driver_name} involved while in the pit lane`);
+      }
+      if (inWindow && v.yellow_involved) involvedSlots.add(v.slot_id);
+      // Exercised only if a car that was involved in this window is later seen in the pits in it.
+      if (inWindow && v.in_pit && involvedSlots.has(v.slot_id)) pitDuringWindow = true;
+    }
+  }
+  if (yellowViolations.length > 0) {
+    console.error("\nLocal-yellow involvement while in the pit lane (#234):");
+    for (const v of yellowViolations.slice(0, 10)) console.error(`  - ${v}`);
+    process.exit(1);
+  }
+  if (!pitDuringWindow) {
+    console.error("\nIn the long race no involved car pitted during its local yellow — the pit-lane exclusion is not exercised.");
+    process.exit(1);
+  }
+}
+
 if (!localYellowSeen) {
   console.error("\nThe race phase never staged a local yellow (a yellow sector outside FCY with an involved car) — the local-yellow case is not exercised.");
   process.exit(1);
@@ -263,6 +362,11 @@ if (finishViolations.length > 0) {
 
 if (!progressiveFinishSeen) {
   console.error("\nThe race never showed the flag falling progressively (some cars finished while others still running) — the finish chip is not exercised.");
+  process.exit(1);
+}
+
+if (!resultsClassifiedSeen) {
+  console.error("\nResults never classified a car that was still running when the race leg ended — that path is not exercised.");
   process.exit(1);
 }
 

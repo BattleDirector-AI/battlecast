@@ -140,6 +140,7 @@ describe('StandingsTower finish status (rule 45)', () => {
 
   it('marks rows in the grouped layout too', () => {
     render(StandingsTower, { snapshot: finish, classDisplay: 'grouped' })
+    expect(document.querySelector('[data-testid="standings-tower"]').getAttribute('data-class-display')).toBe('grouped')
     expect(finishOf('car-7')).toEqual(FINISHED)
     expect(finishOf('car-92')).toEqual(FINISHED)
     expect(finishOf('car-77')).toEqual(NONE)
@@ -173,6 +174,51 @@ describe('StandingsTower finish status (rule 45)', () => {
     expect(finishOf('car-6')).toEqual(FINISHED)
     expect(finishOf('car-77')).toEqual(NONE)
     expect(finishOf('car-18')).toEqual(DNF)
+  })
+
+  // Alignment (rule 45: the chips line up, and no other cell moves). happy-dom does no layout,
+  // so this pins the mechanism: while any RENDERED row carries a chip, every unmarked row
+  // reserves the same trailing slot, hidden from assistive tech; with no chip, no row does.
+  const slotOf = (slot) => rowFor(slot)?.querySelector('.row__finish--empty') ?? null
+
+  it('reserves the chip slot on unmarked rows while any rendered row has a chip', async () => {
+    const view = render(StandingsTower, { snapshot: finish })
+    const slot = slotOf('car-77')
+    expect(slot).not.toBeNull()
+    expect(slot.getAttribute('aria-hidden')).toBe('true')
+    expect(slot.getAttribute('data-testid')).toBeNull()
+    expect(rowFor('car-77').lastElementChild).toBe(slot)
+    // A marked row carries its chip, not an extra slot.
+    expect(slotOf('car-6')).toBeNull()
+    // Every row also lowers the name's floor while the slot is reserved (rule 45: the name
+    // truncates before the chip gives way).
+    for (const slotId of SLOTS) expect(rowFor(slotId).classList.contains('row--finishslot')).toBe(true)
+
+    const noneFinished = structuredClone(finish)
+    for (const v of noneFinished.vehicles) v.finish_status = 0
+    await view.rerender({ snapshot: noneFinished })
+    for (const slotId of SLOTS) {
+      expect(slotOf(slotId)).toBeNull()
+      expect(rowFor(slotId).classList.contains('row--finishslot')).toBe(false)
+    }
+  })
+
+  it('reserves the chip slot in the grouped layout too', () => {
+    render(StandingsTower, { snapshot: finish, classDisplay: 'grouped' })
+    expect(document.querySelector('[data-testid="standings-tower"]').getAttribute('data-class-display')).toBe('grouped')
+    expect(slotOf('car-77')).not.toBeNull()
+    expect(slotOf('car-6')).toBeNull()
+  })
+
+  it('reserves no slot when the only marked rows are filtered out', () => {
+    // GT3 filter: car-92 (finished) and car-18 (DNF) are GT3, so make them running; the
+    // finished GTP cars are filtered out, leaving no rendered chip.
+    const snap = withVehicle('car-92', { finish_status: 0 })
+    snap.vehicles.find((v) => v.slot_id === 'car-18').finish_status = 0
+    render(StandingsTower, { snapshot: snap, classFilter: 'GT3' })
+    expect(rowFor('car-77')).not.toBeNull()
+    expect(rowFor('car-6')).toBeNull()
+    for (const slotId of ['car-92', 'car-77', 'car-18']) expect(slotOf(slotId)).toBeNull()
   })
 
   it('reads only the car field — a chequered session flag alone marks nobody', async () => {

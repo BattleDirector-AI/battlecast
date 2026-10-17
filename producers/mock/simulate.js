@@ -66,7 +66,7 @@ const BACKMARKER_ONSET_SECONDS = 15;
 // yellow and the backmarker is `yellow_involved` — except while it is in the pit lane, which the
 // contract excludes from involvement. Every other race tick sends three green sectors and
 // nobody involved, so both the staged and the all-clear paths run live.
-const LOCAL_YELLOW_START = 0.1;
+const LOCAL_YELLOW_START = 0.1; // validate-simulator.js's long-race pit check mirrors these two
 const LOCAL_YELLOW_END = 0.2;
 const SECTOR_COUNT = 3;
 // Finish status (ADR 0017), spec-v1 `finish_status` codes. The RETIREE (a GT3 car that is NOT
@@ -389,8 +389,12 @@ function intervalAheadMap(order, byLap, clock) {
 function lapDeficitMap(order) {
   const map = new Map();
   if (order.length === 0) return map;
+  // Two finished cars are apart by the laps each completed: flooring their finish distances can
+  // read 0 for a lapped car that crossed further past the line than the leader did.
   const lapsBetween = (front, back) =>
-    Math.max(0, Math.floor((classDistance(front) - classDistance(back)) / LAP_UNIT));
+    front.finishLaps != null && back.finishLaps != null
+      ? Math.max(0, front.finishLaps - back.finishLaps)
+      : Math.max(0, Math.floor((classDistance(front) - classDistance(back)) / LAP_UNIT));
   const leader = order[0];
   const classLeaders = new Map();
   order.forEach((car, i) => {
@@ -426,9 +430,10 @@ function makeCars(startClock = 0) {
       backmarker: entry.backmarker === true,
       noiseFactor: 0,
       distance,
-      // Measure the first lap from the car's own staggered start (not 0), so the
-      // opening lap is a normal flying lap rather than an inflated multi-lap "out
-      // lap" for cars that start further back.
+      // Qualifying only: measure the first lap from the car's own staggered start (not 0),
+      // so the opening lap is a normal flying lap rather than an inflated multi-lap "out
+      // lap" for cars that start further back. The race resets this to the shared
+      // start/finish line in startRaceFromGrid.
       lapStartDistance: distance,
       lastLapClock: startClock,
       last_lap: null,
@@ -540,11 +545,10 @@ function byDistance(a, b) {
   return classDistance(b) - classDistance(a);
 }
 
-// Whole laps completed: a finished car's at the flag; a running car's from its own line, which
-// sits at its grid slot.
+// Whole laps completed: a finished car's at the flag; a running car's from the start/finish line.
 function lapsDone(car) {
   if (car.finishLaps != null) return car.finishLaps;
-  return Math.round((car.lapStartDistance - (car.gridDistance ?? 0)) / LAP_UNIT);
+  return Math.round(car.lapStartDistance / LAP_UNIT);
 }
 
 // A finished car is classified where it crossed the line under the chequered flag (finish
@@ -619,7 +623,10 @@ function createSimulator(config = {}) {
       const car = cars.find((c) => c.slot_id === slotId);
       car.distance = -i * (LAP_UNIT / n) * GRID_SPREAD;
       car.pace = car.basePace;
-      car.lapStartDistance = car.distance;
+      // Every car's lap is timed from the one start/finish line (distance 0), not from its own
+      // grid slot, so "laps completed" means the same thing for the whole field: the grid lines
+      // up just behind the line and the first lap runs from there.
+      car.lapStartDistance = 0;
       car.lastLapClock = clock;
       car.last_lap = null;
       car.best_lap = null;
@@ -630,7 +637,6 @@ function createSimulator(config = {}) {
       car.finishDistance = null;
       car.finishClock = null;
       car.finishLaps = null;
-      car.gridDistance = car.distance;
       resetStint(car);
     });
     checkeredTaken = false;
@@ -799,7 +805,8 @@ function createSimulator(config = {}) {
         // The exact crossing time, backed out from how far past the line the car is.
         car.finish_status = FINISH.finished;
         car.finishDistance = car.distance;
-        car.finishClock = clock - (car.distance - car.lapStartDistance) * car.pace;
+        // The car covered that distance at its noisy speed this step, not its base pace.
+        car.finishClock = clock - ((car.distance - car.lapStartDistance) * car.pace) / (1 + car.noiseFactor);
         car.finishLaps = lapsDone(car);
       }
     }
