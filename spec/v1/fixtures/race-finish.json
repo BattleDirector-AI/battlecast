@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-6",
+      "driver_name": "Estre",
+      "vehicle_class": "GTP",
+      "position": 1,
+      "last_lap": 210.412,
+      "best_lap": 208.977,
+      "gap_to_leader": 0,
+      "interval_ahead": null,
+      "finish_status": 1
+    },
+    {
+      "slot_id": "car-7",
+      "driver_name": "Conway",
+      "vehicle_class": "GTP",
+      "position": 2,
+      "last_lap": 210.88,
+      "best_lap": 209.304,
+      "gap_to_leader": 3.2,
+      "interval_ahead": 3.2,
+      "finish_status": 1
+    },
+    {
+      "slot_id": "car-92",
+      "driver_name": "Lietz",
+      "vehicle_class": "GT3",
+      "position": 3,
+      "last_lap": 229.115,
+      "best_lap": 227.64,
+      "gap_to_leader": 24.871,
+      "interval_ahead": 21.671,
+      "finish_status": 1
+    },
+    {
+      "slot_id": "car-77",
+      "driver_name": "Ried",
+      "vehicle_class": "GT3",
+      "position": 4,
+      "last_lap": 229.604,
+      "best_lap": 228.012,
+      "gap_to_leader": 27.305,
+      "interval_ahead": 2.434,
+      "finish_status": 0
+    },
+    {
+      "slot_id": "car-18",
+      "driver_name": "Stroll",
+      "vehicle_class": "GT3",
+      "position": 5,
+      "last_lap": null,
+      "best_lap": 231.88,
+      "gap_to_leader": null,
+      "interval_ahead": null,
+      "finish_status": 2
+    }
+  ],
+  "subject": {
+    "slot_id": "car-77",
+    "driver_name": "Ried"
+  },
+  "relationship": {
+    "gap_ahead": 2.434,
+    "gap_behind": null,
+    "battle_intensity": 0.42
+  },
+  "session": {
+    "flag": "checkered",
+    "full_course_yellow": false,
+    "safety_car": false
+  }
+}
