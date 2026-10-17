@@ -160,6 +160,10 @@
           "type": ["integer", "null"],
           "minimum": 0,
           "description": "Optional count of whole laps this vehicle is behind the leader of its OWN `vehicle_class` (the best-`position` car sharing its class). 0, null, or absent = on the class lead lap. Distinct from `laps_behind_leader`: in a multi-class race a class leader is routinely laps down overall while still leading its class. Producer-owned and NOT re-derivable from the overall field (a difference of two whole-lap counts can be off by one lap). A grouped-by-class tower reads it for the gap-to-class-leader cell."
+        },
+        "yellow_involved": {
+          "type": ["boolean", "null"],
+          "description": "Optional. True when this vehicle is involved in an active LOCAL yellow: the producer judges it stopped or crawling (not merely lifting for the flag), or off the track surface, inside the yellow zone, and not in the pit lane. A car that only drives through a yellow sector is NOT involved. It does not claim to identify the car that caused the yellow, and MAY be set without `session.sector_flags`. False, null, or absent = not involved. Producer-owned (dumb overlay, smart producer): no sim reports involvement directly, so the producer judges it; consumers MUST NOT infer it from speed, position, or `session.sector_flags`. A tower marks the row of a vehicle whose value is exactly `true`. Under a full-course caution the producer MAY still set it for a car stopped at the incident."
         }
       }
     },
@@ -221,6 +225,11 @@
         "safety_car": {
           "type": "boolean",
           "description": "True when a safety car (or pace car) is deployed. Independent of `full_course_yellow` — a session may be under FCY without a safety car on track, or a safety car may be deployed to lead the field. The producer owns this; consumers render the safety-car indicator when true and tolerate absent/false as 'no safety car'."
+        },
+        "sector_flags": {
+          "type": ["array", "null"],
+          "items": { "type": "string" },
+          "description": "Optional per-sector LOCAL flag state, one entry per track sector in lap order: index 0 is sector 1 whatever the sim's own indexing (the producer remaps and translates). `yellow` (trimmed, case-insensitive) marks a sector under a local yellow; any other value (`green`, `none`, a sim-specific string) means no local yellow there. Free-form like `flag`: consumers tolerate unknown values. Null or absent = no sector information, not all-clear: a producer whose sim has no per-sector flag SHOULD omit it rather than send all-green, and a producer that has sector flags SHOULD send every sector. Producer-owned; the number of sectors is the producer's (commonly 3). Distinct from `full_course_yellow`, the session-wide caution."
         },
         "time_remaining": {
           "type": ["number", "null"],

@@ -184,6 +184,17 @@ required-ness.
   (qualifying / practice) session. Consumers read them, never derive them, and treat a
   value that is not a number ≥ 1 as "on the same lap".
 
+  - **`yellow_involved`** (boolean) — the vehicle is involved in an active **local**
+    yellow: the producer judges it stopped or crawling (not merely lifting for the flag),
+    or off the track surface, inside the yellow zone, and not in the pit lane. A car that
+    only drives through a yellow sector is **not** involved. `false`, null, or absent
+    means not involved. No sim reports involvement directly, so this is the producer's
+    own judgment; it does not claim to identify which car *caused* the yellow. A producer
+    MAY set it without sending `session.sector_flags` (a sim that knows a local yellow is
+    out but not where). Consumers read it and **MUST NOT** infer it from speed, position,
+    or `session.sector_flags`. A tower marks the row of a vehicle whose value is exactly
+    `true`. Which sector is yellow lives on `session.sector_flags`, below.
+
   These six per-vehicle metrics are consumed by the LMU-style richer standings tower — an
   **interval column** beside the gap-to-leader, plus config-gated **pit / tire / fuel**
   indicators a broadcaster enables for endurance density. They are kept **flat on
@@ -256,6 +267,20 @@ required-ness.
   - **`safety_car`** (boolean) — a safety/pace car is deployed. Independent of
     `full_course_yellow` (either may be set without the other). Absent or false means
     none.
+  - **`sector_flags`** (array of strings) — the local flag state of each track sector,
+    in lap order: index 0 is sector 1, index 1 is sector 2, and so on, for however many
+    sectors the producer's sim has (commonly 3). Index 0 is sector 1 whatever the sim's
+    own indexing; a producer remaps the sim's sector order and translates its values.
+    `"yellow"` (trimmed, case-insensitive) marks a sector under a local yellow; any other
+    value — `"green"`, `"none"`, a sim-specific string — means no local yellow there, and
+    consumers tolerate unknown values. Null or absent means no sector information, which
+    is not the same as all-clear: a producer whose sim exposes no per-sector flag
+    (iRacing, for one) **SHOULD** omit the field rather than send all-green, and a
+    producer that has sector flags **SHOULD** send every sector. It says *where* a local
+    yellow is; *who* is involved is the per-vehicle `yellow_involved`, above. A local
+    yellow is distinct from
+    `full_course_yellow`: under a full-course caution the producer may still send sector
+    flags, and a consumer showing the full-course caution need not repeat them.
   - **`time_remaining`** / **`session_length`** (number, seconds) — the countdown clock
     and total length of a **timed** session; `session_length` is the progress
     denominator. Null or absent in a lap-limited session.

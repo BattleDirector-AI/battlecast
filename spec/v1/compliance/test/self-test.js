@@ -322,12 +322,61 @@ function testLapDeficitFieldsValidateAgainstSchema() {
   );
 }
 
+// The local-yellow fields (ADR 0016) — per-vehicle `yellow_involved` (boolean) and
+// `session.sector_flags` (array of strings) — are optional. The local-yellow fixture carries
+// both and must validate; a payload with neither must still validate; and the schema must
+// REJECT a string/number `yellow_involved` and a non-array or non-string `sector_flags`, so a
+// producer's bad value fails the harness rather than slipping through untyped.
+function testLocalYellowFieldsValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const yellow = load("race-local-yellow.json");
+  assert(
+    yellow.vehicles.some((v) => v.yellow_involved === true) &&
+      Array.isArray(yellow.session?.sector_flags) &&
+      yellow.session.sector_flags.includes("yellow"),
+    "race-local-yellow.json must carry an involved car and a yellow sector"
+  );
+  let result = validator.validate(yellow);
+  assert(result.valid, `expected race-local-yellow.json to validate, got: ${result.errors.join("; ")}`);
+
+  const none = load("race-tower-metrics.json");
+  assert(
+    none.vehicles.every((v) => !("yellow_involved" in v)) && !("sector_flags" in (none.session ?? {})),
+    "race-tower-metrics.json is the no-yellow-fields base and must NOT carry yellow_involved or sector_flags"
+  );
+  result = validator.validate(none);
+  assert(result.valid, `expected a payload with NO local-yellow fields to still validate, got: ${result.errors.join("; ")}`);
+
+  const rejects = (mutate, where, label) => {
+    const payload = JSON.parse(JSON.stringify(yellow));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes(where)),
+      `expected the ${label} error to name ${where}, got: ${r.errors.join("; ")}`
+    );
+  };
+  for (const bad of ["true", 1]) {
+    rejects((p) => (p.vehicles[2].yellow_involved = bad), "/vehicles/2/yellow_involved", `yellow_involved: ${JSON.stringify(bad)}`);
+  }
+  rejects((p) => (p.session.sector_flags = "yellow"), "/session/sector_flags", 'sector_flags: "yellow"');
+  rejects((p) => (p.session.sector_flags = ["green", 2, "green"]), "/session/sector_flags/1", "sector_flags: [\"green\", 2, \"green\"]");
+
+  console.log(
+    "PASS: local-yellow fields (yellow_involved, session.sector_flags) validate against schema.json, a payload with neither still validates, and wrongly typed values are rejected (ADR 0016)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
   testVehicleIdentityFieldsValidateAgainstSchema();
   testTowerMetricsFixturesValidateAgainstSchema();
   testLapDeficitFieldsValidateAgainstSchema();
+  testLocalYellowFieldsValidateAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");

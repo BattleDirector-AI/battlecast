@@ -76,6 +76,14 @@ on a field name/type, `schema.json` wins.
     (`widgets.md` rules 33–35). A lapped vehicle's `gap_to_leader` stays a real time and is never a
     `0` placeholder. The class field is a producer fact, not re-derivable from the overall one.
     Decision record: `docs/decisions/0012-lap-deficit-fields.md`.
+18. **Local-yellow fields** (additive): per-vehicle **`yellow_involved`** (boolean — the producer
+    judges the car stopped or crawling, or off the track surface, inside an active local yellow
+    and not in the pit lane; a car only driving through is not involved) and
+    **`session.sector_flags`** (array of strings in lap order, index 0 = sector 1; `yellow`,
+    trimmed and case-insensitive, marks a local yellow, anything else does not). Both are producer judgments: the overlay never infers
+    involvement or a sector's flag. The tower marks involved rows (`widgets.md` rule 43) and Race
+    Control names the yellow sectors (rule 44). Decision record:
+    `docs/decisions/0016-local-yellow-fields.md`.
 15. **`session`** (open object) — session status: **`flag`** (free-form string;
     `green`/`yellow`/`red`/`checkered`/`white`/`none` common), **`full_course_yellow`** /
     **`safety_car`** (booleans, independent), timed fields **`time_remaining`** / **`session_length`**
