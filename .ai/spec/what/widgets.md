@@ -99,6 +99,24 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     text, and has no config toggle. The tower reads only the car's own field — never
     `session.sector_flags`, speed, or position — to decide involvement. Decision record:
     `docs/decisions/0016-local-yellow-fields.md`.
+45. **Finish status.** When the snapshot's `mode`, trimmed and case-insensitive, is `race` or
+    `results`, a row whose producer-sent `finish_status` is exactly the integer `1`, `2`, or `3`
+    carries one finish chip (`data-testid="row-finish"`) and the row carries `data-finish` =
+    `finished`, `dnf`, or `dq` respectively. In every other mode — `qualifying`, `practice`,
+    `grid`, `replay`, an unknown or absent mode — the tower shows no finish chip and no
+    `data-finish`, whatever the field holds. The chip for `1` is a chequered-flag square with no
+    text, `role="img"`, and accessible name `Finished` (`aria-label`); the chip for `2` reads `DNF`;
+    the chip for `3` reads `DQ`. Any other value — `0`, null, absent, a string such as `"1"`, a
+    boolean, a non-integer, an undefined code such as `4` — shows no chip and no `data-finish`.
+    The chip is the row's last element, after every metric cell, and sits against the row's
+    trailing edge so the chips line up down the tower whichever metric cells a row shows; the
+    driver name truncates before the chip or any timing cell gives way. The chip follows the
+    latest snapshot with no hold, applies in both layouts, combines with the on-camera highlight
+    and the local-yellow edge (rule 43), changes no other cell — the gap, interval, and position
+    read exactly as without it — and has no config toggle. The tower reads only the car's own
+    field: the chip shows under any `session.flag` or with no `session` at all, so a car that
+    retires under green shows `DNF` at once. Decision record:
+    `docs/decisions/0017-finish-status-field.md`.
 
 ### Battle box (`/battle`)
 

@@ -84,6 +84,11 @@ on a field name/type, `schema.json` wins.
     involvement or a sector's flag. The tower marks involved rows (`widgets.md` rule 43) and Race
     Control names the yellow sectors (rule 44). Decision record:
     `docs/decisions/0016-local-yellow-fields.md`.
+19. **Finish status** (additive): per-vehicle **`finish_status`**, an integer code — `0` running,
+    `1` finished (this car has taken the chequered flag), `2` DNF, `3` DQ; null, absent, or any
+    other integer reads as running. Per car and producer-owned: the overlay never infers it from
+    the session flag, laps, or position. The tower marks finished, DNF, and DQ rows when `mode` is
+    `race` or `results`, under any session flag (`widgets.md` rule 45). Decision record: `docs/decisions/0017-finish-status-field.md`.
 15. **`session`** (open object) — session status: **`flag`** (free-form string;
     `green`/`yellow`/`red`/`checkered`/`white`/`none` common), **`full_course_yellow`** /
     **`safety_car`** (booleans, independent), timed fields **`time_remaining`** / **`session_length`**

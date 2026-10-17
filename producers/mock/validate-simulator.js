@@ -66,6 +66,17 @@ const isLapCount = (n) => Number.isInteger(n) && n >= 0;
 // (a yellow sector outside FCY) with an involved car, so both overlay paths run live.
 let localYellowSeen = false;
 const yellowViolations = [];
+// Finish status (ADR 0017), the mock producer's own output policy: every race and results tick
+// carries an integer `finish_status` in 0..3 on every car, and other phases omit it. In the race a
+// car reads 1 only once the session flag is `checkered`, and once a car's code is non-zero it
+// never changes again within one race leg. The race must show the flag falling progressively, with a tick where some
+// cars have finished while others are still running, and retire at least one car (2). In results
+// every car is classified: 1, 2 or 3, never 0.
+let progressiveFinishSeen = false;
+let dnfSeen = false;
+const finishViolations = [];
+let finishPrev = new Map();
+const isFinishCode = (n) => Number.isInteger(n) && n >= 0 && n <= 3;
 
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
@@ -145,6 +156,43 @@ for (let i = 0; i < TICKS; i++) {
     }
   }
 
+  if (payload.mode === "race" && raceTicks === 0) finishPrev = new Map();
+  const finishProblems = [];
+  if (payload.mode === "race" || payload.mode === "results") {
+    const checkered = String(payload.session?.flag ?? "").toLowerCase() === "checkered";
+    for (const v of payload.vehicles) {
+      const code = v.finish_status;
+      if (!isFinishCode(code)) {
+        finishProblems.push(`${v.driver_name} finish_status=${JSON.stringify(code)}`);
+        continue;
+      }
+      if (code === 2) dnfSeen = true;
+      if (payload.mode === "race") {
+        if (code === 1 && !checkered) finishProblems.push(`${v.driver_name} finished before the chequered flag`);
+        const prev = finishPrev.get(v.slot_id);
+        if (prev != null && prev !== 0 && code !== prev) {
+          finishProblems.push(`${v.driver_name} changed from ${prev} to ${code}`);
+        }
+        finishPrev.set(v.slot_id, code);
+      } else if (code === 0) {
+        finishProblems.push(`${v.driver_name} unclassified (0) in results`);
+      }
+    }
+    if (
+      payload.mode === "race" &&
+      payload.vehicles.some((v) => v.finish_status === 1) &&
+      payload.vehicles.some((v) => v.finish_status === 0)
+    ) {
+      progressiveFinishSeen = true;
+    }
+  } else {
+    const carrier = payload.vehicles.find((v) => "finish_status" in v);
+    if (carrier) finishProblems.push(`${carrier.driver_name} carries finish_status in ${payload.mode}`);
+  }
+  if (finishProblems.length > 0 && finishViolations.length < 10) {
+    finishViolations.push(`tick ${i} (${payload.mode}): ${finishProblems.join(", ")}`);
+  }
+
   const errors = validate(payload);
   if (errors.length > 0) {
     failed += 1;
@@ -207,6 +255,22 @@ if (!localYellowSeen) {
   process.exit(1);
 }
 
+if (finishViolations.length > 0) {
+  console.error("\nfinish_status missing or inconsistent (ADR 0017):");
+  for (const v of finishViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+if (!progressiveFinishSeen) {
+  console.error("\nThe race never showed the flag falling progressively (some cars finished while others still running) — the finish chip is not exercised.");
+  process.exit(1);
+}
+
+if (!dnfSeen) {
+  console.error("\nNo car ever retired (finish_status 2) — the DNF chip is not exercised.");
+  process.exit(1);
+}
+
 if (!lappedSeen) {
   console.error("\nThe race phase never lapped a car (no laps_behind_leader >= 1) — the lapped-car case is not exercised.");
   process.exit(1);
@@ -219,3 +283,4 @@ console.log(`Lap times within [${LAP_MIN_FACTOR}x, ${LAP_MAX_FACTOR}x] of class 
 console.log(`Starting grid within ${START_SPREAD_MAX_SECONDS}s, nobody lapped in the opening lap (#217).`);
 console.log("Race phase lapped a backmarker and carried valid laps_behind_* fields (ADR 0012).");
 console.log("Race phase staged a local yellow with valid sector_flags / yellow_involved fields (ADR 0016).");
+console.log("Race phase took the chequered flag progressively, retired a car, and results classified every car (ADR 0017).");

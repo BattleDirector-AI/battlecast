@@ -370,6 +370,49 @@ function testLocalYellowFieldsValidateAgainstSchema() {
   );
 }
 
+function testFinishStatusFieldValidatesAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const finish = load("race-finish.json");
+  const codes = finish.vehicles.map((v) => v.finish_status);
+  assert(
+    codes.filter((c) => c === 1).length === 3 && codes.includes(0) && codes.includes(2),
+    "race-finish.json must carry three finished cars (1), one running (0), and one DNF (2)"
+  );
+  let result = validator.validate(finish);
+  assert(result.valid, `expected race-finish.json to validate, got: ${result.errors.join("; ")}`);
+
+  const dq = JSON.parse(JSON.stringify(finish));
+  dq.vehicles[4].finish_status = 3;
+  dq.vehicles[3].finish_status = null;
+  result = validator.validate(dq);
+  assert(result.valid, `expected finish_status 3 and null to validate, got: ${result.errors.join("; ")}`);
+
+  const none = load("race-tower-metrics.json");
+  assert(
+    none.vehicles.every((v) => !("finish_status" in v)),
+    "race-tower-metrics.json is the no-finish-status base and must NOT carry finish_status"
+  );
+  result = validator.validate(none);
+  assert(result.valid, `expected a payload with NO finish_status to still validate, got: ${result.errors.join("; ")}`);
+
+  for (const [bad, label] of [["1", 'the string "1"'], [true, "true"], [1.5, "1.5"], [-1, "-1"]]) {
+    const payload = JSON.parse(JSON.stringify(finish));
+    payload.vehicles[0].finish_status = bad;
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected finish_status ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes("/vehicles/0/finish_status")),
+      `expected the finish_status ${label} error to name /vehicles/0/finish_status, got: ${r.errors.join("; ")}`
+    );
+  }
+
+  console.log(
+    "PASS: finish_status validates against schema.json as a non-negative integer code, a payload without it still validates, and wrongly typed values are rejected (ADR 0017)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
@@ -377,6 +420,7 @@ async function main() {
   testTowerMetricsFixturesValidateAgainstSchema();
   testLapDeficitFieldsValidateAgainstSchema();
   testLocalYellowFieldsValidateAgainstSchema();
+  testFinishStatusFieldValidatesAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");
