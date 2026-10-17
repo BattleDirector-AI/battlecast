@@ -43,10 +43,11 @@ Two optional fields:
 | `vehicles[].yellow_involved` | boolean | tower: a yellow edge on the row (`widgets.md` rule 43) |
 | `session.sector_flags` | array of strings, index 0 = sector 1 | Race Control: a `YELLOW S2` chip (rule 44) |
 
-- **Tower mark: a yellow edge on the row's leading side**, beside the class bar. It was picked
-  over a flag chip in the row (no room in an already tight row) and over a whole-row tint (which
-  fights the on-camera highlight). The class bar stays, so class identity is not lost on a
-  yellow car.
+- **Tower mark: a yellow edge on the row's trailing (right) side**, opposite the class bar. It
+  was picked over a flag chip in the row (no room in an already tight row) and over a whole-row
+  tint (which fights the on-camera highlight). The class bar stays, so class identity is not lost
+  on a yellow car. It first sat beside the class bar, but there it merged into amber and orange
+  class colours (#234), so it moved to the other edge.
 - **Sector yellows live in Race Control.** It already carries the flag, FCY and safety car, so
   `YELLOW S2` sits with the other flag states. The tower header was rejected because it already
   holds the session clock.

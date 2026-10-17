@@ -608,6 +608,9 @@
 
 <style>
   .tower {
+    /* The tower's class bars are wider than the design token so a class colour reads at a
+       glance (#234). */
+    --tower-classbar: calc(var(--bc-classbar) + 2px);
     width: var(--bc-tower-width);
     box-sizing: border-box;
     background: var(--bc-plate);
@@ -691,7 +694,7 @@
     left: 0;
     top: 0;
     bottom: 0;
-    width: var(--bc-classbar);
+    width: var(--tower-classbar);
   }
   .group__count {
     margin-left: auto;
@@ -729,13 +732,14 @@
     left: 0;
     top: 0;
     bottom: 0;
-    width: var(--bc-classbar);
+    width: var(--tower-classbar);
   }
 
-  /* Local-yellow edge (rule 43): a yellow strip just inside the class bar, which stays. */
+  /* Local-yellow edge (rule 43): a yellow strip on the row's right edge, opposite the class bar,
+     so it never merges into an amber or orange class colour (#234). */
   .row__yellowedge {
     position: absolute;
-    left: var(--bc-classbar);
+    right: 0;
     top: 0;
     bottom: 0;
     width: var(--bc-classbar);
@@ -904,7 +908,7 @@
 
   /* Finish chip (rule 45): a fixed-width trailing slot so chips line up down the tower and
      the columns before it don't shift between marked and unmarked rows. The slot tucks into
-     the row's right padding, and while it is reserved the name's floor drops so the name
+     the row's right padding, stopping short of the local-yellow strip on that edge, and while it is reserved the name's floor drops so the name
      truncates before the chip is pushed past the tower's edge. */
   .row--finishslot .row__name {
     min-width: 2em;
@@ -914,7 +918,7 @@
     box-sizing: border-box;
     width: 28px;
     height: 16px;
-    margin-right: -8px;
+    margin-right: -4px;
     /* Offsets the trailing letter-spacing so DNF / DQ sit centred. */
     padding-left: var(--bc-track-label);
     display: inline-flex;
