@@ -28,20 +28,36 @@
     // Unknown flag string: tolerate it, render a neutral chip with the raw label.
     return { key, label: `${key.toUpperCase()} FLAG`, color: 'var(--bc-text-3)' }
   }
+
+  // `sector_flags` is in lap order (index 0 = sector 1). Only the string `yellow`, trimmed
+  // and case-insensitive, is a local yellow; anything else, or a non-array, is not.
+  export function resolveYellowSectors(sectorFlags) {
+    if (!Array.isArray(sectorFlags)) return []
+    const sectors = []
+    sectorFlags.forEach((f, i) => {
+      if (typeof f === 'string' && f.trim().toLowerCase() === 'yellow') sectors.push(i + 1)
+    })
+    return sectors
+  }
 </script>
 
 <script>
   // Dumb overlay, smart producer (docs/decisions/0002-lower-third-widgets.md): every
   // field here is producer-computed. `session` may be null/undefined/partial — this
-  // component MUST tolerate that and never throw; when there is no flag/FCY/SC worth
-  // showing it renders nothing rather than an empty plate.
+  // component MUST tolerate that and never throw; when there is no flag/FCY/SC/sector
+  // yellow worth showing it renders nothing rather than an empty plate.
   let { session = null, mode = null } = $props()
 
   const flag = $derived(resolveFlag(session?.flag))
   const fcy = $derived(!!session?.full_course_yellow)
   const sc = $derived(!!session?.safety_car)
   const caution = $derived(fcy || sc)
-  const hasContent = $derived(!!flag || fcy || sc)
+  // Sector yellows (rule 44): 1-based sector numbers whose producer-sent entry is `yellow`.
+  // Hidden under FCY/SC, whose badges already cover the whole course.
+  const yellowSectors = $derived(
+    caution ? [] : resolveYellowSectors(session?.sector_flags),
+  )
+  const hasContent = $derived(!!flag || fcy || sc || yellowSectors.length > 0)
 </script>
 
 {#if hasContent}
@@ -61,6 +77,15 @@
       ></span>
       <span class="bc-racecontrol__flag-label">{flag.label}</span>
     </div>
+  {/if}
+
+  {#if yellowSectors.length > 0}
+    <span
+      class="bc-racecontrol__badge bc-racecontrol__badge--sector"
+      data-testid="racecontrol-sector-yellow"
+    >
+      YELLOW {yellowSectors.map((n) => `S${n}`).join(' ')}
+    </span>
   {/if}
 
   {#if fcy || sc}
@@ -220,6 +245,13 @@
     color: var(--bc-text-on-accent);
     background: var(--bc-intensity-mid);
     border-color: var(--bc-intensity-mid);
+  }
+
+  .bc-racecontrol__badge--sector {
+    color: var(--bc-intensity-mid);
+    background: transparent;
+    border-color: var(--bc-intensity-mid);
+    border-style: dashed;
   }
 
   .bc-racecontrol__badge--sc {

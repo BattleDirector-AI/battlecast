@@ -61,6 +61,14 @@ const GRID = [
 // grouped tower's class-lap readout needs RACE_SECONDS >= ~500.
 const BACKMARKER_PENALTY = 40;
 const BACKMARKER_ONSET_SECONDS = 15;
+// Local yellow (ADR 0016): from 10%–20% of the race leg (never before the backmarker's problem
+// starts) and before the 25% FCY window, the sector the crawling backmarker is in shows a local
+// yellow and the backmarker is `yellow_involved` — except while it is in the pit lane, which the
+// contract excludes from involvement. Every other race tick sends three green sectors and
+// nobody involved, so both the staged and the all-clear paths run live.
+const LOCAL_YELLOW_START = 0.1;
+const LOCAL_YELLOW_END = 0.2;
+const SECTOR_COUNT = 3;
 // Starting-grid spread, as a fraction of a lap across the whole field. A real grid is
 // ~8 m a slot, so 14 cars fill ~100 m of a ~5 km lap: about 0.02 laps, ~2.1 s from
 // front to back in the first race snapshot (#217; validate-simulator pins it below 2.5 s).
@@ -746,6 +754,25 @@ function createSimulator(config = {}) {
 
     const session = buildSession(phase, phaseElapsed, phaseSeconds[phase], raceLegIndex % 2 === 0);
 
+    // Local yellow around the backmarker (race only). The sector comes from how far round its
+    // current lap the car is: lap distance is in LAP_UNITs, so the fractional part is the lap
+    // position, split evenly into SECTOR_COUNT sectors (index 0 = sector 1).
+    let involvedSlot = null;
+    if (isRace) {
+      const total = phaseSeconds[phase];
+      const sectorFlags = Array(SECTOR_COUNT).fill("green");
+      const backmarker = cars.find((c) => c.backmarker);
+      const windowStart = Math.max(LOCAL_YELLOW_START * total, BACKMARKER_ONSET_SECONDS);
+      const inWindow = phaseElapsed >= windowStart && phaseElapsed < LOCAL_YELLOW_END * total;
+      if (backmarker && inWindow && !backmarker.in_pit) {
+        const lapPos = ((backmarker.distance % LAP_UNIT) + LAP_UNIT) % LAP_UNIT;
+        sectorFlags[Math.min(SECTOR_COUNT - 1, Math.floor((lapPos / LAP_UNIT) * SECTOR_COUNT))] = "yellow";
+        involvedSlot = backmarker.slot_id;
+        session.flag = "yellow";
+      }
+      session.sector_flags = sectorFlags;
+    }
+
     return {
       schemaVersion: "1",
       mode: phase,
@@ -777,6 +804,7 @@ function createSimulator(config = {}) {
             ? {
                 pit_stops: car.pit_stops,
                 in_pit: car.in_pit,
+                yellow_involved: car.slot_id === involvedSlot,
                 tire_wear: round2(car.tire_wear),
                 fuel: round2(car.fuel),
               }

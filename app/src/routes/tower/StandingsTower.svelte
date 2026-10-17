@@ -391,6 +391,8 @@
      inline-only 'rank/total' chip. -->
 {#snippet towerRow(v, positionText, zebra, classBadge, gap)}
   {@const oncam = v.slot_id === subjectSlot}
+  <!-- Local-yellow involvement (rule 43): the producer's own per-car flag, exactly true. -->
+  {@const yellow = v.yellow_involved === true}
   {@const vm = resolveVehicleMetrics(v)}
   {@const flash = flashes[v.slot_id]}
   <!-- Per-cell visibility: the config toggle AND the field's presence AND, for the
@@ -411,6 +413,7 @@
     data-position={v.position}
     data-oncam={oncam ? 'true' : 'false'}
     data-in-pit={inPitActive ? 'true' : undefined}
+    data-yellow={yellow ? 'true' : undefined}
     aria-current={oncam ? 'true' : undefined}
   >
     {#if oncam}
@@ -428,6 +431,9 @@
       style:background={classColor(v.vehicle_class, classColors)}
       aria-hidden="true"
     ></span>
+    {#if yellow}
+      <span class="row__yellowedge" data-testid="row-yellow-edge" aria-hidden="true"></span>
+    {/if}
     <span class="row__pos">{positionText}</span>
     <ClassChip carClass={v.vehicle_class} size="compact" {classColors} />
     {#if classBadge}
@@ -692,6 +698,16 @@
     top: 0;
     bottom: 0;
     width: var(--bc-classbar);
+  }
+
+  /* Local-yellow edge (rule 43): a yellow strip just inside the class bar, which stays. */
+  .row__yellowedge {
+    position: absolute;
+    left: var(--bc-classbar);
+    top: 0;
+    bottom: 0;
+    width: var(--bc-classbar);
+    background: var(--bc-intensity-mid);
   }
 
   .row__pos {
