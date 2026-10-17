@@ -138,6 +138,15 @@
   // interval column. Same session set as `lapTimed`.
   const hideRaceStrategy = $derived(lapTimed)
 
+  // Finish status (rule 45): the producer's per-car code, shown only in a race or results
+  // board. Exactly 1 / 2 / 3 map to a chip; anything else (0, null, "1", true, 4…) is none.
+  const FINISH_KINDS = { 1: 'finished', 2: 'dnf', 3: 'dq' }
+  const finishBoard = $derived(
+    ['race', 'results'].includes(String(snapshot?.mode ?? '').trim().toLowerCase()),
+  )
+  const finishKind = (v) =>
+    finishBoard && Number.isInteger(v.finish_status) ? (FINISH_KINDS[v.finish_status] ?? null) : null
+
   // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
   // => show every class.
   const filterKey = $derived(
@@ -174,6 +183,11 @@
 
   // inline: overall order, filtered.
   const inlineRows = $derived(allSorted.filter(matchesFilter))
+
+  // Layout only: once any rendered row carries a finish chip (rule 45), every row reserves
+  // the chip's slot so the gap / interval / metric columns stay aligned between marked and
+  // unmarked rows. Grouped rows are the same filtered field, so this covers both layouts.
+  const finishSlot = $derived(finishBoard && inlineRows.some((v) => finishKind(v)))
 
   // grouped: per-class sections. Bucket the filtered field by class, ordered by the
   // class registry `order` (alphabetical tiebreak for unknown classes) — the same
@@ -393,6 +407,7 @@
   {@const oncam = v.slot_id === subjectSlot}
   <!-- Local-yellow involvement (rule 43): the producer's own per-car flag, exactly true. -->
   {@const yellow = v.yellow_involved === true}
+  {@const finish = finishKind(v)}
   {@const vm = resolveVehicleMetrics(v)}
   {@const flash = flashes[v.slot_id]}
   <!-- Per-cell visibility: the config toggle AND the field's presence AND, for the
@@ -408,12 +423,14 @@
     class:row--oncam={oncam}
     class:row--zebra={zebra}
     class:row--inpit={inPitActive}
+    class:row--finishslot={finishSlot}
     data-testid="tower-row"
     data-slot={v.slot_id}
     data-position={v.position}
     data-oncam={oncam ? 'true' : 'false'}
     data-in-pit={inPitActive ? 'true' : undefined}
     data-yellow={yellow ? 'true' : undefined}
+    data-finish={finish ?? undefined}
     aria-current={oncam ? 'true' : undefined}
   >
     {#if oncam}
@@ -506,6 +523,21 @@
           ></span>
         </span>
       </span>
+    {/if}
+    <!-- Finish chip (rule 45): always the row's last element, in a fixed trailing slot. -->
+    {#if finish === 'finished'}
+      <span
+        class="row__finish row__finish--flag"
+        data-testid="row-finish"
+        role="img"
+        aria-label="Finished"
+      ></span>
+    {:else if finish}
+      <span class="row__finish row__finish--{finish}" data-testid="row-finish"
+        >{finish === 'dnf' ? 'DNF' : 'DQ'}</span
+      >
+    {:else if finishSlot}
+      <span class="row__finish row__finish--empty" aria-hidden="true"></span>
     {/if}
   </li>
 {/snippet}
@@ -868,6 +900,58 @@
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
+  }
+
+  /* Finish chip (rule 45): a fixed-width trailing slot so chips line up down the tower and
+     the columns before it don't shift between marked and unmarked rows. The slot tucks into
+     the row's right padding, and while it is reserved the name's floor drops so the name
+     truncates before the chip is pushed past the tower's edge. */
+  .row--finishslot .row__name {
+    min-width: 2em;
+  }
+  .row__finish {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: 28px;
+    height: 16px;
+    margin-right: -8px;
+    /* Offsets the trailing letter-spacing so DNF / DQ sit centred. */
+    padding-left: var(--bc-track-label);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--bc-radius-chip);
+    font-family: var(--bc-font-ui);
+    font-size: var(--bc-size-chip-compact);
+    font-weight: var(--bc-weight-label);
+    letter-spacing: var(--bc-track-label);
+    line-height: 1;
+  }
+  /* 16px square centred in the same 28px slot (6px each side, less the slot's tuck). */
+  .row__finish--flag {
+    width: 16px;
+    padding-left: 0;
+    margin-left: 6px;
+    margin-right: -2px;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, #0b0e13 25%, transparent 25%, transparent 75%, #0b0e13 75%, #0b0e13),
+      linear-gradient(45deg, #0b0e13 25%, #fff 25%, #fff 75%, #0b0e13 75%, #0b0e13);
+    background-size: 8px 8px;
+    background-position:
+      0 0,
+      4px 4px;
+  }
+  .row__finish--dnf,
+  .row__finish--dq {
+    color: var(--bc-text-2);
+    border: 1px solid var(--bc-text-3);
+  }
+  .row__finish--dq {
+    color: var(--bc-live);
+    border-color: var(--bc-live);
   }
 
   /* Shared compact meter for tire wear + fuel. */

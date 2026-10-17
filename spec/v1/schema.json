@@ -164,6 +164,11 @@
         "yellow_involved": {
           "type": ["boolean", "null"],
           "description": "Optional. True when this vehicle is involved in an active LOCAL yellow: the producer judges it stopped or crawling (not merely lifting for the flag), or off the track surface, inside the yellow zone, and not in the pit lane. A car that only drives through a yellow sector is NOT involved. It does not claim to identify the car that caused the yellow, and MAY be set without `session.sector_flags`. False, null, or absent = not involved. Producer-owned (dumb overlay, smart producer): no sim reports involvement directly, so the producer judges it; consumers MUST NOT infer it from speed, position, or `session.sector_flags`. A tower marks the row of a vehicle whose value is exactly `true`. Under a full-course caution the producer MAY still set it for a car stopped at the incident."
+        },
+        "finish_status": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Optional integer code for whether this vehicle has finished the race: 0 = running (has not taken the chequered flag), 1 = finished (has taken the chequered flag), 2 = DNF (retired), 3 = DQ (disqualified). The codes match rFactor 2 `mFinishStatus` (Le Mans Ultimate exposes the same field). Per car: a car becomes 1 when IT crosses the line under the chequered flag, not when the leader does, so cars still on their last lap stay 0. Null or absent = unknown, rendered like 0. Any other integer is a code this revision does not define; consumers tolerate it and render it like 0. A race concept: a producer SHOULD send it only in `race` and `results`, and a tower shows it only when `mode` (trimmed, case-insensitive) is `race` or `results`. Independent of `session.flag`: a car that retires under green is 2 at once. Producer-owned (dumb overlay, smart producer): consumers MUST NOT infer it from `session.flag`, laps, or position."
         }
       }
     },
