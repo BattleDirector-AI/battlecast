@@ -122,6 +122,11 @@ export const FIELD_HELP = Object.freeze({
     '"inline" keeps one overall running order and badges each row with its position in class ' +
     '(e.g. GTP 3/7). "grouped" splits the tower into a block per class, with positions restarting ' +
     'inside each block.',
+  nameStyle:
+    '"short" shows each driver as a compact code (E.JAC), so the tower keeps its set width. ' +
+    '"full" shows the initial and last name (E. Jacobs) and never cuts a name short: the tower ' +
+    'grows wider than its set width to fit the longest name, and can run past the edge of the ' +
+    'canvas or the Browser Source.',
   cycleEnabled:
     'When there are more cars than fit in the tower’s height, page through the ones that do not ' +
     'fit instead of cutting them off the bottom. Leave this off to simply show as many as fit.',

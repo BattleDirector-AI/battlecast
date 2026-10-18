@@ -57,7 +57,7 @@ describe('StandingsTower local yellow — row mark (rule 43)', () => {
   })
 
   it('keeps the class bar and the row text on a marked row', () => {
-    render(StandingsTower, { snapshot: localYellow })
+    render(StandingsTower, { snapshot: localYellow, nameStyle: 'full' })
     const row = rowFor('car-16')
     expect(isMarked('car-16')).toEqual(MARKED)
     expect(row.querySelector('.row__classbar')).not.toBeNull()

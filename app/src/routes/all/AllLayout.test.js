@@ -137,7 +137,8 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     const battle = slot(container, 'battle')
     expect(tower).not.toBeNull()
     expect(battle).not.toBeNull()
-    expect(container.textContent).toContain('Hamilton')
+    // The tower renders short names by default (widgets.md rule 47).
+    expect(tower.textContent).toContain('HAM')
     expect(container.textContent).toContain('Verstappen')
   })
 

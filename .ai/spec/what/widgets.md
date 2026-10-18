@@ -109,14 +109,133 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     the chip for `3` reads `DQ`. Any other value — `0`, null, absent, a string such as `"1"`, a
     boolean, a non-integer, an undefined code such as `4` — shows no chip and no `data-finish`.
     The chip is the row's last element, after every metric cell, and sits against the row's
-    trailing edge so the chips line up down the tower whichever metric cells a row shows; the
-    driver name truncates before the chip or any timing cell gives way. The chip follows the
+    trailing edge so the chips line up down the tower whichever metric cells a row shows. The
+    chip and the timing cells keep their width, and the driver name never truncates to make
+    room. In short style (rule 47) a row that is wider than the tower even so is clipped at the
+    tower's right edge (clipped, never wrapped onto a second line), and the chip, as the row's
+    last element, is the first thing clipped. In
+    full style (rule 48) the tower widens instead. The chip follows the
     latest snapshot with no hold, applies in both layouts, combines with the on-camera highlight
     and the local-yellow edge (rule 43), changes no other cell — the gap, interval, and position
     read exactly as without it — and has no config toggle. The tower reads only the car's own
     field: the chip shows under any `session.flag` or with no `session` at all, so a car that
     retires under green shows `DNF` at once. Decision record:
     `docs/decisions/0017-finish-status-field.md`.
+46. **Driver name style.** The tower renders every row's driver name in the style its
+    `nameStyle` setting selects (`overlay-config.md` rule 42): **short** (rule 47, the
+    default) or **full** (rule 48). The style applies to every row in both layouts (inline and
+    grouped), in every mode, and wherever the tower renders: the standalone `/tower` route and
+    the tower inside `/all`, including the `/config` preview. The root element
+    (`data-testid="standings-tower"`) carries `data-name-style` = `short` | `full`, the style
+    it is rendering. Only the tower reads the setting. The battle box, the lower-thirds, the
+    on-board HUD and the `/grid` and `/results` slides render names in their own format,
+    whatever it holds. The name is derived from the car's own `driver_name` and nothing else. The tower never compares one
+    car's name with another's, and the style changes no other cell, no row order and no
+    highlight.
+47. **Short names.** The short form is built from `driver_name` as follows:
+    - A missing, null or non-string `driver_name`, or one that is empty or whitespace-only
+      after trimming, gives an empty name cell; the row otherwise renders as usual.
+    - Normalize the string to Unicode NFC, then trim it. All counting below is in Unicode code
+      points, never UTF-16 units, so an astral character counts once and is never split.
+    - Split it into words at whitespace. If that gives exactly one word and the word contains
+      `.`, split that word at its first `.` instead. So `E.Jacobs`, and an already-short
+      `E.JAC`, read as an initial and a last name.
+    - From each word keep only its letters (`\p{L}`) and decimal digits (`\p{Nd}`), in any
+      script. Everything else is dropped: hyphens, apostrophes, periods, brackets, combining
+      marks (`\p{M}`) left over after NFC, and every other character. A word left with nothing
+      is discarded.
+    - No words left → empty name cell. One word → its first three kept code points. Two or
+      more → the first kept code point of the first word (so `(Erik)` gives `E`), then `.`,
+      then the first three kept code points of all the remaining words run together. Where
+      fewer than three are available, all of them show.
+    - Uppercase last, with locale-independent `toUpperCase`, and show the whole result with no
+      space. The three code points are taken before uppercasing, so a character that
+      uppercases to more than one (`ß` → `SS`) lengthens the result: a last name `Aßmann`
+      gives `ASSM`. This is the one case where the code is longer than three letters.
+
+    | `driver_name` | short |
+    |---|---|
+    | `Erik Jacobs` | `E.JAC` |
+    | `erik jacobs` | `E.JAC` |
+    | `Tsunoda` | `TSU` |
+    | `Nyck de Vries` | `N.DEV` |
+    | `Jean-Eric Vergne` | `J.VER` |
+    | `Ana Le-Roux` | `A.LER` |
+    | `Pato O'Ward` | `P.OWA` |
+    | `Sébastien Buemi` | `S.BUE` |
+    | `Kimi Räikkönen` | `K.RÄI` |
+    | `Kimi Räikkönen` sent decomposed (`a`/`o` + U+0308) | `K.RÄI` |
+    | `Виталий Петров` | `В.ПЕТ` |
+    | `(Erik) Jacobs` | `E.JAC` |
+    | `Jan Aßmann` | `J.ASSM` |
+    | `Erik Li` | `E.LI` |
+    | `Bo` | `BO` |
+    | `E. Jacobs` | `E.JAC` |
+    | `E.Jacobs` | `E.JAC` |
+    | `E.JAC` | `E.JAC` |
+    | `J.R. Hildebrand` | `J.HIL` |
+    | `Tsunoda.` | `TSU` |
+    | `D7` | `D7` |
+    | `-` | *(empty)* |
+    | `  ` (whitespace) | *(empty)* |
+
+    The name cell is never narrower than the short name it holds and never ellipsizes it. When
+    a row with every metric cell on still needs more width than the tower has, the row is
+    clipped at the tower's right edge (rule 45).
+48. **Full names, and the tower that fits them.** The full form is the trimmed name as the
+    battle box shows it. A name containing `.` shows exactly as sent. A one-word name shows as
+    is. Otherwise it is the first word's first character, `. `, and the remaining words joined
+    by single spaces: `Erik Jacobs` → `E. Jacobs`, `Nyck de Vries` → `N. de Vries`. A missing,
+    null, non-string, empty or whitespace-only `driver_name` gives an empty cell, as in rule 47.
+    The tower does not ellipsize a full name; it **grows wider** to fit instead:
+    - **Width.** The tower's minimum width is the larger of its configured width and its *fit
+      width*. The configured width is the widget's `w` inside `/all` and the `--bc-tower-width`
+      token on the standalone route. The fit width is the widest full-form name in the
+      **class-filtered field**, every car that passes `?class=` (rule 10), rendered or not,
+      measured in the row-name font at the on-camera row's weight, plus the widest non-name
+      content (position, class bar and badge, gap, interval, metric cells, finish chip, and the
+      row's own padding and gaps) of any row rendered since the last reset.
+    - **Font loading.** Names are measured only once the row-name font has loaded. Until then
+      the tower computes no fit width and its minimum width is its configured width. When a
+      font face of the row-name font's family finishes loading, the tower **re-measures the
+      names only**: every full-form name it has measured since the last reset, including cars
+      that have since left the field, is measured again in the loaded face, and the widest of
+      those replaces the name part of the fit width. The remembered non-name width is kept as
+      it is. The re-measured name part may come out narrower than before (a fallback face
+      measures wider than the real one), and that narrower value stands; the minimum width
+      still never falls below the configured width. A face of any other family finishing
+      loading changes nothing. A font load is not a reset.
+    - **Grow only.** Between resets the fit width never decreases, except that a name-font load
+      may correct the name part (above). A longer name joining the
+      field, a driver swap to a longer name, or a wider cell value grows it at once. A car
+      leaving the field, paging out of the cycling window, going off camera, or a cell value
+      getting narrower changes nothing. Camera cuts, page turns and the on-camera highlight
+      moving therefore never change the width.
+    - **Reset.** The fit width is recomputed from scratch from the current snapshot when:
+      - the tower mounts;
+      - the session `mode` changes. `mode` is compared trimmed and case-insensitively, as in
+        rule 45, against the mode of the last snapshot that carried one. A snapshot that is
+        null, or whose `mode` is absent, null or empty after trimming, is skipped: it neither
+        resets the width nor replaces the remembered mode. So a feed drop that comes back in
+        the same mode is not a reset;
+      - any of the tower's settings change: the class filter, `classDisplay`, `towerMetrics`,
+        `maxRows`, `cycle`, `nameStyle`, the configured width, or (inside `/all`) the tower's
+        `textScale`.
+
+      A new session in the same mode (one race, then the next) is **not** a reset: the
+      protocol carries no session identity, so the tower cannot tell it apart from the same
+      session continuing. A reset can shrink the tower, but never below its configured width.
+    - **Placement.** The tower keeps its left edge and grows to the right. The header and the
+      grouped-layout class headers span the same width. Inside `/all` the tower may extend
+      past its slot's `w` and past the canvas edge; the overlay neither moves it nor shrinks
+      its text to keep it inside. Anything past the canvas or the Browser Source edge is cut
+      off by the page, trailing cells first (`overlay-config.md` rule 21).
+    - **Height is untouched.** Names never wrap and the row height is the same as in short style. The tower's
+      height bound, row budget, pins and cycling (`tower-overflow.md`) apply exactly as in
+      short style.
+    - **Short style sets no minimum width.** The tower renders at its configured width.
+
+    Decision record: `docs/decisions/0018-tower-driver-name-style.md`.
 
 ### Battle box (`/battle`)
 

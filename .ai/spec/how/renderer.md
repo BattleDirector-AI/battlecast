@@ -193,3 +193,69 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `fuel`) are gated by the per-tower `towerMetrics` toggle (`?metrics=` on the standalone route),
   and `StandingsTower.svelte` suppresses pit/tire-wear/fuel outright in lap-timed modes
   (`hideRaceStrategy`) regardless of the toggles or producer data.
+- **Driver name style** (behavior in `what/widgets.md` rules 46–48, `what/overlay-config.md`
+  rule 42; rationale in `docs/decisions/0018-tower-driver-name-style.md`).
+  - **Props.** `StandingsTower.svelte` takes `nameStyle` (`'short'` | `'full'`; the bare
+    component's default is `'short'`, the style that never changes width), `configuredWidth`
+    (canvas px) and `textScale`. It stamps `data-name-style` on its root. `AllView.svelte`
+    passes `normalized.widgets.tower.nameStyle`, the tower's `w` as `configuredWidth`, and its
+    `textScale` (only a reset trigger; the type tokens on the slot already scale the text).
+    `TowerPage.svelte` passes `config.widgets.tower.nameStyle` from the profile it already
+    loads for `maxRows`/`cycle`, and no `configuredWidth`; the component then uses the resolved
+    `--bc-tower-width`, and `380` when that does not resolve to a px number (as in `happy-dom`).
+  - **Formatters.** Full is `fmtName` (`design/format.js`), the formatter the battle box,
+    lower-thirds, HUD and grid/results slides use, applied to string names only (a non-string
+    gives `''`). Short is a separate formatter beside it that only the tower calls.
+  - **The width hook.** In full style the tower root carries an **inline `min-width: <N>px`**,
+    `N = max(configuredWidth, ceil(widestName + widestRest))`. Its CSS `width` stays what it is
+    in short style (`100%` of the `/all` slot, `--bc-tower-width` standalone), so the inline
+    minimum is what widens it past the slot; nothing else may pin its width. `.tower` keeps
+    `overflow: hidden`, so a minimum that comes out too small clips the row; rows never wrap.
+    In short style the root has **no** inline `min-width`. `widestName` and `widestRest` are
+    running maxima, cleared only by a reset (rule 48). The tower also keeps the set of
+    full-form names it has measured since the last reset, so a font load can re-measure them
+    all, including cars that have left the field.
+  - **The measuring font.** One CSS font string, built from the tower root's computed style as
+    `` `${--bc-weight-leader} ${--bc-size-name} ${--bc-font-display}` ``. Each token that does
+    not resolve (empty, as in `happy-dom`) takes its default from `tokens/typography.css`, so
+    the fully unresolved string is exactly **`700 22px 'Saira Condensed', 'Arial Narrow',
+    sans-serif`**. Every name is measured in this string, the on-camera weight.
+  - **Measuring names.** With a 2D canvas context from
+    `document.createElement('canvas').getContext('2d')`: set `ctx.font` to the measuring font,
+    then `ctx.measureText(fullName).width`, for every car in the class-filtered field. When
+    `getContext('2d')` returns `null`, every name measures `0`.
+  - **Font readiness.** When `document.fonts` exists, names are measured only while
+    `document.fonts.check(measuringFont)` returns `true`; while it returns `false`, the tower
+    computes no fit width (`N` is the configured width). `check()` can return `true` before
+    the stylesheet has registered the family (while the Google Fonts `@import` is still
+    loading), so the first measurement may be taken in the fallback face; the name-font load
+    below corrects it.
+  - **Font load = name re-measure, not a reset.** The tower listens for `document.fonts`'
+    `loadingdone` event and reacts only when the event's `fontfaces` include a face whose
+    `family`, with surrounding quotes stripped and compared case-insensitively, is the first
+    family of `--bc-font-display` (`Saira Condensed` by default). It also awaits
+    `document.fonts.ready`, which carries no face list, and treats it as a name-font load.
+    On a name-font load: if `check(measuringFont)` is `true`, re-measure every name in the
+    remembered set and set `widestName` to the widest of them, which may be smaller than
+    before; `widestRest` is untouched. The listener is removed on unmount. When
+    `document.fonts` does not exist, names are measured at once.
+  - **Measuring the rest of the row.** After every render of the rows (each snapshot, each
+    page turn), for each rendered row: `rest = row.scrollWidth − nameCell.clientWidth`, where
+    `row` is `[data-testid="tower-row"]` and `nameCell` is its `[data-testid="driver-name"]`,
+    floored at `0`. `scrollWidth` is the row's full content extent, padding and gaps
+    included, even when the row overflows the tower; it does not under-read the way a rect of
+    an overflowing row does. The name cell's `clientWidth` is the box the name was given, so
+    the difference is everything else. For that to hold, in full style the non-name cells do
+    not shrink (`flex-shrink: 0`); only the name cell flexes. Absolutely positioned decoration
+    (the on-camera flash, the local-yellow edge) does not extend `scrollWidth`. In `happy-dom`
+    both reads are `0`, so `rest` is `0` unless a test stubs them.
+  - **What the tests stub.**
+    - `HTMLCanvasElement.prototype.getContext`: a context whose `measureText(t)` returns
+      `{ width: 10 × [...t].length }` and records `ctx.font`.
+    - `document.fonts`: `check`, `ready`, `addEventListener` / `removeEventListener`; a fired
+      `loadingdone` carries `fontfaces: [{ family }]`.
+    - The `scrollWidth` of `[data-testid="tower-row"]` and the `clientWidth` of
+      `[data-testid="driver-name"]` (getters on `HTMLElement.prototype`).
+
+    What remains for a one-time headless-Chromium check is real glyph widths, and the inline
+    `min-width` beating the `/all` slot's `width: 100%`.
