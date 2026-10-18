@@ -11,7 +11,10 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 1. Config carries its own **`configVersion`** (`"1"`), numbered independently of the spec
    `schemaVersion` and the app release version.
 2. Config additions are **additive + defaulted** — new per-widget knobs are normalized onto every
-   widget and do not bump `configVersion`. Existing profiles keep working unchanged.
+   widget and do not bump `configVersion`. Every existing profile keeps loading and keeps its
+   saved geometry and saved values. A new knob's default may change how an existing profile
+   looks (rule 42's short names do), but never its saved geometry or the meaning of a value it
+   already holds.
 3. **Split read from write:** render pages only *read* config over HTTP; the `/config` UI is the
    only writer. The render path is identical whether config/assets come from the companion server or
    a static host.
@@ -63,6 +66,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `classDisplay` | tower | inline vs grouped multi-class layout |
     | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
     | `maxRows`, `cycle` | tower | overflow row cap + pinned-rows/cycling-window config (see `tower-overflow.md`) |
+    | `nameStyle` | tower | `short` (default) / `full` driver names (rules 42–43) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
 
 12. **Tower overflow config** (`maxRows`, `cycle`; only the tower reads them). `maxRows`: `"auto"`
@@ -183,6 +187,32 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     rule 41a edit from the drag's start to its end, whatever path the pointer took in between.
     Releasing the pointer ends the edit: the next drag compares with where that one finished.
 
+### Tower driver name style
+
+42. **`nameStyle`** (tower; default `short`) selects how the standings tower renders driver
+    names: `short` (`E.JAC`) or `full` (`E. Jacobs`, with the tower growing wider to fit;
+    `widgets.md` rules 46–48). Normalization keeps exactly the string `short` or `full` and
+    replaces anything else with `short`: absent, null, another case such as `Full`, any other
+    string, or a value of another type. It is normalized onto every widget for a uniform
+    shape, and only the tower reads it. Both `/all` and the standalone `/tower` route read it
+    from the loaded profile. A route with no profile, or a profile without the key, renders
+    `short`. There is no URL knob for it. A profile without the key renders short names at its
+    saved geometry, and `configVersion` stays `"1"` (rule 2). Decision record:
+    `docs/decisions/0018-tower-driver-name-style.md`.
+43. **The editor exposes it in the tower row**, as part of rule 14's control surface. It is a
+    select labelled **driver names** with exactly two options, `short` and `full` in that
+    order, showing the current value, offered for `tower` only. Choosing an option writes that
+    value to the tower's `nameStyle` and the live preview re-renders with it. It changes no
+    geometry: unlike a text-size preset (rule 41), the editor never alters `x`, `w` or any
+    other field when the style changes. Per rule 16 it carries help copy, which says that
+    `full` lets the tower grow wider than its set width and can run past the edge of the
+    Browser Source (rule 21: growth past the box would otherwise look like a bug). Per rule 19
+    the coverage tests require it. Like `plateAlpha` (rule 24), withholding the control from
+    the other widgets never rewrites a stored value. In `full` the preview's drag-and-resize
+    box shows the stored `x` and `w`, the tower's left edge and minimum width; a tower
+    grown wider than `w` (`widgets.md` rule 48) draws past the box's right side, and dragging
+    or resizing edits `x` and `w` only.
+
 ### Class color overrides
 
 32. **`theme.classColors`** (default `{}`) maps a class-name key — normalized the same way
@@ -239,8 +269,10 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 
 21. **Behaviors that read as bugs MUST be called out** where the broadcaster meets them: the
     qualifying/practice suppression of pit / tire-wear / fuel (`widgets.md` rule 8), and that the
-    lower-thirds hide themselves between camera cuts (rules 13-19) — both otherwise look like a
-    broken overlay rather than a deliberate rule.
+    lower-thirds hide themselves between camera cuts (rules 13-19), and that a tower in `full`
+    name style grows wider than its set width and can be cut off at the edge of the canvas or
+    the Browser Source (rule 43, `widgets.md` rule 48) — each otherwise looks like a broken
+    overlay rather than a deliberate rule.
 
 ### Live reload
 
@@ -395,7 +427,7 @@ Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
-`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
+`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
 but only the widget noted in the rule-11 table actually reads each.
 
 URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,

@@ -107,8 +107,8 @@ describe('config editor: per-widget plate opacity', () => {
     expect(slot().style.opacity, 'plate opacity must not be element opacity').toBe('')
     expect(slot().style.getPropertyValue('--bc-text')).toBe('')
     expect(slot().style.getPropertyValue('--bc-hairline')).toBe('')
-    // The tower still renders its running order at full strength.
-    expect(slot().textContent).toContain('Verstappen')
+    // The tower still renders its running order at full strength (short names by default).
+    expect(slot().textContent).toContain('VER')
     // A widget left alone keeps the default plate.
     expect(
       container.querySelector('[data-testid="widget-battle"]').style.getPropertyValue('--bc-plate'),

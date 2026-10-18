@@ -20,8 +20,8 @@ describe('AllView — standings tower + battle box from one snapshot', () => {
   it('renders both widgets driven by the same snapshot', () => {
     const { container } = render(AllView, { snapshot: closeBattle })
 
-    // Standings tower: driver rows in position order.
-    expect(renderedNames(container)).toEqual(['Hamilton', 'Verstappen', 'Leclerc', 'Norris'])
+    // Standings tower: driver rows in position order, short names by default (rule 47).
+    expect(renderedNames(container)).toEqual(['HAM', 'VER', 'LEC', 'NOR'])
     // On-camera highlight still applies inside the combined view.
     expect(
       container.querySelector('[data-testid="tower-row"][data-slot="car-1"]').getAttribute('data-oncam'),
@@ -44,7 +44,7 @@ describe('AllView — standings tower + battle box from one snapshot', () => {
 
   it('keeps the battle box idle for a lone car even though the tower has a row', () => {
     const { container } = render(AllView, { snapshot: idleBattle })
-    expect(renderedNames(container)).toEqual(['Alonso'])
+    expect(renderedNames(container)).toEqual(['ALO'])
     expect(container.textContent).toContain('NO ACTIVE BATTLE')
   })
 
@@ -147,7 +147,7 @@ describe('AllView — per-widget plate opacity (#117)', () => {
     }
     // The tower's rendered content is byte-identical: only the plate got quieter.
     expect(dim.text).toBe(base.text)
-    expect(dim.text).toContain('Verstappen')
+    expect(dim.text).toContain('VER')
   })
 
   it('clamps every scaled plate token to 1 at plateAlpha = 1', () => {
