@@ -90,6 +90,11 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 42a. **The gap cell keeps its width.** The gap cell reserves room for an 8-character monospaced
     readout (`1:31.950`, `+205.000`, `+12 LAPS`) and never shrinks, so swapping a gap for a flashed
     lap time, `LEADER`, or a lap deficit does not move the name or the cells to its right.
+42b. **The interval cell keeps its width.** When the interval column (rule 6) shows, its cell
+    reserves the same 8-character slot as the gap cell (rule 42a), which scales with the gap's text
+    size, never shrinks, and never wraps. `—`, `+0.400`, `+12.345`, `+105.000`, `+1 LAP` and `+12 LAPS`
+    all render at one width, right-aligned, so a changing interval does not move the name or the
+    cells to its right. Decision record: `docs/decisions/0019-tower-interval-fixed-width.md`.
 43. **Cars involved in a local yellow.** A row whose producer-sent `yellow_involved` is exactly
     `true` carries a yellow edge on its trailing (right) side, opposite the class bar (which
     stays), and the row carries `data-yellow="true"`. Any other value — `false`, null, absent, the string
