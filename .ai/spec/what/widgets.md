@@ -91,8 +91,8 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     readout (`1:31.950`, `+205.000`, `+12 LAPS`) and never shrinks, so swapping a gap for a flashed
     lap time, `LEADER`, or a lap deficit does not move the name or the cells to its right.
 43. **Cars involved in a local yellow.** A row whose producer-sent `yellow_involved` is exactly
-    `true` carries a yellow edge on its leading side, beside the class bar (which stays), and the
-    row carries `data-yellow="true"`. Any other value — `false`, null, absent, the string
+    `true` carries a yellow edge on its trailing (right) side, opposite the class bar (which
+    stays), and the row carries `data-yellow="true"`. Any other value — `false`, null, absent, the string
     `"true"`, `1` — marks nothing. The mark follows the latest snapshot with no hold: the row
     loses it as soon as a snapshot stops sending `true`. It applies in every mode and both
     layouts, combines with the on-camera highlight rather than replacing it, changes no cell's
