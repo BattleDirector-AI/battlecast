@@ -75,6 +75,25 @@ const yellowViolations = [];
 let progressiveFinishSeen = false;
 let dnfSeen = false;
 const finishViolations = [];
+// The director (#237): in the race, the subject is never a retired car, nor a finished one while
+// any car is still running. Guarded by seeing a race tick with a retiree and a part-finished field.
+const directorViolations = [];
+let directorMixSeen = false;
+function directorProblems(payload) {
+  const anyRunning = payload.vehicles.some((v) => v.finish_status === 0);
+  const subject = payload.vehicles.find((v) => v.slot_id === payload.subject?.slot_id);
+  if (!subject) return [`subject ${payload.subject?.slot_id} is not in vehicles[]`];
+  const problems = [];
+  if (subject.finish_status === 2) problems.push(`subject ${subject.driver_name} is retired`);
+  if (subject.finish_status === 1 && anyRunning) problems.push(`subject ${subject.driver_name} is finished`);
+  // The gaps are to the cars directly ahead/behind in running order, which the battle box
+  // names, so each is present exactly when that neighbour exists.
+  const last = payload.vehicles.length;
+  const gaps = payload.relationship ?? {};
+  if ((gaps.gap_ahead != null) !== (subject.position > 1)) problems.push(`gap_ahead=${gaps.gap_ahead} at P${subject.position}`);
+  if ((gaps.gap_behind != null) !== (subject.position < last)) problems.push(`gap_behind=${gaps.gap_behind} at P${subject.position} of ${last}`);
+  return problems;
+}
 let finishPrev = new Map();
 // Per race leg (#236): the tick each car turned 1 (finish order), each retired car's last_lap
 // when it turned 2 (a retired car stops, so it never completes another lap), whether anyone has
@@ -257,6 +276,14 @@ for (let i = 0; i < TICKS; i++) {
   if (finishProblems.length > 0 && finishViolations.length < 10) {
     finishViolations.push(`tick ${i} (${payload.mode}): ${finishProblems.join(", ")}`);
   }
+  if (payload.mode === "race") {
+    const codes = payload.vehicles.map((v) => v.finish_status);
+    if (codes.includes(0) && codes.includes(1) && codes.includes(2)) directorMixSeen = true;
+    const problems = directorProblems(payload);
+    if (problems.length > 0 && directorViolations.length < 10) {
+      directorViolations.push(`tick ${i}: ${problems.join(", ")}`);
+    }
+  }
   lastRaceTick = payload.mode === "race" ? payload : payload.mode === "results" ? lastRaceTick : null;
 
   const errors = validate(payload);
@@ -325,6 +352,8 @@ if (yellowViolations.length > 0) {
   // The window fractions mirror simulate.js LOCAL_YELLOW_START / LOCAL_YELLOW_END.
   const involvedSlots = new Set();
   let pitDuringWindow = false;
+  const longDirectorViolations = [];
+  let longRetireeSeen = false;
   for (let t = 0; t < LONG_RACE_SECONDS; t += DT_SECONDS) {
     const payload = longRace.step(DT_SECONDS);
     const frac = t / LONG_RACE_SECONDS;
@@ -337,6 +366,21 @@ if (yellowViolations.length > 0) {
       // Exercised only if a car that was involved in this window is later seen in the pits in it.
       if (inWindow && v.in_pit && involvedSlots.has(v.slot_id)) pitDuringWindow = true;
     }
+    // The long race laps the parked retiree many more times, so the director check runs here too.
+    if (payload.vehicles.some((v) => v.finish_status === 2)) longRetireeSeen = true;
+    const problems = directorProblems(payload);
+    if (problems.length > 0 && longDirectorViolations.length < 10) {
+      longDirectorViolations.push(`long race t=${t}s: ${problems.join(", ")}`);
+    }
+  }
+  if (longDirectorViolations.length > 0) {
+    console.error("\nThe long race's director put a car that is out of the fight on camera (#237):");
+    for (const v of longDirectorViolations) console.error(`  - ${v}`);
+    process.exit(1);
+  }
+  if (!longRetireeSeen) {
+    console.error("\nNo car retired in the long race — its director check is not exercised.");
+    process.exit(1);
   }
   if (yellowViolations.length > 0) {
     console.error("\nLocal-yellow involvement while in the pit lane (#234):");
@@ -357,6 +401,17 @@ if (!localYellowSeen) {
 if (finishViolations.length > 0) {
   console.error("\nfinish_status missing or inconsistent (ADR 0017):");
   for (const v of finishViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+if (directorViolations.length > 0) {
+  console.error("\nThe race director put a car that is out of the fight on camera (#237):");
+  for (const v of directorViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+if (!directorMixSeen) {
+  console.error("\nNo race tick had a retired car, a finished car and a running car at once — the director exclusion is not exercised.");
   process.exit(1);
 }
 
@@ -388,3 +443,4 @@ console.log(`Starting grid within ${START_SPREAD_MAX_SECONDS}s, nobody lapped in
 console.log("Race phase lapped a backmarker and carried valid laps_behind_* fields (ADR 0012).");
 console.log("Race phase staged a local yellow with valid sector_flags / yellow_involved fields (ADR 0016).");
 console.log("Race phase took the chequered flag progressively, retired a car, and results classified every car (ADR 0017).");
+console.log("Race director never put a retired car, or a finished car while others raced, on camera (#237).");
