@@ -1,7 +1,7 @@
 <script>
   import ClassChip from '../../design/ClassChip.svelte'
   import { classColor, classMeta } from '../../design/classMeta.js'
-  import { fmtName, fmtLapTime } from '../../design/format.js'
+  import { fmtName, fmtShortName, fmtLapTime } from '../../design/format.js'
   import { sessionProgressText } from '../../design/sessionProgress.js'
   import { untrack } from 'svelte'
   import { computeRowBudget, createTowerCycle, clampPerPageSeconds } from './towerCycle.js'
@@ -36,6 +36,14 @@
     // Broadcaster class-color overrides (rule 32, ADR 0010) — the resolved
     // `theme.classColors` map, or `{}` when the caller has none.
     classColors = {},
+    // Driver name style (widgets.md rules 46-48, ADR 0018): 'short' (E.JAC, the default —
+    // it never changes width) or 'full' (E. Jacobs, the tower growing to fit).
+    // `configuredWidth` is the tower's configured width in canvas px (/all passes its `w`;
+    // standalone leaves it null and the resolved --bc-tower-width is used). `textScale` is
+    // only a reset trigger for the full-style width; the slot's type tokens do the scaling.
+    nameStyle = 'short',
+    configuredWidth = null,
+    textScale = null,
   } = $props()
 
   // Normalize the metric toggles once — tolerate a partial/garbage object so a caller
@@ -221,15 +229,19 @@
   // Bound to the .tower section so the row/header heights read off the live design
   // tokens (theme-overridable) rather than hardcoding 38/44 (spec rule 3).
   let towerEl = $state(null)
-  let tokenPx = $state({ header: 38, row: 44 })
+  let tokenPx = $state({ header: 38, row: 44, towerWidth: 380 })
   $effect(() => {
     if (!towerEl || typeof getComputedStyle !== 'function') return
     const cs = getComputedStyle(towerEl)
     const header = parseFloat(cs.getPropertyValue('--bc-widget-header'))
     const row = parseFloat(cs.getPropertyValue('--bc-row-standard'))
+    // The standalone configured width (rule 48): the token only when it reads as a px
+    // number — a custom property comes back as its authored text — else 380.
+    const towerWidth = /^\s*(\d+(?:\.\d+)?)px\s*$/.exec(cs.getPropertyValue('--bc-tower-width'))
     tokenPx = {
       header: Number.isFinite(header) && header > 0 ? header : 38,
       row: Number.isFinite(row) && row > 0 ? row : 44,
+      towerWidth: towerWidth ? Number(towerWidth[1]) : 380,
     }
   })
 
@@ -320,6 +332,177 @@
     }
     return inlineRows
   })
+
+  // ---- driver name style + the full-style width (widgets.md rules 46-48, ADR 0018) ----
+  // Short (E.JAC) never changes width. Full (E. Jacobs) is never ellipsized: the tower root
+  // carries an inline min-width of max(configured width, ceil(widestName + widestRest)),
+  // both running maxima cleared only by a reset. See how/renderer.md "Driver name style".
+  const fullStyle = $derived(nameStyle === 'full')
+  const fullNameOf = (v) => (typeof v.driver_name === 'string' ? fmtName(v.driver_name) : '')
+  const nameOf = (v) => (fullStyle ? fullNameOf(v) : fmtShortName(v.driver_name))
+
+  const baseWidth = $derived(
+    typeof configuredWidth === 'number' && Number.isFinite(configuredWidth)
+      ? configuredWidth
+      : tokenPx.towerWidth,
+  )
+  // Every tower setting whose change is a reset, as one comparable value (a fresh but
+  // equal config object from /all is not a change).
+  const settingsKey = $derived(
+    JSON.stringify([filterKey, classDisplay, m, maxRows, cycle, nameStyle, baseWidth, textScale]),
+  )
+  // The session mode as rule 45 compares it; null when the snapshot carries none.
+  const modeKey = (snap) =>
+    snap?.mode != null && String(snap.mode).trim() ? String(snap.mode).trim().toLowerCase() : null
+
+  // The measuring font: the on-camera row-name weight, size and family off the tower's
+  // computed style, each token falling back to its tokens/typography.css default.
+  function nameFontParts() {
+    const cs = towerEl && typeof getComputedStyle === 'function' ? getComputedStyle(towerEl) : null
+    const read = (prop, fallback) => cs?.getPropertyValue(prop).trim() || fallback
+    return {
+      weight: read('--bc-weight-leader', '700'),
+      size: read('--bc-size-name', '22px'),
+      family: read('--bc-font-display', "'Saira Condensed', 'Arial Narrow', sans-serif"),
+    }
+  }
+  const measuringFont = () => {
+    const f = nameFontParts()
+    return `${f.weight} ${f.size} ${f.family}`
+  }
+  const familyKey = (family) =>
+    String(family ?? '').trim().replace(/^['"]|['"]$/g, '').trim().toLowerCase()
+
+  let widestName = $state(0)
+  let widestRest = $state(0)
+  let namesMeasured = $state(false) // false until a pass ran with the name font loaded
+  // Full name -> px, every name measured since the last reset. Prototype-free, so a driver
+  // named '__proto__' caches like any other.
+  let measuredNames = Object.create(null)
+  let requestedFont = null // the measuring font last asked of document.fonts.load
+  let lastSettings = null
+  let lastMode = null
+  let measureCtx // undefined until first use; null when there is no 2D context
+
+  function textWidth(text, font) {
+    if (measureCtx === undefined) {
+      try {
+        measureCtx = document.createElement('canvas').getContext?.('2d') ?? null
+      } catch {
+        measureCtx = null
+      }
+    }
+    if (!measureCtx) return 0
+    measureCtx.font = font
+    return measureCtx.measureText(text).width
+  }
+
+  function nameFontLoaded(font) {
+    const fonts = typeof document !== 'undefined' ? document.fonts : null
+    if (!fonts || typeof fonts.check !== 'function') return true
+    try {
+      if (fonts.check(font)) return true
+    } catch {
+      return true
+    }
+    // The measuring weight may be one no rendered text uses yet (only the on-camera row is
+    // bold), and an unused face never loads by itself. Ask for it once; its loadingdone
+    // re-measures the names.
+    if (requestedFont !== font) {
+      requestedFont = font
+      Promise.resolve(fonts.load?.(font)).catch(() => {})
+    }
+    return false
+  }
+
+  // Reset, grow and re-read after every render of the rows: each snapshot, page turn,
+  // layout or setting change. Runs after the DOM update, so the rows read are current.
+  $effect(() => {
+    const field = inlineRows // the class-filtered field, rendered or not
+    const key = settingsKey
+    const mode = modeKey(snapshot)
+    const full = fullStyle
+    const el = towerEl
+    void [renderRows, groups, pageEpoch] // re-read the rest when the rows re-render
+    untrack(() => {
+      let reset = key !== lastSettings
+      lastSettings = key
+      if (mode !== null) {
+        if (lastMode !== null && mode !== lastMode) reset = true
+        lastMode = mode
+      }
+      if (reset) {
+        measuredNames = Object.create(null)
+        widestName = 0
+        widestRest = 0
+        namesMeasured = false
+      }
+      if (!full || !el) return
+      const font = measuringFont()
+      if (nameFontLoaded(font)) {
+        let widest = widestName
+        for (const v of field) {
+          const name = fullNameOf(v)
+          if (!name || hasOwn(measuredNames, name)) continue
+          measuredNames[name] = textWidth(name, font)
+          widest = Math.max(widest, measuredNames[name])
+        }
+        widestName = widest
+        namesMeasured = true
+      }
+      let rest = widestRest
+      for (const row of el.querySelectorAll('[data-testid="tower-row"]')) {
+        const nameCell = row.querySelector('[data-testid="driver-name"]')
+        rest = Math.max(rest, row.scrollWidth - (nameCell?.clientWidth ?? 0))
+      }
+      widestRest = rest
+    })
+  })
+
+  // A load of the name font's family re-measures the names only — every name since the
+  // last reset plus the current field — and may narrow the name part; the rest is kept.
+  function onNameFontLoad() {
+    if (!fullStyle || !towerEl) return
+    const font = measuringFont()
+    if (!nameFontLoaded(font)) return
+    const next = Object.create(null)
+    let widest = 0
+    for (const name of [...Object.keys(measuredNames), ...inlineRows.map(fullNameOf)]) {
+      if (!name || hasOwn(next, name)) continue
+      next[name] = textWidth(name, font)
+      widest = Math.max(widest, next[name])
+    }
+    measuredNames = next
+    widestName = widest
+    namesMeasured = true
+  }
+
+  $effect(() => {
+    const fonts = typeof document !== 'undefined' ? document.fonts : null
+    if (!fonts) return
+    let cancelled = false
+    const onLoadingDone = (event) => {
+      const family = familyKey(nameFontParts().family.split(',')[0])
+      if (Array.from(event?.fontfaces ?? []).some((face) => familyKey(face?.family) === family)) {
+        onNameFontLoad()
+      }
+    }
+    fonts.addEventListener?.('loadingdone', onLoadingDone)
+    Promise.resolve(fonts.ready).then(
+      () => !cancelled && onNameFontLoad(),
+      () => {},
+    )
+    return () => {
+      cancelled = true
+      fonts.removeEventListener?.('loadingdone', onLoadingDone)
+    }
+  })
+
+  const towerMinWidth = $derived(
+    fullStyle
+      ? `${Math.max(baseWidth, namesMeasured ? Math.ceil(widestName + widestRest) : 0)}px`
+      : null,
+  )
 
   // Gap-to-leader readout (#28). Each row shows its interval to the leader, from the
   // producer's `gap_to_leader` (gap to the OVERALL leader). The grouped layout shows
@@ -456,7 +639,7 @@
     {#if classBadge}
       <span class="row__classpos" data-testid="class-pos">{classBadge}</span>
     {/if}
-    <span class="row__name" data-testid="driver-name">{fmtName(v.driver_name)}</span>
+    <span class="row__name" data-testid="driver-name">{nameOf(v)}</span>
     <!-- Interval to the leader — overall leader in the inline layout, class leader in
          the grouped layout — from the producer's `gap_to_leader`. The leader reads
          LEADER; an undetermined gap reads '—'; a lapped car reads `+N LAP(S)`. -->
@@ -546,6 +729,8 @@
   class="tower"
   data-testid="standings-tower"
   data-class-display={classDisplay}
+  data-name-style={fullStyle ? 'full' : 'short'}
+  style:min-width={towerMinWidth}
   bind:this={towerEl}
 >
   <header class="tower__header" data-testid="tower-header">
@@ -768,10 +953,17 @@
     letter-spacing: var(--bc-track-label);
   }
 
+  /* No cell gives way (rules 45, 47, 48): the chip and timing cells keep their width and the
+     name never truncates to make room. A row wider than the tower is clipped at its right
+     edge, trailing cells first; in full style the tower's inline min-width makes the room. */
+  .row > :global(*) {
+    flex-shrink: 0;
+  }
+
   .row__name {
-    flex: 1 1 auto;
-    /* Keep a floor so the metric columns can never squeeze the driver name to nothing
-       (they clip at the tower's right edge instead — the cue to widen the tower). */
+    /* Takes the spare width, but never shrinks below its text. */
+    flex: 1 0 auto;
+    /* A floor so short names still line up as a column. */
     min-width: 4em;
     font-family: var(--bc-font-display);
     font-size: var(--bc-size-name);
@@ -908,8 +1100,8 @@
 
   /* Finish chip (rule 45): a fixed-width trailing slot so chips line up down the tower and
      the columns before it don't shift between marked and unmarked rows. The slot tucks into
-     the row's right padding, stopping short of the local-yellow strip on that edge, and while it is reserved the name's floor drops so the name
-     truncates before the chip is pushed past the tower's edge. */
+     the row's right padding, stopping short of the local-yellow strip on that edge, and while
+     it is reserved the name's column floor drops (never below its text) to leave it room. */
   .row--finishslot .row__name {
     min-width: 2em;
   }

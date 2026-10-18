@@ -12,7 +12,8 @@
 
   let snapshot = $state(null)
 
-  // The standalone route reads the tower's OVERFLOW settings (`maxRows` / `cycle`) from
+  // The standalone route reads the tower's OVERFLOW settings (`maxRows` / `cycle`) and its
+  // driver name style (`nameStyle`, overlay-config rule 42) from
   // the same profile /all reads them from, so one profile configures the tower on both
   // routes (tower-overflow rule 20). `?class=` / `?metrics=` below keep the per-Browser-
   // Source precedence they already had. config is always normalized, so widgets.tower
@@ -135,6 +136,7 @@
     {metrics}
     maxRows={tower?.maxRows}
     cycle={tower?.cycle}
+    nameStyle={tower?.nameStyle}
     {slotHeight}
     classColors={config.theme.classColors}
   />

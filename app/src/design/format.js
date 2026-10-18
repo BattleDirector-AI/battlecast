@@ -12,6 +12,26 @@ export function fmtName(name) {
   return `${initial}. ${surname}`
 }
 
+/** Driver name -> the tower's short code: 'Erik Jacobs' -> 'E.JAC', 'Tsunoda' -> 'TSU'
+ *  (widgets.md rule 47). NFC, code points, letters/digits of any script, uppercase last.
+ *  Anything but a non-blank string gives ''. Only the standings tower calls this. */
+export function fmtShortName(name) {
+  if (typeof name !== 'string') return ''
+  const s = name.normalize('NFC').trim()
+  if (!s) return ''
+  let words = s.split(/\s+/u)
+  if (words.length === 1 && words[0].includes('.')) {
+    const dot = words[0].indexOf('.')
+    words = [words[0].slice(0, dot), words[0].slice(dot + 1)]
+  }
+  const kept = words.map((w) => (w.match(/[\p{L}\p{Nd}]/gu) ?? []).join('')).filter(Boolean)
+  if (!kept.length) return ''
+  const take = (str, n) => [...str].slice(0, n).join('')
+  const code =
+    kept.length === 1 ? take(kept[0], 3) : `${take(kept[0], 1)}.${take(kept.slice(1).join(''), 3)}`
+  return code.toUpperCase()
+}
+
 /** Seconds gap -> signed one-decimal string, or 'LEADER' for the leader. */
 export function fmtGap(seconds, { leader = false, sign = '+' } = {}) {
   if (leader) return 'LEADER'

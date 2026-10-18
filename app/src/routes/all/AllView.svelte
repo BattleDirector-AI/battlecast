@@ -125,6 +125,9 @@
           maxRows={normalized.widgets.tower?.maxRows}
           cycle={normalized.widgets.tower?.cycle}
           slotHeight={normalized.widgets.tower?.h}
+          nameStyle={normalized.widgets.tower?.nameStyle}
+          configuredWidth={normalized.widgets.tower?.w}
+          textScale={normalized.widgets.tower?.textScale}
           {classColors}
         />
       {:else if w.key === 'battle'}
