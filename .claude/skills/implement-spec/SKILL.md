@@ -76,8 +76,9 @@ npm run lint          # CI gates on this
 npm run build         # CI gates on this too
 ```
 
-CI runs six jobs: `lint`, `test`, `build`, `compliance`, `server`, `mock`. Green locally on
-the first three is the strong signal; the rest rarely break on app-only changes.
+CI runs five jobs: `lint`, `test`, `compliance`, `server`, `mock`. There is no `build` job;
+`npm run build` is a step inside `test`. Green locally on these three commands is the strong
+signal; the rest rarely break on app-only changes.
 
 Do not report success unless all three are green. If a test cannot pass without being edited,
 **stop and report which assertion and why** — that is a real finding about the spec, not a
