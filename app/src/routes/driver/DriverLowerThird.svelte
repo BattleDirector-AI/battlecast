@@ -73,7 +73,9 @@
     })
   })
 
-  const position = $derived(resolved.vehicle?.position)
+  // Rule 18: a position renders only when it is a positive integer.
+  const rawPosition = $derived(resolved.vehicle?.position)
+  const position = $derived(Number.isInteger(rawPosition) && rawPosition > 0 ? rawPosition : null)
   const carClass = $derived(resolved.vehicle?.vehicle_class)
   const displayName = $derived(fmtName(resolved.name))
 </script>

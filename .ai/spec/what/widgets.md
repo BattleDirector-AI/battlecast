@@ -297,6 +297,9 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     then follow change detection. A class-best fire does NOT trigger on connect.
 18. **#21 driver lower-third** renders identity: name, position (`P4`), class chip. Fires on any
     subject change to a valid subject, in all modes. Degrades to name-only when `slot_id` unresolved.
+    The position renders as `P` plus the vehicle's `position` only when that is a positive integer;
+    `0`, a negative or fractional number, a numeric string (`"3"`), null or absent show no position,
+    and the rest of the card renders as normal.
 19. **#22 qualifying/sector lower-third** renders timing: best/last lap, per-sector times, and
     target/delta when present. **Mode-gated** by `modes` (default `["qualifying","practice"]`).
     Independently, when the producer flags the subject's `notable.class_best_lap` true, it fires a
