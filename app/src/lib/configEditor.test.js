@@ -27,7 +27,7 @@ describe('configEditor — widget geometry/visibility', () => {
   it('toggles a widget hideWhenIdle without disturbing geometry', () => {
     const next = setWidgetHideWhenIdle(DEFAULT_CONFIG, 'battle', true)
     expect(next.widgets.battle.hideWhenIdle).toBe(true)
-    expect(next.widgets.battle).toMatchObject({ x: 428, w: 440 })
+    expect(next.widgets.battle).toMatchObject({ x: 448, w: 440 })
   })
 
   it('moves a widget and clamps it onto the 1920x1080 canvas', () => {
@@ -124,7 +124,7 @@ describe('configEditor — canvas', () => {
   })
 
   it('re-clamps widgets that no longer fit after the canvas shrinks', () => {
-    // battle default sits at x:428 w:440 (right edge 868); a 640-wide canvas must
+    // battle default sits at x:448 w:440 (right edge 888); a 640-wide canvas must
     // pull it back onto the canvas rather than leave it hanging off the edge.
     const next = setCanvas(DEFAULT_CONFIG, { w: 640, h: 480 })
     const b = next.widgets.battle
@@ -146,7 +146,7 @@ describe('configEditor — canvas', () => {
 
   it('does not shrink widgets when the canvas stays large enough', () => {
     const next = setCanvas(DEFAULT_CONFIG, { w: 1280, h: 720 })
-    expect(next.widgets.tower).toMatchObject({ x: 24, w: 380 })
+    expect(next.widgets.tower).toMatchObject({ x: 24, w: 400 })
   })
 })
 

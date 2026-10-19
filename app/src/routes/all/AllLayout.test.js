@@ -69,7 +69,7 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(battle).not.toBeNull()
     // Default: tower in the left column, battle placed to its right (both visible).
     expect(tower.style.left).toBe('24px')
-    expect(battle.style.left).toBe('428px')
+    expect(battle.style.left).toBe('448px')
     // Existing /all content contract still holds inside the laid-out slots.
     expect(container.textContent).toContain('Hamilton')
   })

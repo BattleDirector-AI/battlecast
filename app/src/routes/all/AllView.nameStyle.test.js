@@ -116,11 +116,11 @@ describe('AllView — full-style tower width (rule 48)', () => {
   })
 
   it("uses the tower widget's w as the configured width", async () => {
-    // Longest full name 'M. Verstappen' = 130px, under the 380 default w.
+    // Longest full name 'M. Verstappen' = 130px, under the 400 default w (overlay-config rule 44).
     const cfg = normalizeConfig({ widgets: { tower: { nameStyle: 'full' } } })
     const { container } = render(AllView, { snapshot: named, config: cfg })
     await settle()
-    expect(minWidth(container)).toBe('380px')
+    expect(minWidth(container)).toBe('400px')
   })
 
   it("grows past the slot's w when a full name needs more", async () => {

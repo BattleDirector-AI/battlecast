@@ -101,7 +101,7 @@ describe('config editor: tower driver name style', () => {
     expect(saved.widgets.tower.nameStyle).toBe('full')
     // Unlike a text-size preset, the style never widens or moves the widget.
     expect(saved.widgets.tower.x).toBe(24)
-    expect(saved.widgets.tower.w).toBe(380)
+    expect(saved.widgets.tower.w).toBe(400)
   })
 
   it('explains the control in the UI', async () => {

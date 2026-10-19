@@ -103,7 +103,7 @@ describe('standalone /tower — name style', () => {
     expect(names()).toEqual(['L. Hamilton', 'M. Verstappen', 'C. Leclerc', 'L. Norris'])
     expect(styleAttr()).toBe('full')
     // No configured width on this route: --bc-tower-width, which happy-dom does not resolve,
-    // so the 380 fallback. 'M. Verstappen' (130px) fits inside it.
-    expect(towerStyle().minWidth).toBe('380px')
+    // so the 400 fallback (overlay-config rule 44). 'M. Verstappen' (130px) fits inside it.
+    expect(towerStyle().minWidth).toBe('400px')
   })
 })

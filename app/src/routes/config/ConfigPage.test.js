@@ -366,7 +366,7 @@ describe('ConfigPage editor wiring', () => {
     // Regression: a valid resize must NOT shrink widgets — the tower keeps its
     // width (the per-keystroke oninput bug collapsed everything to 320px/x0).
     const tower = container.querySelector('[data-testid="widget-tower"]')
-    expect(tower.style.width).toBe('380px')
+    expect(tower.style.width).toBe('400px')
     expect(tower.style.left).toBe('24px')
   })
 

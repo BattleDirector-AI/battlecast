@@ -14,7 +14,9 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
    widget and do not bump `configVersion`. Every existing profile keeps loading and keeps its
    saved geometry and saved values. A new knob's default may change how an existing profile
    looks (rule 42's short names do), but never its saved geometry or the meaning of a value it
-   already holds.
+   already holds. The same goes for a changed default value of an existing field, such as the
+   tower's default `w` (rule 44): it reaches only profiles that do not store that field. A
+   profile that stores `w: 380` keeps rendering its tower 380 wide.
 3. **Split read from write:** render pages only *read* config over HTTP; the `/config` UI is the
    only writer. The render path is identical whether config/assets come from the companion server or
    a static host.
@@ -40,6 +42,14 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
    resolution; configurable per profile via `config.canvas`, min edge 320). The render page scales
    the canvas uniformly to the viewport, so a broadcaster gets the same layout at any Browser Source
    size. Widgets paint in ascending `z` order.
+44. **Default tower and battle-box geometry.** The built-in default tower is 400 wide
+    (`w: 400` at `x: 24`), and the standalone `/tower` route's `--bc-tower-width` token is
+    `400px`, so the tower is the same width on both entry points out of the box. The default
+    battle box sits at `x: 448` (its `w` stays 440), keeping the same 24px gap to the right of
+    the default tower, so no two default widgets in the top band overlap: tower 24–424,
+    battle box 448–888, Race Control 900–1260. The editor's keep-on-canvas clamp applies to the
+    new default as to any geometry: on a canvas narrower than 424 it moves or narrows the
+    tower to fit. Decision record: `docs/decisions/0020-tower-table-columns.md`.
 
 ### Motion
 
@@ -159,8 +169,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
     widget leaves `normal`, the editor records its `normal` `x` and `w` on the widget as
     `textScaleOrigin: { x, w }`. At a bigger preset the widget's `x` is the origin's `x` and its
-    `w` is the origin's `w` × the factor, rounded to a whole pixel — the default tower goes 380 →
-    437 at `large` → 494 at `larger` — always computed from the origin, never from the previous
+    `w` is the origin's `w` × the factor, rounded to a whole pixel — the default tower goes 400 →
+    460 at `large` → 520 at `larger` — always computed from the origin, never from the previous
     preset's width, so no rounding drift builds up. The editor's usual keep-on-canvas clamp then
     applies (it may move `x` left or cap `w` at the canvas width). Returning to `normal` restores
     the origin's `x` and `w` exactly, whatever the clamp did at the bigger preset, and removes

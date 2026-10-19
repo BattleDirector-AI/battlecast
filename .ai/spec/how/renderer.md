@@ -210,7 +210,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `textScale` (only a reset trigger; the type tokens on the slot already scale the text).
     `TowerPage.svelte` passes `config.widgets.tower.nameStyle` from the profile it already
     loads for `maxRows`/`cycle`, and no `configuredWidth`; the component then uses the resolved
-    `--bc-tower-width`, and `380` when that does not resolve to a px number (as in `happy-dom`).
+    `--bc-tower-width`, and `400` when that does not resolve to a px number (as in `happy-dom`).
   - **Formatters.** Full is `fmtName` (`design/format.js`), the formatter the battle box,
     lower-thirds, HUD and grid/results slides use, applied to string names only (a non-string
     gives `''`). Short is a separate formatter beside it that only the tower calls.
@@ -292,5 +292,63 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 
     What remains for a one-time headless-Chromium check is real glyph widths, the inline
     `min-width` beating the `/all` slot's `width: 100%`, and the row CSS that makes the rest
-    read exact (non-name cells `flex-shrink: 0`, the name cell `flex: 1 0 auto` in full style):
-    `happy-dom` does no layout, so no unit test can see it.
+    read exact (the shared tracks below; in the flex fallback, non-name cells `flex-shrink: 0`
+    and the name cell `flex: 1 0 auto`): `happy-dom` does no layout, so no unit test can see it.
+- **Tower columns** (behavior in `what/widgets.md` rules 49–53; rationale in
+  `docs/decisions/0020-tower-table-columns.md`). The columns are **CSS grid tracks shared by
+  every row**, with no measuring in JS.
+  - **The grid.** One element per tower is the grid, `[data-testid="tower-grid"]`. In the
+    inline layout that is the rows list, `ol.tower__rows`. In the grouped layout it is
+    `.tower__groups`, so the tracks are shared across every group. It carries:
+    - `data-columns`: the shown columns' names in order, space-separated, e.g.
+      `pos class classpos name gap interval`.
+    - An inline `grid-template-columns` with one track per column, in the same order:
+      `minmax(max-content, 1fr)` for `name`, `max-content` for every other column. The track
+      list is built in JS because the column set varies (rule 49).
+    - Every element between the grid and the cells spans all tracks (`grid-column: 1 / -1`)
+      and passes them down with `grid-template-columns: subgrid`. That is each row (`li`),
+      and in the grouped layout each group (`section.group`) and its list (`ol`). Group
+      headers span all tracks and are not subgrids of the columns.
+  - **Cells.** Each row's in-flow children are exactly one cell per column, in column order,
+    each carrying `data-col="<column>"`. The class chip sits inside its `data-col="class"`
+    cell, since `ClassChip` is shared and stays as it is. An empty cell (rule 49) is a bare
+    element carrying `data-col` only. The absolutely positioned decorations (class bar,
+    local-yellow edge, on-camera flash) carry no `data-col` and are not grid items. The name
+    cell has no fixed `min-width` of its own: the `name` track's `max-content` minimum is the
+    only floor (rule 53). A `max-content` track
+    never shrinks below its content, so rule 48's `flex-shrink: 0` requirement on the non-name
+    cells is met by the grid itself.
+  - **Older Chromium.** `subgrid` needs Chromium 117+ (OBS 31's CEF has it; OBS 30's CEF 103
+    does not). Under `@supports not (grid-template-columns: subgrid)` each row is a
+    flex row instead: every cell still renders, but the columns line up only as far as
+    their contents happen to. In that branch the name cell is `flex: 1 0 auto` with
+    `min-width: max-content`, the same floor the grid track gives it: a flex item with
+    `overflow: hidden` would otherwise have an automatic minimum of `0` and be squeezed and
+    ellipsized, breaking rule 47. The `data-col` cells, sizer rows and hooks are the same
+    either way.
+  - **Rows that are not on screen** (rule 50). In the inline layout the grid also holds one
+    **sizer row** for every car of the class-filtered field that the cycling window or
+    `maxRows` leaves out: `li[data-testid="tower-sizer-row"][data-slot][aria-hidden="true"]`,
+    after the rendered rows. It has the same cells, with the same content, as that car's row
+    would have (its `name` cell reads the car's name in the current name style, its `classpos`
+    cell the car's class rank), and no `data-testid` on any cell, so selectors such as `driver-name` and
+    `class-pos` see only rendered rows. It is zero-height, invisible and not
+    pointer-reachable (`height: 0`, `visibility: hidden`, no border, no padding block), but
+    it stays in the grid so its content sizes the tracks. The grid has a `column-gap` and **no
+    row gap** (never the `gap` shorthand), so sizer rows add no height and nothing counts
+    against the tower's height bound (`tower-overflow.md` rule 1). `[data-testid="tower-row"]`
+    is on rendered rows only, so the overflow rules count only rendered rows. The bottom
+    divider is dropped on the last **rendered** row (the last `[data-testid="tower-row"]`),
+    not on `.row:last-child`, which would be a sizer row. The grouped layout renders every
+    car (only the height clamp hides rows), so it has no sizer rows.
+  - **Rule 48's rest-of-row read still holds.** `row.scrollWidth` of a subgrid row is its
+    tracks plus gaps plus padding, and the name cell's `clientWidth` is the name track.
+  - **What the tests can see.** `happy-dom` does no layout and applies no component CSS, so
+    the suite asserts `data-columns`, the inline track list, the per-row `data-col` order
+    (rendered rows and sizer rows), empty cells, and the sizer rows' slots. These cannot be
+    checked outside a browser, so they are a headless-Chromium check at implementation time:
+    - that the tracks really are shared (subgrid), which needs Chromium 117 or later;
+    - the 72px chip cap and its end ellipsis;
+    - the right-aligned gap and interval;
+    - that sizer rows take no height, and the last rendered row has no divider;
+    - the measured slack at 400px.
