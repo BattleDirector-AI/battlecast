@@ -32,6 +32,12 @@ export function fmtShortName(name) {
   return code.toUpperCase()
 }
 
+/** A race position as a positive integer, else null (0, fractions, strings, null).
+ *  Shared by the driver lower-third and the on-board HUD so their `P<n>` rule agrees. */
+export function positiveIntOrNull(value) {
+  return Number.isInteger(value) && value > 0 ? value : null
+}
+
 /** Seconds gap -> signed one-decimal string, or 'LEADER' for the leader. */
 export function fmtGap(seconds, { leader = false, sign = '+' } = {}) {
   if (leader) return 'LEADER'

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **The on-board HUD works as an "on board" name tag (#61, ADR 0021).** Its identity strip now
+  leads with an `ON BOARD` label and shows the car's position (`P4`), and it renders from the
+  on-camera subject alone — a producer that sends no live telemetry still gets the tag, in
+  `/all` and on `/onboard`. The hand-off with the driver lower-third holds the whole HUD, so
+  the name never shows in both at once. Position is a new `driverInfo` field, **on by
+  default**, so existing profiles show it after upgrading; untick "position" under the
+  on-board HUD's driver info in `/config` to hide it.
+
 ## [0.13.0] - 2026-10-16
 
 ### Added
