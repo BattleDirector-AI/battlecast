@@ -435,14 +435,20 @@ function num(value, fallback) {
  *  fall back — `Number()` would turn several of those into a surprising 0 (a fully
  *  transparent plate) rather than the intended default. */
 function clamp01(value, fallback) {
-  if (typeof value === 'boolean') return fallback
+  const n = finiteOrNull(value)
+  return n !== null ? Math.max(0, Math.min(1, n)) : fallback
+}
+
+/** A finite number, or a non-blank string `Number()` turns into one; else null. Stricter
+ *  than `num()`: a blank string, null, a boolean or an array is not read as a number. */
+function finiteOrNull(value) {
   const n =
     typeof value === 'number'
       ? value
       : typeof value === 'string' && value.trim() !== ''
         ? Number(value)
         : NaN
-  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
+  return Number.isFinite(n) ? n : null
 }
 
 /** Coerce a `modes` value to a clean string array, falling back to `fallback`.
@@ -628,16 +634,13 @@ export function normalizeConfig(raw) {
           : d.textScale ?? 'normal',
     }
     // #215 editor bookkeeping (overlay-config.md rule 41b): the widget's `normal` x/w while it
-    // sits at a bigger preset. Kept only as two finite numbers off `normal`; never rendered.
+    // sits at a bigger preset. Kept only on a text widget off `normal`, with both parts finite
+    // numbers or non-blank numeric strings (stored as numbers); never rendered.
     const origin = w.textScaleOrigin
-    if (
-      normalizedWidgets[key].textScale !== 'normal' &&
-      origin &&
-      typeof origin === 'object' &&
-      Number.isFinite(origin.x) &&
-      Number.isFinite(origin.w)
-    ) {
-      normalizedWidgets[key].textScaleOrigin = { x: origin.x, w: origin.w }
+    if (rendersText(key) && normalizedWidgets[key].textScale !== 'normal' && origin && typeof origin === 'object') {
+      const x = finiteOrNull(origin.x)
+      const ow = finiteOrNull(origin.w)
+      if (x !== null && ow !== null) normalizedWidgets[key].textScaleOrigin = { x, w: ow }
     }
   }
   out.widgets = normalizedWidgets
