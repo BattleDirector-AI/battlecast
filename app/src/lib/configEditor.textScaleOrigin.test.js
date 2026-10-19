@@ -103,7 +103,7 @@ describe('the origin is saved but never rendered (rule 41b)', () => {
 
   it.each([
     ['on a normal widget', { textScale: 'normal', textScaleOrigin: { x: 1, w: 100 } }],
-    ['non-numeric', { textScale: 'large', textScaleOrigin: { x: '1', w: 100 } }],
+    ['non-numeric', { textScale: 'large', textScaleOrigin: { x: 'abc', w: 100 } }],
     ['missing w', { textScale: 'large', textScaleOrigin: { x: 1 } }],
     ['not an object', { textScale: 'large', textScaleOrigin: 7 }],
   ])('normalization drops an origin %s', (_label, w) => {
@@ -115,6 +115,99 @@ describe('the origin is saved but never rendered (rule 41b)', () => {
       widgets: { tower: { textScale: 'larger', w: 600, textScaleOrigin: { x: 24, w: 380 } } },
     })
     expect(cfg.widgets.tower.w).toBe(600)
+  })
+
+  it('keeps only x and w: extra parts are not carried along', () => {
+    const cfg = normalizeConfig({
+      widgets: { tower: { textScale: 'large', textScaleOrigin: { x: 24, w: 380, y: 5, h: 9 } } },
+    })
+    expect(cfg.widgets.tower.textScaleOrigin).toEqual({ x: 24, w: 380 })
+  })
+})
+
+describe('the origin lives only on a widget that renders text (rule 41b, #224)', () => {
+  const originOn = (key, origin = { x: 100, w: 300 }) =>
+    normalizeConfig({ widgets: { [key]: { textScale: 'large', textScaleOrigin: origin } } }).widgets[key]
+      .textScaleOrigin ?? null
+
+  it('drops a hand-authored origin on logos, which renders no text', () => {
+    expect(originOn('logos')).toBeNull()
+  })
+
+  it('drops it on logos even at larger with string parts that would otherwise be coerced', () => {
+    const cfg = normalizeConfig({
+      widgets: { logos: { textScale: 'larger', textScaleOrigin: { x: '100', w: '300' } } },
+    })
+    expect(cfg.widgets.logos.textScaleOrigin ?? null).toBeNull()
+    // The preset itself is still normalized onto logos (rule 40 withholds only the control).
+    expect(cfg.widgets.logos.textScale).toBe('larger')
+  })
+
+  it('drops it on a widget key normalization does not know', () => {
+    expect(originOn('futureWidget')).toBeNull()
+  })
+
+  it.each(['tower', 'battle', 'driver', 'qualifying', 'racecontrol', 'onboard'])(
+    'keeps it on %s, which renders text',
+    (key) => {
+      expect(originOn(key)).toEqual({ x: 100, w: 300 })
+    },
+  )
+})
+
+describe('numeric-string origin parts are coerced like widget geometry (rule 41b, #224)', () => {
+  const origin = (o) =>
+    normalizeConfig({ widgets: { tower: { textScale: 'large', textScaleOrigin: o } } }).widgets.tower
+      .textScaleOrigin ?? null
+
+  it("turns { x: '1500', w: '380' } into the numbers 1500 and 380", () => {
+    const o = origin({ x: '1500', w: '380' })
+    expect(o).toEqual({ x: 1500, w: 380 })
+    expect(typeof o.x).toBe('number')
+    expect(typeof o.w).toBe('number')
+  })
+
+  it('coerces a string part next to a number part', () => {
+    expect(origin({ x: 24, w: '380' })).toEqual({ x: 24, w: 380 })
+    expect(origin({ x: '24', w: 380 })).toEqual({ x: 24, w: 380 })
+  })
+
+  it.each([
+    [' 1500 ', 1500],
+    ['1500.5', 1500.5],
+    ['-12', -12],
+    ['1e3', 1000],
+  ])('reads %j as %d, the same number a widget x of that string becomes', (s, n) => {
+    expect(origin({ x: s, w: 380 })).toEqual({ x: n, w: 380 })
+    // Same conversion as the widget's own geometry (rule 6).
+    expect(normalizeConfig({ widgets: { tower: { x: s } } }).widgets.tower.x).toBe(n)
+  })
+
+  it('survives a reload: a profile saved with string parts round-trips back to normal exactly', () => {
+    const loaded = normalizeConfig({
+      // Neither part matches the no-origin fallback (x stays 1426, w is round(494 / 1.3) = 380),
+      // so both assertions check that the string origin was kept.
+      widgets: { tower: { textScale: 'larger', x: 1426, w: 494, textScaleOrigin: { x: '1300', w: '520' } } },
+    })
+    const back = setWidgetTextScale(loaded, 'tower', 'normal')
+    expect(tower(back).x).toBe(1300)
+    expect(tower(back).w).toBe(520)
+  })
+
+  it.each([
+    ['an empty string', { x: '', w: 380 }],
+    ['a whitespace-only string', { x: 24, w: '   ' }],
+    ['a word', { x: 'abc', w: 380 }],
+    ['a number followed by junk', { x: ' 12abc', w: 380 }],
+    ['a unit suffix', { x: 24, w: '380px' }],
+    ["'Infinity'", { x: 'Infinity', w: 380 }],
+    ['null', { x: null, w: 380 }],
+    ['a boolean', { x: true, w: 380 }],
+    ['an array, though Number([1500]) is 1500', { x: [1500], w: 380 }],
+    ['an object', { x: 24, w: {} }],
+    ['one good string and one bad', { x: '1500', w: 'abc' }],
+  ])('drops the whole origin when a part is %s', (_label, o) => {
+    expect(origin(o)).toBeNull()
   })
 })
 

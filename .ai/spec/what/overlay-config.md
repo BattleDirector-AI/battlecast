@@ -174,8 +174,17 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     zero-pixel drag, a height-only resize, or an `x` the keep-on-canvas clamp moved in answer to a
     new `w` leaves the origin's other part untouched.
 41b. **The origin is editor bookkeeping.** `textScaleOrigin` is saved with the profile so a
-    reload keeps the round trip exact. Normalization keeps it only as an object of two finite
-    numbers on a widget whose preset is not `normal`, and drops it otherwise. Rendering never reads
+    reload keeps the round trip exact. Normalization keeps it only on a text-rendering widget
+    (rule 40's list; never on `logos` or a widget key it does not know) whose preset is not
+    `normal`, as `{ x, w }` and nothing else, and only when both `x` and `w` are valid; otherwise
+    it drops the whole origin. A part is valid when it is a finite number, or a non-blank string
+    that JavaScript `Number()` turns into a finite number (so surrounding whitespace, a sign, a
+    decimal point, an exponent, and a `0x` hex prefix are accepted: `' 1500 '`, `'-12'`, `'1e3'`),
+    the same conversion a widget's own `x`/`y`/`w`/`h` get; a string part is stored as that number:
+    `{ x: '1500', w: ' 380 ' }` becomes `{ x: 1500, w: 380 }`, as `x: '1500'` on the widget becomes
+    `1500`. Everything else is invalid: a blank or whitespace-only string (it is not read as 0), a
+    string that is not wholly a number (`'abc'`, `' 12abc'`, `'380px'`), `'Infinity'`, `null`, a
+    boolean, an array, an object, a missing part. Rendering never reads
     it: a widget renders at its stored `x` and `w`, so a hand-set `w` renders at exactly that `w`
     whatever its preset. Decision record: `docs/decisions/0015-per-widget-text-size.md`.
 41c. **A preview drag or resize is one edit, from where it began to where it is now.** Rule 41a
