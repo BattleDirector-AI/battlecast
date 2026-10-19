@@ -16,6 +16,7 @@
     rendersPlate,
     rendersText,
     TEXT_SCALE_PRESETS,
+    IDLE_GRACE_MAX_SECONDS,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
@@ -260,6 +261,49 @@
     drag = null
     window.removeEventListener('pointermove', onDrag)
     window.removeEventListener('pointerup', endDrag)
+  }
+
+  // ---- typed number fields (overlay-config rules 44-44c) ----------------------
+  // Attached to every `type="number"` input: a typed value applies only when committed —
+  // Enter (not mid-IME) or the `change` focus leaving fires — never per keystroke. An
+  // Up/Down step commits on the `input` the browser fires after applying it, since Firefox
+  // holds `change` for a keyboard step until blur. `apply(n)` writes a committed number,
+  // clamping or refusing it (rule 44b); `stored()` reads what the config holds now. After
+  // every commit, refusal or Escape the field is rewritten to the stored value itself: the
+  // one-way `value={…}` skips the DOM write when the bound number did not change.
+  function numberField(apply, stored) {
+    return (el) => {
+      let stepping = false
+      const shown = () => String(stored() ?? '')
+      const commit = () => {
+        // Already showing what is stored: the change or blur after an Enter or an Escape is
+        // not a second commit (rule 44c).
+        if (el.value === shown()) return
+        // A number input reports unreadable text as '', and Number('') is 0: blank first.
+        const n = Number(el.value)
+        if (el.value !== '' && Number.isFinite(n)) apply(n)
+        el.value = shown()
+      }
+      const onkeydown = (e) => {
+        // Any other key ends a step, so typing after it is ordinary typing (rule 44a).
+        stepping = e.key === 'ArrowUp' || e.key === 'ArrowDown'
+        if (e.key === 'Enter' && !e.isComposing) commit()
+        else if (e.key === 'Escape') el.value = shown()
+      }
+      const oninput = () => {
+        if (!stepping) return
+        stepping = false
+        commit()
+      }
+      el.addEventListener('change', commit)
+      el.addEventListener('keydown', onkeydown)
+      el.addEventListener('input', oninput)
+      return () => {
+        el.removeEventListener('change', commit)
+        el.removeEventListener('keydown', onkeydown)
+        el.removeEventListener('input', oninput)
+      }
+    }
   }
 
   // ---- canvas ---------------------------------------------------------------
@@ -562,10 +606,10 @@
         <h2>Canvas size<HelpTip text={FIELD_HELP.canvasSize} label="canvas size" testid="help-canvas" /></h2>
         <p class="hint">Output resolution the layout is designed against (default 1920×1080).</p>
         <div class="row">
-          <!-- Commit on change (blur/Enter), not every keystroke: setCanvas
-               re-clamps every widget to the canvas and clamping only shrinks, so
-               committing intermediate keystrokes (1 -> 12 -> 128) would collapse
-               widgets before the full value is typed. -->
+          <!-- Commit (Enter/blur), not every keystroke: setCanvas re-clamps every
+               widget to the canvas and clamping only shrinks, so committing
+               intermediate keystrokes (1 -> 12 -> 128) would collapse widgets before
+               the full value is typed. -->
           <label class="num">
             width
             <input
@@ -573,7 +617,7 @@
               min="320"
               data-testid="canvas-w"
               value={canvas.w}
-              onchange={(e) => setCanvas({ w: e.currentTarget.value })}
+              {@attach numberField((n) => setCanvas({ w: n }), () => config.canvas.w)}
             />
           </label>
           <label class="num">
@@ -583,7 +627,7 @@
               min="320"
               data-testid="canvas-h"
               value={canvas.h}
-              onchange={(e) => setCanvas({ h: e.currentTarget.value })}
+              {@attach numberField((n) => setCanvas({ h: n }), () => config.canvas.h)}
             />
           </label>
         </div>
@@ -649,7 +693,10 @@
                     type="number"
                     data-testid="{field}-{key}"
                     value={w[field]}
-                    oninput={(e) => setField(key, field, Number(e.currentTarget.value))}
+                    {@attach numberField(
+                      (n) => setField(key, field, n),
+                      () => config.widgets[key][field],
+                    )}
                   />
                 </label>
               {/each}
@@ -660,7 +707,7 @@
                   type="number"
                   data-testid="z-{key}"
                   value={w.z}
-                  oninput={(e) => setField(key, 'z', Number(e.currentTarget.value))}
+                  {@attach numberField((n) => setField(key, 'z', n), () => config.widgets[key].z)}
                 />
               </label>
             </div>
@@ -736,7 +783,10 @@
                   step="1"
                   data-testid="idle-grace-{key}"
                   value={w.idleGraceSeconds}
-                  oninput={(e) => setField(key, 'idleGraceSeconds', Number(e.currentTarget.value))}
+                  {@attach numberField(
+                    (n) => setField(key, 'idleGraceSeconds', Math.max(0, Math.min(IDLE_GRACE_MAX_SECONDS, n))),
+                    () => config.widgets[key].idleGraceSeconds,
+                  )}
                 />
               </label>
             {/if}
@@ -767,7 +817,10 @@
                     data-testid="dwell-{key}"
                     value={w.dwellSeconds}
                     disabled={w.trigger !== 'dwell'}
-                    oninput={(e) => setDwellSeconds(key, e.currentTarget.value)}
+                    {@attach numberField(
+                      (n) => n > 0 && setDwellSeconds(key, n),
+                      () => config.widgets[key].dwellSeconds,
+                    )}
                   />
                 </label>
               </div>
@@ -902,7 +955,10 @@
                   step="1"
                   data-testid="per-page-seconds-{key}"
                   value={w.cycle?.perPageSeconds}
-                  onchange={(e) => setCycleField(key, 'perPageSeconds', Number(e.currentTarget.value))}
+                  {@attach numberField(
+                    (n) => n > 0 && setCycleField(key, 'perPageSeconds', n),
+                    () => config.widgets[key].cycle?.perPageSeconds,
+                  )}
                 />
               </label>
               <label class="num">
@@ -914,7 +970,10 @@
                   step="1"
                   data-testid="pin-top-{key}"
                   value={w.cycle?.pinTop}
-                  onchange={(e) => setCycleField(key, 'pinTop', Number(e.currentTarget.value))}
+                  {@attach numberField(
+                    (n) => n >= 0 && setCycleField(key, 'pinTop', Math.floor(n)),
+                    () => config.widgets[key].cycle?.pinTop,
+                  )}
                 />
               </label>
               <label class="num class-display-row">
@@ -1092,7 +1151,10 @@
               min="1"
               data-testid="per-slot"
               value={config.logoRotation.perSlotSeconds}
-              oninput={(e) => setRotation({ perSlotSeconds: Number(e.currentTarget.value) })}
+              {@attach numberField(
+                (n) => setRotation({ perSlotSeconds: n }),
+                () => config.logoRotation.perSlotSeconds,
+              )}
             />
           </label>
           <label class="num">

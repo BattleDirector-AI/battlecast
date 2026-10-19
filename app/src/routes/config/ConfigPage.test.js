@@ -267,8 +267,25 @@ describe('ConfigPage editor wiring', () => {
     const { getByTestId } = render(ConfigPage)
     await tick()
     await fireEvent.input(getByTestId('dwell-driver'), { target: { value: '9' } })
+    await fireEvent.change(getByTestId('dwell-driver')) // applies on commit (rule 44)
     await tick()
     expect(getByTestId('dwell-driver').value).toBe('9')
+
+    // The field text alone proves nothing: assert the config the editor exports.
+    let exported = null
+    vi.stubGlobal(
+      'Blob',
+      class {
+        constructor(parts) {
+          exported = String(parts[0])
+        }
+      },
+    )
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:captured')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    await fireEvent.click(getByTestId('export'))
+    expect(exported, 'Export wrote nothing').toBeTruthy()
+    expect(JSON.parse(exported).widgets.driver.dwellSeconds).toBe(9)
   })
 
   it('toggling "hide when idle" hides the battle box once it goes idle', async () => {
@@ -289,6 +306,7 @@ describe('ConfigPage editor wiring', () => {
     await tick()
 
     await fireEvent.input(getByTestId('x-tower'), { target: { value: '250' } })
+    await fireEvent.change(getByTestId('x-tower')) // applies on commit (rule 44)
     await tick()
     expect(container.querySelector('[data-testid="widget-tower"]').style.left).toBe('250px')
   })
