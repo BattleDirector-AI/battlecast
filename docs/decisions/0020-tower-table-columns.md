@@ -40,7 +40,7 @@ Two causes:
    cars that cycling or `maxRows` leave off screen are present as zero-height, invisible
    **sizer rows**, so their content sizes the tracks (`how/renderer.md`).
 3. **A 400px default tower**: the default `w`, the standalone `--bc-tower-width`, and the
-   battle box moved to `x: 448` to keep its 24px gap (`overlay-config.md` rule 44).
+   battle box moved to `x: 448` to keep its 24px gap (`overlay-config.md` rule 45).
 
 ## Why the whole field, and why no grow-only
 

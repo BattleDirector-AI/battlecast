@@ -15,7 +15,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
    saved geometry and saved values. A new knob's default may change how an existing profile
    looks (rule 42's short names do), but never its saved geometry or the meaning of a value it
    already holds. The same goes for a changed default value of an existing field, such as the
-   tower's default `w` (rule 44): it reaches only profiles that do not store that field. A
+   tower's default `w` (rule 45): it reaches only profiles that do not store that field. A
    profile that stores `w: 380` keeps rendering its tower 380 wide.
 3. **Split read from write:** render pages only *read* config over HTTP; the `/config` UI is the
    only writer. The render path is identical whether config/assets come from the companion server or
@@ -42,7 +42,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
    resolution; configurable per profile via `config.canvas`, min edge 320). The render page scales
    the canvas uniformly to the viewport, so a broadcaster gets the same layout at any Browser Source
    size. Widgets paint in ascending `z` order.
-44. **Default tower and battle-box geometry.** The built-in default tower is 400 wide
+45. **Default tower and battle-box geometry.** The built-in default tower is 400 wide
     (`w: 400` at `x: 24`), and the standalone `/tower` route's `--bc-tower-width` token is
     `400px`, so the tower is the same width on both entry points out of the box. The default
     battle box sits at `x: 448` (its `w` stays 440), keeping the same 24px gap to the right of
