@@ -41,6 +41,7 @@ const value = (c, field) => Number(input(c, field).value)
 
 async function type(c, field, v) {
   await fireEvent.input(input(c, field), { target: { value: String(v) } })
+  await fireEvent.change(input(c, field)) // a typed value applies on commit (rule 44)
   await tick()
 }
 

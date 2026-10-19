@@ -66,6 +66,7 @@ describe('config editor: battle exit grace', () => {
     const input = container.querySelector('[data-testid="idle-grace-battle"]')
     expect(input, 'no exit-grace control for battle').toBeTruthy()
     await fireEvent.input(input, { target: { value: '8' } })
+    await fireEvent.change(input) // a typed value applies on commit (rule 44)
     await tick()
     await fireEvent.click(container.querySelector('[data-testid="save"]'))
     await tick()

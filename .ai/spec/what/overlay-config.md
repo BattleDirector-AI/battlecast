@@ -196,6 +196,53 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     rule 41a edit from the drag's start to its end, whatever path the pointer took in between.
     Releasing the pointer ends the edit: the next drag compares with where that one finished.
 
+### Typed number fields in the editor
+
+44. **A typed number applies when it is committed, not on each keystroke.** The editor's typed
+    number fields are: each widget's `x`, `y`, `w`, `h` and `z`; the battle row's exit grace secs
+    (`idleGraceSeconds`); a lower-third row's dwell secs (`dwellSeconds`); the tower row's seconds
+    per page and pin top N (`cycle.perPageSeconds`, `cycle.pinTop`); the canvas width and height;
+    and the logo rotation's per-slot seconds (`logoRotation.perSlotSeconds`). A value typed into one
+    of them is committed in two ways, and is applied then, once. **Enter** commits on its own
+    keydown, whatever the browser does with `change` for it; Shift+Enter (or Enter with any other
+    modifier) commits the same way, and an Enter that ends an IME composition belongs to the
+    composition and commits nothing. **Focus leaving the field** (the field's `change` event)
+    commits whatever the field holds. A field commits a value once: a `change` or blur that follows
+    an Enter, with no keystroke in between, finds the value already committed and writes nothing
+    further, so Enter then leaving the field is one edit (rule 44c). Before the commit the keystrokes change nothing: the config, the live
+    preview, and what Save or Export writes all keep the last committed value, and the field shows
+    exactly the text being typed — the editor never rewrites it mid-entry. Clicking Save or Export
+    moves focus off the field, so a value still being typed is committed before it is saved. Typing
+    `1900` into `w` and backspacing to `190` before committing applies `w = 190`, and the
+    keep-on-canvas clamp never sees `1900`, so `x` does not move.
+44a. **Steps and sliders apply at once.** A step taken with a number field's spinner buttons or its
+    Up/Down arrow keys is a commit, and each step applies as it is taken, in every browser the
+    editor runs in — whether or not that browser fires `change` for a keyboard step. Typing after a
+    step is ordinary typing again. The plate-opacity slider (rule 23) is not a typed field: it
+    applies continuously while it moves. `maxRows` is a text field that applies on commit with its
+    own blank handling (rule 12); the profile name, the producer URL and the class-color fields are
+    not number fields, and rule 44 does not cover them.
+44b. **A commit is clamped or refused, never reset to a default, and the field then shows what is
+    stored.** A committed number that the knob's normalization would **clamp** is stored clamped:
+    the keep-on-canvas clamp for `x`/`y`/`w`/`h` (at least 16 px, inside the canvas), `[0, 30]` for
+    exit grace (rule 36), the 320 px minimum for a canvas edge (rule 9), and a non-whole `pinTop`
+    rounded down to a whole number (rule 12). A committed number that normalization would
+    **replace with the default** — a dwell or a seconds per page not above `0`, a `pinTop` below
+    `0` — is refused like a blank: the stored value is kept. `z` and per-slot seconds keep the
+    number as entered. After every commit the field shows the value now stored, so an out-of-range
+    entry visibly becomes its clamped value or reverts to the kept one. Committing a **blank**
+    field — cleared, or holding text the browser cannot read as a number, which a number input
+    reports as blank — writes nothing: the stored value is kept (never `0`, never reset to a
+    default) and the field shows it again. **Escape** discards the
+    uncommitted text: the field shows the stored value again, nothing is written, and leaving the
+    field afterwards commits nothing.
+44c. **A commit is one rule 41a edit.** At a bigger text preset, a typed `x` or `w` moves
+    `textScaleOrigin` only when it is committed, comparing the committed value with the value
+    stored before the commit. Uncommitted keystrokes never move the origin, the stored `x` or the
+    stored `w`, and a blank or Escaped field moves nothing. An Enter followed by a `change` or blur
+    is one commit and so one rule 41a edit, never two. Rule 44b applies to every commit alike: an
+    Enter on a blank or refused value keeps the stored value, exactly as leaving the field does.
+
 ### Tower driver name style
 
 42. **`nameStyle`** (tower; default `short`) selects how the standings tower renders driver
@@ -238,7 +285,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 33. **The `/config` editor exposes a Class Colors section** — rule 14's control surface, keyed by
     class name rather than by widget. A broadcaster adds a row (a class-name field plus a color
     picker) for any class string, edits or removes an existing row, and sees the change reflected in
-    the live preview immediately, the same as any other editor control. There is no pre-seeded or
+    the live preview as soon as the picker reports a color — it is not a typed number field, so
+    rule 44's commit-on-Enter-or-blur does not apply to it. There is no pre-seeded or
     fixed list of rows: every row is one the broadcaster has explicitly added, and an empty map
     renders no rows. Removing a row's override returns that class to rule 31's default. Per rule 16
     the section carries its own summary and the color-picker control carries a `configHelp.js` entry
