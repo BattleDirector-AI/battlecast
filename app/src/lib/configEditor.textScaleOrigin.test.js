@@ -241,3 +241,31 @@ describe('only the part of the geometry the broadcaster changed moves the origin
     expect(tower(typed).textScaleOrigin.x).toBe(24)
   })
 })
+
+describe('`from` is the widget where a preview drag began (rule 41c)', () => {
+  // The /config drag handler passes the drag-start widget as `from` on every pointer step, so
+  // each step is compared with the start, not with the previous step.
+  const edgeAtLarger = () => pick(at({ x: 1500, w: 380 }), 'larger') // x 1426, origin x 1500
+
+  it('moveWidget: away and back to the start x keeps the start origin', () => {
+    const start = edgeAtLarger()
+    const from = tower(start)
+    const away = moveWidget(start, 'tower', 1400, from.y, from)
+    expect(tower(away).textScaleOrigin).toEqual({ x: 1400, w: 380 })
+    const back = moveWidget(away, 'tower', 1426, from.y, from)
+    expect(tower(back).textScaleOrigin).toEqual({ x: 1500, w: 380 })
+    // Without `from` the same step compares with the previous one and moves the origin.
+    expect(tower(moveWidget(away, 'tower', 1426, from.y)).textScaleOrigin).toEqual({ x: 1426, w: 380 })
+  })
+
+  it('resizeWidget: narrower and back to the start w keeps the start origin width', () => {
+    const start = pick(at({ x: 0, w: 1600 }), 'larger') // 2080, capped at 1920; origin w 1600
+    const from = tower(start)
+    expect(from.w).toBe(1920)
+    const narrower = resizeWidget(start, 'tower', 1900, from.h, from)
+    expect(tower(narrower).textScaleOrigin.w).toBe(Math.round(1900 / 1.3))
+    const back = resizeWidget(narrower, 'tower', 1920, from.h, from)
+    expect(tower(back).textScaleOrigin).toEqual({ x: 0, w: 1600 })
+    expect(tower(resizeWidget(narrower, 'tower', 1920, from.h)).textScaleOrigin.w).toBe(Math.round(1920 / 1.3))
+  })
+})

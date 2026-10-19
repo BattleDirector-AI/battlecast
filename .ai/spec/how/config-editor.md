@@ -40,7 +40,14 @@ divided by that scale before reaching `moveWidget`/`resizeWidget`, so a drag mov
 canvas pixels, not screen pixels. `startDrag` snapshots the widget as `drag.orig`; every
 `pointermove` computes the new geometry from it, and the `textScaleOrigin` bookkeeping
 (`trackOrigin` in `configEditor.js`) must compare with that drag-start widget and its origin, not
-with the previous step's config (`what/overlay-config.md` rule 41c).
+with the previous step's config (`what/overlay-config.md` rule 41c). Because `drag.orig` is a copy
+taken at `pointerdown`, a drag must not outlive a change it does not know about (rule 41d):
+`endDrag()` is the one way a drag ends, and it runs from `pointerup`, from `pointercancel`, from
+`setTextScale` before the preset is applied, and from `loadProfile` right after the loaded profile
+is assigned to `config` (not when the load is requested, and not on a failed or not-found load).
+Every code path that assigns a config not derived from the current one (a loaded or imported
+profile) calls `endDrag()` the same way; ordinary edits, which derive the next config from the
+current one, do not.
 
 **Typed number fields (rules 44–44c).** Every `type="number"` input in `ConfigPage.svelte` commits
 from `onchange`, never from a plain `oninput`; an unconditional `oninput` write stays only on the
@@ -180,7 +187,9 @@ re-fits the stage. The SSE feed is **not** touched — a config edit never recon
   the HUD and the metric toggles show representative data. Never push those fields into the shared
   fixture.
 - **Drag listeners live on `window`,** attached in `startDrag` and removed in `endDrag`, so a pointer
-  that leaves the preview box still tracks and still releases.
+  that leaves the preview box still tracks and still releases. There are three — `pointermove` →
+  `onDrag`, `pointerup` → `endDrag`, `pointercancel` → `endDrag` — and `endDrag` and the `onMount`
+  cleanup each remove all three, so none outlives a drag or an unmount mid-drag.
 - **Config swaps are deliberately un-animated** on the render path — a layout change is an operator
   action, not a broadcast reveal. Do not route a live-reload swap through a transition.
 - **Live reload relies on the API's `no-cache` headers** (`what/companion-server.md` rule 15, set in
