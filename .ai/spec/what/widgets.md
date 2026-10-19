@@ -250,6 +250,66 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     - **Short style sets no minimum width.** The tower renders at its configured width.
 
     Decision record: `docs/decisions/0018-tower-driver-name-style.md`.
+49. **Table columns.** The tower lays its rows out as a table. Every row has the same cells in
+    the same order, one per **column**, and each column has one width shared by every row,
+    so a column's cells line up down the whole tower. The columns, in order, are:
+    - `pos`: the position. Always shown.
+    - `class`: the class chip. Always shown.
+    - `classpos`: the class-rank badge (rule 5). Inline layout only.
+    - `name`: the driver name. Always shown.
+    - `gap`: the gap cell (rules 1, 2, 33, 35, 40, 42a). Always shown.
+    - `interval`: the interval (rules 6, 34, 42b). Shown when the interval metric is on.
+    - `pit`, `tire`, `fuel`: the strategy cells (rule 7). Each is shown when its
+      `towerMetrics` toggle is on, it is not suppressed in a lap-timed mode (rule 8), and at
+      least one car in the class-filtered field (rule 10) carries the column's field with any
+      non-null value: `pit_stops` or `in_pit` for `pit` (so `pit_stops: 0` counts), a
+      `tire_compound` or, outside a lap-timed mode, a `tire_wear` for `tire`, and `fuel` for
+      `fuel`. Presence is a function of the current snapshot alone, with no hold: a producer
+      that sends a field from the first snapshot has its column from the first snapshot.
+      What a car's strategy cell shows is unchanged by the column: the pit cell reads `PIT`
+      while the car is in the pit and `STOP n` once it has completed `n ≥ 1` stops, and is
+      otherwise empty, so a car with `pit_stops: 0` that is not in the pit has an empty pit
+      cell.
+    - `finish`: the finish slot (rule 45). Shown while the tower reserves the slot, that is,
+      in `race` or `results` mode with at least one car showing a finish chip.
+
+    A car with nothing to show in a column that is shown gets an **empty cell** there, so its
+    later cells stay in line. The empty cell carries no text and none of the filled cell's
+    hooks (`data-testid`, `title`). Each column is as wide as its widest entry (rule 50),
+    except `name`, which also takes the width left over when the row has spare room, so the
+    columns after it sit against the tower's right edge. The gap and interval columns keep
+    their fixed 8-character slot (rules 42a, 42b), so their width never depends on values. The
+    position, chip and badge cells start at the left of their column; the gap and interval
+    read right-aligned in theirs. When the columns together need more width than the tower
+    has, the rows are clipped at the tower's right edge (rule 45); in full name style the
+    tower widens instead (rule 48). In a Browser Source engine too old for shared grid tracks
+    (OBS before 31), every row still renders every cell, but each row sizes its own cells, so
+    columns line up only where their contents match. Decision record:
+    `docs/decisions/0020-tower-table-columns.md`.
+50. **Which rows size the columns.** A column's width comes from every car in the
+    class-filtered field, rendered or not: the cars the cycling window (`tower-overflow.md`)
+    is not showing and the cars `maxRows` leaves out count the same as the rows on screen. So
+    a page turn, a camera cut, or the on-camera highlight moving never changes a column's
+    width. The widths follow the current snapshot, with no hold and no reset rules of their
+    own: a column grows when a wider entry appears in the field (a car of a longer class
+    joins, a pit count gains a digit) and narrows when the field's widest entry leaves or
+    gets narrower. In full name style the tower's width is rule 48's minimum width, which only
+    grows between resets, and the name column takes what the other columns leave.
+51. **Grouped layout.** In the grouped layout the columns are shared across **all** groups,
+    not computed per group, so the columns of every class block line up with each other.
+    Each group's header (rule 3) spans the full row width and takes no part in the columns.
+    The `classpos` column is absent (rule 5).
+52. **A long class name is capped.** The class column is as wide as the widest class chip in
+    the field, but no chip is wider than the compact class chip's cap, 72px, the same cap the
+    chip has everywhere it renders compact. A class name too long for the cap
+    shows its beginning, cut at the end with an ellipsis (`LMGT3 PRO…`), never clipped from
+    both ends, never wrapped. The chip keeps its class colour, and the producer's whole
+    string stays the chip's text in the DOM (rule 30), so only the visible label is cut.
+53. **The name column has no fixed minimum.** The name column is never narrower than the
+    widest name the field needs in the current name style (rules 47, 48), and has no other
+    minimum: in short style it is as narrow as the widest short code in the field, not a
+    fixed width, so short names leave their room to the other columns. This holds with or
+    without a finish slot reserved.
 
 ### Battle box (`/battle`)
 

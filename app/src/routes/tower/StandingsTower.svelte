@@ -229,19 +229,19 @@
   // Bound to the .tower section so the row/header heights read off the live design
   // tokens (theme-overridable) rather than hardcoding 38/44 (spec rule 3).
   let towerEl = $state(null)
-  let tokenPx = $state({ header: 38, row: 44, towerWidth: 380 })
+  let tokenPx = $state({ header: 38, row: 44, towerWidth: 400 })
   $effect(() => {
     if (!towerEl || typeof getComputedStyle !== 'function') return
     const cs = getComputedStyle(towerEl)
     const header = parseFloat(cs.getPropertyValue('--bc-widget-header'))
     const row = parseFloat(cs.getPropertyValue('--bc-row-standard'))
     // The standalone configured width (rule 48): the token only when it reads as a px
-    // number — a custom property comes back as its authored text — else 380.
+    // number — a custom property comes back as its authored text — else 400.
     const towerWidth = /^\s*(\d+(?:\.\d+)?)px\s*$/.exec(cs.getPropertyValue('--bc-tower-width'))
     tokenPx = {
       header: Number.isFinite(header) && header > 0 ? header : 38,
       row: Number.isFinite(row) && row > 0 ? row : 44,
-      towerWidth: towerWidth ? Number(towerWidth[1]) : 380,
+      towerWidth: towerWidth ? Number(towerWidth[1]) : 400,
     }
   })
 
@@ -331,6 +331,34 @@
       return inlineRows.slice(0, Math.max(0, rowBudget))
     }
     return inlineRows
+  })
+
+  // ---- table columns (widgets.md rules 49-53, ADR 0020) ----
+  // One CSS grid per tower; each row is a subgrid of it, so a column's width is shared by
+  // every row. A strategy column is shown when any car in the class-filtered field carries
+  // its field at all (`pit_stops: 0` counts), so the column set is a function of the
+  // snapshot alone. See how/renderer.md "Tower columns".
+  const carries = (key) => inlineRows.some((v) => v?.[key] != null)
+  const columns = $derived.by(() => {
+    const cols = ['pos', 'class']
+    if (!grouped) cols.push('classpos')
+    cols.push('name', 'gap')
+    if (m.interval) cols.push('interval')
+    if (m.pit && !hideRaceStrategy && (carries('pit_stops') || carries('in_pit'))) cols.push('pit')
+    if (m.tire && (carries('tire_compound') || (!hideRaceStrategy && carries('tire_wear')))) cols.push('tire')
+    if (m.fuel && !hideRaceStrategy && carries('fuel')) cols.push('fuel')
+    if (finishSlot) cols.push('finish')
+    return cols
+  })
+  const gridTemplate = $derived(
+    columns.map((c) => (c === 'name' ? 'minmax(max-content, 1fr)' : 'max-content')).join(' '),
+  )
+  const shown = $derived(Object.fromEntries(columns.map((c) => [c, true])))
+  // Inline layout: the class-filtered cars the cycling window or maxRows leaves out. Each
+  // gets a zero-height, invisible sizer row so its content still sizes the tracks (rule 50).
+  const sizerRows = $derived.by(() => {
+    const rendered = Object.fromEntries(renderRows.map((v) => [v.slot_id, true]))
+    return inlineRows.filter((v) => !rendered[v.slot_id])
   })
 
   // ---- driver name style + the full-style width (widgets.md rules 46-48, ADR 0018) ----
@@ -639,35 +667,42 @@
      reduced-motion gating are identical in inline and grouped. `positionText` is the
      overall position (inline) or the within-class rank (grouped); `classBadge` is the
      inline-only 'rank/total' chip. -->
-{#snippet towerRow(v, positionText, zebra, classBadge, gap)}
-  {@const oncam = v.slot_id === subjectSlot}
+{#snippet towerRow(v, positionText, zebra, classBadge, gap, last = false, sizer = false)}
+  <!-- A sizer row (rule 50) has the same cells and content but no hooks: no data-testid on
+       the row or any cell, so rendered-row selectors and the overflow rules see only
+       rendered rows. -->
+  {@const tid = (id) => (sizer ? undefined : id)}
+  {@const oncam = !sizer && v.slot_id === subjectSlot}
   <!-- Local-yellow involvement (rule 43): the producer's own per-car flag, exactly true. -->
-  {@const yellow = v.yellow_involved === true}
+  {@const yellow = !sizer && v.yellow_involved === true}
   {@const finish = finishKind(v)}
   {@const vm = resolveVehicleMetrics(v)}
-  {@const flash = flashes[v.slot_id]}
+  {@const flash = sizer ? null : flashes[v.slot_id]}
   <!-- Per-cell visibility: the config toggle AND the field's presence AND, for the
        race-only metrics, that this is not a qualifying/practice board. Tire compound is
        exempt from the race gate. -->
-  {@const inPitActive = m.pit && !hideRaceStrategy && vm.inPit}
+  {@const inPitActive = !sizer && m.pit && !hideRaceStrategy && vm.inPit}
   {@const showPit = m.pit && !hideRaceStrategy && hasPit(vm)}
   {@const showCompound = m.tire && vm.tireCompound != null}
   {@const showWear = m.tire && !hideRaceStrategy && vm.tireWear != null}
   {@const showFuel = m.fuel && !hideRaceStrategy && vm.fuel != null}
   <li
     class="row"
+    class:row--sizer={sizer}
+    class:row--last={last}
     class:row--oncam={oncam}
     class:row--zebra={zebra}
     class:row--inpit={inPitActive}
-    class:row--finishslot={finishSlot}
-    data-testid="tower-row"
+    class:row--finishslot={shown.finish}
+    data-testid={sizer ? 'tower-sizer-row' : 'tower-row'}
     data-slot={v.slot_id}
-    data-position={v.position}
-    data-oncam={oncam ? 'true' : 'false'}
+    data-position={sizer ? undefined : v.position}
+    data-oncam={sizer ? undefined : oncam ? 'true' : 'false'}
     data-in-pit={inPitActive ? 'true' : undefined}
     data-yellow={yellow ? 'true' : undefined}
-    data-finish={finish ?? undefined}
+    data-finish={sizer ? undefined : (finish ?? undefined)}
     aria-current={oncam ? 'true' : undefined}
+    aria-hidden={sizer ? 'true' : undefined}
   >
     {#if oncam}
       <!-- Re-cut reveal (#64/#68): a fresh, subject-keyed flash overlay mounts only
@@ -679,20 +714,26 @@
         <span class="row__oncam-flash" data-testid="row-oncam-flash" aria-hidden="true"></span>
       {/key}
     {/if}
-    <span
-      class="row__classbar"
-      style:background={classColor(v.vehicle_class, classColors)}
-      aria-hidden="true"
-    ></span>
+    {#if !sizer}
+      <span
+        class="row__classbar"
+        style:background={classColor(v.vehicle_class, classColors)}
+        aria-hidden="true"
+      ></span>
+    {/if}
     {#if yellow}
       <span class="row__yellowedge" data-testid="row-yellow-edge" aria-hidden="true"></span>
     {/if}
-    <span class="row__pos">{positionText}</span>
-    <ClassChip carClass={v.vehicle_class} size="compact" {classColors} />
-    {#if classBadge}
-      <span class="row__classpos" data-testid="class-pos">{classBadge}</span>
+    <!-- One cell per shown column, in column order (rule 49); a column a car has nothing
+         for gets a bare empty cell, so the cells after it stay in line. -->
+    <span class="row__pos" data-col="pos">{positionText}</span>
+    <span class="row__class" data-col="class"
+      ><ClassChip carClass={v.vehicle_class} size="compact" {classColors} /></span
+    >
+    {#if shown.classpos}
+      <span class="row__classpos" data-col="classpos" data-testid={tid('class-pos')}>{classBadge}</span>
     {/if}
-    <span class="row__name" data-testid="driver-name">{nameOf(v)}</span>
+    <span class="row__name" data-col="name" data-testid={tid('driver-name')}>{nameOf(v)}</span>
     <!-- Interval to the leader — overall leader in the inline layout, class leader in
          the grouped layout — from the producer's `gap_to_leader`. The leader reads
          LEADER; an undetermined gap reads '—'; a lapped car reads `+N LAP(S)`. -->
@@ -700,16 +741,19 @@
       <!-- Lap-time flash (rule 40): the just-completed lap over the gap, tiered (rule 41). -->
       <span
         class="row__gap row__gap--flash row__gap--flash-{flash.tier}"
-        data-testid="row-gap"
+        data-col="gap"
+        data-testid={tid('row-gap')}
         data-lap-flash={flash.tier}>{fmtLapTime(flash.lap)}</span
       >
     {:else if gap.leader && gap.lap != null}
       <!-- Lap-timed session: the leader's cell is its pole/benchmark lap time. -->
-      <span class="row__gap row__gap--leadlap" data-testid="row-gap">{fmtLapTime(gap.lap)}</span>
+      <span class="row__gap row__gap--leadlap" data-col="gap" data-testid={tid('row-gap')}
+        >{fmtLapTime(gap.lap)}</span
+      >
     {:else if gap.leader}
-      <span class="row__gap row__gap--leader" data-testid="row-gap">LEADER</span>
+      <span class="row__gap row__gap--leader" data-col="gap" data-testid={tid('row-gap')}>LEADER</span>
     {:else}
-      <span class="row__gap" data-testid="row-gap"
+      <span class="row__gap" data-col="gap" data-testid={tid('row-gap')}
         >{gap.laps ? lapsText(gap.laps) : gapCell(gap.seconds)}</span
       >
     {/if}
@@ -719,61 +763,73 @@
          cluster. `gapCell` renders the interval identically to the gap ('—' when
          null — e.g. the leader, who has no one ahead), and `laps_behind_ahead`
          replaces it with `+N LAP(S)`. -->
-    {#if m.interval}
-      <span class="row__interval" data-testid="row-interval"
+    {#if shown.interval}
+      <span class="row__interval" data-col="interval" data-testid={tid('row-interval')}
         >{vm.lapsAhead ? lapsText(vm.lapsAhead) : gapCell(vm.intervalAhead)}</span
       >
     {/if}
-    {#if showPit}
-      {#if vm.inPit}
-        <span class="row__pit row__pit--in" data-testid="row-pit">PIT</span>
-      {:else}
-        <span class="row__pit" data-testid="row-pit" title="pit stops">
+    {#if shown.pit}
+      {#if showPit && vm.inPit}
+        <span class="row__pit row__pit--in" data-col="pit" data-testid={tid('row-pit')}>PIT</span>
+      {:else if showPit}
+        <span class="row__pit" data-col="pit" data-testid={tid('row-pit')} title="pit stops">
           <span class="row__pit-label">STOP</span>{vm.pitStops}
         </span>
+      {:else}
+        <span data-col="pit"></span>
       {/if}
     {/if}
-    {#if showCompound || showWear}
-      <span class="row__tire" data-testid="row-tire">
-        {#if showCompound}
-          <span class="row__tire-compound" data-testid="row-tire-compound">{vm.tireCompound}</span>
-        {/if}
-        {#if showWear}
-          <span class="row__bar row__bar--wear" title="tire wear">
-            <span
-              class="row__bar-fill"
-              data-testid="row-tire-wear-fill"
-              style:width={barPct(vm.tireWear)}
+    {#if shown.tire}
+      {#if showCompound || showWear}
+        <span class="row__tire" data-col="tire" data-testid={tid('row-tire')}>
+          {#if showCompound}
+            <span class="row__tire-compound" data-testid={tid('row-tire-compound')}>{vm.tireCompound}</span>
+          {/if}
+          {#if showWear}
+            <span class="row__bar row__bar--wear" title="tire wear">
+              <span
+                class="row__bar-fill"
+                data-testid={tid('row-tire-wear-fill')}
+                style:width={barPct(vm.tireWear)}
+              ></span>
+            </span>
+          {/if}
+        </span>
+      {:else}
+        <span data-col="tire"></span>
+      {/if}
+    {/if}
+    {#if shown.fuel}
+      {#if showFuel}
+        <span class="row__fuel" data-col="fuel" data-testid={tid('row-fuel')} title="fuel / energy">
+          <span class="row__bar row__bar--fuel">
+            <span class="row__bar-fill" data-testid={tid('row-fuel-fill')} style:width={barPct(vm.fuel)}
             ></span>
           </span>
-        {/if}
-      </span>
-    {/if}
-    {#if showFuel}
-      <span class="row__fuel" data-testid="row-fuel" title="fuel / energy">
-        <span class="row__bar row__bar--fuel">
-          <span
-            class="row__bar-fill"
-            data-testid="row-fuel-fill"
-            style:width={barPct(vm.fuel)}
-          ></span>
         </span>
-      </span>
+      {:else}
+        <span data-col="fuel"></span>
+      {/if}
     {/if}
-    <!-- Finish chip (rule 45): always the row's last element, in a fixed trailing slot. -->
-    {#if finish === 'finished'}
-      <span
-        class="row__finish row__finish--flag"
-        data-testid="row-finish"
-        role="img"
-        aria-label="Finished"
-      ></span>
-    {:else if finish}
-      <span class="row__finish row__finish--{finish}" data-testid="row-finish"
-        >{finish === 'dnf' ? 'DNF' : 'DQ'}</span
-      >
-    {:else if finishSlot}
-      <span class="row__finish row__finish--empty" aria-hidden="true"></span>
+    <!-- Finish chip (rule 45): always the row's last cell, in its own column. -->
+    {#if shown.finish}
+      {#if finish === 'finished'}
+        <span
+          class="row__finish row__finish--flag"
+          data-col="finish"
+          data-testid={tid('row-finish')}
+          role="img"
+          aria-label="Finished"
+        ></span>
+      {:else if finish}
+        <span class="row__finish row__finish--{finish}" data-col="finish" data-testid={tid('row-finish')}
+          >{finish === 'dnf' ? 'DNF' : 'DQ'}</span
+        >
+      {:else}
+        <!-- Not bare like the other empty cells: it keeps its class (rule 45's reserved slot,
+             which the finish tests pin) and stays hidden from assistive tech. -->
+        <span class="row__finish row__finish--empty" data-col="finish" aria-hidden="true"></span>
+      {/if}
     {/if}
   </li>
 {/snippet}
@@ -809,7 +865,12 @@
       {emptyReason === 'no-match' ? 'No cars in this class' : 'Waiting for state…'}
     </div>
   {:else if grouped}
-    <div class="tower__groups">
+    <div
+      class="tower__groups tower__grid"
+      data-testid="tower-grid"
+      data-columns={columns.join(' ')}
+      style:grid-template-columns={gridTemplate}
+    >
       {#each groups as group (group.key)}
         <section class="group" data-testid="tower-group" data-class={group.carClass}>
           <header class="group__head">
@@ -823,7 +884,7 @@
           </header>
           <ol class="tower__rows">
             {#each group.cars as v, i (v.slot_id)}
-              {@render towerRow(v, i + 1, i % 2 === 1, null, classGap(group, v, i))}
+              {@render towerRow(v, i + 1, i % 2 === 1, null, classGap(group, v, i), i === group.cars.length - 1)}
             {/each}
           </ol>
         </section>
@@ -835,9 +896,25 @@
          re-render in place with no animation. `renderRows` is the cycled subset (or the
          whole filtered field when not cycling / before the first sync). -->
     {#key cycleEnabled ? pageEpoch : 'all'}
-      <ol class="tower__rows" class:tower__rows--turn={cycleEnabled}>
+      <ol
+        class="tower__rows tower__grid"
+        class:tower__rows--turn={cycleEnabled}
+        data-testid="tower-grid"
+        data-columns={columns.join(' ')}
+        style:grid-template-columns={gridTemplate}
+      >
         {#each renderRows as v, i (v.slot_id)}
-          {@render towerRow(v, v.position, i % 2 === 1, `${classRankOf(v)}/${classTotalOf(v)}`, overallGap(v))}
+          {@render towerRow(
+            v,
+            v.position,
+            i % 2 === 1,
+            `${classRankOf(v)}/${classTotalOf(v)}`,
+            overallGap(v),
+            i === renderRows.length - 1,
+          )}
+        {/each}
+        {#each sizerRows as v (v.slot_id)}
+          {@render towerRow(v, v.position, false, `${classRankOf(v)}/${classTotalOf(v)}`, overallGap(v), false, true)}
         {/each}
       </ol>
     {/key}
@@ -915,6 +992,25 @@
     padding: 0;
   }
 
+  /* Table columns (rules 49-53, ADR 0020): one grid per tower, its track list set inline;
+     every row (and, grouped, every group and its list) spans all tracks as a subgrid, so a
+     column is as wide as its widest cell in any row, sizer rows included. A column gap and
+     no row gap, so zero-height sizer rows add no height. */
+  .tower__grid {
+    display: grid;
+    column-gap: var(--bc-space-2);
+    row-gap: 0;
+  }
+  .tower__groups > .group,
+  .group > .tower__rows {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+  }
+  .group__head {
+    grid-column: 1 / -1;
+  }
+
   /* Grouped layout: a class header per section, then that class's rows. */
   .group__head {
     position: relative;
@@ -950,14 +1046,35 @@
        above the row's background, below the text/chips. */
     isolation: isolate;
     height: var(--bc-row-standard);
-    display: flex;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
     align-items: center;
-    gap: var(--bc-space-2);
     padding: 0 var(--bc-space-3) 0 var(--bc-space-4);
     border-bottom: 1px solid var(--bc-divider);
   }
-  .row:last-child {
+  /* The last rendered row drops its divider. A class, not `:last-child` (sizer rows follow it
+     in the inline grid) and not `:has()` (missing in OBS 30's engine). */
+  .row--last {
     border-bottom: none;
+  }
+  /* A sizer row (rule 50): in the grid, so its cells size the tracks, but takes no height
+     and is never seen or hit. */
+  .row--sizer {
+    height: 0;
+    padding-block: 0;
+    border: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .row__class {
+    display: flex;
+    align-items: center;
+  }
+  .row__gap,
+  .row__interval {
+    justify-self: end;
   }
 
   .row--zebra {
@@ -1006,7 +1123,9 @@
     letter-spacing: var(--bc-track-label);
   }
 
-  /* No cell gives way (rules 45, 47, 48): the chip and timing cells keep their width and the
+  /* Flex declarations on rows and cells only take effect in the no-subgrid fallback below;
+     in the grid the max-content tracks already keep every cell at its content width.
+     No cell gives way (rules 45, 47, 48): the chip and timing cells keep their width and the
      name never truncates to make room. A row wider than the tower is clipped at its right
      edge, trailing cells first; in full style the tower's inline min-width makes the room. */
   .row > :global(*) {
@@ -1014,10 +1133,9 @@
   }
 
   .row__name {
-    /* Takes the spare width, but never shrinks below its text. */
+    /* Takes the spare width, but never shrinks below its text. The name track's
+       max-content minimum is its only floor (rule 53). */
     flex: 1 0 auto;
-    /* A floor so short names still line up as a column. */
-    min-width: 4em;
     font-family: var(--bc-font-display);
     font-size: var(--bc-size-name);
     font-weight: var(--bc-weight-name);
@@ -1158,10 +1276,7 @@
   /* Finish chip (rule 45): a fixed-width trailing slot so chips line up down the tower and
      the columns before it don't shift between marked and unmarked rows. The slot tucks into
      the row's right padding, stopping short of the local-yellow strip on that edge, and while
-     it is reserved the name's column floor drops (never below its text) to leave it room. */
-  .row--finishslot .row__name {
-    min-width: 2em;
-  }
+     it is reserved the finish column takes its room from the name column's spare width. */
   .row__finish {
     flex: 0 0 auto;
     box-sizing: border-box;
@@ -1320,6 +1435,30 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  /* Engines without subgrid (OBS before 31): each row is its own flex row. Every cell still
+     renders; columns line up only as far as their contents match. The name keeps the floor
+     the grid track gives it, or overflow: hidden would let flex squeeze and ellipsize it. */
+  @supports not (grid-template-columns: subgrid) {
+    .tower__grid,
+    .tower__groups > .group,
+    .group > .tower__rows {
+      display: block;
+    }
+    .row {
+      display: flex;
+      gap: var(--bc-space-2);
+    }
+    .row__name {
+      min-width: max-content;
+    }
+    /* Without shared tracks an empty cell aligns nothing and would only cost a gap; the
+       reserved finish slot (rule 45) stays. Sizer rows size nothing here either. */
+    .row > [data-col]:empty:not(.row__finish--empty),
+    .row--sizer {
+      display: none;
     }
   }
 </style>

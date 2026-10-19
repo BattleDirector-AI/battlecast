@@ -41,7 +41,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   producer: { src: DEFAULT_SRC },
   canvas: { w: OVERLAY_CANVAS.w, h: OVERLAY_CANVAS.h },
   widgets: {
-    // Default widget widths match each component's intrinsic width (tower 380px,
+    // Default widget widths match each component's intrinsic width (tower 400px,
     // battle 440px) so the config editor's drag box lines up with what renders.
     // `hideWhenIdle` defaults off, so widgets that support it keep showing their
     // idle placeholder unless the broadcaster opts in.
@@ -50,7 +50,7 @@ export const DEFAULT_CONFIG = Object.freeze({
     // the normalized shape matches this default exactly. Only the lower-third
     // widgets (driver #21, qualifying #22) actually read the trigger knobs.
     tower: {
-      visible: true, x: 24, y: 24, w: 380, h: 900, z: 1, hideWhenIdle: false,
+      visible: true, x: 24, y: 24, w: 400, h: 900, z: 1, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
@@ -61,7 +61,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     battle: {
-      visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
+      visible: true, x: 448, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',

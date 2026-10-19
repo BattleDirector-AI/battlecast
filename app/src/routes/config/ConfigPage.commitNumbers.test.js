@@ -44,7 +44,7 @@ async function settle() {
 const FIELDS = [
   { id: 'x-tower', read: (c) => c.widgets.tower.x, initial: 24, next: 100 },
   { id: 'y-tower', read: (c) => c.widgets.tower.y, initial: 24, next: 50 },
-  { id: 'w-tower', read: (c) => c.widgets.tower.w, initial: 380, next: 400 },
+  { id: 'w-tower', read: (c) => c.widgets.tower.w, initial: 400, next: 420 },
   { id: 'h-tower', read: (c) => c.widgets.tower.h, initial: 900, next: 800 },
   { id: 'z-tower', read: (c) => c.widgets.tower.z, initial: 1, next: 9 },
   { id: 'idle-grace-battle', read: (c) => c.widgets.battle.idleGraceSeconds, initial: 5, next: 8 },
@@ -114,7 +114,7 @@ describe('config editor: typed number fields apply on commit', () => {
       ['w-tower', '400', 'width'],
       ['h-tower', '800', 'height'],
     ]
-    const before = { left: '24px', top: '24px', width: '380px', height: '900px' }
+    const before = { left: '24px', top: '24px', width: '400px', height: '900px' }
     for (const [prop, px] of Object.entries(before)) expect(slot(container).style[prop]).toBe(px)
 
     for (const [id, text, prop] of edits) {
@@ -172,8 +172,8 @@ describe('config editor: typed number fields apply on commit', () => {
     const { container } = render(ConfigPage)
     await settle()
     const cases = [
-      // keep-on-canvas: x <= canvas.w - w = 1920 - 380
-      { id: 'x-tower', typed: '5000', stored: 1540, read: (c) => c.widgets.tower.x },
+      // keep-on-canvas: x <= canvas.w - w = 1920 - 400
+      { id: 'x-tower', typed: '5000', stored: 1520, read: (c) => c.widgets.tower.x },
       // exit grace is clamped to [0, 30] (rule 36)
       { id: 'idle-grace-battle', typed: '45', stored: 30, read: (c) => c.widgets.battle.idleGraceSeconds },
       // canvas edge minimum 320 (rule 9)
@@ -297,7 +297,7 @@ describe('config editor: typed number fields apply on commit', () => {
     await tick()
     const w = field(container, 'w-tower')
     const x = field(container, 'x-tower')
-    expect(w.value).toBe('437')
+    expect(w.value).toBe('460')
 
     for (const text of ['1', '19', '190', '1900', '500']) {
       await fireEvent.input(w, { target: { value: text } })
@@ -358,7 +358,7 @@ describe('config editor: typed number fields apply on commit', () => {
     const x = field(container, 'x-tower')
 
     await typeKeys(w, '500')
-    expect(slot(container).style.width, 'w applied before Enter').toBe('437px')
+    expect(slot(container).style.width, 'w applied before Enter').toBe('460px')
     await fireEvent.keyDown(w, { key: 'Enter' })
     await commit(w)
     await fireEvent.blur(w)
