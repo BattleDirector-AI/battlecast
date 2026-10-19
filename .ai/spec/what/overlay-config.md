@@ -16,7 +16,9 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
    looks (rule 42's short names do), but never its saved geometry or the meaning of a value it
    already holds. The same goes for a changed default value of an existing field, such as the
    tower's default `w` (rule 45): it reaches only profiles that do not store that field. A
-   profile that stores `w: 380` keeps rendering its tower 380 wide.
+   profile that stores `w: 380` keeps rendering its tower 380 wide. A stored geometry value that
+   rule 6 does not read as a number (`x: ''`, `w: true`) is not saved geometry: that field takes
+   the widget's default, like a field the profile does not store.
 3. **Split read from write:** render pages only *read* config over HTTP; the `/config` UI is the
    only writer. The render path is identical whether config/assets come from the companion server or
    a static host.
@@ -29,8 +31,16 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
    (`/config/<name>.json`). A missing/malformed profile **logs a warning and falls back to default**
    — best-effort, never blank, never thrown (mirrors the spec's tolerance ethos).
 6. Normalization coerces any partial/malformed config into the full shape: every widget gets a
-   boolean `visible`, finite geometry, and all defaulted knobs. **Unknown widget keys from a newer
-   profile are preserved** (forward-compat), defaulting hidden.
+   boolean `visible`, finite geometry, and all defaulted knobs. A widget's `x`, `y`, `w`, `h` and
+   `z` are each read as a **valid number**: a finite number, or a non-blank string that JavaScript
+   `Number()` turns into a finite number (so surrounding whitespace, a sign, a decimal point, an
+   exponent, and a `0x` hex prefix are accepted: `' 1500 '`, `'-12'`, `'1e3'`, `'0x10'`), stored
+   as that number (`'1500'` becomes `1500`). Everything else is not a valid number and MUST NOT be
+   read as one: a blank or whitespace-only string (it is not 0), a string that is not wholly a
+   number (`'abc'`, `' 12abc'`, `'380px'`), `'Infinity'`, `null`, a boolean (`true` is not 1), an
+   array (`[5]` is not 5), an object, a missing value. Such a field takes the widget's default
+   instead; an unknown widget key's default for each of the five is 0.
+   **Unknown widget keys from a newer profile are preserved** (forward-compat), defaulting hidden.
 7. `?show=` / `?hide=` comma lists are the **highest-precedence** visibility override, applied after
    normalization so they win over both profile and default.
 8. Producer SSE URL for `/all` is picked as `?src=` → profile `producer.src` → default
@@ -187,14 +197,9 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     reload keeps the round trip exact. Normalization keeps it only on a text-rendering widget
     (rule 40's list; never on `logos` or a widget key it does not know) whose preset is not
     `normal`, as `{ x, w }` and nothing else, and only when both `x` and `w` are valid; otherwise
-    it drops the whole origin. A part is valid when it is a finite number, or a non-blank string
-    that JavaScript `Number()` turns into a finite number (so surrounding whitespace, a sign, a
-    decimal point, an exponent, and a `0x` hex prefix are accepted: `' 1500 '`, `'-12'`, `'1e3'`),
-    the same conversion a widget's own `x`/`y`/`w`/`h` get; a string part is stored as that number:
-    `{ x: '1500', w: ' 380 ' }` becomes `{ x: 1500, w: 380 }`, as `x: '1500'` on the widget becomes
-    `1500`. Everything else is invalid: a blank or whitespace-only string (it is not read as 0), a
-    string that is not wholly a number (`'abc'`, `' 12abc'`, `'380px'`), `'Infinity'`, `null`, a
-    boolean, an array, an object, a missing part. Rendering never reads
+    it drops the whole origin. A part is valid when it is a valid number as rule 6 defines it (the
+    same conversion a widget's own geometry gets), and a string part is stored as that number:
+    `{ x: '1500', w: ' 380 ' }` becomes `{ x: 1500, w: 380 }`. Rendering never reads
     it: a widget renders at its stored `x` and `w`, so a hand-set `w` renders at exactly that `w`
     whatever its preset. Decision record: `docs/decisions/0015-per-widget-text-size.md`.
 41c. **A preview drag or resize is one edit, from where it began to where it is now.** Rule 41a
