@@ -177,6 +177,7 @@ describe('numeric-string origin parts are coerced like widget geometry (rule 41b
     ['1500.5', 1500.5],
     ['-12', -12],
     ['1e3', 1000],
+    ['0x10', 16],
   ])('reads %j as %d, the same number a widget x of that string becomes', (s, n) => {
     expect(origin({ x: s, w: 380 })).toEqual({ x: n, w: 380 })
     // Same conversion as the widget's own geometry (rule 6).

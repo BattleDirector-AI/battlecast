@@ -58,6 +58,8 @@ let originalGetContext
 let fonts
 const layout = { rowScroll: {}, nameBox: {} }
 const computed = { letterSpacing: '', borderLeftWidth: '', borderRightWidth: '' }
+// Custom properties the tower root's computed style answers (e.g. '--bc-size-name'); '' falls through.
+let tokens = {}
 let originalGetComputedStyle
 
 /** getComputedStyle with the three reads the width formula takes overridden. */
@@ -76,6 +78,7 @@ function stubComputedStyle() {
         if (own(prop)) return overrides[prop]
         if (prop === 'getPropertyValue') {
           return (name) => {
+            if (el?.matches?.('[data-testid="standings-tower"]') && tokens[name]) return tokens[name]
             const camel = String(name).replace(/-([a-z])/g, (_m, c) => c.toUpperCase())
             return own(camel) ? overrides[camel] : target.getPropertyValue(name)
           }
@@ -138,6 +141,7 @@ beforeEach(() => {
   computed.letterSpacing = ''
   computed.borderLeftWidth = ''
   computed.borderRightWidth = ''
+  tokens = {}
   stubComputedStyle()
   layout.rowScroll = {}
   layout.nameBox = {}
@@ -632,5 +636,81 @@ describe('full-style width — shipped paths pinned (rule 48, #245)', () => {
   it('does not request the font when check() is already true', async () => {
     await mount({ snapshot: withNames(NAMES), configuredWidth: 100 })
     expect(fonts.load).not.toHaveBeenCalled()
+  })
+})
+
+// ---- #260: font-failure lifecycle paths, pinned ---------------------------------------------
+describe('full-style width — font-failure lifecycle (rule 48, #260)', () => {
+  const REFUSE = () => Promise.reject(new Error('NetworkError'))
+  const SIZE_B_FONT = "700 30px 'Saira Condensed', 'Arial Narrow', sans-serif"
+
+  it('removes its loadingerror listener on unmount', async () => {
+    const view = await mount({ snapshot: withNames(NAMES), configuredWidth: 100 })
+    expect(fonts.listenerCount('loadingerror')).toBe(1)
+    view.unmount()
+    expect(fonts.listenerCount('loadingerror')).toBe(0)
+  })
+
+  it('does nothing when a font request is refused after unmount', async () => {
+    fonts = stubFonts({ loaded: false })
+    let refuse
+    fonts.load.mockImplementation(() => new Promise((_resolve, reject) => (refuse = reject)))
+    const view = await mount({ snapshot: withLong(), configuredWidth: 100 })
+    expect(minWidth()).toBe('100px')
+    view.unmount()
+    fonts.check.mockClear()
+    measuredFonts = []
+    refuse(new Error('NetworkError'))
+    await settle()
+    expect(fonts.check, 'an unmounted tower must not check the font').not.toHaveBeenCalled()
+    expect(measuredFonts, 'an unmounted tower must not measure').toEqual([])
+  })
+
+  it('counts a synchronous throw from fonts.load as a failure and measures in the fallback at once', async () => {
+    fonts = stubFonts({ loaded: false })
+    fonts.load.mockImplementation(() => {
+      throw new Error('SyntaxError')
+    })
+    await mount({ snapshot: withLong(), configuredWidth: 100 })
+    expect(fonts.load).toHaveBeenCalledTimes(1)
+    expect(minWidth()).toBe('210px')
+  })
+
+  it.each([
+    ['the configured width', { configuredWidth: 180 }, '210px'],
+    ['maxRows', { maxRows: 3 }, '210px'],
+  ])('measures at once after a failure when %s resets the settings, with no new request', async (_l, change, expected) => {
+    fonts = stubFonts({ loaded: false })
+    fonts.load.mockImplementation(REFUSE)
+    const view = await mount({ snapshot: withLong(), configuredWidth: 100 })
+    expect(minWidth()).toBe('210px')
+    expect(fonts.load).toHaveBeenCalledTimes(1)
+    await update(view, change)
+    expect(minWidth(), 'the reset wiped the names; they must be measured again, not wait for a font').toBe(expected)
+    expect(fonts.load, 'no new request after a reset').toHaveBeenCalledTimes(1)
+  })
+
+  it('requests a changed font string once after a failure, however often it re-measures', async () => {
+    fonts = stubFonts({ loaded: false })
+    fonts.load.mockImplementation(REFUSE)
+    const view = await mount({ snapshot: withNames(NAMES), configuredWidth: 100 })
+    tokens['--bc-size-name'] = '30px'
+    await update(view, { snapshot: withLong() })
+    await update(view, { snapshot: withNames(NAMES) })
+    await update(view, { snapshot: withLong() })
+    expect(fonts.load.mock.calls.map((c) => c[0])).toEqual([FALLBACK_FONT, SIZE_B_FONT])
+    expect(minWidth()).toBe('210px')
+  })
+
+  it('requests font A only once across an A to B to A change', async () => {
+    fonts = stubFonts({ loaded: false })
+    fonts.load.mockImplementation(() => new Promise(() => {}))
+    const view = await mount({ snapshot: withNames(NAMES), configuredWidth: 100 })
+    tokens['--bc-size-name'] = '30px'
+    await update(view, { snapshot: withLong() })
+    tokens['--bc-size-name'] = ''
+    await update(view, { snapshot: withNames(NAMES) })
+    await update(view, { snapshot: withLong() })
+    expect(fonts.load.mock.calls.map((c) => c[0])).toEqual([FALLBACK_FONT, SIZE_B_FONT])
   })
 })
