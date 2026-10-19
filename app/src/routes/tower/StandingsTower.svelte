@@ -3,7 +3,7 @@
   import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName, fmtShortName, fmtLapTime } from '../../design/format.js'
   import { sessionProgressText } from '../../design/sessionProgress.js'
-  import { untrack } from 'svelte'
+  import { onDestroy, untrack } from 'svelte'
   import { computeRowBudget, createTowerCycle, clampPerPageSeconds } from './towerCycle.js'
 
   // Class-aware standings tower (#28). Presentational: renders whatever snapshot it
@@ -335,8 +335,8 @@
 
   // ---- driver name style + the full-style width (widgets.md rules 46-48, ADR 0018) ----
   // Short (E.JAC) never changes width. Full (E. Jacobs) is never ellipsized: the tower root
-  // carries an inline min-width of max(configured width, ceil(widestName + widestRest)),
-  // both running maxima cleared only by a reset. See how/renderer.md "Driver name style".
+  // carries an inline min-width of max(configured width, ceil(widestName + widestRest +
+  // borderX)), the running maxima cleared only by a reset. See how/renderer.md "Driver name style".
   const fullStyle = $derived(nameStyle === 'full')
   const fullNameOf = (v) => (typeof v.driver_name === 'string' ? fmtName(v.driver_name) : '')
   const nameOf = (v) => (fullStyle ? fullNameOf(v) : fmtShortName(v.driver_name))
@@ -358,7 +358,7 @@
   // The measuring font: the on-camera row-name weight, size and family off the tower's
   // computed style, each token falling back to its tokens/typography.css default.
   function nameFontParts() {
-    const cs = towerEl && typeof getComputedStyle === 'function' ? getComputedStyle(towerEl) : null
+    const cs = computedStyle(towerEl)
     const read = (prop, fallback) => cs?.getPropertyValue(prop).trim() || fallback
     return {
       weight: read('--bc-weight-leader', '700'),
@@ -375,11 +375,16 @@
 
   let widestName = $state(0)
   let widestRest = $state(0)
+  let borderX = $state(0) // the tower root's left + right border, inside its min-width
   let namesMeasured = $state(false) // false until a pass ran with the name font loaded
   // Full name -> px, every name measured since the last reset. Prototype-free, so a driver
   // named '__proto__' caches like any other.
   let measuredNames = Object.create(null)
-  let requestedFont = null // the measuring font last asked of document.fonts.load
+  // Measuring fonts already asked of document.fonts.load: each is requested once, ever.
+  let requestedFonts = Object.create(null)
+  // Measuring fonts whose load failed: measured in the fallback face from then on, no retry.
+  let failedFonts = Object.create(null)
+  let destroyed = false
   let lastSettings = null
   let lastMode = null
   let measureCtx // undefined until first use; null when there is no 2D context
@@ -397,9 +402,29 @@
     return measureCtx.measureText(text).width
   }
 
+  // A computed length in px; non-finite ('normal', '' in happy-dom) counts 0.
+  const cssPx = (value) => {
+    const n = parseFloat(value)
+    return Number.isFinite(n) ? n : 0
+  }
+  const computedStyle = (el) =>
+    el && typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+      ? window.getComputedStyle(el)
+      : null
+
+  // Canvas measureText ignores CSS letter-spacing, so it is added per code point, read off
+  // the first rendered name cell (the tower root when no row is rendered: correct while the
+  // name cell inherits its letter-spacing, as it does from :root today).
+  function nameLetterSpacing() {
+    const cell = towerEl?.querySelector('[data-testid="driver-name"]') ?? towerEl
+    return cssPx(computedStyle(cell)?.letterSpacing)
+  }
+  const nameWidth = (name, font, spacing) => textWidth(name, font) + [...name].length * spacing
+
   function nameFontLoaded(font) {
     const fonts = typeof document !== 'undefined' ? document.fonts : null
     if (!fonts || typeof fonts.check !== 'function') return true
+    if (failedFonts[font]) return true
     try {
       if (fonts.check(font)) return true
     } catch {
@@ -407,10 +432,16 @@
     }
     // The measuring weight may be one no rendered text uses yet (only the on-camera row is
     // bold), and an unused face never loads by itself. Ask for it once; its loadingdone
-    // re-measures the names.
-    if (requestedFont !== font) {
-      requestedFont = font
-      Promise.resolve(fonts.load?.(font)).catch(() => {})
+    // re-measures the names. A refused request measures in the fallback face instead.
+    if (!requestedFonts[font]) {
+      requestedFonts[font] = true
+      let request
+      try {
+        request = fonts.load?.(font)
+      } catch {
+        request = Promise.reject()
+      }
+      Promise.resolve(request).catch(() => nameFontFailed(font))
     }
     return false
   }
@@ -440,11 +471,12 @@
       if (!full || !el) return
       const font = measuringFont()
       if (nameFontLoaded(font)) {
+        const spacing = nameLetterSpacing()
         let widest = widestName
         for (const v of field) {
           const name = fullNameOf(v)
           if (!name || hasOwn(measuredNames, name)) continue
-          measuredNames[name] = textWidth(name, font)
+          measuredNames[name] = nameWidth(name, font, spacing)
           widest = Math.max(widest, measuredNames[name])
         }
         widestName = widest
@@ -456,20 +488,23 @@
         rest = Math.max(rest, row.scrollWidth - (nameCell?.clientWidth ?? 0))
       }
       widestRest = rest
+      const cs = computedStyle(el)
+      borderX = cssPx(cs?.borderLeftWidth) + cssPx(cs?.borderRightWidth)
     })
   })
 
   // A load of the name font's family re-measures the names only — every name since the
   // last reset plus the current field — and may narrow the name part; the rest is kept.
   function onNameFontLoad() {
-    if (!fullStyle || !towerEl) return
+    if (destroyed || !fullStyle || !towerEl) return
     const font = measuringFont()
     if (!nameFontLoaded(font)) return
+    const spacing = nameLetterSpacing()
     const next = Object.create(null)
     let widest = 0
     for (const name of [...Object.keys(measuredNames), ...inlineRows.map(fullNameOf)]) {
       if (!name || hasOwn(next, name)) continue
-      next[name] = textWidth(name, font)
+      next[name] = nameWidth(name, font, spacing)
       widest = Math.max(widest, next[name])
     }
     measuredNames = next
@@ -477,17 +512,31 @@
     namesMeasured = true
   }
 
+  // The name font failed (its request refused, or a face of the family errored): stop
+  // waiting and measure in the fallback face the rows render in. A later loadingdone for the
+  // family is an ordinary name-font load.
+  function nameFontFailed(font) {
+    if (destroyed) return
+    failedFonts[font] = true
+    onNameFontLoad()
+  }
+
   $effect(() => {
     const fonts = typeof document !== 'undefined' ? document.fonts : null
     if (!fonts) return
     let cancelled = false
-    const onLoadingDone = (event) => {
+    const isNameFamily = (event) => {
       const family = familyKey(nameFontParts().family.split(',')[0])
-      if (Array.from(event?.fontfaces ?? []).some((face) => familyKey(face?.family) === family)) {
-        onNameFontLoad()
-      }
+      return Array.from(event?.fontfaces ?? []).some((face) => familyKey(face?.family) === family)
+    }
+    const onLoadingDone = (event) => {
+      if (isNameFamily(event)) onNameFontLoad()
+    }
+    const onLoadingError = (event) => {
+      if (isNameFamily(event)) nameFontFailed(measuringFont())
     }
     fonts.addEventListener?.('loadingdone', onLoadingDone)
+    fonts.addEventListener?.('loadingerror', onLoadingError)
     Promise.resolve(fonts.ready).then(
       () => !cancelled && onNameFontLoad(),
       () => {},
@@ -495,12 +544,16 @@
     return () => {
       cancelled = true
       fonts.removeEventListener?.('loadingdone', onLoadingDone)
+      fonts.removeEventListener?.('loadingerror', onLoadingError)
     }
+  })
+  onDestroy(() => {
+    destroyed = true
   })
 
   const towerMinWidth = $derived(
     fullStyle
-      ? `${Math.max(baseWidth, namesMeasured ? Math.ceil(widestName + widestRest) : 0)}px`
+      ? `${Math.max(baseWidth, namesMeasured ? Math.ceil(widestName + widestRest + borderX) : 0)}px`
       : null,
   )
 

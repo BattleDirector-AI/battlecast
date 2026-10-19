@@ -118,6 +118,29 @@ since the last reset, retired cars included) and keeps the remembered row width.
 part may narrow when it does; that is the fallback measurement being corrected, which is
 the point.
 
+## Amendment (#244, #245)
+
+The headless-Chromium check of the implementation found the minimum width about 3px short of
+what the widest row needs. Canvas `measureText` ignores CSS `letter-spacing` (the page sets
+0.18px, about 5px over a 29-character name), and the tower's 1px border on each side was not
+in the formula. Both are now part of the fit width. Letter spacing is added as code points ×
+the name cell's computed `letter-spacing` rather than by setting `ctx.letterSpacing`: the sum
+behaves the same in every engine the overlay may run in, and it reads the one value the row
+actually renders with. Rejected: a fixed safety margin, which hides the next missing term
+instead of naming it.
+
+A name font that fails to load (a self-hosted font with a bad path, which `fonts.css`
+recommends for OBS) left `check()` false for the whole session, so a full-style tower never
+grew. It now measures in the fallback face once the font's load is refused or a face of the
+family reports an error, and stops waiting. There is no retry: a font that failed is unlikely
+to load on a second request within the session, and a retry loop would keep a request
+running for the life of the Browser Source. A later successful load of the family still
+re-measures the names, so a font that recovers is used.
+
+Accepted limit: a font request that stalls (never refused, never finished) still holds a
+full-style tower at its configured width until the request settles. That is unlikely with a
+local font server, and a timeout would need its own tuning, so there is none.
+
 ## Alternatives rejected
 
 - **Full by default.** That is today's look, but with growth it is the setting that can break

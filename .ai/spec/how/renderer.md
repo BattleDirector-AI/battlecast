@@ -207,7 +207,11 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     lower-thirds, HUD and grid/results slides use, applied to string names only (a non-string
     gives `''`). Short is a separate formatter beside it that only the tower calls.
   - **The width hook.** In full style the tower root carries an **inline `min-width: <N>px`**,
-    `N = max(configuredWidth, ceil(widestName + widestRest))`. Its CSS `width` stays what it is
+    `N = max(configuredWidth, ceil(widestName + widestRest + borderX))`, where `borderX` is the
+    tower root's `parseFloat(borderLeftWidth) + parseFloat(borderRightWidth)` from its computed
+    style, each non-finite value (`''`, as in `happy-dom`) counting `0`. `.tower` is
+    `box-sizing: border-box`, so the border is inside `min-width` and must be in the fit; the
+    configured width already includes it. Its CSS `width` stays what it is
     in short style (`100%` of the `/all` slot, `--bc-tower-width` standalone), so the inline
     minimum is what widens it past the slot; nothing else may pin its width. `.tower` keeps
     `overflow: hidden`, so a minimum that comes out too small clips the row; rows never wrap.
@@ -222,14 +226,32 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     sans-serif`**. Every name is measured in this string, the on-camera weight.
   - **Measuring names.** With a 2D canvas context from
     `document.createElement('canvas').getContext('2d')`: set `ctx.font` to the measuring font,
-    then `ctx.measureText(fullName).width`, for every car in the class-filtered field. When
-    `getContext('2d')` returns `null`, every name measures `0`.
+    then a name's width is `ctx.measureText(fullName).width + [...fullName].length ×
+    letterSpacing`, for every car in the class-filtered field. Canvas `measureText` ignores CSS
+    `letter-spacing`, so it is added per code point; the tower does **not** set
+    `ctx.letterSpacing`. `letterSpacing` is `parseFloat(getComputedStyle(cell).letterSpacing)`
+    of the first rendered `[data-testid="driver-name"]`, or of the tower root when no row is
+    rendered; a non-finite value (`normal`, `''`) counts `0`, and a negative value is used as
+    is. It is read at each measurement, and a name already measured keeps its width until the
+    next reset or name-font load. When `getContext('2d')` returns `null`, every name measures
+    `0` before the letter spacing is added.
   - **Font readiness.** When `document.fonts` exists, names are measured only while
     `document.fonts.check(measuringFont)` returns `true`; while it returns `false`, the tower
     computes no fit width (`N` is the configured width). `check()` can return `true` before
     the stylesheet has registered the family (while the Google Fonts `@import` is still
     loading), so the first measurement may be taken in the fallback face; the name-font load
     below corrects it.
+  - **Requesting the font, once.** While `check(measuringFont)` is `false`, the tower calls
+    `document.fonts.load(measuringFont)` **once per measuring font** (the measuring weight may
+    be one no rendered text uses, so it would never load by itself). It never calls it again
+    for the same font string, including after a failure: there is no retry.
+  - **A failed font.** The font has failed when that `load()` promise rejects, or when a
+    `loadingerror` event's `fontfaces` include a face of the name family (matched as for
+    `loadingdone` below). On failure the tower marks that measuring font failed, treats it as
+    loaded from then on (names are measured even though `check()` stays `false`), and measures
+    the names at once, as a name-font load does. The canvas then measures in the browser's
+    fallback face, which is the face the rows render in. A later `loadingdone` for the family
+    is an ordinary name-font load. A `loadingerror` for another family changes nothing.
   - **Font load = name re-measure, not a reset.** The tower listens for `document.fonts`'
     `loadingdone` event and reacts only when the event's `fontfaces` include a face whose
     `family`, with surrounding quotes stripped and compared case-insensitively, is the first
@@ -252,10 +274,15 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   - **What the tests stub.**
     - `HTMLCanvasElement.prototype.getContext`: a context whose `measureText(t)` returns
       `{ width: 10 × [...t].length }` and records `ctx.font`.
-    - `document.fonts`: `check`, `ready`, `addEventListener` / `removeEventListener`; a fired
-      `loadingdone` carries `fontfaces: [{ family }]`.
+    - `document.fonts`: `check`, `load`, `ready`, `addEventListener` /
+      `removeEventListener`; a fired `loadingdone` or `loadingerror` carries
+      `fontfaces: [{ family }]`.
+    - `window.getComputedStyle`, for the name cell's `letterSpacing` and the tower root's
+      `borderLeftWidth` / `borderRightWidth` (everything else passes through).
     - The `scrollWidth` of `[data-testid="tower-row"]` and the `clientWidth` of
       `[data-testid="driver-name"]` (getters on `HTMLElement.prototype`).
 
-    What remains for a one-time headless-Chromium check is real glyph widths, and the inline
-    `min-width` beating the `/all` slot's `width: 100%`.
+    What remains for a one-time headless-Chromium check is real glyph widths, the inline
+    `min-width` beating the `/all` slot's `width: 100%`, and the row CSS that makes the rest
+    read exact (non-name cells `flex-shrink: 0`, the name cell `flex: 1 0 auto` in full style):
+    `happy-dom` does no layout, so no unit test can see it.

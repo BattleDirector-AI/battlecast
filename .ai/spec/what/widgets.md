@@ -197,9 +197,11 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
       width*. The configured width is the widget's `w` inside `/all` and the `--bc-tower-width`
       token on the standalone route. The fit width is the widest full-form name in the
       **class-filtered field**, every car that passes `?class=` (rule 10), rendered or not,
-      measured in the row-name font at the on-camera row's weight, plus the widest non-name
-      content (position, class bar and badge, gap, interval, metric cells, finish chip, and the
-      row's own padding and gaps) of any row rendered since the last reset.
+      measured in the row-name font at the on-camera row's weight and including the letter
+      spacing the name cell renders with, plus the widest non-name content (position, class
+      bar and badge, gap, interval, metric cells, finish chip, and the row's own padding and
+      gaps) of any row rendered since the last reset, plus the tower's own left and right
+      border. The configured width already includes the border, so it is not added there.
     - **Font loading.** Names are measured only once the row-name font has loaded. Until then
       the tower computes no fit width and its minimum width is its configured width. When a
       font face of the row-name font's family finishes loading, the tower **re-measures the
@@ -210,6 +212,13 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
       measures wider than the real one), and that narrower value stands; the minimum width
       still never falls below the configured width. A face of any other family finishing
       loading changes nothing. A font load is not a reset.
+    - **A name font that fails to load.** When the row-name font fails to load, the tower
+      stops waiting for it and measures the names in the face the browser falls back to,
+      exactly as if the font had loaded; from then on it grows as usual. "Fails" means the
+      tower's request for the measuring font is refused, or the browser reports a face of the
+      row-name font's family failing to load. The tower does not request the font again
+      after a failure. If a face of that family does finish loading later, that is an
+      ordinary name-font load (above): the names are measured again in it.
     - **Grow only.** Between resets the fit width never decreases, except that a name-font load
       may correct the name part (above). A longer name joining the
       field, a driver swap to a longer name, or a wider cell value grows it at once. A car
