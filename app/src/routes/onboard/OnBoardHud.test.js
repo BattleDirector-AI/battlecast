@@ -16,6 +16,11 @@ import source from './OnBoardHud.svelte?raw'
 
 import fullTelemetry from '../../../../spec/v1/fixtures/race-onboard-telemetry.json'
 import partialTelemetry from '../../../../spec/v1/fixtures/race-onboard-partial.json'
+import driverSubjectA from '../../../../spec/v1/fixtures/driver-subject-a.json'
+import driverSubjectB from '../../../../spec/v1/fixtures/driver-subject-b.json'
+import driverDegraded from '../../../../spec/v1/fixtures/driver-degraded.json'
+import driverNoSubject from '../../../../spec/v1/fixtures/driver-no-subject.json'
+import { normalizeConfig } from '../../lib/overlayConfig.js'
 
 afterEach(() => cleanup())
 
@@ -291,11 +296,190 @@ describe('OnBoardHud — driver/vehicle identity strip', () => {
     expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
   })
 
-  it('does not summon the HUD for identity alone (telemetry is required)', () => {
+  it('renders the identity strip on its own when there is no telemetry (widgets.md rule 56)', () => {
     const { container } = render(OnBoardHud, {
       props: { telemetry: null, identity: { name: 'M. VERSTAPPEN' } },
     })
-    expect(container.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+    const hud = container.querySelector('[data-testid="onboard-hud"]')
+    expect(hud, 'identity alone must render the HUD').not.toBeNull()
+    expect(container.querySelector('[data-testid="onboard-driver-name"]').textContent).toContain('VERSTAPPEN')
+    // The telemetry part stays absent, not zeroed.
+    expect(container.querySelector('[data-testid="onboard-throttle"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-brake"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-speed"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-gear"]')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #61 — position, the ON BOARD label, and identity without telemetry
+// (widgets.md rules 21, 23, 24, 54–58). Driven end to end the way both routes do
+// it: resolveIdentity(fixture, onboard widget config) -> OnBoardHud, with the
+// fixture's own subject.telemetry (absent in driver-*.json, present in
+// race-onboard-*.json).
+// ---------------------------------------------------------------------------
+
+const onboardDefaults = normalizeConfig({}).widgets.onboard
+
+function renderFromFixture(snapshot, widget = onboardDefaults, extra = {}) {
+  return render(OnBoardHud, {
+    props: {
+      telemetry: snapshot?.subject?.telemetry ?? null,
+      mode: snapshot?.mode ?? null,
+      identity: resolveIdentity(snapshot, widget),
+      ...extra,
+    },
+  })
+}
+
+function withDriverInfo(driverInfo) {
+  return normalizeConfig({ widgets: { onboard: { driverInfo } } }).widgets.onboard
+}
+
+function stripTestIds(container) {
+  const strip = container.querySelector('[data-testid="onboard-identity"]')
+  return strip ? [...strip.children].map((el) => el.getAttribute('data-testid')) : []
+}
+
+function text(container, testid) {
+  return container.querySelector(`[data-testid="${testid}"]`)?.textContent.trim() ?? null
+}
+
+const ALL_OFF = { name: false, number: false, position: false, class: false, make: false, model: false }
+const ALL_ON = { name: true, number: true, position: true, class: true, make: true, model: true }
+
+describe('OnBoardHud — identity strip with no telemetry (#61)', () => {
+  it('driver-subject-b.json (no subject.telemetry) renders ON BOARD + P3 + name, no telemetry row', () => {
+    expect(driverSubjectB.subject.telemetry, 'fixture premise: no telemetry').toBeUndefined()
+    const { container } = renderFromFixture(driverSubjectB)
+
+    expect(hudRoot(container), 'identity strip must render with no subject.telemetry').not.toBeNull()
+    expect(text(container, 'onboard-label')).toBe('ON BOARD')
+    expect(text(container, 'onboard-driver-position')).toBe('P3')
+    expect(text(container, 'onboard-driver-name')).toBe('C. Leclerc')
+    // No telemetry content -> no bars and no readouts.
+    expect(container.querySelector('[data-testid="onboard-throttle"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-brake"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-speed"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-gear"]')).toBeNull()
+  })
+
+  it('shows the class chip from the matched vehicle when class is toggled on (driver-subject-a.json)', () => {
+    const { container } = renderFromFixture(driverSubjectA, withDriverInfo({ class: true }))
+    expect(hudRoot(container), 'identity strip must render with no subject.telemetry').not.toBeNull()
+    expect(text(container, 'onboard-driver-position')).toBe('P1')
+    expect(text(container, 'onboard-driver-name')).toBe('Hamilton')
+    // ClassChip upper-cases the producer's verbatim class string (rule 30).
+    expect(text(container, 'onboard-driver-class')).toBe('GT3')
+  })
+
+  it('renders nothing for driver-no-subject.json (no strip, no telemetry -> idle)', () => {
+    const { container } = renderFromFixture(driverNoSubject)
+    expect(hudRoot(container)).toBeNull()
+    expect(container.textContent.trim()).toBe('')
+  })
+
+  it('renders nothing when every driverInfo field is off and there is no telemetry', () => {
+    const { container } = renderFromFixture(driverSubjectB, withDriverInfo(ALL_OFF))
+    expect(hudRoot(container)).toBeNull()
+    expect(container.textContent).not.toContain('ON BOARD')
+  })
+})
+
+describe('OnBoardHud — position (#61)', () => {
+  it('renders P2 alongside the telemetry for race-onboard-telemetry.json, by default', () => {
+    const { container } = renderFromFixture(fullTelemetry)
+    expect(container.querySelector('[data-testid="onboard-speed"]').textContent).toContain('247')
+    expect(text(container, 'onboard-driver-number')).toBe('1')
+    expect(text(container, 'onboard-driver-name')).toBe('Verstappen')
+    expect(text(container, 'onboard-driver-position')).toBe('P2')
+  })
+
+  it('omits position when driverInfo.position is off, keeping the rest of the strip', () => {
+    const { container } = renderFromFixture(fullTelemetry, withDriverInfo({ position: false }))
+    expect(text(container, 'onboard-label')).toBe('ON BOARD')
+    expect(text(container, 'onboard-driver-name')).toBe('Verstappen')
+    expect(container.querySelector('[data-testid="onboard-driver-position"]')).toBeNull()
+    expect(container.textContent).not.toContain('P2')
+  })
+
+  for (const [label, value] of [
+    ['null', null],
+    ['absent', undefined],
+    ['zero', 0],
+    ['a string', '3'],
+    ['a fraction', 2.5],
+  ]) {
+    it(`omits position when the vehicle's position is ${label}, and the strip still renders`, () => {
+      const snap = structuredClone(driverSubjectB)
+      const v = snap.vehicles.find((x) => x.slot_id === snap.subject.slot_id)
+      if (value === undefined) delete v.position
+      else v.position = value
+      const { container } = renderFromFixture(snap)
+      expect(hudRoot(container), 'strip must still render without a position').not.toBeNull()
+      expect(text(container, 'onboard-label')).toBe('ON BOARD')
+      expect(text(container, 'onboard-driver-name')).toBe('C. Leclerc')
+      expect(container.querySelector('[data-testid="onboard-driver-position"]')).toBeNull()
+    })
+  }
+})
+
+describe('OnBoardHud — ON BOARD label and strip order (#61)', () => {
+  it('leads the strip: label, position, number, name, class, car', () => {
+    const { container } = renderFromFixture(fullTelemetry, withDriverInfo(ALL_ON))
+    expect(stripTestIds(container)).toEqual([
+      'onboard-label',
+      'onboard-driver-position',
+      'onboard-driver-number',
+      'onboard-driver-name',
+      'onboard-driver-class',
+      'onboard-driver-car',
+    ])
+  })
+
+  it('shows no label when no identity field resolves, though telemetry still renders', () => {
+    const { container } = renderFromFixture(fullTelemetry, withDriverInfo(ALL_OFF))
+    expect(hudRoot(container)).not.toBeNull()
+    expect(container.querySelector('[data-testid="onboard-identity"]')).toBeNull()
+    expect(container.querySelector('[data-testid="onboard-label"]')).toBeNull()
+    expect(container.textContent).not.toContain('ON BOARD')
+    expect(container.querySelector('[data-testid="onboard-speed"]').textContent).toContain('247')
+  })
+})
+
+describe('OnBoardHud — degraded subject (#61, widgets.md rules 14 + 57)', () => {
+  it('driver-degraded.json (slot_id unresolved) shows the label and name only', () => {
+    const { container } = renderFromFixture(driverDegraded, withDriverInfo(ALL_ON))
+    expect(hudRoot(container), 'degraded subject must still show its name').not.toBeNull()
+    expect(stripTestIds(container)).toEqual(['onboard-label', 'onboard-driver-name'])
+    expect(text(container, 'onboard-driver-name')).toBe('O. Piastri')
+  })
+})
+
+describe('OnBoardHud — hand-off holds the identity strip too (#61, rule 24)', () => {
+  const driverWidget = { trigger: 'dwell', dwellSeconds: 6, showOnConnect: true }
+
+  it('with no telemetry, holds the strip off during the card and reveals it after the dwell', async () => {
+    vi.useFakeTimers()
+    try {
+      const { container } = renderFromFixture(driverSubjectB, onboardDefaults, {
+        subjectSlotId: driverSubjectB.subject.slot_id,
+        subjectActive: true,
+        driverWidget,
+      })
+      await tick()
+      // The driver lower-third is showing the name: the HUD must not.
+      expect(hudRoot(container)).toBeNull()
+      expect(container.textContent).not.toContain('Leclerc')
+
+      vi.advanceTimersByTime(6000)
+      await tick()
+      expect(hudRoot(container), 'strip must reveal once the card wipes out').not.toBeNull()
+      expect(text(container, 'onboard-driver-name')).toBe('C. Leclerc')
+      expect(text(container, 'onboard-driver-position')).toBe('P3')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

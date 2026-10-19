@@ -282,10 +282,35 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(roundTripped.widgets.onboard.speedUnit).toBe('mph')
   })
 
-  it('defaults the onboard driverInfo to name+number and waitForLowerThird on', () => {
+  it('defaults the onboard driverInfo to name+number+position and waitForLowerThird on', () => {
     const w = normalizeConfig({}).widgets.onboard
-    expect(w.driverInfo).toEqual({ name: true, number: true, class: false, make: false, model: false })
+    expect(w.driverInfo).toEqual({
+      name: true,
+      number: true,
+      position: true,
+      class: false,
+      make: false,
+      model: false,
+    })
     expect(w.waitForLowerThird).toBe(true)
+  })
+
+  it('turns position on for a saved driverInfo that predates the field (#61)', () => {
+    // A profile saved before `position` existed carries the other five fields only.
+    const saved = { name: true, number: false, class: true, make: false, model: false }
+    const w = normalizeConfig({ widgets: { onboard: { driverInfo: saved } } }).widgets.onboard
+    expect(w.driverInfo.position).toBe(true)
+    expect(w.driverInfo.number).toBe(false)
+    expect(w.driverInfo.class).toBe(true)
+  })
+
+  it('keeps a saved position=false and falls back to on for a non-boolean position (#61)', () => {
+    const off = normalizeConfig({ widgets: { onboard: { driverInfo: { position: false } } } })
+    expect(off.widgets.onboard.driverInfo.position).toBe(false)
+    for (const garbage of ['yes', 1, null, {}]) {
+      const w = normalizeConfig({ widgets: { onboard: { driverInfo: { position: garbage } } } })
+      expect(w.widgets.onboard.driverInfo.position, `position ${JSON.stringify(garbage)}`).toBe(true)
+    }
   })
 
   it('merges a partial driverInfo over the defaults and coerces garbage to booleans', () => {
@@ -293,8 +318,15 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
       widgets: { onboard: { driverInfo: { name: false, make: true, model: 'yes' } } },
     }).widgets.onboard
     // name overridden off, make on; model garbage -> falls back to default (false);
-    // number/class keep their defaults.
-    expect(w.driverInfo).toEqual({ name: false, number: true, class: false, make: true, model: false })
+    // number/position/class keep their defaults.
+    expect(w.driverInfo).toEqual({
+      name: false,
+      number: true,
+      position: true,
+      class: false,
+      make: true,
+      model: false,
+    })
   })
 
   it('honors and round-trips waitForLowerThird=false and a full driverInfo', () => {
@@ -302,7 +334,7 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
       widgets: {
         onboard: {
           waitForLowerThird: false,
-          driverInfo: { name: true, number: true, class: true, make: true, model: true },
+          driverInfo: { name: true, number: true, position: false, class: true, make: true, model: true },
         },
       },
     })
@@ -312,6 +344,7 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(roundTripped.widgets.onboard.driverInfo).toEqual({
       name: true,
       number: true,
+      position: false,
       class: true,
       make: true,
       model: true,

@@ -61,9 +61,10 @@ export const WIDGET_HELP = Object.freeze({
   onboard: {
     title: 'On-board HUD',
     summary:
-      'The telemetry strip for the driver on camera — throttle and brake bars, speed and gear. ' +
-      'It reads live every update and hides itself when a car sends no telemetry, such as when ' +
-      'it is parked.',
+      'An "ON BOARD" name tag for the driver on camera — position, number, name and the other ' +
+      'driver info you tick below — with their live throttle and brake bars, speed and gear ' +
+      'underneath. The tag shows even when the car sends no telemetry; the telemetry row ' +
+      'appears only while it does.',
   },
 })
 
@@ -219,6 +220,7 @@ export const TOWER_METRIC_HELP = Object.freeze({
 export const DRIVER_INFO_HELP = Object.freeze({
   name: 'Show the driver’s name on the HUD.',
   number: 'Show the car number.',
+  position: 'Show the car’s overall race position, such as P4.',
   class: 'Show the car’s class (e.g. GTP, LMP2).',
   make: 'Show the manufacturer, such as Cadillac. Your producer has to supply it.',
   model: 'Show the car model, such as V-Series.R. Your producer has to supply it.',

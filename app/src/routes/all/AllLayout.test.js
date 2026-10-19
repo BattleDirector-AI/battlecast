@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import AllView from './AllView.svelte'
@@ -7,6 +7,8 @@ import closeBattle from '../../../../spec/v1/fixtures/race-close-battle.json'
 import idleBattle from '../../../../spec/v1/fixtures/race-idle-battle.json'
 import raceSessionFcy from '../../../../spec/v1/fixtures/race-session-fcy.json'
 import raceOnboard from '../../../../spec/v1/fixtures/race-onboard-telemetry.json'
+import driverSubjectB from '../../../../spec/v1/fixtures/driver-subject-b.json'
+import driverNoSubject from '../../../../spec/v1/fixtures/driver-no-subject.json'
 import lowerThird from './fixtures/profile-lower-third.json'
 import towerOnly from './fixtures/profile-tower-only.json'
 import withLogos from './fixtures/profile-with-logos.json'
@@ -168,13 +170,67 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(container.textContent).toContain('Verstappen')
   })
 
-  it('idles the on-board HUD (renders nothing) when the snapshot carries no telemetry', () => {
-    // race-session-fcy.json has a subject but no subject.telemetry -> HUD renders
-    // nothing, though its slot is still placed (the component's own guard is empty).
-    const { container } = render(AllView, { snapshot: raceSessionFcy })
+  it('shows only the identity strip when the snapshot carries no telemetry (#61, rule 56)', () => {
+    // race-session-fcy.json has a resolvable subject (car-1, Verstappen, P2) but no
+    // subject.telemetry -> the strip renders on the subject alone; the telemetry row
+    // stays absent.
+    expect(raceSessionFcy.subject.telemetry, 'fixture premise: no telemetry').toBeUndefined()
+    const { container } = render(AllView, { snapshot: raceSessionFcy, preview: true })
+    const onboard = slot(container, 'onboard')
+    expect(onboard).not.toBeNull()
+    expect(onboard.querySelector('[data-testid="onboard-hud"]'), 'strip must render').not.toBeNull()
+    expect(onboard.querySelector('[data-testid="onboard-label"]').textContent.trim()).toBe('ON BOARD')
+    expect(onboard.querySelector('[data-testid="onboard-driver-position"]').textContent.trim()).toBe('P2')
+    expect(onboard.querySelector('[data-testid="onboard-driver-name"]').textContent.trim()).toBe(
+      'Verstappen',
+    )
+    expect(onboard.querySelector('[data-testid="onboard-speed"]')).toBeNull()
+    expect(onboard.querySelector('[data-testid="onboard-gear"]')).toBeNull()
+    expect(onboard.querySelector('[data-testid="onboard-throttle"]')).toBeNull()
+  })
+
+  it('idles the on-board HUD (renders nothing, slot still placed) with no subject and no telemetry', () => {
+    const { container } = render(AllView, { snapshot: driverNoSubject, preview: true })
     const onboard = slot(container, 'onboard')
     expect(onboard).not.toBeNull()
     expect(onboard.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+    expect(onboard.textContent.trim()).toBe('')
+  })
+
+  it('ignores hideWhenIdle on the on-board HUD: the strip still renders without telemetry (#61, rule 58)', () => {
+    const cfg = normalizeConfig({ widgets: { onboard: { hideWhenIdle: true } } })
+    const { container } = render(AllView, { snapshot: driverSubjectB, config: cfg, preview: true })
+    const onboard = slot(container, 'onboard')
+    expect(onboard).not.toBeNull()
+    expect(onboard.querySelector('[data-testid="onboard-driver-name"]')?.textContent.trim()).toBe(
+      'C. Leclerc',
+    )
+  })
+
+  it('hands off without telemetry: the name shows in one widget at a time (#61, rule 24)', async () => {
+    // Default config: driver lower-third visible (dwell 6 s, fires on connect) and
+    // waitForLowerThird on. driver-subject-b.json has no subject.telemetry.
+    vi.useFakeTimers()
+    try {
+      const { container } = render(AllView, { snapshot: driverSubjectB })
+      await tick()
+      const driverSlot = slot(container, 'driver')
+      const onboard = slot(container, 'onboard')
+      // Card up: the lower-third carries the name, the HUD shows nothing.
+      expect(driverSlot.querySelector('[data-testid="driver-lt-name"]')?.textContent).toContain('Leclerc')
+      expect(onboard.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+      expect(onboard.textContent).not.toContain('Leclerc')
+
+      vi.advanceTimersByTime(6000)
+      await tick()
+      // Card gone: the HUD's strip reveals with the name and position.
+      expect(driverSlot.querySelector('[data-testid="driver-lt-name"]')).toBeNull()
+      expect(onboard.querySelector('[data-testid="onboard-hud"]'), 'strip must reveal after the dwell').not.toBeNull()
+      expect(onboard.querySelector('[data-testid="onboard-driver-name"]').textContent.trim()).toBe('C. Leclerc')
+      expect(onboard.querySelector('[data-testid="onboard-driver-position"]').textContent.trim()).toBe('P3')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('omits the onboard widget from the DOM when hidden via config', () => {
@@ -209,6 +265,13 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     // class / make+model are off by default.
     expect(container.querySelector('[data-testid="onboard-driver-class"]')).toBeNull()
     expect(container.querySelector('[data-testid="onboard-driver-car"]')).toBeNull()
+  })
+
+  it('shows the ON BOARD label and position by default (#61)', () => {
+    const { container } = render(AllView, { snapshot: raceOnboard, preview: true })
+    const onboard = slot(container, 'onboard')
+    expect(onboard.querySelector('[data-testid="onboard-label"]')?.textContent.trim()).toBe('ON BOARD')
+    expect(onboard.querySelector('[data-testid="onboard-driver-position"]')?.textContent.trim()).toBe('P2')
   })
 
   it('honors the driverInfo toggles — class + make/model on, name/number off (#26)', () => {

@@ -36,7 +36,7 @@
 <script>
   import { onDestroy } from 'svelte'
   import ClassChip from '../../design/ClassChip.svelte'
-  import { fmtName } from '../../design/format.js'
+  import { fmtName, positiveIntOrNull } from '../../design/format.js'
   import { createLowerThirdTrigger, DEFAULT_DWELL_SECONDS } from '../../lib/lowerThirdTrigger.js'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
 
@@ -74,8 +74,7 @@
   })
 
   // Rule 18: a position renders only when it is a positive integer.
-  const rawPosition = $derived(resolved.vehicle?.position)
-  const position = $derived(Number.isInteger(rawPosition) && rawPosition > 0 ? rawPosition : null)
+  const position = $derived(positiveIntOrNull(resolved.vehicle?.position))
   const carClass = $derived(resolved.vehicle?.vehicle_class)
   const displayName = $derived(fmtName(resolved.name))
 </script>

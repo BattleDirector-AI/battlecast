@@ -83,6 +83,12 @@ describe('ConfigPage editor wiring', () => {
     expect(queryByTestId('hide-idle-tower')).toBeNull()
   })
 
+  it('offers no "hide when idle" for the on-board HUD, which draws nothing when idle (widgets.md rule 58)', async () => {
+    const { queryByTestId } = render(ConfigPage)
+    await tick()
+    expect(queryByTestId('hide-idle-onboard')).toBeNull()
+  })
+
   it('exposes trigger + dwell controls only for lower-third widgets', async () => {
     const { getByTestId, queryByTestId } = render(ConfigPage)
     await tick()
@@ -209,7 +215,7 @@ describe('ConfigPage editor wiring', () => {
   it('exposes the driver-info + hand-off controls only for the onboard widget', async () => {
     const { getByTestId, queryByTestId } = render(ConfigPage)
     await tick()
-    for (const field of ['name', 'number', 'class', 'make', 'model']) {
+    for (const field of ['name', 'number', 'position', 'class', 'make', 'model']) {
       expect(getByTestId(`driver-info-onboard-${field}`)).toBeTruthy()
       expect(queryByTestId(`driver-info-tower-${field}`)).toBeNull()
     }
@@ -231,6 +237,24 @@ describe('ConfigPage editor wiring', () => {
     expect(container.querySelector('[data-testid="onboard-driver-car"]').textContent).toContain(
       'Red Bull',
     )
+  })
+
+  it('defaults the position driver-info box on and toggles P2 off and on in the preview HUD (#61)', async () => {
+    const { container, getByTestId } = render(ConfigPage)
+    await tick()
+    const pos = () => container.querySelector('[data-testid="onboard-driver-position"]')
+    // The preview subject is race-close-battle.json's car-1 (Verstappen, P2).
+    expect(getByTestId('driver-info-onboard-position').checked).toBe(true)
+    expect(pos()?.textContent.trim()).toBe('P2')
+
+    await fireEvent.click(getByTestId('driver-info-onboard-position'))
+    await tick()
+    expect(getByTestId('driver-info-onboard-position').checked).toBe(false)
+    expect(pos()).toBeNull()
+
+    await fireEvent.click(getByTestId('driver-info-onboard-position'))
+    await tick()
+    expect(pos()?.textContent.trim()).toBe('P2')
   })
 
   it('defaults the hand-off (wait for lower-third) on, and toggles off', async () => {

@@ -55,7 +55,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { name: true, number: true, position: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
@@ -66,7 +66,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { name: true, number: true, position: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
@@ -77,7 +77,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { name: true, number: true, position: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
@@ -91,7 +91,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { name: true, number: true, position: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
@@ -107,7 +107,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { name: true, number: true, position: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
@@ -124,7 +124,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { name: true, number: true, position: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
@@ -134,8 +134,8 @@ export const DEFAULT_CONFIG = Object.freeze({
     // lower-third and not class-aware: the trigger knobs (trigger/dwellSeconds/
     // showOnConnect/fireOnClassBest), `modes`, and `classDisplay` are all INERT for
     // this widget — carried only for a uniform widget shape. It reads the subject's
-    // telemetry every tick and renders whenever visible and there is telemetry
-    // content (its own guard), so it idles automatically in parked phases. `speedUnit`
+    // telemetry every tick and renders whenever visible and there is identity or
+    // telemetry content (its own guard), else it idles (draws nothing). `speedUnit`
     // is the one onboard-specific knob it DOES read: the display unit for the `speed`
     // readout (`'kmh'` | `'mph'`); the producer emits canonical km/h and the widget
     // converts to mph when selected.
@@ -145,7 +145,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { name: true, number: true, position: true, class: false, make: false, model: false },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
@@ -311,8 +311,8 @@ export function parseTowerMetricsParam(raw) {
  *     producer emits `speed` in canonical km/h (spec/v1/SPEC.md `subject.telemetry`); the
  *     widget converts to mph when selected.
  *   - `driverInfo`: which on-camera driver/vehicle identity fields the HUD shows — each of
- *     `name` / `number` / `class` / `make` / `model` toggled independently (name+number on
- *     by default). `number`/`make`/`model` come from the additive `vehicle` spec fields.
+ *     `name` / `number` / `position` / `class` / `make` / `model` toggled independently
+ *     (name+number+position on by default). `number`/`make`/`model` come from the additive `vehicle` spec fields.
  *   - `waitForLowerThird`: when true (default), the HUD holds off while the driver
  *     lower-third (#21) is showing its "now on camera" dwell, so the two never overlap;
  *     it reveals when the lower-third wipes out. Only applies in `/all` (where both
@@ -323,16 +323,17 @@ export const ONBOARD_DEFAULTS = Object.freeze({
   driverInfo: Object.freeze({
     name: true,
     number: true,
+    position: true,
     class: false,
     make: false,
     model: false,
   }),
 })
 
-/** The driver/vehicle identity fields the on-board HUD can show, in render order. */
-export const DRIVER_INFO_FIELDS = Object.freeze(['name', 'number', 'class', 'make', 'model'])
+/** The driver/vehicle identity fields the on-board HUD can show, in `/config` order. */
+export const DRIVER_INFO_FIELDS = Object.freeze(['name', 'number', 'position', 'class', 'make', 'model'])
 
-/** Coerce an arbitrary `driverInfo` into the full `{name,number,class,make,model}`
+/** Coerce an arbitrary `driverInfo` into the full `{name,number,position,class,make,model}`
  *  boolean shape, filling missing/garbage fields from `fallback`. */
 function normalizeDriverInfo(value, fallback) {
   const src = value && typeof value === 'object' ? value : {}

@@ -9,8 +9,9 @@
   // on `/all` it comes from the saved config. Resolved once at mount like `?src=`.
   const speedUnit = resolveSpeedUnit()
   // The standalone route has no saved profile, so identity uses the default onboard
-  // driverInfo toggles (name + number). There is no driver lower-third on this route,
-  // so no hand-off gate — the HUD shows as soon as there is telemetry.
+  // driverInfo toggles (name + number + position). There is no driver lower-third on
+  // this route, so no hand-off gate — the HUD shows as soon as there is identity or
+  // telemetry content.
   const onboardCfg = { ...DEFAULT_CONFIG.widgets.onboard, speedUnit }
   const identity = $derived(resolveIdentity(snapshot, onboardCfg))
 
@@ -23,8 +24,8 @@
   })
 </script>
 
-<!-- OnBoardHud renders nothing until there's telemetry content (its own resolveTelemetry
-     guard), so a single call handles both the pre-snapshot and no-telemetry cases. -->
+<!-- OnBoardHud renders nothing until there's identity or telemetry content (its own
+     guard), so a single call handles the pre-snapshot and idle cases. -->
 <OnBoardHud
   telemetry={snapshot?.subject?.telemetry ?? null}
   mode={snapshot?.mode ?? null}

@@ -1,8 +1,9 @@
 <script module>
   // On-board HUD — the on-camera subject's LIVE inputs (throttle / brake / speed /
   // gear) from `subject.telemetry`, plus an optional, configurable driver/vehicle
-  // identity strip (name / number / class / make / model). See spec/v1/SPEC.md and
-  // docs/plans/0.6.0-onboard-hud.md.
+  // identity strip (ON BOARD label + position / number / name / class / make / model).
+  // The two parts render independently (widgets.md rules 54–58, ADR 0021). See
+  // spec/v1/SPEC.md and docs/plans/0.6.0-onboard-hud.md.
   //
   // The telemetry re-renders every snapshot. The identity fields come from the
   // additive `vehicle` spec fields (car_number / make / model) plus driver_name /
@@ -14,7 +15,7 @@
   // Dumb overlay, smart producer (docs/decisions/0002-lower-third-widgets.md): every
   // value is producer-owned. Inputs may be null/undefined/partial/garbage — these
   // helpers normalize defensively and never throw.
-  import { fmtName } from '../../design/format.js'
+  import { fmtName, positiveIntOrNull } from '../../design/format.js'
 
   /** Coerce to a finite number, else null. */
   function finiteOrNull(v) {
@@ -77,9 +78,10 @@
 
   /**
    * Resolve the on-camera subject's driver/vehicle identity for the HUD, honoring the
-   * per-widget `driverInfo` toggles ({ name, number, class, make, model } booleans).
-   * `name` is from `subject.driver_name`; `number`/`class`/`make`/`model` are read off
-   * the matching `vehicles[]` entry (the additive spec fields). Returns only the
+   * per-widget `driverInfo` toggles ({ name, number, position, class, make, model }
+   * booleans). `name` is from `subject.driver_name`; the rest are read off the
+   * `vehicles[]` entry matched by `slot_id` — so a degraded subject (slot unresolved)
+   * yields the name only (widgets.md rule 57). Returns only the
    * ENABLED and PRESENT fields, or null when there is nothing to show — so the caller
    * can omit the identity strip entirely. Never throws on partial/garbage data.
    */
@@ -96,11 +98,13 @@
     if (info.name && rawName) out.name = fmtName(rawName)
     const number = vehicle?.car_number
     if (info.number && number != null && String(number).trim()) out.number = String(number).trim()
+    const position = positiveIntOrNull(vehicle?.position)
+    if (info.position && position != null) out.position = position
     if (info.class && vehicle?.vehicle_class) out.class = String(vehicle.vehicle_class)
     if (info.make && vehicle?.make) out.make = String(vehicle.make)
     if (info.model && vehicle?.model) out.model = String(vehicle.model)
 
-    const has = out.name || out.number || out.class || out.make || out.model
+    const has = out.name || out.number || out.position || out.class || out.make || out.model
     return has ? out : null
   }
 </script>
@@ -114,7 +118,7 @@
     telemetry = null,
     mode = null,
     speedUnit = 'kmh',
-    // Pre-resolved identity ({ name?, number?, class?, make?, model? } or null) — the
+    // Pre-resolved identity ({ name?, number?, position?, class?, make?, model? } or null) — the
     // caller resolves it via resolveIdentity() from the snapshot + the widget config.
     identity = null,
     // Hand-off inputs. When `driverWidget` is supplied (only on `/all`, and only when
@@ -158,10 +162,10 @@
   })
 
   const suppressed = $derived(!!driverWidget && lowerThirdShown)
-  // The HUD is a live-telemetry widget: it shows only when there are inputs to show
-  // (identity rides along with telemetry, it doesn't summon the HUD on its own), and
-  // never while the driver lower-third is holding the "now on camera" card.
-  const visible = $derived(!!t && !suppressed)
+  // The identity strip and the telemetry row render independently (rule 56): the HUD
+  // shows whenever either has content, and never while the driver lower-third is
+  // holding the "now on camera" card (rule 24) — telemetry or not.
+  const visible = $derived((!!t || !!identity) && !suppressed)
 </script>
 
 {#if visible}
@@ -169,10 +173,14 @@
   class="bc-onboard"
   data-testid="onboard-hud"
   data-mode={mode ?? ''}
-  aria-label="On-board telemetry"
+  aria-label="On-board HUD"
 >
   {#if identity}
-    <div class="bc-onboard__identity" data-testid="onboard-identity">
+    <div class="bc-onboard__identity" class:bc-onboard__identity--solo={!t} data-testid="onboard-identity">
+      <span class="bc-onboard__label" data-testid="onboard-label">ON BOARD</span>
+      {#if identity.position != null}
+        <span class="bc-onboard__position" data-testid="onboard-driver-position">P{identity.position}</span>
+      {/if}
       {#if identity.number}
         <span class="bc-onboard__number" data-testid="onboard-driver-number">{identity.number}</span>
       {/if}
@@ -190,6 +198,7 @@
     </div>
   {/if}
 
+  {#if t}
   <div class="bc-onboard__telemetry">
     <div class="bc-onboard__bars">
       {#if t.throttle != null}
@@ -233,6 +242,7 @@
       {/if}
     </div>
   </div>
+  {/if}
 </section>
 {/if}
 
@@ -258,8 +268,8 @@
     color: var(--bc-text);
   }
 
-  /* Identity strip: [number] NAME [class] make model — sits above the telemetry row,
-     divided from it by a hairline. */
+  /* Identity strip: ON BOARD [Pn] [number] NAME [class] make model — sits above the
+     telemetry row, divided from it by a hairline. */
   .bc-onboard__identity {
     display: flex;
     align-items: center;
@@ -267,6 +277,34 @@
     min-width: 0;
     padding-bottom: var(--bc-space-1);
     border-bottom: 1px solid var(--bc-divider);
+  }
+
+  /* Strip only (no telemetry row below): no divider. */
+  .bc-onboard__identity--solo {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .bc-onboard__label {
+    flex: 0 0 auto;
+    font-family: var(--bc-font-ui);
+    font-size: var(--bc-size-label);
+    font-weight: var(--bc-weight-label);
+    letter-spacing: var(--bc-track-label);
+    text-transform: uppercase;
+    color: var(--bc-live);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .bc-onboard__position {
+    flex: 0 0 auto;
+    font-family: var(--bc-font-mono);
+    font-size: var(--bc-size-label);
+    font-weight: var(--bc-weight-num);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--bc-text);
   }
 
   .bc-onboard__number {

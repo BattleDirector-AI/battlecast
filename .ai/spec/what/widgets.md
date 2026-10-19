@@ -337,16 +337,62 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 
 ### On-board HUD (`/onboard`, #26)
 
-21. Renders the subject's live `subject.telemetry`: throttle/brake fill bars (clamped `[0,1]`),
-    speed, and gear (`0`→`N`, `-1`→`R`). Reads telemetry every tick; idles automatically when there
-    is no telemetry content (e.g. a parked car).
+The HUD is one plate with two parts: the **identity strip** on top (rules 23, 54–57) and the
+**telemetry row** below (rule 21). Each part renders on its own content; neither needs the other.
+Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
+
+21. The telemetry row renders the subject's live `subject.telemetry`: throttle/brake fill bars
+    (clamped `[0,1]`), speed, and gear (`0`→`N`, `-1`→`R`). Reads telemetry every tick. When there
+    is no telemetry content (no `subject.telemetry`, or every field missing or garbage — e.g. a
+    parked car) the telemetry row is absent: no bars, no SPEED, no GEAR. The identity strip still
+    renders if it has content (rule 56).
 22. **Speed unit** (`speedUnit`, `kmh` default | `mph`; `?unit=mph` on the standalone route). The
     producer emits canonical km/h; the widget converts to mph deterministically when selected.
-23. **Driver/vehicle identity** (`driverInfo`) — toggles `name` / `number` / `class` / `make` /
-    `model` independently (name+number on by default), sourced from the additive per-vehicle fields.
-24. **Hand-off** (`waitForLowerThird`, default true): in `/all`, the HUD holds off while the driver
-    lower-third (#21) is showing its dwell, then reveals when the lower-third wipes out, so the two
-    never overlap. Only applies in `/all`; the standalone `/onboard` route has nothing to wait for.
+23. **Driver/vehicle identity** (`driverInfo`) — toggles `name` / `number` / `position` / `class` /
+    `make` / `model` independently. `name`, `number`, and `position` are on by default; the rest
+    are off. A saved `driverInfo` that lacks a field, or holds a non-boolean for it, takes that
+    field's default — a saved `driverInfo` with no `position` shows the position. `/config`
+    shows one checkbox per field in the onboard widget's "driver info shown" group, each with its
+    own help copy (`overlay-config.md` rules 16, 19). The fields come from the subject and its
+    resolved `vehicles[]` entry (rule 57).
+24. **Hand-off** (`waitForLowerThird`, default true): in `/all`, the whole HUD — identity strip and
+    telemetry row alike — holds off while the driver lower-third (#21) is showing its dwell, then
+    reveals when the lower-third wipes out, so the two never overlap and the driver's name never
+    shows in both at once. This holds whether or not the snapshot carries `subject.telemetry`. Only
+    applies in `/all`; the standalone `/onboard` route has nothing to wait for.
+54. **Identity strip content and order.** Left to right: the `ON BOARD` label (rule 55), position,
+    car number, driver name, class chip, then make and model as one line. Each enabled field shows
+    only when it has a value. The name is `subject.driver_name` (falling back to the vehicle's
+    `driver_name`), in the HUD's name format; the others are read off the resolved vehicle.
+    Position renders as `P` followed by the vehicle's overall `position` — `P4`. A `position` that
+    is null, absent, or anything other than a positive integer shows no position, and the rest of
+    the strip renders as normal.
+55. **The ON BOARD label belongs to the strip.** The label reads `ON BOARD` and is the first item of
+    the identity strip. It renders exactly when the strip renders — when at least one enabled
+    `driverInfo` field has a value. With every field off, or no enabled field resolvable, there is
+    no strip and no label; the label never renders on its own and never sits on the telemetry row.
+    It is not a `driverInfo` field and has no toggle.
+56. **What the HUD renders.** The HUD shows whatever of its two parts has content:
+
+    | Identity content | Telemetry content | HUD renders |
+    |---|---|---|
+    | yes | yes | strip on top, telemetry row below |
+    | yes | no | strip only |
+    | no | yes | telemetry row only, no label |
+    | no | no | nothing |
+
+    "Nothing" is the HUD's idle state: no plate, no placeholder text. The hand-off (rule 24) can
+    hold off any of the first three rows.
+57. **Subject resolution for the strip** follows rule 14. A *valid* subject (`slot_id` resolves to a
+    `vehicles[]` entry) shows every enabled field that has a value. A *degraded* subject
+    (`driver_name` present, `slot_id` unresolved) shows the label and the name only — no position,
+    number, class, or car, whatever the toggles say. An *invalid* subject (neither) has no strip.
+    The vehicle is found by `slot_id`, never by `driver_name`.
+58. **Idle and composition.** The HUD has no `hideWhenIdle` predicate: an idle HUD (rule 56) already
+    draws nothing, so `/config` offers no "Hide when idle" for it and a saved `hideWhenIdle: true`
+    on it changes nothing. In `/all`, its slot is placed whenever the widget is `visible`, even
+    while the HUD is idle or held off, and the strip reads that widget's saved `driverInfo`. The
+    standalone `/onboard` route uses the default `driverInfo` (name, number, position).
 
 ### Composite & takeover routes
 
