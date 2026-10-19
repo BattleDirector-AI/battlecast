@@ -1019,14 +1019,18 @@
   }
 
   /* ---- richer-tower metrics (slice 3 of #20) ------------------------------
-     Each cell is config-gated and content-sized, appended after the gap column.
-     The interval is a dimmer sibling of the gap (its own timing column); pit /
-     tire / fuel form a compact strategy cluster on the right. */
+     Each cell is config-gated and appended after the gap column. The interval is a
+     dimmer sibling of the gap (its own timing column); pit / tire / fuel form a
+     compact strategy cluster on the right and are content-sized. */
 
   /* Interval to the car immediately ahead — same mono/tabular look as the gap, one
-     tone dimmer so the gap-to-leader stays the primary interval. */
+     tone dimmer so the gap-to-leader stays the primary interval. Rule 42b: the gap
+     cell's fixed 8-character slot (rule 42a), so a changing interval never moves the
+     row. */
   .row__interval {
     flex: 0 0 auto;
+    min-width: calc(var(--bc-size-gap) * 5);
+    white-space: nowrap;
     font-family: var(--bc-font-mono);
     font-size: var(--bc-size-gap);
     font-weight: var(--bc-weight-num);
