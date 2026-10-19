@@ -572,6 +572,63 @@ function pairGapSeconds(ahead, car, clock) {
   return Math.max(0, (classDistance(ahead) - classDistance(car)) / avgSpeed);
 }
 
+// Pure battle-picking core of the running director: who is contending, the reported
+// neighbour gaps (full order), and the best battle among the contenders only. Exported so
+// director.test.js can drive it on a hand-built field.
+function analyseBattle(order, phase) {
+  // In the race, a retired car is out of the fight, and so is a finished car while anyone is
+  // still racing to the line: neither is the camera subject nor a battle partner (#237). The
+  // fallbacks (everyone finished, only the retiree left) are defensive: the race leg ends
+  // before the last car takes the flag.
+  let contenders = order;
+  if (phase === "race") {
+    const notRetired = order.filter((c) => c.finish_status !== FINISH.dnf);
+    const racing = notRetired.filter((c) => c.finish_status !== FINISH.finished);
+    contenders = racing.length > 0 ? racing : notRetired.length > 0 ? notRetired : order;
+  }
+
+  // Gap to the car immediately ahead/behind in `list`, converted from a distance
+  // delta to seconds via the pair's average speed.
+  function neighbourGaps(list) {
+    const ahead = new Map();
+    const behind = new Map();
+    for (let i = 0; i < list.length; i++) {
+      const car = list[i];
+      if (i > 0) {
+        const other = list[i - 1];
+        const avgSpeed = (1 / car.pace + 1 / other.pace) / 2;
+        ahead.set(car.slot_id, (other.distance - car.distance) / avgSpeed);
+      }
+      if (i < list.length - 1) {
+        const other = list[i + 1];
+        const avgSpeed = (1 / car.pace + 1 / other.pace) / 2;
+        behind.set(car.slot_id, (car.distance - other.distance) / avgSpeed);
+      }
+    }
+    return { ahead, behind };
+  }
+  // The reported gaps are to the cars immediately ahead/behind in running order (the battle
+  // box names those cars); battles are picked and rated among the contenders only.
+  const { ahead: gapAhead, behind: gapBehind } = neighbourGaps(order);
+  const battle = neighbourGaps(contenders);
+
+  function closestGapFor(slotId) {
+    return Math.min(battle.ahead.get(slotId) ?? Infinity, battle.behind.get(slotId) ?? Infinity);
+  }
+
+  let bestSlotId = contenders[0].slot_id;
+  let bestGap = closestGapFor(bestSlotId);
+  for (const car of contenders) {
+    const g = closestGapFor(car.slot_id);
+    if (g < bestGap) {
+      bestGap = g;
+      bestSlotId = car.slot_id;
+    }
+  }
+
+  return { contenders, gapAhead, gapBehind, closestGapFor, bestSlotId, bestGap };
+}
+
 function createSimulator(config = {}) {
   const phaseSeconds = { ...DEFAULT_PHASE_SECONDS, ...(config.phaseSeconds || {}) };
   const onPhaseChange = typeof config.onPhaseChange === "function" ? config.onPhaseChange : null;
@@ -677,55 +734,7 @@ function createSimulator(config = {}) {
   // Running phases (qualifying, race): pick the tightest on-track battle with
   // hysteresis and derive the subject's gaps/intensity from track proximity.
   function runningDirector(order) {
-    // In the race, a retired car is out of the fight, and so is a finished car while anyone is
-    // still racing to the line: neither is the camera subject nor a battle partner (#237). The
-    // fallbacks (everyone finished, only the retiree left) are defensive: the race leg ends
-    // before the last car takes the flag.
-    let contenders = order;
-    if (phase === "race") {
-      const notRetired = order.filter((c) => c.finish_status !== FINISH.dnf);
-      const racing = notRetired.filter((c) => c.finish_status !== FINISH.finished);
-      contenders = racing.length > 0 ? racing : notRetired.length > 0 ? notRetired : order;
-    }
-
-    // Gap to the car immediately ahead/behind in `list`, converted from a distance
-    // delta to seconds via the pair's average speed.
-    function neighbourGaps(list) {
-      const ahead = new Map();
-      const behind = new Map();
-      for (let i = 0; i < list.length; i++) {
-        const car = list[i];
-        if (i > 0) {
-          const other = list[i - 1];
-          const avgSpeed = (1 / car.pace + 1 / other.pace) / 2;
-          ahead.set(car.slot_id, (other.distance - car.distance) / avgSpeed);
-        }
-        if (i < list.length - 1) {
-          const other = list[i + 1];
-          const avgSpeed = (1 / car.pace + 1 / other.pace) / 2;
-          behind.set(car.slot_id, (car.distance - other.distance) / avgSpeed);
-        }
-      }
-      return { ahead, behind };
-    }
-    // The reported gaps are to the cars immediately ahead/behind in running order (the battle
-    // box names those cars); battles are picked and rated among the contenders only.
-    const { ahead: gapAhead, behind: gapBehind } = neighbourGaps(order);
-    const battle = neighbourGaps(contenders);
-
-    function closestGapFor(slotId) {
-      return Math.min(battle.ahead.get(slotId) ?? Infinity, battle.behind.get(slotId) ?? Infinity);
-    }
-
-    let bestSlotId = contenders[0].slot_id;
-    let bestGap = closestGapFor(bestSlotId);
-    for (const car of contenders) {
-      const g = closestGapFor(car.slot_id);
-      if (g < bestGap) {
-        bestGap = g;
-        bestSlotId = car.slot_id;
-      }
-    }
+    const { contenders, gapAhead, gapBehind, closestGapFor, bestSlotId, bestGap } = analyseBattle(order, phase);
 
     // A subject that has dropped out of the fight is cut away from at once, dwell or not.
     if (subjectSlotId == null || !contenders.some((c) => c.slot_id === subjectSlotId)) {
@@ -972,4 +981,4 @@ function createSimulator(config = {}) {
   return { step };
 }
 
-module.exports = { createSimulator, PHASES, classPace };
+module.exports = { analyseBattle, createSimulator, PHASES, classPace };
