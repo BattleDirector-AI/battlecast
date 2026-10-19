@@ -13,7 +13,7 @@ const spacing = readFileSync(
   'utf8',
 )
 
-describe('default tower width (rule 44)', () => {
+describe('default tower width (rule 45)', () => {
   it('is 400 wide at x 24, in the built-in default and for a profile without a tower w', () => {
     expect(DEFAULT_CONFIG.widgets.tower).toMatchObject({ x: 24, w: 400 })
     expect(normalizeConfig({}).widgets.tower).toMatchObject({ x: 24, w: 400 })
