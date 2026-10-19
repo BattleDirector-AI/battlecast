@@ -297,6 +297,9 @@ describe('the inline-EventSource scan', () => {
         `export function pick(u) {\n  return ${REGEX}.test(u) ? new EventSource(u) : null\n}\n`,
       'lib/afterTypeof.js': `const x = typeof ${REGEX}.source; export const c = (u) => new EventSource(u)\n`,
       'lib/afterAwait.js': `export const c = async (u) => await ${REGEX}.test(u) || new EventSource(u)\n`,
+      // `export default` is the one place `default` precedes a value (`default:` in a switch ends
+      // in a punctuator, which is already covered).
+      'lib/afterDefault.js': `const u = 'x'\nexport default ${REGEX}.test(u) ? new EventSource(u) : null\n`,
       'lib/afterParen.js': `export const c = (u) => (${REGEX}.test(u) && new EventSource(u))\n`,
       'lib/afterComma.js': `export const p = [1, ${REGEX}]; export const c = (u) => new EventSource(u)\n`,
       'lib/afterColon.js': `export const o = { p: ${REGEX} }; export const c = (u) => new EventSource(u)\n`,
@@ -320,6 +323,7 @@ describe('the inline-EventSource scan', () => {
         'lib/afterBracket.js',
         'lib/afterColon.js',
         'lib/afterComma.js',
+        'lib/afterDefault.js',
         'lib/afterParen.js',
         'lib/afterQuestion.js',
         'lib/afterReturn.js',
