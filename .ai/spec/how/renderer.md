@@ -140,6 +140,14 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   motion tests still stamp `data-motion` explicitly (`*.motion.test.js`).
 - **Speed is canonical km/h in the payload;** the on-board HUD converts to mph in the view layer
   (`× 0.621371`), it is never stored/emitted in mph.
+- **On-board HUD identity** (`what/widgets.md` rules 23, 54–58): `resolveIdentity()` in
+  `OnBoardHud.svelte` builds the strip's fields from the subject and its `vehicles[]` match; both
+  `/all` (`AllView.svelte`) and `/onboard` (`OnBoardHudPage.svelte`) call it and pass the result in
+  as `identity`. The `driverInfo` default lives in two places that must agree: `ONBOARD_DEFAULTS`
+  and the per-widget literals in `DEFAULT_CONFIG` (`overlayConfig.js`). `normalizeConfig` falls
+  back to the widget literal first, and `/onboard` reads `DEFAULT_CONFIG.widgets.onboard`
+  directly, without normalizing. The field list is `DRIVER_INFO_FIELDS`; the `/config` checkboxes
+  and the `DRIVER_INFO_HELP` coverage test both iterate it.
 - **Tower overflow selection** (`towerCycle.js`, behavior in `what/tower-overflow.md`): the row
   budget is `floor((slotHeight − headerHeight) / rowHeight)`, **measured** from the
   `--bc-widget-header` (38px) and `--bc-row-standard` (44px) design tokens rather than hardcoded, so
