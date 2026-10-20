@@ -205,6 +205,25 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     where it would have without the drag; a drag that ends somewhere else moves the origin as one
     rule 41a edit from the drag's start to its end, whatever path the pointer took in between.
     Releasing the pointer ends the edit: the next drag compares with where that one finished.
+41d. **A drag ends on release, on cancel, on a preset change, and when the config is replaced.**
+    A preview drag or resize is live from the pointer going down on a handle until the first of:
+    - the pointer is released (`pointerup`);
+    - the browser cancels the pointer (`pointercancel` — a touch or pen gesture the browser takes
+      over, for example), which ends the drag exactly as a release does: the widget keeps the
+      geometry and origin of the last pointer step;
+    - the broadcaster changes the text-size preset (rule 41) of any widget, the dragged one or
+      another;
+    - the editor's whole config is replaced, as a profile load does when the loaded profile
+      arrives, whether the drag began before the load was requested or while it was in flight. A
+      load that fails or finds no profile replaces nothing and leaves a live drag live.
+
+    Once a drag has ended, pointer movement changes nothing until the pointer goes down on a handle
+    again, which starts a new drag (rule 41c) from the widget as it is then. So a preset change or a
+    profile load keeps exactly the geometry and `textScaleOrigin` it produced: no later pointer step
+    writes the drag-start geometry or origin over them. Any other edit leaves a live drag live, and
+    because the drag is one rule 41c edit from where it began, the next pointer step places the
+    dragged parts — `x` and `y` for a move, `w` and `h` for a resize — from the drag's start: a
+    value typed into one of them while the pointer is held is replaced.
 
 ### Typed number fields in the editor
 
