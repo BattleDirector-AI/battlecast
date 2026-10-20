@@ -478,6 +478,23 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     lower-third not `visible`, nothing is held. Only applies in `/all`; the standalone `/onboard`
     route has nothing to wait for. Decision record:
     `docs/decisions/0021-onboard-identity-without-telemetry.md` (amendment).
+
+    Turning the hold off and on again leaves nothing stale: from the moment `waitForLowerThird`
+    is on and the driver lower-third `visible` again, the hold matches the card as it is right
+    then — held while the card is up, not while it is down — and holds what the card's mode says
+    above (the whole HUD for `dwell`, only the identity strip for `persistent`). What the card
+    itself did while the hold was off (fires, camera cuts, dwells ending, per rules 15–17) is what
+    decides whether it is up. For example:
+    - `waitForLowerThird` unticked during a `dwell` and ticked again before that dwell ends: the
+      HUD is held for the rest of that same dwell, not a new one; ticked after it ends: nothing
+      is held until the card next fires.
+    - A camera cut while unticked: the card fires its dwell at the cut, so ticking again inside
+      that dwell holds the HUD until it ends, measured from the cut. The same holds for an
+      `A → invalid → A` sequence while unticked, which re-fires the card (rule 15).
+    - The driver lower-third hidden and made `visible` again: the card comes back as on a
+      (re)connect (rule 17). A `persistent` card is then up whenever the subject is valid or
+      degraded, so the strip is held; a `dwell` card with `showOnConnect` on fires, so the whole
+      HUD is held for a full `dwellSeconds`, and with it off nothing is held until the next cut.
 54. **Identity strip content and order.** Left to right: the `ON BOARD` label (rule 55), position,
     car number, driver name, class chip, then make and model as one line. Each enabled field shows
     only when it has a value. The name is the subject's name as rule 14b picks it
