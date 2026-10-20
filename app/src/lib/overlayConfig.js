@@ -543,11 +543,11 @@ export function normalizeConfig(raw) {
     const d = DEFAULT_CONFIG.widgets[key] || { visible: false, x: 0, y: 0, w: 0, h: 0, z: 0 }
     normalizedWidgets[key] = {
       visible: typeof w.visible === 'boolean' ? w.visible : d.visible,
-      x: num(w.x, d.x),
-      y: num(w.y, d.y),
-      w: num(w.w, d.w),
-      h: num(w.h, d.h),
-      z: num(w.z, d.z),
+      x: finiteOrNull(w.x) ?? d.x,
+      y: finiteOrNull(w.y) ?? d.y,
+      w: finiteOrNull(w.w) ?? d.w,
+      h: finiteOrNull(w.h) ?? d.h,
+      z: finiteOrNull(w.z) ?? d.z,
       // Opt-in: when true, a widget that supports it (see widgetIdle.js) is removed
       // from the render while it has nothing meaningful to show (e.g. the battle box
       // in clear air). Defaults false, so existing profiles keep showing the idle

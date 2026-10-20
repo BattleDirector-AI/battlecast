@@ -128,6 +128,54 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(config.configVersion).toBe(CONFIG_VERSION)
   })
 
+  // Rule 6: widget geometry is read as a valid number, else the default. The battle box's defaults
+  // (448, 24, 440, 220, 2) are none of 0, 1, 5 or 7 — what `Number()` makes of a blank, null,
+  // a boolean or a one-element array — so a value wrongly read as a number cannot pass for the
+  // default by coincidence.
+  const GEOMETRY = ['x', 'y', 'w', 'h', 'z']
+  describe.each(GEOMETRY)('widget geometry %s (rule 6)', (field) => {
+    const dflt = DEFAULT_CONFIG.widgets.battle[field]
+    it.each([
+      ['a blank string', ''],
+      ['a whitespace-only string', '   '],
+      ['null', null],
+      ['true', true],
+      ['false', false],
+      ['a one-number array', [5]],
+      ['a one-string array', ['7']],
+      ['an empty array', []],
+      ['an object', {}],
+      ["'Infinity'", 'Infinity'],
+      ['a partly numeric string', '380px'],
+      ['a non-numeric string', 'abc'],
+      ['NaN', NaN],
+      ['Infinity', Infinity],
+    ])('takes the default for %s', (_label, value) => {
+      const config = normalizeConfig({ widgets: { battle: { [field]: value } } })
+      expect(config.widgets.battle[field]).toBe(dflt)
+    })
+
+    it.each([
+      ["'1500'", '1500', 1500],
+      ["' 380 '", ' 380 ', 380],
+      ["'-12'", '-12', -12],
+      ["'1e3'", '1e3', 1000],
+      ["'0x10'", '0x10', 16],
+      ['the number 0', 0, 0],
+      ['the number 640.5', 640.5, 640.5],
+    ])('stores %s as a number', (_label, value, expected) => {
+      const config = normalizeConfig({ widgets: { battle: { [field]: value } } })
+      expect(config.widgets.battle[field]).toBe(expected)
+    })
+  })
+
+  it('gives an unknown widget key 0 for geometry that is not a valid number (rule 6)', () => {
+    const config = normalizeConfig({
+      widgets: { trackmap: { x: true, y: [5], w: '12', h: '', z: null } },
+    })
+    expect(config.widgets.trackmap).toMatchObject({ x: 0, y: 0, w: 12, h: 0, z: 0 })
+  })
+
   it('preserves an unknown widget key from a newer profile, defaulting it hidden', () => {
     const config = normalizeConfig({
       widgets: { trackmap: { x: 10, y: 10, w: 300, h: 300 } },
