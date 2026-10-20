@@ -1,0 +1,17 @@
+# Keep every text file LF in the repo and in working trees, whatever the OS or
+# core.autocrlf setting. Without this, a Windows checkout can commit CRLF and turn a
+# small change into a whole-file diff (#267).
+* text=auto eol=lf
+
+# Binary assets: never normalize or diff as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.exe binary
