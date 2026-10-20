@@ -150,9 +150,10 @@ export const FIELD_HELP = Object.freeze({
     'Show speed in mph instead of km/h. The producer always sends km/h and the widget converts, so ' +
     'this is purely a display choice.',
   waitForLowerThird:
-    'Hold the HUD off while the driver name-tag is playing its card, then reveal it once the card ' +
-    'wipes away — so the driver’s name never appears in two places at once. Only applies on the ' +
-    'combined /all overlay.',
+    'Keep the driver’s name from showing in two places at once. With the driver name-tag on ' +
+    '"dwell", the whole HUD waits until its card wipes away. On "persistent", only the HUD’s identity ' +
+    'strip is hidden; the speed, gear and pedal bars keep showing (if the producer sends them). Only applies on the combined ' +
+    '/all overlay.',
 
   // --- global settings ---
   profileName:
