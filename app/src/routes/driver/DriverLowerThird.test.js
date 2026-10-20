@@ -230,6 +230,32 @@ describe('DriverLowerThird — fire / dwell / switch behavior', () => {
     await tick()
     expect(card(container)).not.toBeNull()
   })
+
+  it('switching persistent -> dwell live keeps the card up for one fresh dwell, then wipes it out (rule 16)', async () => {
+    const { container, rerender } = render(DriverLowerThird, {
+      snapshot: subjectA,
+      widget: { trigger: 'persistent' },
+    })
+    await tick()
+    await vi.advanceTimersByTimeAsync(60000)
+    await tick()
+    const before = card(container)
+    expect(nameOf(container), 'premise: the persistent card is up').toBe('Hamilton')
+
+    // Same subject, no camera cut: only the trigger changes.
+    await rerender({ snapshot: subjectA, widget: { trigger: 'dwell', dwellSeconds: 4 } })
+    await tick()
+    expect(card(container), 'the card stays in place across the switch (no flicker)').toBe(before)
+    expect(nameOf(container)).toBe('Hamilton')
+
+    await vi.advanceTimersByTimeAsync(3999)
+    await tick()
+    expect(card(container), 'still inside the fresh dwell').toBe(before)
+
+    await vi.advanceTimersByTimeAsync(1)
+    await tick()
+    expect(card(container), 'the fresh dwell elapsed -> the card wipes out').toBeNull()
+  })
 })
 
 describe('resolveSubject / isDriverSubjectIdle', () => {

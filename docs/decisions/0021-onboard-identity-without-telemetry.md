@@ -82,7 +82,7 @@ Consequences:
   broadcaster places them, and battlecast moves neither.
 - Under a `persistent` card with no telemetry, the HUD shows nothing, because the strip is its
   only content and the strip is held.
-- Switching `persistent` → `dwell` while the card is up, with no camera cut, leaves the card up
-  until the next cut (the trigger engine starts no dwell for an unchanged subject), so the whole
-  HUD stays held until then. That card behaviour is tracked in #268.
+- Switching `persistent` → `dwell` while the card is up starts a fresh dwell for the card
+  (`widgets.md` rule 16), so the whole HUD holds for that dwell and reveals when the card wipes
+  out.
 - The `/config` help copy for `waitForLowerThird` describes what each mode holds.

@@ -175,8 +175,8 @@ describe('rule 24 — a trigger-mode change re-applies the hand-off at once', ()
     await tick()
     expectTelemetryOnly(container, { speed: 247, gear: 6, name: 'Verstappen' })
 
-    // Premise (the card's own behaviour, #268): with no camera cut the card is still up after
-    // the switch, so the hold for the mode now configured (dwell: the whole HUD) applies.
+    // Premise: the switch starts the card's fresh dwell (rule 16), so right after it the card is
+    // still up and the hold for the mode now configured (dwell: the whole HUD) applies.
     await rerender({ config: DWELL })
     await tick()
     expect(driverCardName(container), 'premise: the card is still up after the switch').toContain('Verstappen')
@@ -191,6 +191,30 @@ describe('rule 24 — a trigger-mode change re-applies the hand-off at once', ()
     await tick()
     expect(driverCardName(container)).toBeNull()
     expectFullHud(container, { speed: 180, name: 'Leclerc' })
+  })
+
+  it('persistent -> dwell with no camera cut: the whole HUD holds for the fresh dwell, then reveals', async () => {
+    vi.useFakeTimers()
+    const { container, rerender } = render(AllView, { snapshot: raceOnboard, config: PERSISTENT })
+    await tick()
+    vi.advanceTimersByTime(60_000)
+    await tick()
+    expectTelemetryOnly(container, { speed: 247, gear: 6, name: 'Verstappen' })
+
+    await rerender({ config: DWELL })
+    await tick()
+    expectWholeHudHeld(container)
+
+    vi.advanceTimersByTime(5_999)
+    await rerender({ snapshot: structuredClone(raceOnboard) })
+    await tick()
+    expect(driverCardName(container), 'still inside the fresh dwell').toContain('Verstappen')
+    expectWholeHudHeld(container)
+
+    vi.advanceTimersByTime(1)
+    await tick()
+    expect(driverCardName(container), 'the fresh dwell elapsed -> the card wipes out').toBeNull()
+    expectFullHud(container, { speed: 247, name: 'Verstappen' })
   })
 })
 

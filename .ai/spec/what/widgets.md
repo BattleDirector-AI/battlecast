@@ -382,6 +382,21 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 16. **Trigger modes:** `dwell` (default) — fire on change, show for `dwellSeconds`, then auto-hide
     even if the camera stays; a new change resets the dwell **in place** (no hide→show flicker).
     `persistent` — show whenever the subject is valid or degraded (rule 14), no timer.
+    A change of `trigger` takes effect at once, without waiting for a camera cut:
+    - **`dwell` → `persistent`:** the card follows the `persistent` rule from the switch — it is
+      up whenever the subject is valid or degraded, whether or not its dwell had already ended,
+      and any running dwell timer stops.
+    - **`persistent` → `dwell` with the card up:** the switch starts a fresh dwell. The card stays
+      up, in place with no hide→show flicker, for one `dwellSeconds` counted from the switch,
+      then auto-hides as any dwell does. After that the unchanged subject does not bring it back
+      (rule 15); a camera cut during the fresh dwell resets it in place as above.
+    - **`persistent` → `dwell` with the card down** (the widget treats the subject as idle —
+      rules 14, 19): nothing fires; the card stays down until the next fire.
+
+    A change of `trigger` is not a connect (rule 17): `showOnConnect` does not apply to it, so
+    the fresh dwell starts even with `showOnConnect` off, and the switch neither consumes nor
+    re-fires the connect fire — the next real camera cut fires as normal. A #22 class-best flash
+    (rule 19) is always a dwell; a change of `trigger` does not touch it.
 17. **On (re)connect:** fire once for the first subject that widget treats as active
     (`showOnConnect`, default true), then follow change detection. A subject the widget treats as
     idle does not use up the connect fire. #21 is active for a valid or degraded subject (rule 14),
@@ -457,7 +472,9 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
       sit on screen is the broadcaster's layout.
 
     The hold follows the mode configured now and whether the card is up now, so a change of
-    `trigger` changes what is held at once. With `waitForLowerThird` off, or the driver
+    `trigger` changes what is held at once. Switching `persistent` → `dwell` with the card up
+    starts the card's fresh dwell (rule 16), so the whole HUD holds for that dwell and reveals
+    when the card wipes out. With `waitForLowerThird` off, or the driver
     lower-third not `visible`, nothing is held. Only applies in `/all`; the standalone `/onboard`
     route has nothing to wait for. Decision record:
     `docs/decisions/0021-onboard-identity-without-telemetry.md` (amendment).
