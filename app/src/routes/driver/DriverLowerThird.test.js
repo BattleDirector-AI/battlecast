@@ -115,6 +115,44 @@ describe('DriverLowerThird — fire / dwell / switch behavior', () => {
     expect(nameOf(container)).toBe('Hamilton')
   })
 
+  it('fires the name-only card on connect for a degraded subject, then auto-hides after the dwell', async () => {
+    // Rule 17: a degraded subject (driver_name present, slot_id unresolved) is
+    // active for #21, so the first real snapshot after the null baseline fires.
+    const widget = { trigger: 'dwell', dwellSeconds: 5 }
+    const { container, rerender } = render(DriverLowerThird, { snapshot: null, widget })
+    await tick()
+    expect(card(container)).toBeNull()
+
+    await rerender({ snapshot: degraded, widget })
+    await tick()
+    expect(card(container)).not.toBeNull()
+    expect(card(container).getAttribute('data-state')).toBe('degraded')
+    expect(nameOf(container)).toBe('O. Piastri')
+    expect(container.querySelector('[data-testid="driver-lt-pos"]')).toBeNull()
+
+    // It is a dwell fire, not a level-triggered show: it hides when the dwell ends.
+    await vi.advanceTimersByTimeAsync(5000)
+    await tick()
+    expect(card(container)).toBeNull()
+  })
+
+  it('treats a degraded subject as the connect event, so showOnConnect:false suppresses it', async () => {
+    const widget = { trigger: 'dwell', showOnConnect: false }
+    const { container, rerender } = render(DriverLowerThird, { snapshot: null, widget })
+    await tick()
+
+    // The degraded subject is the connect event -> suppressed.
+    await rerender({ snapshot: degraded, widget })
+    await tick()
+    expect(card(container)).toBeNull()
+
+    // The next cut (ghost-7 -> car-44) is a change, not the connect, so it fires.
+    await rerender({ snapshot: subjectA, widget })
+    await tick()
+    expect(card(container)).not.toBeNull()
+    expect(nameOf(container)).toBe('Hamilton')
+  })
+
   it('re-fires and updates the card in place on a camera cut', async () => {
     const { container, rerender } = render(DriverLowerThird, {
       snapshot: subjectA,
