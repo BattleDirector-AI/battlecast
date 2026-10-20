@@ -140,6 +140,14 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   motion tests still stamp `data-motion` explicitly (`*.motion.test.js`).
 - **Speed is canonical km/h in the payload;** the on-board HUD converts to mph in the view layer
   (`× 0.621371`), it is never stored/emitted in mph.
+- **Subject resolution** (`what/widgets.md` rules 14–14b): `resolveSubject()` in
+  `DriverLowerThird.svelte`'s module script is the one resolver for #21, #22
+  (`QualifyingLowerThird.svelte` imports it), `/all`'s hand-off (`AllView.svelte`), and the
+  persistent-mode auto-hide in `lib/widgetIdle.js` (via `isDriverSubjectIdle`, and
+  `isQualifyingIdle` for #22). `resolveIdentity()` (below) resolves the same subject on its own;
+  it reuses the same helpers for the malformed-entry skip (14a) and the name pick (14b) rather
+  than repeating them, so the HUD and the lower-thirds cannot drift apart. `BattleBox.svelte` does
+  its own `vehicles[]` lookups (rule 59).
 - **On-board HUD identity** (`what/widgets.md` rules 23, 54–58): `resolveIdentity()` in
   `OnBoardHud.svelte` builds the strip's fields from the subject and its `vehicles[]` match; both
   `/all` (`AllView.svelte`) and `/onboard` (`OnBoardHudPage.svelte`) call it and pass the result in
