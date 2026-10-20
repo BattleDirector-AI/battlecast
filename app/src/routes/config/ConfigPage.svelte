@@ -99,6 +99,7 @@
       // Also drop any in-flight drag listeners so unmounting mid-drag can't leak them.
       window.removeEventListener('pointermove', onDrag)
       window.removeEventListener('pointerup', endDrag)
+      window.removeEventListener('pointercancel', endDrag)
       clearTimeout(copyResetTimer)
     }
   })
@@ -246,6 +247,7 @@
     drag = { key, mode, startX: event.clientX, startY: event.clientY, orig: { ...w } }
     window.addEventListener('pointermove', onDrag)
     window.addEventListener('pointerup', endDrag)
+    window.addEventListener('pointercancel', endDrag)
   }
   function onDrag(event) {
     if (!drag) return
@@ -261,6 +263,7 @@
     drag = null
     window.removeEventListener('pointermove', onDrag)
     window.removeEventListener('pointerup', endDrag)
+    window.removeEventListener('pointercancel', endDrag)
   }
 
   // ---- typed number fields (overlay-config rules 44-44c) ----------------------
@@ -317,7 +320,12 @@
   const METRIC_LABEL = { lapFlash: { text: 'lap flash', help: 'the lap flash' } }
   const setHideWhenIdle = (key, hide) => (config = editor.setWidgetHideWhenIdle(config, key, hide))
   // #188: the text-size preset; also rescales the widget's width (overlay-config rule 41).
-  const setTextScale = (key, preset) => (config = editor.setWidgetTextScale(config, key, preset))
+  // A preset change ends any live drag first, so no later pointer step writes the drag-start
+  // geometry and origin over it (rule 41d).
+  const setTextScale = (key, preset) => {
+    endDrag()
+    config = editor.setWidgetTextScale(config, key, preset)
+  }
   // Lower-third trigger knobs (only surfaced for lower-third widgets).
   const setTrigger = (key, value) => (config = editor.setWidgetField(config, key, 'trigger', value))
   const setDwellSeconds = (key, value) =>
@@ -454,6 +462,8 @@
         return
       }
       config = normalizeConfig(loaded)
+      // The whole config was replaced: a live drag's drag-start copy is stale (rule 41d).
+      endDrag()
       profileName = name
       status = `Loaded profile "${name}".`
     } catch (err) {
