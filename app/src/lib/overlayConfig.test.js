@@ -146,6 +146,8 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
       ['an empty array', []],
       ['an object', {}],
       ["'Infinity'", 'Infinity'],
+      ["a signed hex string '-0x10'", '-0x10'],
+      ["a signed hex string '+0x10'", '+0x10'],
       ['a partly numeric string', '380px'],
       ['a non-numeric string', 'abc'],
       ['NaN', NaN],
@@ -230,6 +232,93 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
 
   it('clamps an absurdly small canvas to the minimum edge', () => {
     expect(normalizeConfig({ canvas: { w: 10, h: -5 } }).canvas).toEqual({ w: 320, h: 320 })
+  })
+
+  // Rule 9: canvas `w` / `h` are read as a valid number (rule 6), else the default edge. The
+  // defaults (1920, 1080) are neither 320 — what a blank, null, a boolean or an empty array becomes
+  // once `Number()` reads it as 0 or 1 and the minimum edge raises it — nor the 1280 inside the
+  // one-element array, so a value wrongly read as a number cannot pass for the default.
+  describe.each([
+    ['w', 1920],
+    ['h', 1080],
+  ])('canvas %s (rule 9)', (field, dflt) => {
+    it.each([
+      ['a blank string', ''],
+      ['a whitespace-only string', '   '],
+      ['null', null],
+      ['true', true],
+      ['false', false],
+      ['a one-number array', [1280]],
+      ['a one-string array', ['1280']],
+      ['an empty array', []],
+      ['an object', {}],
+      ["'Infinity'", 'Infinity'],
+      ["a signed hex string '-0x10'", '-0x10'],
+      ['a partly numeric string', '1280px'],
+      ['a non-numeric string', 'abc'],
+      ['NaN', NaN],
+    ])('takes the default for %s', (_label, value) => {
+      expect(normalizeConfig({ canvas: { [field]: value } }).canvas[field]).toBe(dflt)
+    })
+
+    it.each([
+      ["'1280'", '1280', 1280],
+      ["' 2560 '", ' 2560 ', 2560],
+      ["'1e3'", '1e3', 1000],
+      ["'0x400'", '0x400', 1024],
+      ['the number 1280.4 (rounded)', 1280.4, 1280],
+      ["'-12' (raised to the minimum)", '-12', 320],
+      ['the number 0 (raised to the minimum)', 0, 320],
+    ])('reads %s as a valid number', (_label, value, expected) => {
+      expect(normalizeConfig({ canvas: { [field]: value } }).canvas[field]).toBe(expected)
+    })
+  })
+
+  it('takes the 1920x1080 canvas when canvas is not an object (rule 9)', () => {
+    expect(normalizeConfig({ canvas: 1280 }).canvas).toEqual({ w: 1920, h: 1080 })
+    expect(normalizeConfig({ canvas: 'big' }).canvas).toEqual({ w: 1920, h: 1080 })
+  })
+
+  // Rule 46: `dwellSeconds` is read as a valid number (rule 6) and kept only when > 0, else the
+  // default 6. 6 is none of 0, 1, 5 or 7 — what `Number()` makes of a blank, null, a boolean or
+  // the one-element arrays below — so a value wrongly read as a number cannot pass for the default.
+  describe('lower-third dwellSeconds (rule 46)', () => {
+    it.each([
+      ['a blank string', ''],
+      ['a whitespace-only string', '   '],
+      ['null', null],
+      ['true', true],
+      ['false', false],
+      ['a one-number array', [5]],
+      ['a one-string array', ['7']],
+      ['an empty array', []],
+      ['an object', {}],
+      ["'Infinity'", 'Infinity'],
+      ['Infinity', Infinity],
+      ["a signed hex string '-0x10'", '-0x10'],
+      ['a partly numeric string', '5s'],
+      ['a non-numeric string', 'abc'],
+      ['NaN', NaN],
+      ['0', 0],
+      ['a negative number', -3],
+      ["a negative string '-3'", '-3'],
+    ])('takes the default for %s', (_label, value) => {
+      for (const key of ['driver', 'qualifying']) {
+        const cfg = normalizeConfig({ widgets: { [key]: { dwellSeconds: value } } })
+        expect(cfg.widgets[key].dwellSeconds).toBe(6)
+      }
+    })
+
+    it.each([
+      ["'7.5'", '7.5', 7.5],
+      ["' 8 '", ' 8 ', 8],
+      ["'1e1'", '1e1', 10],
+      ["'0x10'", '0x10', 16],
+      ['the number 0.5', 0.5, 0.5],
+    ])('stores %s as a number', (_label, value, expected) => {
+      const cfg = normalizeConfig({ widgets: { driver: { dwellSeconds: value } } })
+      expect(cfg.widgets.driver.dwellSeconds).toBe(expected)
+    })
   })
 
   it('defaults hideWhenIdle to false and honors an explicit value', () => {
