@@ -1048,9 +1048,9 @@
                   </label>
                 {/each}
               </fieldset>
-              <!-- #26 + #21 hand-off: hold the HUD off while the driver lower-third
-                   plays its "now on camera" card, so the driver name never shows in
-                   both at once; the HUD reveals when the card wipes out. -->
+              <!-- #26 + #21 hand-off: keep the driver name out of two places at once.
+                   A dwell card holds the whole HUD until it wipes out; a persistent card
+                   holds only the HUD's identity strip (widgets rule 24). -->
               <label class="checkline">
                 <input
                   type="checkbox"

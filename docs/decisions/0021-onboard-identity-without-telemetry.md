@@ -33,7 +33,8 @@ protocol change.
    after it, or on a telemetry-only HUD, would name a driver who is not shown.
 4. **The strip and the telemetry row render independently.** The HUD renders whichever has
    content, and nothing when neither does. The hand-off with the driver lower-third still holds
-   the whole HUD, so the name never shows twice.
+   the whole HUD, so the name never shows twice. (Changed for a `persistent` card by the
+   amendment below.)
 5. **Team name is out of scope.** It needs a new optional protocol field.
 
 The rules are `what/widgets.md` rules 21, 23, 24 and 54–58.
@@ -45,4 +46,43 @@ The rules are `what/widgets.md` rules 21, 23, 24 and 54–58.
   want it unticks "position" in `/config`.
 - The HUD still has no "hide when idle" option: an idle HUD draws nothing already.
 - With the driver lower-third on `persistent` and `waitForLowerThird` on, the HUD stays held off
-  while the subject is valid, as before. That is the existing hand-off, unchanged here.
+  while the subject is valid, as before. That is the existing hand-off, unchanged here. The
+  amendment below changes it.
+
+## Amendment (#258)
+
+A `persistent` driver lower-third never wipes out while the subject is valid, so holding the
+whole HUD for it hid the telemetry row for the whole session. The hand-off now depends on the
+card's trigger mode (`what/widgets.md` rule 24):
+
+- **`persistent`:** only the identity strip is held back, because the card already shows the
+  name. The telemetry row keeps rendering. The strip stays held for a degraded subject too,
+  since the card shows the name for it; an invalid subject has neither card nor strip.
+- **`dwell`:** unchanged. The whole HUD holds for the dwell and reveals when the card wipes out.
+  The hold ends when the dwell does, and revealing the strip and the row together keeps the
+  reveal one motion.
+
+The hold follows the mode configured now and whether the card is up now, so a change of trigger
+mode changes what is held at once. The HUD follows whatever the card is doing; what the card
+itself does on a mode change is the lower-third's behaviour (rule 16), not the hand-off's.
+
+Rejected:
+
+- **Holding the whole HUD under `persistent` too** (the old behaviour). The telemetry row carries
+  nothing the card shows, so hiding it all session costs the broadcaster the HUD for no gain.
+- **Holding only the strip under `dwell` as well.** Nobody asked to change the dwell hand-off,
+  and it would split the reveal into two motions.
+- **Moving the telemetry row out of the card's way.** battlecast does not lay widgets out
+  relative to each other; placement is the broadcaster's.
+
+Consequences:
+
+- Under a `persistent` card, the telemetry row and the card are on screen together. If the
+  broadcaster places them in the same spot on `/all`, they overlap. That is accepted: the
+  broadcaster places them, and battlecast moves neither.
+- Under a `persistent` card with no telemetry, the HUD shows nothing, because the strip is its
+  only content and the strip is held.
+- Switching `persistent` → `dwell` while the card is up, with no camera cut, leaves the card up
+  until the next cut (the trigger engine starts no dwell for an unchanged subject), so the whole
+  HUD stays held until then. That card behaviour is tracked in #268.
+- The `/config` help copy for `waitForLowerThird` describes what each mode holds.

@@ -9,8 +9,8 @@
   // additive `vehicle` spec fields (car_number / make / model) plus driver_name /
   // vehicle_class, resolved against the on-camera subject. To avoid showing the
   // driver name twice, the HUD can hold off while the driver lower-third (#21) plays
-  // its "now on camera" dwell and reveal once it wipes out (the hand-off) — see the
-  // instance script.
+  // its "now on camera" dwell and reveal once it wipes out, or hold only its identity
+  // strip under a persistent card (the hand-off) — see the instance script.
   //
   // Dumb overlay, smart producer (docs/decisions/0002-lower-third-widgets.md): every
   // value is producer-owned. Inputs may be null/undefined/partial/garbage — these
@@ -124,7 +124,8 @@
     // Hand-off inputs. When `driverWidget` is supplied (only on `/all`, and only when
     // the onboard `waitForLowerThird` knob is on and the driver lower-third is
     // visible), the HUD mirrors that lower-third's fire/dwell timing off the subject
-    // stream and suppresses itself while the card is up. `null` => no gate (standalone
+    // stream and, while the card is up, holds itself (dwell) or its identity strip
+    // (persistent) back. `null` => no gate (standalone
     // `/onboard`, or the knob is off).
     subjectSlotId = null,
     subjectActive = false,
@@ -140,7 +141,7 @@
 
   // Hand-off (#26 + #21): reuse the shared lower-third trigger engine to compute,
   // independently, the exact same shown/hidden timeline as the driver lower-third —
-  // no cross-widget state. While that card is shown, the HUD is suppressed.
+  // no cross-widget state. What the card being up holds back is decided below.
   let lowerThirdShown = $state(false)
   const gate = createLowerThirdTrigger({ onChange: (v) => (lowerThirdShown = v) })
   onDestroy(() => gate.stop())
@@ -161,11 +162,16 @@
     })
   })
 
-  const suppressed = $derived(!!driverWidget && lowerThirdShown)
+  // What the hand-off holds follows the card's trigger mode now (rule 24): a `dwell` card
+  // holds the whole HUD, telemetry or not; a `persistent` card holds only the identity
+  // strip, since the card already shows the name, and the telemetry row keeps rendering.
+  const held = $derived(!!driverWidget && lowerThirdShown)
+  const persistentCard = $derived(driverWidget?.trigger === 'persistent')
+  const suppressed = $derived(held && !persistentCard)
+  const showIdentity = $derived(!!identity && !(held && persistentCard))
   // The identity strip and the telemetry row render independently (rule 56): the HUD
-  // shows whenever either has content, and never while the driver lower-third is
-  // holding the "now on camera" card (rule 24) — telemetry or not.
-  const visible = $derived((!!t || !!identity) && !suppressed)
+  // shows whenever either has content and the hand-off is not holding it.
+  const visible = $derived((!!t || showIdentity) && !suppressed)
 </script>
 
 {#if visible}
@@ -175,7 +181,7 @@
   data-mode={mode ?? ''}
   aria-label="On-board HUD"
 >
-  {#if identity}
+  {#if showIdentity}
     <div class="bc-onboard__identity" class:bc-onboard__identity--solo={!t} data-testid="onboard-identity">
       <span class="bc-onboard__label" data-testid="onboard-label">ON BOARD</span>
       {#if identity.position != null}

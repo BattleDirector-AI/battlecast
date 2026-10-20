@@ -313,9 +313,10 @@ export function parseTowerMetricsParam(raw) {
  *   - `driverInfo`: which on-camera driver/vehicle identity fields the HUD shows — each of
  *     `name` / `number` / `position` / `class` / `make` / `model` toggled independently
  *     (name+number+position on by default). `number`/`make`/`model` come from the additive `vehicle` spec fields.
- *   - `waitForLowerThird`: when true (default), the HUD holds off while the driver
- *     lower-third (#21) is showing its "now on camera" dwell, so the two never overlap;
- *     it reveals when the lower-third wipes out. Only applies in `/all` (where both
+ *   - `waitForLowerThird`: when true (default), the HUD keeps the driver name out of two
+ *     places at once: it holds off entirely while the driver lower-third (#21) shows a
+ *     `dwell` card and reveals when the card wipes out, and under a `persistent` card it
+ *     holds back only its identity strip (widgets rule 24). Only applies in `/all` (where both
  *     widgets coexist); the standalone `/onboard` route has no lower-third to wait for. */
 export const ONBOARD_DEFAULTS = Object.freeze({
   speedUnit: 'kmh',

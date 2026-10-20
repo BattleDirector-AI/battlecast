@@ -361,7 +361,7 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     snapshot's, including `null→X`, `X→Y`, `X→null`. `A→A` does nothing; `A→null→A` re-fires.
 16. **Trigger modes:** `dwell` (default) — fire on change, show for `dwellSeconds`, then auto-hide
     even if the camera stays; a new change resets the dwell **in place** (no hide→show flicker).
-    `persistent` — show whenever the subject is valid, no timer.
+    `persistent` — show whenever the subject is valid or degraded (rule 14), no timer.
 17. **On (re)connect:** fire once for the current valid subject (`showOnConnect`, default true),
     then follow change detection. A class-best fire does NOT trigger on connect.
 18. **#21 driver lower-third** renders identity: name, position (`P4`), class chip. Fires on any
@@ -415,11 +415,25 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     shows one checkbox per field in the onboard widget's "driver info shown" group, each with its
     own help copy (`overlay-config.md` rules 16, 19). The fields come from the subject and its
     resolved `vehicles[]` entry (rule 57).
-24. **Hand-off** (`waitForLowerThird`, default true): in `/all`, the whole HUD — identity strip and
-    telemetry row alike — holds off while the driver lower-third (#21) is showing its dwell, then
-    reveals when the lower-third wipes out, so the two never overlap and the driver's name never
-    shows in both at once. This holds whether or not the snapshot carries `subject.telemetry`. Only
-    applies in `/all`; the standalone `/onboard` route has nothing to wait for.
+24. **Hand-off** (`waitForLowerThird`, default true): in `/all`, while the driver lower-third (#21)
+    is visible and its card is up, the HUD holds back part or all of itself so the driver's name
+    never shows in both at once. What it holds depends on the card's trigger mode (rule 16):
+    - **`dwell`:** the whole HUD — identity strip and telemetry row alike — holds off for the
+      dwell, then reveals when the card wipes out. A re-fire (a camera cut) holds it again. This
+      holds whether or not the snapshot carries `subject.telemetry`.
+    - **`persistent`:** only the identity strip (and so its `ON BOARD` label, rule 55) holds off;
+      the telemetry row keeps rendering live, per rule 21, for as long as the card is up. The card
+      is up whenever the subject is valid or degraded (rule 14), so the strip stays held for both,
+      and a camera cut changes the row to the new subject's telemetry with the strip still held.
+      An invalid subject takes the card down; there is then no strip to hold (rule 57) and the HUD
+      renders per rule 56. The HUD does not move the row out of the card's way — where the two
+      sit on screen is the broadcaster's layout.
+
+    The hold follows the mode configured now and whether the card is up now, so a change of
+    `trigger` changes what is held at once. With `waitForLowerThird` off, or the driver
+    lower-third not `visible`, nothing is held. Only applies in `/all`; the standalone `/onboard`
+    route has nothing to wait for. Decision record:
+    `docs/decisions/0021-onboard-identity-without-telemetry.md` (amendment).
 54. **Identity strip content and order.** Left to right: the `ON BOARD` label (rule 55), position,
     car number, driver name, class chip, then make and model as one line. Each enabled field shows
     only when it has a value. The name is `subject.driver_name` (falling back to the vehicle's
@@ -442,7 +456,9 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     | no | no | nothing |
 
     "Nothing" is the HUD's idle state: no plate, no placeholder text. The hand-off (rule 24) can
-    hold off any of the first three rows.
+    hold off any of the first three rows. Under a `dwell` card it holds the whole HUD; under a
+    `persistent` card it holds only the strip, so the HUD renders as if it had no identity
+    content — telemetry row only, or nothing.
 57. **Subject resolution for the strip** follows rule 14. A *valid* subject (`slot_id` resolves to a
     `vehicles[]` entry) shows every enabled field that has a value. A *degraded* subject
     (`driver_name` present, `slot_id` unresolved) shows the label and the name only — no position,
