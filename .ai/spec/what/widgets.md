@@ -362,17 +362,19 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 65. **The battle box's on-camera name.** The name in the focus slot, and in the idle placeholder's
     line (`CLEAR AIR — <name>`), is picked by rule 14b: `subject.driver_name` when present;
     otherwise the `driver_name` of the `vehicles[]` entry whose `slot_id` matches the subject's,
-    when present; otherwise no name. A subject with no `slot_id` matches no entry, even one that
-    also lacks a `slot_id`. It shows in the full form of rule 48. With no name, the focus
-    slot is empty and the idle line reads `CLEAR AIR — ON-CAMERA CAR`; the battle still renders.
+    when present; otherwise no name. A subject with no `slot_id` (absent or `null`) matches no
+    entry, even one that also lacks a `slot_id`. The same entry gives the class chip (rule 30) and
+    the position that rule 68 reads, so such a subject shows no class chip and both neighbours
+    render as `—`. The name shows in the full form of rule 48. With no name, the focus slot is
+    empty and the idle line reads `CLEAR AIR — ON-CAMERA CAR`; the battle still renders.
     Subject validity (rule 14) does not gate the box — rules 11–12 and 36–39 decide whether it
-    renders. The ahead and behind slots show the neighbouring cars' own `vehicles[]` names and are
-    outside this rule. During an exit grace (rule 37) the box renders the held battle's snapshot,
+    renders. The ahead and behind slots' names are rule 68's; this rule supplies only the subject's
+    position they read. During an exit grace (rule 37) the box renders the held battle's snapshot,
     so its name is the held snapshot's. Outside a hold, in `/all` the battle box, the driver
     lower-third and the HUD strip show the same name for the live snapshot.
 68. **Neighbour names.** The ahead slot shows the name of the car whose `position` is exactly
     the subject's position minus 1, and the behind slot the car at exactly the subject's position
-    plus 1. A subject with no matching vehicle or no `position`, or a position with no car, leaves
+    plus 1. A subject with no matching vehicle (rule 65's match) or no `position`, or a position with no car, leaves
     that slot at `—`. A neighbour's `driver_name` counts as present by the same test as rule 14b:
     a string with at least one non-whitespace character. A present name renders as the battle box
     renders every name (rule 48's full form); a missing one — `""`, a whitespace-only string,
@@ -601,7 +603,7 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     known classes; it does not gate what text renders. A class outside that registry still shows
     exactly what the producer sent, rather than degrading to a meaningless placeholder that
     discards the producer's data. Applies everywhere a class chip renders: the tower (rules 3, 5),
-    the driver lower-third's class chip (rule 18), and the grid/results group headers (rule 27).
+    the driver lower-third's class chip (rule 18), the battle box's class chip (rule 65), and the grid/results group headers (rule 27).
     Rule 31 governs that class's *color*. Rules 60–64 say when class tags are hidden.
 31. **A class outside the curated registry gets a deterministic color hashed from its own name, not
     a flat neutral one** — the same class string always resolves to the same color across reloads,
