@@ -353,6 +353,17 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     is not an object — `null`, a number, a string — as absent, as rule 14a does: it never matches
     the subject or the car ahead or behind, and the box renders the subject's class chip and the
     ahead/behind names from the remaining entries.
+65. **The battle box's on-camera name.** The name in the focus slot, and in the idle placeholder's
+    line (`CLEAR AIR — <name>`), is picked by rule 14b: `subject.driver_name` when present;
+    otherwise the `driver_name` of the `vehicles[]` entry whose `slot_id` matches the subject's,
+    when present; otherwise no name. A subject with no `slot_id` matches no entry, even one that
+    also lacks a `slot_id`. It shows in the full form of rule 48. With no name, the focus
+    slot is empty and the idle line reads `CLEAR AIR — ON-CAMERA CAR`; the battle still renders.
+    Subject validity (rule 14) does not gate the box — rules 11–12 and 36–39 decide whether it
+    renders. The ahead and behind slots show the neighbouring cars' own `vehicles[]` names and are
+    outside this rule. During an exit grace (rule 37) the box renders the held battle's snapshot,
+    so its name is the held snapshot's. Outside a hold, in `/all` the battle box, the driver
+    lower-third and the HUD strip show the same name for the live snapshot.
 
 ### Subject-driven lower-thirds (`/driver` #21, `/qualifying` #22)
 
@@ -372,9 +383,10 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     strip (rule 57), and the subject resolution `/all` runs on every snapshot.
 14b. **The subject's name.** A `driver_name` counts as present only when it is a string with at
     least one non-whitespace character; `""`, a whitespace-only string, `null`, absent, or a
-    non-string all count as missing. The name a subject-driven widget (#21, #22, the HUD strip)
-    shows is `subject.driver_name` when present; otherwise, for a valid subject, the resolved
-    vehicle's `driver_name` when present; otherwise no name. So:
+    non-string all count as missing. The name a subject-driven widget (#21, #22, the HUD strip, the
+    battle box's focus slot and idle line — rule 65) shows is `subject.driver_name` when present;
+    otherwise, for a valid subject, the resolved vehicle's `driver_name` when present; otherwise no
+    name. So:
     - A valid subject whose `subject.driver_name` and vehicle `driver_name` are both missing stays
       valid. #21 renders its position and class chip with an empty name; #22 renders its timing
       with an empty name; the HUD strip shows its other enabled fields and no name.

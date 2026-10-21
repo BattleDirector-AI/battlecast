@@ -53,6 +53,7 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import IntensityMeter from '../../design/IntensityMeter.svelte'
   import { classTagsShown } from '../../lib/classTags.js'
+  import { resolveSubject } from '../driver/DriverLowerThird.svelte'
 
   let {
     subject = {},
@@ -81,6 +82,8 @@
     cars.find((v) => v.slot_id === subject?.slot_id)
   )
   const carClass = $derived(subjectVehicle?.vehicle_class)
+  // Rule 65: the on-camera name is picked by the shared rule-14b resolver.
+  const subjectName = $derived(resolveSubject({ subject, vehicles }).name)
   const subjectPos = $derived(subjectVehicle?.position)
   const aheadDriver = $derived(
     subjectPos != null
@@ -118,7 +121,7 @@
 
       <div class="bc-battle__slot bc-battle__slot--focus">
         <span class="bc-battle__slot-label">FOCUS</span>
-        <span class="bc-battle__focus-name">{fmtName(subject?.driver_name)}</span>
+        <span class="bc-battle__focus-name">{fmtName(subjectName)}</span>
       </div>
 
       <div class="bc-battle__slot bc-battle__slot--behind">
@@ -134,7 +137,7 @@
   {:else}
     <div class="bc-battle__idle">
       <span class="bc-battle__idle-heading">NO ACTIVE BATTLE</span>
-      <span class="bc-battle__idle-sub">CLEAR AIR — {fmtName(subject?.driver_name) || 'ON-CAMERA CAR'}</span>
+      <span class="bc-battle__idle-sub">CLEAR AIR — {fmtName(subjectName) || 'ON-CAMERA CAR'}</span>
     </div>
   {/if}
 </section>
