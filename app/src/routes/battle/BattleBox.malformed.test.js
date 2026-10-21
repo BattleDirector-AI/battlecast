@@ -31,3 +31,29 @@ describe('rule 59 — non-object vehicles[] entries are skipped', () => {
     expect(text).toContain('F1')
   })
 })
+
+describe('a producer sending vehicles as a non-array', () => {
+  it.each([
+    ['an object', {}],
+    ['a string', 'car-1'],
+    ['null', null],
+  ])('renders the battle box without throwing when vehicles is %s', (_label, junk) => {
+    const { container } = render(BattleBox, {
+      props: {
+        subject: closeBattle.subject,
+        relationship: closeBattle.relationship,
+        vehicles: junk,
+        mode: closeBattle.mode,
+      },
+    })
+
+    expect(container.textContent).toContain('CLOSING')
+    expect(container.textContent).toContain('Verstappen')
+    expect(container.textContent).toContain('+0.4')
+    // Rendered as if vehicles were empty: no neighbours resolved, no class chip.
+    const slot = (which) => container.querySelector(`.bc-battle__slot--${which} .bc-battle__slot-name`)
+    expect(slot('ahead').textContent.trim()).toBe('—')
+    expect(slot('behind').textContent.trim()).toBe('—')
+    expect(container.querySelector('.bc-class-chip')).toBeNull()
+  })
+})

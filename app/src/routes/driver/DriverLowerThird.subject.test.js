@@ -87,8 +87,15 @@ describe('rule 14b — the name the card shows', () => {
     expect(posOf(container)).toBe('P3')
   })
 
-  it('a valid subject with both names blank still renders its position and class, with no name', async () => {
-    const container = await renderCard(subjectBNamed('  ', ''))
+  // The 42 row is the one that pins the vehicle-side presentName: fmtName trims whitespace,
+  // so '  ' renders as no name even with a loosened check.
+  it.each([
+    ['empty', ''],
+    ['whitespace-only', '  '],
+    ['a number', 42],
+    ['an object', {}],
+  ])('a valid subject with a blank subject name and the vehicle name %s still renders its position and class, with no name', async (_label, vehicleName) => {
+    const container = await renderCard(subjectBNamed('  ', vehicleName))
 
     expect(card(container)?.getAttribute('data-state')).toBe('valid')
     expect(posOf(container)).toBe('P3')

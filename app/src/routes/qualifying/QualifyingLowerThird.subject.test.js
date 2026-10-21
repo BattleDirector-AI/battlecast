@@ -40,6 +40,7 @@ describe('rule 14b — the name the bar shows', () => {
   it.each([
     ['empty', ''],
     ['whitespace-only', '   '],
+    ['a number', 42],
   ])('a subject.driver_name that is %s falls back to the vehicle\'s driver_name', async (_label, blank) => {
     const snap = structuredClone(qualSectorA)
     snap.subject.driver_name = blank
@@ -50,10 +51,14 @@ describe('rule 14b — the name the bar shows', () => {
     expect(txt(container, 'qt-best')).toBe('1:28.912')
   })
 
-  it('with both names blank the bar still renders its timing, with no name', async () => {
+  it.each([
+    ['empty', ''],
+    ['whitespace-only', '  '],
+    ['a number', 42],
+  ])('with the subject name blank and the vehicle name %s the bar still renders its timing, with no name', async (_label, vehicleName) => {
     const snap = structuredClone(qualSectorA)
     snap.subject.driver_name = ' '
-    snap.vehicles[0].driver_name = ''
+    snap.vehicles[0].driver_name = vehicleName
     const container = await renderBar(snap)
 
     expect(card(container)).not.toBeNull()
