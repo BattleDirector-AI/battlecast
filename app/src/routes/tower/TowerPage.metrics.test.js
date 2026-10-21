@@ -73,6 +73,7 @@ const PROFILE = {
   widgets: { tower: { towerMetrics: { interval: false, pit: true, tire: true, fuel: false } } },
 }
 
+const FLASH_ON = { widgets: { tower: { towerMetrics: { lapFlash: true } } } }
 const FLASH_OFF = { widgets: { tower: { towerMetrics: { lapFlash: false } } } }
 
 describe('standalone /tower — the profile supplies the metrics (overlay-config rule 49)', () => {
@@ -150,5 +151,43 @@ describe('standalone /tower — the profile lapFlash (overlay-config rules 38, 4
     await tick()
     expect(gapText('car-1')).toBe('1:31.950')
     expect(flashTier('car-1')).not.toBeNull()
+  })
+})
+
+describe('standalone /tower — ?metrics= leaving lapFlash out (overlay-config rules 38, 49)', () => {
+  it('profile lapFlash on plus ?metrics=interval: a completed lap does not flash', async () => {
+    await mountTower('/tower?profile=p&metrics=interval', FLASH_ON)
+    expect(gapText('car-1')).toBe('+0.400')
+    sse.emit(lapCompleted())
+    flushSync()
+    await tick()
+    expect(gapText('car-1')).toBe('+0.400')
+    expect(flashTier('car-1')).toBeNull()
+  })
+})
+
+describe('standalone /tower — before the profile loads (overlay-config rule 49)', () => {
+  it('shows the default metrics until the profile resolves, then the profile metrics replace them', async () => {
+    window.history.replaceState({}, '', '/tower?profile=p')
+    let resolveProfile
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveProfile = () => resolve({ ok: true, status: 200, json: async () => PROFILE })
+          }),
+      ),
+    )
+    render(TowerPage)
+    for (let i = 0; i < 5; i++) await tick()
+    sse.emit(towerMetrics)
+    flushSync()
+    await tick()
+    expect(columns()).toEqual(['interval'])
+    resolveProfile()
+    for (let i = 0; i < 5; i++) await tick()
+    flushSync()
+    expect(columns()).toEqual(['pit', 'tire'])
   })
 })
