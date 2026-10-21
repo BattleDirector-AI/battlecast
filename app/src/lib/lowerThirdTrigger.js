@@ -94,8 +94,9 @@ export function createLowerThirdTrigger({ onChange } = {}) {
     if (mode === 'persistent') {
       // Level-triggered: shown iff the subject is active. No timer.
       clearTimer()
-      prevKey = key
-      started = true
+      // An idle subject does not use up the connect fire (rule 17).
+      if (active) started = true
+      if (started) prevKey = key
       emit(active)
       return shown
     }
