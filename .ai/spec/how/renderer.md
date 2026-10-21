@@ -150,8 +150,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `isQualifyingIdle` for #22). `resolveIdentity()` (below) calls `resolveSubject()` for its vehicle
   and name too, so the malformed-entry skip (14a) and the name pick (14b) live in one place and
   the HUD and the lower-thirds cannot drift apart. `BattleBox.svelte` takes `subject` and
-  `vehicles` as props, so it calls `resolveSubject({ subject, vehicles })` for the focus and idle-line
-  name (rule 65) and keeps its own `vehicles[]` lookups for the ahead/behind neighbours (rule 59).
+  `vehicles` as props, so it calls `resolveSubject({ subject, vehicles })` once: `.name` is the focus and idle-line
+  name, `.vehicle` supplies the class chip and the position the neighbour lookups read (rule 65),
+  and the ahead/behind lookups themselves stay in the box (rules 59, 68).
 - **On-board HUD identity** (`what/widgets.md` rules 23, 54–58): `resolveIdentity()` in
   `OnBoardHud.svelte` builds the strip's fields from the subject and its `vehicles[]` match; both
   `/all` (`AllView.svelte`) and `/onboard` (`OnBoardHudPage.svelte`) call it and pass the result in
