@@ -221,12 +221,19 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     where it would have without the drag; a drag that ends somewhere else moves the origin as one
     rule 41a edit from the drag's start to its end, whatever path the pointer took in between.
     Releasing the pointer ends the edit: the next drag compares with where that one finished.
-41d. **A drag ends on release, on cancel, on a preset change, and when the config is replaced.**
+41d. **A drag ends on release, on cancel, when no button is held, when the window loses focus, on a preset change, and when the config is replaced.**
     A preview drag or resize is live from the pointer going down on a handle until the first of:
     - the pointer is released (`pointerup`);
     - the browser cancels the pointer (`pointercancel` — a touch or pen gesture the browser takes
       over, for example), which ends the drag exactly as a release does: the widget keeps the
       geometry and origin of the last pointer step;
+    - the drag's own pointer moves with no button held (its release or cancel never arrived, for
+      example because it happened outside the window), which ends the drag exactly as a cancel
+      does: the widget keeps the geometry and origin of the last pointer step, and that unpressed
+      move places nothing;
+    - the window loses focus (`blur`), which ends the drag exactly as a cancel does. This includes
+      a drag whose pointer is still held when focus is taken mid-drag, by alt-tab or an OS
+      notification, for example: the held pointer then drives nothing until a fresh press;
     - the broadcaster changes the text-size preset (rule 41) of any widget, the dragged one or
       another;
     - the editor's whole config is replaced, as a profile load does when the loaded profile

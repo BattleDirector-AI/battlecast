@@ -71,7 +71,7 @@ async function down(c, testid, pointerId, dx = 0, dy = 0) {
 }
 async function moveTo(c, pointerId, dx, dy = 0) {
   const s = previewScale(c)
-  await fireEvent.pointerMove(window, { pointerId, clientX: dx * s, clientY: dy * s })
+  await fireEvent.pointerMove(window, { buttons: 1, pointerId, clientX: dx * s, clientY: dy * s })
   await tick()
 }
 async function up(pointerId) {
@@ -197,7 +197,7 @@ describe('a touch drags like any other pointer until the browser cancels it (rul
     })
     await tick()
     const s = previewScale(c)
-    await fireEvent.pointerMove(window, { pointerId: TOUCH, pointerType: 'touch', clientX: -20 * s, clientY: 0 })
+    await fireEvent.pointerMove(window, { buttons: 1, pointerId: TOUCH, pointerType: 'touch', clientX: -20 * s, clientY: 0 })
     await tick()
     expect(value(c, 'x'), 'a touch press did not start a drag').toBe(580)
 
@@ -205,7 +205,7 @@ describe('a touch drags like any other pointer until the browser cancels it (rul
     await fireEvent.pointerCancel(window, { pointerId: TOUCH, pointerType: 'touch', clientX: 0, clientY: 0 })
     await tick()
     expect(value(c, 'x')).toBe(580)
-    await fireEvent.pointerMove(window, { pointerId: TOUCH, pointerType: 'touch', clientX: -60 * s, clientY: 0 })
+    await fireEvent.pointerMove(window, { buttons: 1, pointerId: TOUCH, pointerType: 'touch', clientX: -60 * s, clientY: 0 })
     await tick()
     expect(value(c, 'x'), 'movement after the cancel still dragged').toBe(580)
 
@@ -268,5 +268,49 @@ describe('a press on a handle while a drag is live is ignored (rule 41e)', () =>
     expect(tower.y).toBe(115)
     expect(tower.w).toBe(w0)
     expect(tower.h).toBe(h0)
+  })
+})
+
+describe('a drag whose end event never arrives does not stick (issue 292)', () => {
+  it('a move with no button held ends the drag, so a press on another handle drags that widget', async () => {
+    const c = await mount()
+    await down(c, 'handle-tower', MOUSE)
+    await moveTo(c, MOUSE, -20)
+    expect(value(c, 'x')).toBe(580)
+
+    // The release happened off-window: no pointerup arrives, the next move reports no buttons.
+    await fireEvent.pointerMove(window, { pointerId: MOUSE, buttons: 0, clientX: 0, clientY: 0 })
+    await tick()
+    expect(value(c, 'x'), 'the unpressed move still placed the tower').toBe(580)
+
+    await down(c, 'handle-battle', MOUSE)
+    await moveTo(c, MOUSE, 30, 10)
+    expect(value(c, 'x', 'battle')).toBe(930)
+    expect(value(c, 'y', 'battle')).toBe(510)
+    expect(value(c, 'x'), 'the old drag kept steering the tower').toBe(580)
+    await up(MOUSE)
+
+    const { tower, battle } = (await exported(c)).widgets
+    expect([tower.x, battle.x, battle.y]).toEqual([580, 930, 510])
+  })
+
+  it('the window losing focus ends the drag, so a press on another handle drags that widget', async () => {
+    const c = await mount()
+    await down(c, 'handle-tower', MOUSE)
+    await moveTo(c, MOUSE, -20)
+    expect(value(c, 'x')).toBe(580)
+
+    await fireEvent(window, new Event('blur'))
+    await tick()
+
+    await down(c, 'handle-battle', MOUSE)
+    await moveTo(c, MOUSE, 30, 10)
+    expect(value(c, 'x', 'battle')).toBe(930)
+    expect(value(c, 'y', 'battle')).toBe(510)
+    expect(value(c, 'x'), 'the old drag kept steering the tower').toBe(580)
+    await up(MOUSE)
+
+    const { tower, battle } = (await exported(c)).widgets
+    expect([tower.x, battle.x, battle.y]).toEqual([580, 930, 510])
   })
 })
