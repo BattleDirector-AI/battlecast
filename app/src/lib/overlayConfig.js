@@ -19,6 +19,7 @@
  */
 
 import { DEFAULT_SRC } from './sseClient.js'
+import { CLASS_TAGS_VALUES } from './classTags.js'
 
 /** Config contract version, numbered independently of the app release and the
  *  spec `schemaVersion`. */
@@ -181,8 +182,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   // `classColors` (rule 32, ADR 0010): a freeform broadcaster override map, class-name key
   // (normalized like `vehicle_class` elsewhere) -> 6-digit hex. Empty by default — no override,
-  // no seeded/curated entries.
-  theme: { classColors: {} },
+  // no seeded/curated entries. `classTags` (overlay-config rule 47, ADR 0022): `auto` follows
+  // the producer's `session.multiclass`; `show` / `hide` override it.
+  theme: { classColors: {}, classTags: 'auto' },
   // Overlay-wide motion opt-out. The overlay animates by default (see lib/motion.js —
   // OBS/CEF reports reduced-motion, which must NOT silently kill the reveals); set true
   // to turn transitions down. A `?motion=` URL param overrides this per Browser Source.
@@ -492,6 +494,12 @@ export function normalizeClassColors(raw) {
   return out
 }
 
+/** Normalize `theme.classTags` (overlay-config rule 47): exactly `auto`, `show`, or `hide`;
+ *  anything else (other case, padding, another type) is `auto`. */
+export function normalizeClassTags(raw) {
+  return CLASS_TAGS_VALUES.includes(raw) ? raw : 'auto'
+}
+
 /** Split a comma list (`?hide=battle,logos`) into trimmed non-empty tokens. */
 function splitList(raw) {
   return String(raw || '')
@@ -519,7 +527,12 @@ export function normalizeConfig(raw) {
     out.logoRotation = { ...out.logoRotation, ...src.logoRotation }
   }
   if (src.theme && typeof src.theme === 'object') {
-    out.theme = { ...out.theme, ...src.theme, classColors: normalizeClassColors(src.theme.classColors) }
+    out.theme = {
+      ...out.theme,
+      ...src.theme,
+      classColors: normalizeClassColors(src.theme.classColors),
+      classTags: normalizeClassTags(src.theme.classTags),
+    }
   }
   // Overlay-wide motion opt-out (see lib/motion.js). Defaults false (animate).
   out.reducedMotion = typeof src.reducedMotion === 'boolean' ? src.reducedMotion : false

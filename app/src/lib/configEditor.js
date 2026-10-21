@@ -6,6 +6,7 @@
 import {
   normalizeConfig,
   normalizeClassColors,
+  normalizeClassTags,
   MIN_CANVAS,
   finiteOrNull,
   TEXT_SCALES,
@@ -194,6 +195,14 @@ export function removeClassColor(config, className) {
   const classColors = { ...next.theme.classColors }
   delete classColors[key]
   next.theme = { ...next.theme, classColors }
+  return next
+}
+
+/** Set the overlay-wide class-tag setting (overlay-config rule 48); an unknown value
+ *  normalizes to `auto`. Touches nothing else, `theme.classColors` included. */
+export function setClassTags(config, value) {
+  const next = normalizeConfig(config)
+  next.theme = { ...next.theme, classTags: normalizeClassTags(value) }
   return next
 }
 

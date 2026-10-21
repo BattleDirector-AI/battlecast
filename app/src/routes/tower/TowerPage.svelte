@@ -139,6 +139,7 @@
     nameStyle={tower?.nameStyle}
     {slotHeight}
     classColors={config.theme.classColors}
+    classTags={config.theme.classTags}
   />
 </div>
 

@@ -193,6 +193,12 @@ export const FIELD_HELP = Object.freeze({
     'everywhere that class appears — the standings tower, battle box, lower-thirds, grid and ' +
     'results. A class with no entry here keeps its automatic color; removing an entry returns it ' +
     'to that automatic color too.',
+  classTags:
+    'Whether class chips, class-rank badges and class group headers show, for the whole overlay. ' +
+    '"auto" follows the producer: it hides them when the producer reports a single-class ' +
+    'session and shows them when the producer does not say. "show" and "hide" override the ' +
+    'producer either way. The class color bars stay in every case. The editor preview’s sample ' +
+    'feed does not say, so at "auto" the preview shows the tags.',
 })
 
 /** Per-metric help for the tower's "tower metrics shown" group. Called out

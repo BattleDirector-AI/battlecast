@@ -90,7 +90,8 @@ so a single live mock exercises the whole overlay set. It loops forever:
 | **Results** | `"results"` | **frozen to the final race order** | the `/results` end-of-session board (#23); `finish_status` carried over, with any car still running classified as finished (1) |
 
 Positions are always the **overall** running order (multi-class independent), as in a
-real multi-class session. Each transition is logged to stdout, e.g.
+real multi-class session. Every tick also carries `session.multiclass`, set from the
+field's actual class mix (always `true` for the simulator's four-class field). Each transition is logged to stdout, e.g.
 `[mock] phase → grid (sim-clock 312s)`. Phase durations are configurable — see
 [Configuration](#configuration).
 
@@ -151,6 +152,9 @@ The original behavior: each connection independently cycles through the fixtures
   `target_lap` (the target/delta-absent render case for #22).
 - `qualifying-no-timing.json` — a qualifying subject whose vehicle carries no lap
   timing at all (#22's no-timing idle case).
+- `race-single-class.json` — a four-car field of one class (`"Default"`) with
+  `session.multiclass: false`, so the overlay hides its class tags at `theme.classTags: auto`
+  (ADR 0022).
 
 Fixtures are the **source of truth** for the app's fixture-based behavioral tests (see
 `CONTRIBUTING.md`) — use this mode when you want a known, reproducible scenario rather

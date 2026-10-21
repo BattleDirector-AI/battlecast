@@ -17,6 +17,7 @@
   import { textScaleVars } from '../../design/typeScale.js'
   import { isWidgetIdle } from '../../lib/widgetIdle.js'
   import { createBattleGrace } from '../../lib/battleGrace.js'
+  import { classTagsShown } from '../../lib/classTags.js'
 
   // `preview` (the /config editor) disables the on-board HUD's lower-third hand-off so
   // the HUD is always visible for positioning/configuring — the hand-off is a runtime
@@ -64,6 +65,9 @@
   // Broadcaster class-color overrides (rule 32, ADR 0010) — resolved once here and
   // threaded to every widget that renders a class chip or class bar.
   const classColors = $derived(normalized.theme.classColors)
+  // Overlay-wide class-tag setting (widgets.md rules 60-63, ADR 0022), threaded like
+  // classColors; each widget resolves it against the snapshot's `session.multiclass`.
+  const classTags = $derived(normalized.theme.classTags)
   // Battle box exit grace (widgets.md rules 37-39, ADR 0013). Lives here, outside the
   // battle slot, so `hideWhenIdle` unmounting the slot cannot kill a running hold — and
   // both the auto-hide filter and the box read the same post-grace snapshot.
@@ -91,7 +95,16 @@
   // driver lower-third's config to time the hand-off.
   const onboardCfg = $derived(normalized.widgets.onboard)
   const driverCfg = $derived(normalized.widgets.driver)
-  const onboardIdentity = $derived(resolveIdentity(snapshot, onboardCfg))
+  // Hidden class tags (rule 63): the HUD's class field counts as having no value, so a
+  // class-only strip resolves to no identity at all.
+  const onboardIdentity = $derived(
+    resolveIdentity(
+      snapshot,
+      classTagsShown(classTags, snapshot?.session)
+        ? onboardCfg
+        : { ...onboardCfg, driverInfo: { ...onboardCfg?.driverInfo, class: false } },
+    ),
+  )
   const subjectSlotId = $derived(snapshot?.subject?.slot_id ?? null)
   // Mirror the driver lower-third's own "renderable subject" test so the HUD's
   // hand-off timing tracks it exactly.
@@ -128,6 +141,7 @@
           configuredWidth={normalized.widgets.tower?.w}
           textScale={normalized.widgets.tower?.textScale}
           {classColors}
+          {classTags}
         />
       {:else if w.key === 'battle'}
         <BattleBox
@@ -137,13 +151,14 @@
           mode={battleSnapshot?.mode ?? null}
           session={battleSnapshot?.session ?? null}
           {classColors}
+          {classTags}
         />
       {:else if w.key === 'logos'}
         <LogoRotation rotation={normalized.logoRotation} />
       {:else if w.key === 'driver'}
-        <DriverLowerThird {snapshot} widget={w} {classColors} />
+        <DriverLowerThird {snapshot} widget={w} {classColors} {classTags} />
       {:else if w.key === 'qualifying'}
-        <QualifyingLowerThird {snapshot} widget={w} {classColors} />
+        <QualifyingLowerThird {snapshot} widget={w} {classColors} {classTags} />
       {:else if w.key === 'racecontrol'}
         <RaceControlStatus session={snapshot?.session ?? null} mode={snapshot?.mode ?? null} />
       {:else if w.key === 'onboard'}

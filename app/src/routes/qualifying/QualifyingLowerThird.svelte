@@ -34,10 +34,15 @@
   import { createLowerThirdTrigger, DEFAULT_DWELL_SECONDS } from '../../lib/lowerThirdTrigger.js'
   import { QUALIFYING_DEFAULTS } from '../../lib/overlayConfig.js'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
+  import { classTagsShown } from '../../lib/classTags.js'
 
   // `widget` carries the per-widget lower-third config (trigger / dwellSeconds /
   // showOnConnect) plus the #22 knobs (`modes`, `fireOnClassBest`).
-  let { snapshot = null, widget = {}, classColors = {} } = $props()
+  // `classTags` (widgets.md rules 60, 62): resolved against the LATEST snapshot's session at
+  // render time, so a card on screen (a frozen flash included) gains or loses its chip in place.
+  let { snapshot = null, widget = {}, classColors = {}, classTags = 'auto' } = $props()
+
+  const showTags = $derived(classTagsShown(classTags, snapshot?.session))
 
   const resolved = $derived(resolveSubject(snapshot))
   const vehicle = $derived(resolved.vehicle)
@@ -194,7 +199,7 @@
                 <span class="bc-qt__pos" data-testid="qt-pos">P{card.position}</span>
               {/if}
               <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
-              {#if card.carClass}
+              {#if card.carClass && showTags}
                 <ClassChip carClass={card.carClass} size="compact" {classColors} />
               {/if}
             </div>

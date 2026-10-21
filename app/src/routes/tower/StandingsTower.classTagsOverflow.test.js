@@ -74,6 +74,18 @@ describe('grouped tower, class tags hidden — overflow as an inline tower (rule
     expect(slots()).toEqual([...range(1, 3), ...range(7, 9)])
   })
 
+  it('cycling off: an integer maxRows still caps a hidden-tag grouped tower', () => {
+    render(StandingsTower, {
+      snapshot: singleClassField(30),
+      classDisplay: 'grouped',
+      classTags: 'auto',
+      maxRows: 6,
+      cycle: { ...CYCLE, enabled: false },
+    })
+    flushSync()
+    expect(slots()).toEqual(range(1, 6))
+  })
+
   it('guard: with the tags shown the grouped tower stays clamp-only (all 30 rows, no turn)', async () => {
     render(StandingsTower, {
       snapshot: singleClassField(30, { flag: 'green' }),
