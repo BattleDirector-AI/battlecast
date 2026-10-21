@@ -54,7 +54,7 @@
   import IntensityMeter from '../../design/IntensityMeter.svelte'
   import { classTagsShown } from '../../lib/classTags.js'
   import { presentName, resolveSubject } from '../driver/DriverLowerThird.svelte'
-  import { validVehicleList } from '../../lib/vehicles.js'
+  import { listableVehicleList, isListable } from '../../lib/vehicles.js'
 
   let {
     subject = {},
@@ -77,15 +77,15 @@
   const hot = $derived(intensity >= 0.67)
   const headerLabel = $derived(hot ? 'CLOSING' : 'BATTLE FOR POSITION')
 
-  // A non-object `vehicles[]` entry is treated as absent (widgets.md rule 59, protocol-contract.md rule 21).
-  const cars = $derived(validVehicleList(vehicles))
-  const subjectVehicle = $derived(
-    cars.find((v) => v.slot_id === subject?.slot_id)
-  )
+  // Neighbours are looked up among listable entries only: an entry without a usable slot_id or
+  // a finite position is absent (widgets.md rule 59, protocol-contract.md rule 21).
+  const cars = $derived(listableVehicleList(vehicles))
+  const resolved = $derived(resolveSubject({ subject, vehicles }))
+  const subjectVehicle = $derived(resolved.vehicle)
   const carClass = $derived(subjectVehicle?.vehicle_class)
   // Rule 65: the on-camera name is picked by the shared rule-14b resolver.
-  const subjectName = $derived(resolveSubject({ subject, vehicles }).name)
-  const subjectPos = $derived(subjectVehicle?.position)
+  const subjectName = $derived(resolved.name)
+  const subjectPos = $derived(isListable(subjectVehicle) ? subjectVehicle.position : undefined)
   // A neighbour's name counts as present by the rule 14b test; otherwise the slot shows the dash (rule 68).
   const aheadName = $derived(
     subjectPos != null

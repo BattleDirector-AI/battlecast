@@ -1,6 +1,15 @@
 /* vehicles.js — the usable-entry helpers (protocol-contract.md rule 21). */
 import { describe, it, expect } from 'vitest'
-import { isVehicleEntry, validVehicleList, validVehicles } from './vehicles.js'
+import {
+  isVehicleEntry,
+  validVehicleList,
+  validVehicles,
+  hasSlotId,
+  isUsableSlotId,
+  isListable,
+  listableVehicles,
+  listableVehicleList,
+} from './vehicles.js'
 
 const car = { slot_id: 'car-1', position: 1 }
 const JUNK = [
@@ -73,5 +82,34 @@ describe('validVehicles', () => {
     const out = validVehicles({ vehicles })
     expect(out).toEqual(vehicles)
     expect(out).not.toBe(vehicles)
+  })
+})
+
+describe('hasSlotId / isUsableSlotId / isListable / listable helpers (rule 21 option b)', () => {
+  const ok = { slot_id: 'a', position: 1 }
+  it('a slot_id is usable only as a non-empty string; whitespace counts', () => {
+    expect(isUsableSlotId('a')).toBe(true)
+    expect(isUsableSlotId(' ')).toBe(true)
+    for (const bad of ['', 7, null, undefined, {}]) expect(isUsableSlotId(bad)).toBe(false)
+    expect(hasSlotId({ slot_id: ' ' })).toBe(true)
+    expect(hasSlotId({ slot_id: '' })).toBe(false)
+    expect(hasSlotId(null)).toBe(false)
+  })
+  it('listable needs a usable slot_id and a finite numeric position', () => {
+    expect(isListable(ok)).toBe(true)
+    expect(isListable({ slot_id: 'a', position: -0 })).toBe(true)
+    for (const position of [NaN, Infinity, -Infinity, '2', null, undefined]) {
+      expect(isListable({ slot_id: 'a', position })).toBe(false)
+    }
+    expect(isListable({ slot_id: '', position: 1 })).toBe(false)
+    expect(isListable({ position: 1 })).toBe(false)
+  })
+  it('listableVehicles / listableVehicleList keep only listable entries, in order, as a new array', () => {
+    const b = { slot_id: ' ', position: 2 }
+    const input = [{}, ok, null, { slot_id: 'x', position: NaN }, b, { position: 3 }]
+    expect(listableVehicleList(input)).toEqual([ok, b])
+    expect(listableVehicles({ vehicles: input })).toEqual([ok, b])
+    expect(listableVehicles(undefined)).toEqual([])
+    expect(listableVehicleList('abc')).toEqual([])
   })
 })

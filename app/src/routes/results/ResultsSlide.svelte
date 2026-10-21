@@ -3,7 +3,7 @@
   import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName, fmtLapTime } from '../../design/format.js'
   import { classTagsShown } from '../../lib/classTags.js'
-  import { validVehicles } from '../../lib/vehicles.js'
+  import { listableVehicles } from '../../lib/vehicles.js'
 
   // Full-screen end-/mid-session results board (#23). Presentational: it renders
   // whatever snapshot it is handed as a per-class classification — grouped by class
@@ -32,7 +32,7 @@
   // class registry `order` (the same sequence the grid slide and grouped tower use),
   // with an alphabetical tiebreak for classes the registry doesn't know. Never mutate
   // the source array — copy before sort.
-  const usable = $derived(validVehicles(snapshot))
+  const usable = $derived(listableVehicles(snapshot))
   const groups = $derived.by(() => {
     const rows = usable
       .filter(

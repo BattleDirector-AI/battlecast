@@ -1,5 +1,5 @@
 <script module>
-  import { isVehicleEntry } from '../../lib/vehicles.js'
+  import { hasSlotId, isUsableSlotId } from '../../lib/vehicles.js'
 
   /**
    * Resolve the on-camera `subject` against the field into a render decision.
@@ -14,7 +14,7 @@
    * per-session key; two drivers can share a name).
    *
    * `name` is `subject.driver_name`, else the resolved vehicle's `driver_name`, each
-   * only when present (widgets.md rule 14b); a non-object `vehicles[]` entry never
+   * only when present (widgets.md rule 14b); an entry without a usable slot_id never
    * matches (rule 14a). The on-board HUD's `resolveIdentity` reuses this resolver.
    */
   export function resolveSubject(snapshot) {
@@ -22,8 +22,8 @@
     const slotId = subject?.slot_id ?? null
     const subjectName = presentName(subject?.driver_name)
     const vehicle =
-      slotId != null && Array.isArray(snapshot?.vehicles)
-        ? snapshot.vehicles.find((v) => isVehicleEntry(v) && v.slot_id === slotId)
+      isUsableSlotId(slotId) && Array.isArray(snapshot?.vehicles)
+        ? snapshot.vehicles.find((v) => hasSlotId(v) && v.slot_id === slotId)
         : undefined
     const name = subjectName ?? presentName(vehicle?.driver_name)
 
