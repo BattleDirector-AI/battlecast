@@ -13,11 +13,12 @@
   let snapshot = $state(null)
 
   // The standalone route reads the tower's OVERFLOW settings (`maxRows` / `cycle`), its
-  // driver name style (`nameStyle`, overlay-config rule 42) and its class layout
-  // (`classDisplay`, widgets rule 67) from the same profile /all reads them from, so one
-  // profile configures the tower on both routes (tower-overflow rule 20). `?class=` / `?metrics=` below keep the per-Browser-
-  // Source precedence they already had. config is always normalized, so widgets.tower
-  // carries the full field set from the first render.
+  // driver name style (`nameStyle`, overlay-config rule 42), its class layout
+  // (`classDisplay`, widgets rule 67) and its metrics (`towerMetrics`, overlay-config
+  // rule 49) from the same profile /all reads them from, so one profile configures the
+  // tower on both routes (tower-overflow rule 20). `?class=` / `?metrics=` below keep the
+  // per-Browser-Source precedence rule 13 gives them. config is always normalized, so
+  // widgets.tower carries the full field set from the first render.
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
   const tower = $derived(config.widgets.tower)
 
@@ -31,9 +32,12 @@
   const classFilter = params.get('class')
 
   // Richer-tower metrics knob for the standalone route: `?metrics=interval,pit,tire,fuel,lapflash`
-  // (listed = on, rest off; case-insensitive). Absent falls back to the same default as
-  // /all — interval and the lap-time flash on, strategy cluster off. Mirrors the 0.6.0 `?unit=mph` standalone knob.
-  const metrics = parseTowerMetricsParam(params.get('metrics')) ?? TOWER_METRICS_DEFAULTS
+  // (listed = on, rest off; case-insensitive). A list naming a known toggle is the whole
+  // list; an absent, blank or all-unknown one falls back to the profile's metrics, and with
+  // no profile to the default (overlay-config rule 49). Derived so the profile's metrics
+  // replace the default once the profile loads.
+  const metricsParam = parseTowerMetricsParam(params.get('metrics'))
+  const metrics = $derived(metricsParam ?? tower?.towerMetrics ?? TOWER_METRICS_DEFAULTS)
 
   // Tower overflow — where the slot comes from (tower-overflow rules 18–19, ADR 0005).
   // This route has no configured slot, so the Browser Source viewport IS the slot: its
