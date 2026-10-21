@@ -413,6 +413,53 @@ function testFinishStatusFieldValidatesAgainstSchema() {
   );
 }
 
+// `session.multiclass` (protocol-contract.md rule 20) is optional: the single-class fixture
+// carries `false` and the multi-class grid fixture `true`, both must validate, as must null and
+// a payload without it; and the schema must REJECT a string or number, so a producer that sends
+// `"false"` or `0` fails the harness rather than reading as "the producer does not say".
+function testMulticlassFieldValidatesAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const single = load("race-single-class.json");
+  assert(
+    single.session?.multiclass === false && single.vehicles.every((v) => v.vehicle_class === "Default"),
+    "race-single-class.json must carry session.multiclass: false and one shared class"
+  );
+  let result = validator.validate(single);
+  assert(result.valid, `expected race-single-class.json to validate, got: ${result.errors.join("; ")}`);
+
+  const multi = load("grid-multiclass.json");
+  assert(multi.session?.multiclass === true, "grid-multiclass.json must carry session.multiclass: true");
+  result = validator.validate(multi);
+  assert(result.valid, `expected grid-multiclass.json to validate, got: ${result.errors.join("; ")}`);
+
+  const nulled = JSON.parse(JSON.stringify(single));
+  nulled.session.multiclass = null;
+  result = validator.validate(nulled);
+  assert(result.valid, `expected session.multiclass: null to validate, got: ${result.errors.join("; ")}`);
+
+  const none = load("race-local-yellow.json");
+  assert(!("multiclass" in (none.session ?? {})), "race-local-yellow.json must NOT carry session.multiclass");
+  result = validator.validate(none);
+  assert(result.valid, `expected a session with NO multiclass to still validate, got: ${result.errors.join("; ")}`);
+
+  for (const [bad, label] of [["false", 'the string "false"'], [0, "0"], [1, "1"]]) {
+    const payload = JSON.parse(JSON.stringify(single));
+    payload.session.multiclass = bad;
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected session.multiclass ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes("/session/multiclass")),
+      `expected the multiclass ${label} error to name /session/multiclass, got: ${r.errors.join("; ")}`
+    );
+  }
+
+  console.log(
+    "PASS: session.multiclass validates against schema.json as a boolean or null, a session without it still validates, and wrongly typed values are rejected"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
@@ -421,6 +468,7 @@ async function main() {
   testLapDeficitFieldsValidateAgainstSchema();
   testLocalYellowFieldsValidateAgainstSchema();
   testFinishStatusFieldValidatesAgainstSchema();
+  testMulticlassFieldValidatesAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");

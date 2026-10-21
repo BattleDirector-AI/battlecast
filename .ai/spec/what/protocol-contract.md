@@ -89,11 +89,19 @@ on a field name/type, `schema.json` wins.
     other integer reads as running. Per car and producer-owned: the overlay never infers it from
     the session flag, laps, or position. The tower marks finished, DNF, and DQ rows when `mode` is
     `race` or `results`, under any session flag (`widgets.md` rule 45). Decision record: `docs/decisions/0017-finish-status-field.md`.
+20. **Single-class session** (additive): **`session.multiclass`** (boolean or null) says whether
+    the session has more than one vehicle class. Exactly `false` means single-class; `true`
+    means two or more; null, absent, or no `session` means the producer does not say. Producer
+    fact: the overlay never infers it from `vehicles[]` (not by counting distinct
+    `vehicle_class` values, not by recognizing a class string such as `"Default"`). With the
+    broadcaster's `theme.classTags` at `auto`, exactly `false` hides every class tag
+    (`widgets.md` rules 60–64); every other value leaves them showing. Decision record:
+    `docs/decisions/0022-single-class-tags.md`.
 15. **`session`** (open object) — session status: **`flag`** (free-form string;
     `green`/`yellow`/`red`/`checkered`/`white`/`none` common), **`full_course_yellow`** /
     **`safety_car`** (booleans, independent), timed fields **`time_remaining`** / **`session_length`**
     (seconds), lap fields **`laps_remaining`** / **`total_laps`** / **`current_lap`** (integers), and
-    optional **`basis`** (`"time"` | `"laps"`).
+    optional **`basis`** (`"time"` | `"laps"`), and **`multiclass`** (boolean or null; rule 20).
 16. **Timed-vs-lap progress selection** (consumer-inferred): honor `basis` if set; else if
     `time_remaining` non-null → session clock; else if a lap field non-null → lap counter; else hide
     the progress readout. The widget MUST render `current_lap`/`total_laps` verbatim (`"LAP X OF Y"`)

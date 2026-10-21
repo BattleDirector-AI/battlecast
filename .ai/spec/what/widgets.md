@@ -18,7 +18,8 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
    reads "LEADER".
 3. **Class display** (`classDisplay`): `inline` (one overall list, each row badged with its class
    position) or `grouped` (per-class sections in class-registry order, positions restarting within
-   each class). Only the tower reads this knob.
+   each class). Only the tower reads this knob. While class tags are hidden (rule 61) the tower
+   renders the inline layout whatever the knob says.
 4. A grouped-by-class tower MAY show a gap-to-class-leader by subtracting the class leader's
    `gap_to_leader` from a car's own — exact arithmetic on producer values, not a forbidden
    re-derivation.
@@ -234,7 +235,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
         the same mode is not a reset;
       - any of the tower's settings change: the class filter, `classDisplay`, `towerMetrics`,
         `maxRows`, `cycle`, `nameStyle`, the configured width, or (inside `/all`) the tower's
-        `textScale`.
+        `textScale`;
+      - whether class tags show (rule 60) changes, from the setting or from a snapshot's
+        `session.multiclass`.
 
       A new session in the same mode (one race, then the next) is **not** a reset: the
       protocol carries no session identity, so the tower cannot tell it apart from the same
@@ -254,8 +257,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     the same order, one per **column**, and each column has one width shared by every row,
     so a column's cells line up down the whole tower. The columns, in order, are:
     - `pos`: the position. Always shown.
-    - `class`: the class chip. Always shown.
-    - `classpos`: the class-rank badge (rule 5). Inline layout only.
+    - `class`: the class chip. Shown while class tags show (rule 61).
+    - `classpos`: the class-rank badge (rule 5). Inline layout only, while class tags show
+      (rule 61).
     - `name`: the driver name. Always shown.
     - `gap`: the gap cell (rules 1, 2, 33, 35, 40, 42a). Always shown.
     - `interval`: the interval (rules 6, 34, 42b). Shown when the interval metric is on.
@@ -405,9 +409,9 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     fire on connect, and an overlay that connects during a race makes its connect fire on the
     first such subject once the session turns eligible. A class-best fire does NOT trigger on
     connect.
-18. **#21 driver lower-third** renders identity: name, position (`P4`), class chip. Fires on any
-    subject change to a valid or degraded subject (rule 14), in all modes. Degrades to name-only
-    when `slot_id` unresolved.
+18. **#21 driver lower-third** renders identity: name, position (`P4`), class chip (while class
+    tags show, rule 62). Fires on any subject change to a valid or degraded subject (rule 14), in
+    all modes. Degrades to name-only when `slot_id` unresolved.
     The position renders as `P` plus the vehicle's `position` only when that is a positive integer;
     `0`, a negative or fractional number, a numeric string (`"3"`), null or absent show no position,
     and the rest of the card renders as normal.
@@ -496,9 +500,10 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
       degraded, so the strip is held; a `dwell` card with `showOnConnect` on fires, so the whole
       HUD is held for a full `dwellSeconds`, and with it off nothing is held until the next cut.
 54. **Identity strip content and order.** Left to right: the `ON BOARD` label (rule 55), position,
-    car number, driver name, class chip, then make and model as one line. Each enabled field shows
-    only when it has a value. The name is the subject's name as rule 14b picks it
-    (`subject.driver_name`, falling back to the vehicle's `driver_name`), in the HUD's name format; the others are read off the resolved vehicle.
+    car number, driver name, class chip (while class tags show, rule 63), then make and model as
+    one line. Each enabled field shows only when it has a value. The name is the subject's name as
+    rule 14b picks it (`subject.driver_name`, falling back to the vehicle's `driver_name`), in the
+    HUD's name format; the others are read off the resolved vehicle.
     Position renders as `P` followed by the vehicle's overall `position` — `P4`. A `position` that
     is null, absent, or anything other than a positive integer shows no position, and the rest of
     the strip renders as normal.
@@ -538,10 +543,11 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     `?class=` field filter (rule 10) applies across the composed field.
 26. **`/logos`** cycles sponsor logos (`logoRotation`: images, `perSlotSeconds`, `order`).
 27. **`/grid`** (pre-race starting grid) and **`/results`** (final classification) are full-screen
-    **opaque takeover** slides — full-bleed but NOT transparent overlay routes. They group the field
-    by class in class-registry order (the same sequence the grouped tower uses), order each group by
-    `position`, and honor the `?class=` filter. `/results` restarts class positions within each group
-    (like the grouped tower); `/grid` shows the overall position in a staggered two-column rake.
+    **opaque takeover** slides — full-bleed but NOT transparent overlay routes. While class tags
+    show (rule 64) they group the field by class in class-registry order (the same sequence the
+    grouped tower uses), order each group by `position`, and `/results` restarts class positions
+    within each group (like the grouped tower). Both honor the `?class=` filter. `/grid` shows the
+    overall position in a staggered two-column rake.
 
 ### Field filter & auto-hide
 
@@ -564,7 +570,7 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     exactly what the producer sent, rather than degrading to a meaningless placeholder that
     discards the producer's data. Applies everywhere a class chip renders: the tower (rules 3, 5),
     the driver lower-third's class chip (rule 18), and the grid/results group headers (rule 27).
-    Rule 31 governs that class's *color*.
+    Rule 31 governs that class's *color*. Rules 60–64 say when class tags are hidden.
 31. **A class outside the curated registry gets a deterministic color hashed from its own name, not
     a flat neutral one** — the same class string always resolves to the same color across reloads,
     from a palette independent of the five curated classes' colors. A class that is a
@@ -594,6 +600,59 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     through rule 31 unchanged, including a curated class's own established color. Applies everywhere
     rule 30/31 apply — every class-chip and class-bar render site. Decision record:
     `docs/decisions/0010-class-color-override-matrix.md`.
+
+### Class tags in a single-class session
+
+60. **Whether class tags show.** A *class tag* is any class chip (rule 30), wherever it renders,
+    the tower's class-rank badge (rule 5), and the class group headers of the grouped tower and
+    the `/grid` and `/results` slides. Whether class tags show is one answer for the whole
+    overlay, from the broadcaster's `theme.classTags` (`overlay-config.md` rule 47) and the
+    producer's `session.multiclass` (`protocol-contract.md` rule 20):
+
+    | `theme.classTags` | `session.multiclass` | Class tags |
+    |---|---|---|
+    | `show` | anything | shown |
+    | `hide` | anything | hidden |
+    | `auto` | exactly `false` | hidden |
+    | `auto` | `true`, null, absent, no `session`, or any non-boolean (`"false"`, `0`) | shown |
+
+    The answer follows the latest snapshot and the current config, with no hold: a snapshot that
+    changes `multiclass` shows or hides the tags at once. The overlay never decides it from
+    `vehicles[]`, neither by counting distinct `vehicle_class` values nor by the class string
+    (`"Default"` or any other), so a field whose cars all share one class keeps its tags while
+    the producer does not say single-class. It applies on every route and in every mode: inside
+    `/all` (the `/config` preview included) and on the standalone routes. Beyond what rules
+    61–64 name, hiding changes nothing: not a car's data, the `?class=` filter (rule 28), which
+    still narrows the field, or when a widget fires, shows, or idles.
+    Each tower row, grid cell, and results row keeps its class bar, coloured by rules 31–32.
+    Race Control renders no class tag and is unaffected. Decision record:
+    `docs/decisions/0022-single-class-tags.md`.
+61. **Hidden class tags in the tower.** The tower renders no class chip and no class-rank badge:
+    the `class` and `classpos` columns (rule 49) are absent, so each row reads position, name,
+    gap, then the cells rule 49 shows after the gap. The header's class-filter chip is not
+    shown either. A tower whose `classDisplay` is `grouped` renders the inline layout instead:
+    one list in overall `position` order with no group headers, numbered by overall position,
+    with the inline gap cell (rules 1, 2, 33), and the root's `data-class-display` reads
+    `inline`, the layout it renders. The tower-overflow rules (`tower-overflow.md`) then apply
+    as they do to any inline tower, with pinned rows following `cycle.pinScope` unchanged. When
+    the tags show again, the tower renders its configured layout. A change in whether the tags
+    show resets the full-style fit width (rule 48), so a full-style tower that loses its class
+    columns shrinks to its new fit.
+62. **Hidden class tags on the battle box and the lower-thirds.** The battle box, the driver
+    lower-third (#21), and the qualifying lower-third (#22) render no class chip. Everything else
+    on them renders exactly as with the tags shown. A card already on screen, including a #22
+    class-best flash, gains or loses its chip with the latest answer (rule 60); that never
+    fires, re-fires, or ends a card.
+63. **Hidden class tags on the on-board HUD.** The identity strip renders no class chip, even with
+    `driverInfo.class` on. The class field then counts as having no value for rules 55–56, so a
+    strip whose only enabled field with a value is the class renders no strip and no `ON BOARD`
+    label.
+64. **Hidden class tags on `/grid` and `/results`.** The slide renders the field as one list in
+    overall `position` order, with no class group headers (no class chip and no per-class car
+    count) and no class-filter chip in its header. `/grid` keeps its staggered two-column rake,
+    each cell showing the car's overall position. `/results` numbers each row by its overall
+    `position` instead of a class position. With a `?class=` filter, the list is the filtered
+    cars in that order.
 
 ## Constraints
 

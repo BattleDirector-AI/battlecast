@@ -714,3 +714,32 @@ describe('full-style width — font-failure lifecycle (rule 48, #260)', () => {
     expect(fonts.load.mock.calls.map((c) => c[0])).toEqual([FALLBACK_FONT, SIZE_B_FONT])
   })
 })
+
+// ---- class-tag resets (widgets.md rules 48, 60-61, ADR 0022) --------------------------------
+describe('full-style width — a class-tag flip resets (rule 48)', () => {
+  // grid-multiclass carries session.multiclass: true, so the tags show until the flip.
+  async function grownWithTags(props = {}) {
+    const view = await mount({ snapshot: withLong(), configuredWidth: 100, classTags: 'auto', ...props })
+    await update(view, { snapshot: withNames(NAMES) })
+    expect(minWidth(), 'grow-only should hold 210 before the flip').toBe('210px')
+    return view
+  }
+
+  it('resets when the setting flips from show to hide', async () => {
+    const view = await grownWithTags({ classTags: 'show' })
+    await update(view, { classTags: 'hide' })
+    expect(minWidth()).toBe('110px')
+  })
+
+  it('resets when a snapshot flips session.multiclass to false under auto', async () => {
+    const view = await grownWithTags()
+    await update(view, { snapshot: withNames(NAMES, { session: { multiclass: false } }) })
+    expect(minWidth()).toBe('110px')
+  })
+
+  it('does not reset when the answer stays the same (multiclass dropped: still shown)', async () => {
+    const view = await grownWithTags()
+    await update(view, { snapshot: withNames(NAMES, { session: {} }) })
+    expect(minWidth()).toBe('210px')
+  })
+})

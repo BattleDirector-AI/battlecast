@@ -236,6 +236,10 @@
           "items": { "type": "string" },
           "description": "Optional per-sector LOCAL flag state, one entry per track sector in lap order: index 0 is sector 1 whatever the sim's own indexing (the producer remaps and translates). `yellow` (trimmed, case-insensitive) marks a sector under a local yellow; any other value (`green`, `none`, a sim-specific string) means no local yellow there. Free-form like `flag`: consumers tolerate unknown values. Null or absent = no sector information, not all-clear: a producer whose sim has no per-sector flag SHOULD omit it rather than send all-green, and a producer that has sector flags SHOULD send every sector. Producer-owned; the number of sectors is the producer's (commonly 3). Distinct from `full_course_yellow`, the session-wide caution."
         },
+        "multiclass": {
+          "type": ["boolean", "null"],
+          "description": "Whether the session has more than one vehicle class. `false` says the session is single-class: every car shares one class, so a consumer MAY hide its class tags (class chips, class-rank badges, class group headers), which would otherwise all repeat one label, often a producer's placeholder for a sim that reports no class. `true` says the session has two or more classes. Null or absent gives no signal either way. Producer-owned (dumb overlay, smart producer): a consumer never infers it from `vehicles[]`, neither by counting distinct `vehicle_class` values nor by recognizing a placeholder class name. A producer that knows the session's classes SHOULD send it on every snapshot."
+        },
         "time_remaining": {
           "type": ["number", "null"],
           "description": "Seconds left in a TIMED session, counting down. Null or absent in a lap-limited session, or before the clock is known. When non-null (and not overridden by `basis`), it selects the session-clock readout; `session_length` is its denominator for a progress bar. The producer owns the clock; consumers just display it."

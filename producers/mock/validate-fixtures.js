@@ -29,6 +29,7 @@ const FIXTURE_FILES = [
   "race-tower-lapped.json",
   "race-local-yellow.json",
   "race-finish.json",
+  "race-single-class.json",
 ];
 
 let failed = 0;
