@@ -362,10 +362,17 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 16. **Trigger modes:** `dwell` (default) — fire on change, show for `dwellSeconds`, then auto-hide
     even if the camera stays; a new change resets the dwell **in place** (no hide→show flicker).
     `persistent` — show whenever the subject is valid or degraded (rule 14), no timer.
-17. **On (re)connect:** fire once for the current valid subject (`showOnConnect`, default true),
-    then follow change detection. A class-best fire does NOT trigger on connect.
+17. **On (re)connect:** fire once for the first subject that widget treats as active
+    (`showOnConnect`, default true), then follow change detection. A subject the widget treats as
+    idle does not use up the connect fire. #21 is active for a valid or degraded subject (rule 14),
+    so a degraded subject fires its name-only card on connect. #22 is active only for a valid
+    subject with timing while it is mode-eligible (rules 14 and 19), so a degraded subject does not
+    fire on connect, and an overlay that connects during a race makes its connect fire on the
+    first such subject once the session turns eligible. A class-best fire does NOT trigger on
+    connect.
 18. **#21 driver lower-third** renders identity: name, position (`P4`), class chip. Fires on any
-    subject change to a valid subject, in all modes. Degrades to name-only when `slot_id` unresolved.
+    subject change to a valid or degraded subject (rule 14), in all modes. Degrades to name-only
+    when `slot_id` unresolved.
     The position renders as `P` plus the vehicle's `position` only when that is a positive integer;
     `0`, a negative or fractional number, a numeric string (`"3"`), null or absent show no position,
     and the rest of the card renders as normal.
