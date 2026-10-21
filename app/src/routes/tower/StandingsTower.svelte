@@ -4,6 +4,7 @@
   import { fmtName, fmtShortName, fmtLapTime } from '../../design/format.js'
   import { sessionProgressText } from '../../design/sessionProgress.js'
   import { classTagsShown } from '../../lib/classTags.js'
+  import { validVehicles } from '../../lib/vehicles.js'
   import { onDestroy, untrack } from 'svelte'
   import { computeRowBudget, createTowerCycle, clampPerPageSeconds } from './towerCycle.js'
 
@@ -105,7 +106,7 @@
   }
 
   $effect(() => {
-    const vehicles = snapshot?.vehicles ?? []
+    const vehicles = validVehicles(snapshot)
     const enabled = m.lapFlash
     untrack(() => {
       if (!enabled) clearFlashes()
@@ -178,7 +179,7 @@
   // Full field in overall running order — the basis for both layouts and for each
   // car's rank within its class. Never mutate the source array — copy before sort.
   const allSorted = $derived(
-    [...(snapshot?.vehicles ?? [])].sort((a, b) => a.position - b.position),
+    validVehicles(snapshot).sort((a, b) => a.position - b.position),
   )
 
   // Class rank + class size, computed once from the full field's running order so a
@@ -229,7 +230,7 @@
   const hasRows = $derived(grouped ? groups.length > 0 : inlineRows.length > 0)
   // A class filter that matches nothing is a distinct, explicit state from "no
   // snapshot at all" — surface which so the tower never blanks silently.
-  const emptyReason = $derived(snapshot?.vehicles?.length ? 'no-match' : 'no-state')
+  const emptyReason = $derived(allSorted.length ? 'no-match' : 'no-state')
 
   // ---- tower overflow: pinned rows + cycling window (ADR 0003) ---------------
   // The grouped layout stays clamp-only (spec scope); cycling applies to the inline

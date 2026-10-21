@@ -3,6 +3,7 @@
   import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName, fmtLapTime } from '../../design/format.js'
   import { classTagsShown } from '../../lib/classTags.js'
+  import { validVehicles } from '../../lib/vehicles.js'
 
   // Full-screen end-/mid-session results board (#23). Presentational: it renders
   // whatever snapshot it is handed as a per-class classification — grouped by class
@@ -32,7 +33,7 @@
   // with an alphabetical tiebreak for classes the registry doesn't know. Never mutate
   // the source array — copy before sort.
   const groups = $derived.by(() => {
-    const rows = [...(snapshot?.vehicles ?? [])]
+    const rows = validVehicles(snapshot)
       .filter(
         (v) =>
           filterKey === null ||
@@ -60,7 +61,7 @@
   // A snapshot with a class filter that matches nothing is a distinct, explicit
   // state from "no snapshot at all" — surface which one so the board never blanks.
   const emptyReason = $derived(
-    snapshot?.vehicles?.length ? 'no-match' : 'no-state',
+    validVehicles(snapshot).length ? 'no-match' : 'no-state',
   )
 </script>
 

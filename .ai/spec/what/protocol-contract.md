@@ -50,6 +50,14 @@ on a field name/type, `schema.json` wins.
 12. **`relationship`** (object) — the subject's battle context: `gap_ahead` / `gap_behind` (seconds,
     null/absent when the subject leads/trails the field) and `battle_intensity` (`[0,1]`, opaque
     producer computation). Drives the battle box.
+21. **Malformed `vehicles` is tolerated.** A payload whose `vehicles` is not an array (`{}`, a
+    string, `null`) is treated by every widget as an empty array. An entry of a `vehicles` array
+    that is not an object (`null`, a number, a string, an array — an array is not an object whatever
+    properties it carries) is treated by every widget as
+    absent: it is never a row, never a match for `subject.slot_id`, and never counts toward a
+    class rank, a class car count, a total, or a column's sizing — the widget renders exactly as
+    if the entry were not in the array, wherever it sits. No widget throws on either. Widget
+    specifics: `widgets.md` rules 14a, 59, and 66.
 
 ### Optional additive fields (consumer MUST tolerate absence)
 
