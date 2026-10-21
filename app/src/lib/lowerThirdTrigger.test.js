@@ -173,3 +173,133 @@ describe('lowerThirdTrigger — persistent mode', () => {
     expect(engine.shown).toBe(false)
   })
 })
+
+describe('lowerThirdTrigger — a live change of trigger mode (rule 16)', () => {
+  const PERSISTENT = { subjectSlotId: 'car-1', active: true, trigger: 'persistent' }
+  const DWELL = { subjectSlotId: 'car-1', active: true, trigger: 'dwell', dwellSeconds: 6 }
+
+  it('persistent -> dwell with the card up: a fresh dwell from the switch, then it wipes out', () => {
+    const { engine, changes } = makeEngine()
+    engine.sync(PERSISTENT)
+    // Up for a long time on persistent, far past any dwell.
+    vi.advanceTimersByTime(60_000)
+    engine.sync(PERSISTENT)
+    expect(engine.shown).toBe(true)
+
+    // Switch to dwell with the same subject on camera (no camera cut).
+    engine.sync(DWELL)
+    expect(engine.shown).toBe(true)
+
+    // The dwell counts from the switch, not from when the card first came up.
+    vi.advanceTimersByTime(5_999)
+    engine.sync(DWELL)
+    expect(engine.shown, 'still inside the fresh dwell').toBe(true)
+    vi.advanceTimersByTime(1)
+    expect(engine.shown, 'the fresh dwell elapsed -> the card wipes out').toBe(false)
+
+    // No flicker: the card went up once and down once, nothing in between.
+    expect(changes).toEqual([true, false])
+  })
+
+  it('a switch is not a connect: the fresh dwell starts even with showOnConnect off (rule 17)', () => {
+    const { engine, changes } = makeEngine()
+    engine.sync({ ...PERSISTENT, showOnConnect: false })
+    vi.advanceTimersByTime(60_000)
+    expect(engine.shown, 'premise: the persistent card is up').toBe(true)
+
+    engine.sync({ ...DWELL, showOnConnect: false })
+    vi.advanceTimersByTime(5_999)
+    engine.sync({ ...DWELL, showOnConnect: false })
+    expect(engine.shown, 'still inside the fresh dwell').toBe(true)
+    vi.advanceTimersByTime(1)
+    expect(engine.shown, 'the fresh dwell elapsed -> the card wipes out').toBe(false)
+    expect(changes).toEqual([true, false])
+  })
+
+  it('a switch with the card down does not consume a connect: the next real cut fires (rule 17)', () => {
+    const { engine, changes } = makeEngine()
+    const invalid = { subjectSlotId: null, active: false, showOnConnect: false }
+    // Connected on persistent with a real subject, then the subject goes invalid: card down.
+    engine.sync({ ...PERSISTENT, showOnConnect: false })
+    engine.sync({ ...invalid, trigger: 'persistent' })
+    engine.sync({ ...invalid, trigger: 'dwell', dwellSeconds: 6 })
+    expect(engine.shown).toBe(false)
+
+    engine.sync({ ...DWELL, subjectSlotId: 'car-9', showOnConnect: false })
+    expect(engine.shown, 'a real camera cut after the switch fires').toBe(true)
+    vi.advanceTimersByTime(6_000)
+    expect(engine.shown).toBe(false)
+    expect(changes).toEqual([true, false, true, false])
+  })
+
+  it('the fresh dwell lasts the configured dwellSeconds', () => {
+    const { engine } = makeEngine()
+    engine.sync(PERSISTENT)
+    engine.sync({ ...DWELL, dwellSeconds: 3 })
+    vi.advanceTimersByTime(2_999)
+    expect(engine.shown).toBe(true)
+    vi.advanceTimersByTime(1)
+    expect(engine.shown).toBe(false)
+  })
+
+  it('after the fresh dwell, the unchanged subject does not bring the card back', () => {
+    const { engine, changes } = makeEngine()
+    engine.sync(PERSISTENT)
+    engine.sync(DWELL)
+    vi.advanceTimersByTime(6_000)
+    expect(engine.shown).toBe(false)
+
+    engine.sync(DWELL)
+    vi.advanceTimersByTime(60_000)
+    engine.sync(DWELL)
+    expect(engine.shown).toBe(false)
+    expect(changes).toEqual([true, false])
+  })
+
+  it('a camera cut during the fresh dwell resets it in place', () => {
+    const { engine, changes } = makeEngine()
+    engine.sync(PERSISTENT)
+    engine.sync(DWELL)
+    vi.advanceTimersByTime(4_000)
+    engine.sync({ ...DWELL, subjectSlotId: 'car-9' })
+    vi.advanceTimersByTime(5_999)
+    expect(engine.shown, 'the cut restarted the dwell').toBe(true)
+    vi.advanceTimersByTime(1)
+    expect(engine.shown).toBe(false)
+    expect(changes).toEqual([true, false])
+  })
+
+  it('persistent -> dwell with the card down (invalid subject): nothing fires', () => {
+    const { engine, changes } = makeEngine()
+    engine.sync(PERSISTENT)
+    engine.sync({ subjectSlotId: null, active: false, trigger: 'persistent' })
+    expect(engine.shown).toBe(false)
+
+    engine.sync({ subjectSlotId: null, active: false, trigger: 'dwell', dwellSeconds: 6 })
+    vi.advanceTimersByTime(10_000)
+    expect(engine.shown).toBe(false)
+    expect(changes).toEqual([true, false])
+  })
+
+  it('dwell -> persistent after the dwell ended: the card is up again, with no timer', () => {
+    const { engine } = makeEngine()
+    engine.sync(DWELL)
+    vi.advanceTimersByTime(6_000)
+    expect(engine.shown, 'premise: the dwell ended').toBe(false)
+
+    engine.sync(PERSISTENT)
+    expect(engine.shown).toBe(true)
+    vi.advanceTimersByTime(60_000)
+    expect(engine.shown, 'no leftover dwell timer takes it down').toBe(true)
+  })
+
+  it('dwell -> persistent mid-dwell: the running dwell timer no longer hides the card', () => {
+    const { engine, changes } = makeEngine()
+    engine.sync(DWELL)
+    vi.advanceTimersByTime(3_000)
+    engine.sync(PERSISTENT)
+    vi.advanceTimersByTime(60_000)
+    expect(engine.shown).toBe(true)
+    expect(changes).toEqual([true])
+  })
+})
