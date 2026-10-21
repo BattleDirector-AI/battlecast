@@ -21,6 +21,10 @@
  *    unchanged subject repeated every snapshot does NOT re-fire.
  *  - `persistent`: shown whenever the subject is active; hidden when not. No timer.
  *
+ * A live switch `persistent` → `dwell` with the card up starts a fresh dwell from
+ * the switch (in place). The switch is not a connect, so `showOnConnect` does not
+ * apply to it.
+ *
  * On (re)connect (Decision B): the first `sync()` after construction fires once for
  * the current active subject (so opening the Browser Source shows the current
  * driver), gated by `showOnConnect` (default true).
@@ -43,6 +47,8 @@ export function createLowerThirdTrigger({ onChange } = {}) {
   let prevKey
   let started = false
   let timer = null
+  // The mode of the previous sync, so a live `persistent` → `dwell` switch is seen.
+  let prevMode
 
   function emit(next) {
     if (next === shown) return
@@ -82,6 +88,8 @@ export function createLowerThirdTrigger({ onChange } = {}) {
     const key = subjectSlotId ?? null
     const mode = trigger === 'persistent' ? 'persistent' : 'dwell'
     const dwell = Number(dwellSeconds) > 0 ? Number(dwellSeconds) : DEFAULT_DWELL_SECONDS
+    const switchedFromPersistent = prevMode === 'persistent' && mode === 'dwell'
+    prevMode = mode
 
     if (mode === 'persistent') {
       // Level-triggered: shown iff the subject is active. No timer.
@@ -122,7 +130,10 @@ export function createLowerThirdTrigger({ onChange } = {}) {
     // Unchanged active subject repeated on a later snapshot: do nothing (leave the
     // dwell running / the card as-is). This is the edge trigger — `A → A` never
     // re-fires.
-    if (!changed && !isFirst) return shown
+    // A switch from `persistent` with the card up is a fire of its own (not a
+    // connect): it arms a fresh dwell below even with no camera cut.
+    const freshDwell = switchedFromPersistent && shown
+    if (!changed && !isFirst && !freshDwell) return shown
 
     // On connect, only fire when opted in; the baseline key is already established.
     if (isFirst && !showOnConnect) return shown
