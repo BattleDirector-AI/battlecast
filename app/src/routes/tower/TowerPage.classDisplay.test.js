@@ -10,7 +10,7 @@
  * The clamp test covers tower-overflow.md Scope and rule 18: a grouped tower is bounded at the
  * derived slot (viewport less the two safe-area insets). happy-dom does no layout, so geometry
  * cannot be measured; the test asserts the style bound instead: the tower root carries an
- * inline `max-height` (or `height`) equal to the slot in px. With innerHeight 500 and the 48px
+ * inline `max-height` (never a fixed `height`) equal to the slot in px. With innerHeight 500 and the 48px
  * inset fallback the slot is 500 - 96 = 404px.
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
@@ -139,8 +139,24 @@ describe('standalone /tower — a grouped tower is bounded at the derived slot (
     // Only the tower root clips its own rows (a wrapper with no overflow does not), and the
     // check reads inline style only: a bound set in a stylesheet would not be seen here.
     const slotPx = `${INNER_HEIGHT - 2 * SAFE_INSET_PX}px`
-    expect([tower.style.maxHeight, tower.style.height], 'the tower root is not bounded to the slot').toContain(
-      slotPx,
-    )
+    expect(tower.style.maxHeight, 'the tower root is not bounded to the slot').toBe(slotPx)
+    // A fixed height would draw a tall empty plate under a short grouped field.
+    expect(tower.style.height).toBe('')
+  })
+
+  it('inline profile, 30 cars: the inline layout gets no inline bound (selection, not the clamp, bounds it)', async () => {
+    await mountTower('?profile=p', INLINE, bigMulticlass, INNER_HEIGHT)
+    expect(root().getAttribute('data-class-display')).toBe('inline')
+    expect(root().style.maxHeight).toBe('')
+    expect(root().style.height).toBe('')
+  })
+
+  it('grouped profile with the class tags hidden renders inline and gets no inline bound', async () => {
+    const singleClass = { ...bigMulticlass, session: { ...bigMulticlass.session, multiclass: false } }
+    await mountTower('?profile=p', GROUPED, singleClass, INNER_HEIGHT)
+    expect(root().getAttribute('data-class-display')).toBe('inline')
+    expect(document.querySelectorAll('[data-testid="tower-group"]')).toHaveLength(0)
+    expect(root().style.maxHeight).toBe('')
+    expect(root().style.height).toBe('')
   })
 })

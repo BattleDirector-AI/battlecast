@@ -81,7 +81,7 @@ describe('rule 66: page cycling with junk vehicles[] entries', () => {
   it('budgets and pages on the real cars only: junk takes no row and no page slot', async () => {
     render(StandingsTower, { snapshot: field(), slotHeight: 400, cycle: CYCLE })
     flushSync()
-    // Budget 8 (header 38px / row 44px under happy-dom): pins 1-3 + window 4-8.
+    // Budget 8 (40px chrome / 45px rows under happy-dom): pins 1-3 + window 4-8.
     expect(slots()).toEqual(range(1, 8))
     await vi.advanceTimersByTimeAsync(8000)
     flushSync()
