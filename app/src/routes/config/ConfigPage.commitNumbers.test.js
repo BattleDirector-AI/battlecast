@@ -197,6 +197,7 @@ describe('config editor: typed number fields apply on commit', () => {
     const cases = [
       // dwell and seconds per page must be above 0; pinTop must be at least 0
       { id: 'dwell-driver', next: 9, typed: '0', read: (c) => c.widgets.driver.dwellSeconds },
+      { id: 'dwell-driver', next: 9, typed: '-1', read: (c) => c.widgets.driver.dwellSeconds },
       { id: 'per-page-seconds-tower', next: 12, typed: '0', read: (c) => c.widgets.tower.cycle.perPageSeconds },
       { id: 'pin-top-tower', next: 5, typed: '-2', read: (c) => c.widgets.tower.cycle.pinTop },
     ]

@@ -51,7 +51,7 @@
   import { onDestroy } from 'svelte'
   import ClassChip from '../../design/ClassChip.svelte'
   import { fmtName, positiveIntOrNull } from '../../design/format.js'
-  import { createLowerThirdTrigger, DEFAULT_DWELL_SECONDS } from '../../lib/lowerThirdTrigger.js'
+  import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
   import { classTagsShown } from '../../lib/classTags.js'
 
@@ -64,9 +64,6 @@
   const resolved = $derived(resolveSubject(snapshot))
   const active = $derived(resolved.state !== 'invalid')
   const trigger = $derived(widget?.trigger === 'persistent' ? 'persistent' : 'dwell')
-  const dwellSeconds = $derived(
-    Number(widget?.dwellSeconds) > 0 ? Number(widget.dwellSeconds) : DEFAULT_DWELL_SECONDS,
-  )
   const showOnConnect = $derived(widget?.showOnConnect !== false)
 
   // The engine owns fire/dwell/hide timing; we mirror its output into reactive
@@ -85,7 +82,7 @@
       subjectSlotId: resolved.slotId,
       active,
       trigger,
-      dwellSeconds,
+      dwellSeconds: widget?.dwellSeconds,
       showOnConnect,
     })
   })

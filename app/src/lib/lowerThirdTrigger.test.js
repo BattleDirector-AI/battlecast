@@ -70,6 +70,16 @@ describe('lowerThirdTrigger — dwell mode (default)', () => {
     expect(engine.shown).toBe(false)
   })
 
+  it.each([true, '', null, 0, -1, 'abc', [5], Infinity])('a dwellSeconds of %j is not a dwell: the default holds', (bad) => {
+    const { engine } = makeEngine()
+    engine.sync({ subjectSlotId: 'car-1', active: true, dwellSeconds: bad })
+    expect(engine.shown).toBe(true)
+    vi.advanceTimersByTime(DEFAULT_DWELL_SECONDS * 1000 - 1)
+    expect(engine.shown).toBe(true)
+    vi.advanceTimersByTime(1)
+    expect(engine.shown).toBe(false)
+  })
+
   it('auto-hides after dwellSeconds even though the subject stays on camera', () => {
     const { engine } = makeEngine()
     engine.sync({ subjectSlotId: 'car-1', active: true, dwellSeconds: 6 })

@@ -31,7 +31,7 @@
   import { onDestroy } from 'svelte'
   import ClassChip from '../../design/ClassChip.svelte'
   import { fmtName, fmtLapTime, fmtSector, fmtDelta } from '../../design/format.js'
-  import { createLowerThirdTrigger, DEFAULT_DWELL_SECONDS } from '../../lib/lowerThirdTrigger.js'
+  import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
   import { QUALIFYING_DEFAULTS } from '../../lib/overlayConfig.js'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
   import { classTagsShown } from '../../lib/classTags.js'
@@ -58,9 +58,6 @@
   const fireOnClassBest = $derived(widget?.fireOnClassBest !== false)
 
   const trigger = $derived(widget?.trigger === 'persistent' ? 'persistent' : 'dwell')
-  const dwellSeconds = $derived(
-    Number(widget?.dwellSeconds) > 0 ? Number(widget.dwellSeconds) : DEFAULT_DWELL_SECONDS,
-  )
   const showOnConnect = $derived(widget?.showOnConnect !== false)
 
   /** Freeze a resolved subject + vehicle into a flat, self-contained card so a
@@ -138,7 +135,7 @@
       subjectSlotId: eligible ? slotId : null,
       active: active && eligible,
       trigger,
-      dwellSeconds,
+      dwellSeconds: widget?.dwellSeconds,
       showOnConnect,
     })
 
@@ -150,7 +147,7 @@
       subjectSlotId: `cb#${cbToken}`,
       active: true,
       trigger: 'dwell',
-      dwellSeconds,
+      dwellSeconds: widget?.dwellSeconds,
       showOnConnect: false,
     })
   })
