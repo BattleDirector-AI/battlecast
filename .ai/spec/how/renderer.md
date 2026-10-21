@@ -148,6 +148,11 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   back to the widget literal first, and `/onboard` reads `DEFAULT_CONFIG.widgets.onboard`
   directly, without normalizing. The field list is `DRIVER_INFO_FIELDS`; the `/config` checkboxes
   and the `DRIVER_INFO_HELP` coverage test both iterate it.
+- **Lower-third dwell default** (`what/overlay-config.md` rule 46): the default `6` lives in three
+  places that must agree: the per-widget `dwellSeconds` literals in `DEFAULT_CONFIG`,
+  `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).
+  The last backs a second `> 0` guard in `DriverLowerThird.svelte`, `QualifyingLowerThird.svelte`
+  and `lowerThirdTrigger.js`'s `sync()`.
 - **Tower overflow selection** (`towerCycle.js`, behavior in `what/tower-overflow.md`): the row
   budget is `floor((slotHeight − headerHeight) / rowHeight)`, **measured** from the
   `--bc-widget-header` (38px) and `--bc-row-standard` (44px) design tokens rather than hardcoded, so

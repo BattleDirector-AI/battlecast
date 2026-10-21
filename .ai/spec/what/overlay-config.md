@@ -35,7 +35,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
    `z` are each read as a **valid number**: a finite number, or a non-blank string that JavaScript
    `Number()` turns into a finite number (so surrounding whitespace, a sign, a decimal point, an
    exponent, and a `0x` hex prefix are accepted: `' 1500 '`, `'-12'`, `'1e3'`, `'0x10'`), stored
-   as that number (`'1500'` becomes `1500`). Everything else is not a valid number and MUST NOT be
+   as that number (`'1500'` becomes `1500`). A sign and a `0x` prefix do not combine: `'-0x10'`
+   and `'+0x10'` are not valid numbers. Everything else is not a valid number and MUST NOT be
    read as one: a blank or whitespace-only string (it is not 0), a string that is not wholly a
    number (`'abc'`, `' 12abc'`, `'380px'`), `'Infinity'`, `null`, a boolean (`true` is not 1), an
    array (`[5]` is not 5), an object, a missing value. Such a field takes the widget's default
@@ -49,7 +50,11 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 ### Geometry
 
 9. Geometry is **absolute px against a fixed canvas** (default 1920×1080, LMU's supported
-   resolution; configurable per profile via `config.canvas`, min edge 320). The render page scales
+   resolution; configurable per profile via `config.canvas`, min edge 320). `canvas.w` and
+   `canvas.h` are each read as a valid number (rule 6); one that is not takes its default edge
+   (`w` 1920, `h` 1080), so a blank, `true` or `[1280]` is not an edge of 0, 1 or 1280. A valid
+   number is rounded to the nearest integer and then raised to the 320 minimum (`'1280'` becomes
+   1280, `-5` becomes 320). A `canvas` that is not an object takes 1920×1080. The render page scales
    the canvas uniformly to the viewport, so a broadcaster gets the same layout at any Browser Source
    size. Widgets paint in ascending `z` order.
 45. **Default tower and battle-box geometry.** The built-in default tower is 400 wide
@@ -88,6 +93,12 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `maxRows`, `cycle` | tower | overflow row cap + pinned-rows/cycling-window config (see `tower-overflow.md`) |
     | `nameStyle` | tower | `short` (default) / `full` driver names (rules 42–43) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
+
+46. **`dwellSeconds`** (lower-thirds; default `6`) is how long a `dwell`-trigger lower-third shows
+    once it fires (widgets rule 16). It is read as a valid number (rule 6). A valid number greater
+    than 0 is stored as that number (`'7.5'` becomes 7.5); anything else — not a valid number, 0,
+    or negative — takes the default. So a blank, `null`, `true` or `[5]` is not a dwell of 0, 1 or
+    5 seconds.
 
 12. **Tower overflow config** (`maxRows`, `cycle`; only the tower reads them). `maxRows`: `"auto"`
     (fit the configured height) or an integer cap. `cycle`: `enabled` (default true), `perPageSeconds`

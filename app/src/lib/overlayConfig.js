@@ -426,10 +426,11 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value))
 }
 
-/** Coerce to a finite number, else the provided default. */
+/** A valid number (rule 6, see `finiteOrNull`), else the provided default. A blank
+ *  string, null, a boolean or an array is not read as a number, so it takes the default
+ *  rather than the `0` / `1` / element value `Number()` would give it. */
 function num(value, fallback) {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : fallback
+  return finiteOrNull(value) ?? fallback
 }
 
 /** Coerce to a finite number clamped to [0, 1], else the provided default. Accepts a
@@ -441,9 +442,9 @@ function clamp01(value, fallback) {
   return n !== null ? Math.max(0, Math.min(1, n)) : fallback
 }
 
-/** A finite number, or a non-blank string `Number()` turns into one; else null. Stricter
- *  than `num()`: a blank string, null, a boolean or an array is not read as a number. */
-function finiteOrNull(value) {
+/** A finite number, or a non-blank string `Number()` turns into one; else null. A blank
+ *  string, null, a boolean or an array is not read as a number. */
+export function finiteOrNull(value) {
   const n =
     typeof value === 'number'
       ? value
@@ -562,8 +563,8 @@ export function normalizeConfig(raw) {
           ? w.trigger
           : d.trigger ?? LOWER_THIRD_DEFAULTS.trigger,
       dwellSeconds:
-        Number(w.dwellSeconds) > 0
-          ? num(w.dwellSeconds, d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds)
+        finiteOrNull(w.dwellSeconds) > 0
+          ? finiteOrNull(w.dwellSeconds)
           : d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds,
       showOnConnect:
         typeof w.showOnConnect === 'boolean'
