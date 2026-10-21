@@ -19,7 +19,8 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 3. **Class display** (`classDisplay`): `inline` (one overall list, each row badged with its class
    position) or `grouped` (per-class sections in class-registry order, positions restarting within
    each class). Only the tower reads this knob. While class tags are hidden (rule 61) the tower
-   renders the inline layout whatever the knob says.
+   renders the inline layout whatever the knob says. The standalone `/tower` route and the tower
+   inside `/all` both read it from the loaded profile (rule 67).
 4. A grouped-by-class tower MAY show a gap-to-class-leader by subtracting the class leader's
    `gap_to_leader` from a car's own — exact arithmetic on producer values, not a forbidden
    re-derivation.
@@ -686,6 +687,13 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     that is not an array, or whose every entry is not an object, is an empty field: the tower and
     the slides show the same placeholder `vehicles: []` shows ("Waiting for state…"), not "No
     cars in this class". `/all` renders every configured widget on a snapshot carrying such an entry.
+
+67. **Class display on both entry points.** The standalone `/tower` route and the tower inside
+    `/all` render the same `classDisplay` from the loaded profile. A profile whose tower says
+    `grouped` gives the grouped layout (rules 3, 5) and `data-class-display` reads `grouped`; a
+    profile that says `inline`, says nothing, or has not loaded yet gives the one overall list and
+    `data-class-display` reads `inline`. `?class=` narrows the grouped field on `/tower` as it does
+    in `/all`. There is no URL knob for the layout.
 
 ## Constraints
 
