@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import OnBoardHud, { resolveIdentity } from './OnBoardHud.svelte'
   import { connect, resolveSrc } from '../../lib/sseClient.js'
+  import { classTagsShown } from '../../lib/classTags.js'
   import { DEFAULT_CONFIG, resolveSpeedUnit } from '../../lib/overlayConfig.js'
 
   let snapshot = $state(null)
@@ -13,7 +14,10 @@
   // this route, so no hand-off gate — the HUD shows as soon as there is identity or
   // telemetry content.
   const onboardCfg = { ...DEFAULT_CONFIG.widgets.onboard, speedUnit }
-  const identity = $derived(resolveIdentity(snapshot, onboardCfg))
+  // No profile either, so `theme.classTags` is its default `auto` (rule 63).
+  const identity = $derived(
+    resolveIdentity(snapshot, onboardCfg, classTagsShown('auto', snapshot?.session)),
+  )
 
   onMount(() => {
     const url = resolveSrc()

@@ -14,7 +14,7 @@ const WIDGET = { driverInfo: { name: true, position: true, class: true } }
 const q = (c, id) => c.querySelector(`[data-testid="${id}"]`)
 
 function renderStrip(snapshot) {
-  return render(OnBoardHud, { identity: resolveIdentity(snapshot, WIDGET) }).container
+  return render(OnBoardHud, { identity: resolveIdentity(snapshot, WIDGET, true) }).container
 }
 
 /** subject-b (car-16 "Charles Leclerc", P3, gtp) with its subject's name replaced. */
