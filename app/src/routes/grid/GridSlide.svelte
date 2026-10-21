@@ -36,8 +36,9 @@
   // class registry `order` (the same sequence used for class-mode grouping), with
   // an alphabetical tiebreak for classes the registry doesn't know. Never mutate
   // the source array — copy before sort (a review checkpoint on #23).
+  const usable = $derived(validVehicles(snapshot))
   const groups = $derived.by(() => {
-    const rows = validVehicles(snapshot)
+    const rows = usable
       .filter(
         (v) =>
           filterKey === null ||
@@ -65,7 +66,7 @@
   // A snapshot with a class filter that matches nothing is a distinct, explicit
   // state from "no snapshot at all" — surface which one so the board never blanks.
   const emptyReason = $derived(
-    validVehicles(snapshot).length ? 'no-match' : 'no-state',
+    usable.length ? 'no-match' : 'no-state',
   )
 </script>
 

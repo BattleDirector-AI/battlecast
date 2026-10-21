@@ -109,8 +109,11 @@
     }, LAP_FLASH_MS)
   }
 
+  // The usable entries, derived once; lap-flash reads it and allSorted copies it before sorting.
+  const usable = $derived(validVehicles(snapshot))
+
   $effect(() => {
-    const vehicles = validVehicles(snapshot)
+    const vehicles = usable
     const enabled = m.lapFlash
     untrack(() => {
       if (!enabled) clearFlashes()
@@ -183,7 +186,7 @@
   // Full field in overall running order — the basis for both layouts and for each
   // car's rank within its class. Never mutate the source array — copy before sort.
   const allSorted = $derived(
-    validVehicles(snapshot).sort((a, b) => a.position - b.position),
+    [...usable].sort((a, b) => a.position - b.position),
   )
 
   // Class rank + class size, computed once from the full field's running order so a
