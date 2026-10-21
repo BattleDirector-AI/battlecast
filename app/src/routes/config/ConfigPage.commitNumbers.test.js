@@ -260,6 +260,43 @@ describe('config editor: typed number fields apply on commit', () => {
     expect(slot(container).style.left).toBe('250px')
   })
 
+  it('an arrow press at the field limit fires no input, and a later paste is not committed as a step', async () => {
+    const { container } = render(ConfigPage)
+    await settle()
+    const z = field(container, 'idle-grace-battle')
+
+    // At the max (30) ArrowUp changes nothing, so the browser fires no `input`.
+    await typeKeys(z, '30')
+    await commit(z)
+    expect(z.value).toBe('30')
+    await fireEvent.keyDown(z, { key: 'ArrowUp' })
+    await fireEvent.keyUp(z, { key: 'ArrowUp' })
+    // A paste (an `input` with no preceding key press) is ordinary text: not applied until commit.
+    await fireEvent.input(z, { target: { value: '12' } })
+    await tick()
+    expect((await saved(container)).widgets.battle.idleGraceSeconds, 'the paste was committed as a step').toBe(30)
+    await commit(z)
+    expect((await saved(container)).widgets.battle.idleGraceSeconds).toBe(12)
+  })
+
+  it('an arrow press at the field limit then a blur: a later paste is not committed as a step', async () => {
+    const { container } = render(ConfigPage)
+    await settle()
+    const z = field(container, 'idle-grace-battle')
+
+    await typeKeys(z, '30')
+    await commit(z)
+    expect(z.value).toBe('30')
+    // At the max the step fires no `input`, and focus leaves before the key is released.
+    await fireEvent.keyDown(z, { key: 'ArrowUp' })
+    await fireEvent.blur(z)
+    await fireEvent.input(z, { target: { value: '12' } })
+    await tick()
+    expect((await saved(container)).widgets.battle.idleGraceSeconds, 'the paste was committed as a step').toBe(30)
+    await commit(z)
+    expect((await saved(container)).widgets.battle.idleGraceSeconds).toBe(12)
+  })
+
   it('a spinner click (input + change together) applies at once', async () => {
     const { container } = render(ConfigPage)
     await settle()

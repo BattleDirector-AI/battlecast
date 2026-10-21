@@ -16,7 +16,7 @@
     rendersPlate,
     rendersText,
     TEXT_SCALE_PRESETS,
-    IDLE_GRACE_MAX_SECONDS,
+    normalizeGraceSeconds,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
@@ -293,7 +293,7 @@
       const shown = () => String(stored() ?? '')
       const commit = () => {
         // Already showing what is stored: the change or blur after an Enter or an Escape is
-        // not a second commit (rule 44c).
+        // not a second commit (rule 44c). Guards future setters that are not safe to repeat.
         if (el.value === shown()) return
         // A number input reports unreadable text as '', and Number('') is 0: blank first.
         const n = Number(el.value)
@@ -306,6 +306,8 @@
         if (e.key === 'Enter' && !e.isComposing) commit()
         else if (e.key === 'Escape') el.value = shown()
       }
+      // A step at min/max fires no `input`; the key's release or a blur ends it, so a later paste is not one.
+      const onkeyup = () => (stepping = false)
       const oninput = () => {
         if (!stepping) return
         stepping = false
@@ -313,10 +315,14 @@
       }
       el.addEventListener('change', commit)
       el.addEventListener('keydown', onkeydown)
+      el.addEventListener('keyup', onkeyup)
+      el.addEventListener('blur', onkeyup)
       el.addEventListener('input', oninput)
       return () => {
         el.removeEventListener('change', commit)
         el.removeEventListener('keydown', onkeydown)
+        el.removeEventListener('keyup', onkeyup)
+        el.removeEventListener('blur', onkeyup)
         el.removeEventListener('input', oninput)
       }
     }
@@ -808,7 +814,7 @@
                   data-testid="idle-grace-{key}"
                   value={w.idleGraceSeconds}
                   {@attach numberField(
-                    (n) => setField(key, 'idleGraceSeconds', Math.max(0, Math.min(IDLE_GRACE_MAX_SECONDS, n))),
+                    (n) => setField(key, 'idleGraceSeconds', normalizeGraceSeconds(n, 0)),
                     () => config.widgets[key].idleGraceSeconds,
                   )}
                 />

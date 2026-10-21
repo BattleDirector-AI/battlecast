@@ -50,23 +50,26 @@ profile) calls `endDrag()` the same way; ordinary edits, which derive the next c
 current one, do not.
 
 **Typed number fields (rules 44–44c).** Every `type="number"` input in `ConfigPage.svelte` commits
-from `onchange`, never from a plain `oninput`; an unconditional `oninput` write stays only on the
-plate-opacity `type="range"` slider (and on the non-number text/color fields).
+through the one `numberField(apply, stored)` attachment (`{@attach}`), on `change`, on Enter, and on
+a keyboard arrow step (both below), never from a plain `oninput`; an unconditional `oninput` write
+stays only on the plate-opacity `type="range"` slider (and on the non-number text/color fields).
 
-Enter is handled explicitly, never left to the browser's `change`: `onkeydown` with
+Enter is handled explicitly, never left to the browser's `change`: the attachment's `keydown` with
 `key === 'Enter'` (modifiers ignored) and `!event.isComposing` runs the same commit function the
-`change` handler runs. That function compares the field's text with the text it last committed or
-wrote back, and does nothing when they match — so the `change` (Chromium fires one on Enter) or
-blur that follows an Enter is a no-op rather than a second commit. That matters beyond tidiness:
+`change` handler runs. That function compares the field's text with `String(stored() ?? '')` (what
+the config holds now, so a profile load or preview drag cannot leave it stale), and does nothing
+when they match — so the `change` (Chromium fires one on Enter) or blur that follows an Enter is
+a no-op rather than a second commit. That matters beyond tidiness:
 rule 44c counts one commit as one rule 41a edit, and a second pass through `setWidgetField` must not
 be what decides the origin.
 
 Steps must not depend on the browser firing `change` per step. Chromium fires `input` + `change`
 for a spinner click and for an Up/Down arrow step; Firefox fires only `input` for an arrow step and
-holds `change` until blur. So the field also commits on a keyboard step itself: `onkeydown` with
-`ArrowUp`/`ArrowDown` marks the field as stepping, the `input` event the browser fires after it has
-applied the step commits the stepped value and clears the mark, and any other key clears it — so
-typing after a step is ordinary typing again (rule 44a). A spinner click is covered by its `change`
+holds `change` until blur. So the field also commits on a keyboard step itself: the attachment's
+`keydown` with `ArrowUp`/`ArrowDown` marks the field as stepping, the `input` event the browser
+fires after it has applied the step commits the stepped value and clears the mark, and any other
+key, the `keyup`, or a blur (a step at min/max fires no `input`) clears it — so typing after a
+step is ordinary typing again (rule 44a). A spinner click is covered by its `change`
 (confirm in Firefox and Chromium when changing this). happy-dom has no spinner and does not step on
 a synthetic keydown, so tests fire the sequence a browser produces: `keydown` → `input` with the
 stepped value → `keyup` for an arrow step, and `input` + `change` for a spinner click.
@@ -74,9 +77,9 @@ stepped value → `keyup` for an arrow step, and `input` + `change` for a spinne
 The fields bind `value={…}` one-way, and Svelte skips the DOM write when the bound number is
 unchanged — so a blank commit, a refused commit, an Escape, or a commit whose clamp lands on the
 already-stored number would leave stale text in the field. The commit handler therefore writes the
-stored value back to `e.currentTarget.value` itself after it commits or refuses; an `onkeydown`
-Escape does the same write-back without committing, after which a blur's `change` finds the stored
-value and is a no-op. Blank is `e.currentTarget.value === ''` (a number input reports unreadable
+stored value back to the field itself after it commits or refuses; the `keydown` Escape does the
+same write-back without committing, after which a blur's `change` finds the stored value and is a
+no-op. Blank is `el.value === ''` (a number input reports unreadable
 text as `''`); `Number('')` is `0`, which is why a blank must be caught before conversion. Rule
 44b's two outcomes are decided at commit: a value normalization would clamp is clamped there (so the
 field shows what a reload of the saved profile would show — `setWidgetField` alone clamps geometry
