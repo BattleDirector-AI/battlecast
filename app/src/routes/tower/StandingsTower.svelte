@@ -267,9 +267,16 @@
   // Row budget: how many rows fit the configured slot height (measured tokens), capped
   // by an explicit integer `maxRows`. No slot height + 'auto' => unbounded (the
   // standalone /tower case), so cycling stays inert.
+  // A rendered row is its token height plus a 1px divider (`.row` border-bottom). The frame
+  // adds the header's 1px divider and the root's 1px border top and bottom, less the last
+  // row, which drops its divider (`.row--last`): chrome = header + 2, row cost = row + 1 (#315).
+  // A header-only tower (budget 0) is 41px, since no last-row divider is dropped; a slot of
+  // exactly 40px therefore overshoots by 1px, and the CSS clamp covers that edge.
   const rowBudget = $derived.by(() => {
     const fromHeight =
-      slotHeight != null ? computeRowBudget(slotHeight, tokenPx.header, tokenPx.row) : Infinity
+      slotHeight != null
+        ? computeRowBudget(slotHeight, tokenPx.header + 2, tokenPx.row + 1)
+        : Infinity
     if (maxRows === 'auto' || maxRows == null) return fromHeight
     const cap = Number(maxRows)
     return Number.isFinite(cap) ? Math.min(fromHeight, Math.floor(cap)) : fromHeight

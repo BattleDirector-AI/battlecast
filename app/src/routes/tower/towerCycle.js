@@ -21,7 +21,8 @@ function byPosition(field) {
 
 /**
  * Row budget = floor((slotHeight - headerHeight) / rowHeight), never negative
- * (spec rules 2-4). Pure arithmetic; the caller supplies the measured heights.
+ * (spec rules 2-4). Pure arithmetic; the caller supplies the RENDERED heights: `headerHeight`
+ * is all the non-row chrome, `rowHeight` a row's full height including its divider (#315).
  */
 export function computeRowBudget(slotHeight, headerHeight, rowHeight) {
   if (!(rowHeight > 0)) return 0

@@ -2,7 +2,7 @@
  * applies to it as to any inline tower (widgets.md rule 61, tower-overflow.md rules 1-5, ADR 0022).
  *
  * happy-dom does no layout, so — as StandingsTower.test.js's overflow block does — the token
- * heights fall back to header 38px / row 44px: slotHeight 400 -> budget floor(362 / 44) = 8 rows.
+ * heights fall back to header 38px / row 44px (40px chrome, 45px rendered rows): slotHeight 400 -> budget floor((400 - 40) / 45) = 8 rows.
  * With pinTop 3 and no subject the first window is cars 1-8; one 8 s page turn later it is pins
  * 1-3 plus cars 9-13. A tower that kept gating overflow on the CONFIGURED `classDisplay` (grouped,
  * clamp-only) renders all 30 rows and never turns.

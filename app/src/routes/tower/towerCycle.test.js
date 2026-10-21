@@ -63,6 +63,13 @@ describe('computeRowBudget', () => {
   it('never goes negative', () => {
     expect(computeRowBudget(0, 38, 44)).toBe(0)
   })
+
+  it('fits a 984px slot with 20 rows of the rendered 45px height, not 21 (#315)', () => {
+    // The tower is 40 + 45n tall (40px chrome, 45px rows): n=21 is 985px, one over 984.
+    // The old 44px math gave 21 here.
+    expect(computeRowBudget(984, 40, 45)).toBe(20)
+    expect(computeRowBudget(985, 40, 45)).toBe(21) // exactly fits
+  })
 })
 
 // --- perPageSeconds floor (spec rule 16) -----------------------------------

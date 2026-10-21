@@ -434,8 +434,8 @@ describe('StandingsTower — gap to leader (#28)', () => {
 
 describe('StandingsTower — overflow cycling (ADR 0003)', () => {
   // happy-dom does no layout, but the cycling SELECTION is exercisable: `slotHeight` is a
-  // prop and the row/header token heights fall back to 38/44 (getComputedStyle returns no
-  // CSS vars here). budget = floor((slotHeight - 38) / 44). The clamp + real measurement
+  // prop and the row/header token heights fall back to 38/44 (rendered: 40px chrome, 45px rows) (getComputedStyle returns no
+  // CSS vars here). budget = floor((slotHeight - 40) / 45). The clamp + real measurement
   // are covered by the headless-browser verification, not here.
   const bigField = (n, subject = null) => ({
     mode: 'race',
@@ -454,15 +454,26 @@ describe('StandingsTower — overflow cycling (ADR 0003)', () => {
   const rowCount = () => document.querySelectorAll('[data-testid="tower-row"]').length
 
   it('caps the inline tower to the row budget from the slot height (rules 1-2)', () => {
-    // budget = floor((400 - 38) / 44) = 8
+    // budget = floor((400 - 40) / 45) = 8
     render(StandingsTower, { snapshot: bigField(30), slotHeight: 400, cycle: CYCLE })
     flushSync()
     expect(rowCount()).toBeLessThanOrEqual(8)
     expect(rowCount()).toBeGreaterThan(0)
   })
 
+  it('counts the rendered 45px row and 40px frame: a 984px slot fits 20 rows, 985px fits 21 (#315)', () => {
+    // Tower height = 40 + 45n. n=21 is 985px — one over a 984px slot (the old /44 math gave 21).
+    const { unmount } = render(StandingsTower, { snapshot: bigField(30), slotHeight: 984, cycle: CYCLE })
+    flushSync()
+    expect(rowCount()).toBe(20)
+    unmount()
+    render(StandingsTower, { snapshot: bigField(30), slotHeight: 985, cycle: CYCLE })
+    flushSync()
+    expect(rowCount()).toBe(21)
+  })
+
   it('renders header-only when not even one row fits (budget < 1)', () => {
-    // (50 - 38) / 44 -> 0
+    // (50 - 40) / 45 -> 0
     render(StandingsTower, { snapshot: bigField(20), slotHeight: 50, cycle: CYCLE })
     flushSync()
     expect(rowCount()).toBe(0)

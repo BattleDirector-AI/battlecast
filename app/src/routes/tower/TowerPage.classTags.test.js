@@ -1,7 +1,7 @@
 /* Standalone /tower — a grouped tower whose class tags are hidden renders the inline layout, and
  * the viewport-derived row budget and cycling then apply to it (widgets.md rule 61,
  * tower-overflow.md rules 18-20, ADR 0022). Same arithmetic as TowerPage.rowBudget.test.js:
- * innerHeight 500 -> slot 404 -> floor((404 - 38) / 44) = 8 rows; default cycle pinTop 3, 8 s.
+ * innerHeight 500 -> slot 404 -> floor((404 - 40) / 45) = 8 rows; default cycle pinTop 3, 8 s.
  * The profile sets `classDisplay: 'grouped'`; the snapshot says `session.multiclass: false`.
  *
  * The two hidden-tag tests pass today and are regression guards: TowerPage does not pass
