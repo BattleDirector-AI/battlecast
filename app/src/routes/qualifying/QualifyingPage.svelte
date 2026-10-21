@@ -34,7 +34,7 @@
 </script>
 
 <div class="qualifying-page">
-  <QualifyingLowerThird {snapshot} {widget} classColors={config.theme.classColors} />
+  <QualifyingLowerThird {snapshot} {widget} classColors={config.theme.classColors} classTags={config.theme.classTags} />
 </div>
 
 <style>

@@ -96,8 +96,10 @@ Decision record: `docs/decisions/0005-standalone-tower-slot-height.md`.
 
 ## Scope
 
-These rules apply to the **flat** standings tower (a single running-order list). A class-grouped
-tower is outside their scope and is bounded only by rule 1.
+These rules apply to the **flat** standings tower (a single running-order list). A tower rendering
+the grouped layout is outside their scope and is bounded only by rule 1. A tower configured
+`grouped` whose class tags are hidden renders the flat list (`widgets.md` rule 61), so these rules
+apply to it.
 
 They apply on **both** entry points the flat tower renders on — the tower widget inside `/all` and
 the standalone `/tower` Browser Source — which differ only in where the slot height comes from

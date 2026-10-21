@@ -295,6 +295,15 @@ required-ness.
     yellow is distinct from
     `full_course_yellow`: under a full-course caution the producer may still send sector
     flags, and a consumer showing the full-course caution need not repeat them.
+  - **`multiclass`** (boolean or null) — whether the session has more than one vehicle
+    class. `false` says the session is single-class: every car shares one class, so a
+    consumer **MAY** hide its class tags (class chips, class-rank badges, class group
+    headers), which would otherwise all repeat one label, often a producer's placeholder
+    for a sim that reports no class. `true` says the session has two or more classes. Null
+    or absent gives no signal either way. It is the **producer's** judgment: a consumer never infers it from `vehicles[]`, neither by
+    counting distinct `vehicle_class` values nor by recognizing a placeholder class name
+    such as `"Default"`, which is one producer's convention and not part of this contract.
+    A producer that knows the session's classes **SHOULD** send it on every snapshot.
   - **`time_remaining`** / **`session_length`** (number, seconds) — the countdown clock
     and total length of a **timed** session; `session_length` is the progress
     denominator. Null or absent in a lap-limited session.

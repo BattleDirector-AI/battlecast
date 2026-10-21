@@ -3,11 +3,13 @@
   import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName, fmtShortName, fmtLapTime } from '../../design/format.js'
   import { sessionProgressText } from '../../design/sessionProgress.js'
+  import { classTagsShown } from '../../lib/classTags.js'
   import { onDestroy, untrack } from 'svelte'
   import { computeRowBudget, createTowerCycle, clampPerPageSeconds } from './towerCycle.js'
 
   // Class-aware standings tower (#28). Presentational: renders whatever snapshot it
-  // is handed. Two layouts, selected by `classDisplay`:
+  // is handed. Two layouts; the rendered one is `layout`: `classDisplay` while class tags
+  // show, otherwise inline (widgets.md rule 61):
   //   inline  — one list in overall `position` order, each row badged with its rank
   //             within its class (e.g. '1/7').
   //   grouped — per-class sections in class-registry order (mirrors the grid/results
@@ -44,7 +46,15 @@
     nameStyle = 'short',
     configuredWidth = null,
     textScale = null,
+    // `theme.classTags` (widgets.md rules 60-61, ADR 0022): resolved against the snapshot's
+    // `session.multiclass`. With the tags hidden the class / classpos columns and the filter
+    // chip go, and a `grouped` tower renders the inline layout.
+    classTags = 'auto',
   } = $props()
+
+  const showTags = $derived(classTagsShown(classTags, snapshot?.session))
+  // The layout actually rendered: the configured `classDisplay` while the tags show, else inline.
+  const layout = $derived(showTags ? classDisplay : 'inline')
 
   // Normalize the metric toggles once — tolerate a partial/garbage object so a caller
   // may pass just `{ interval: true }`. Missing keys are off.
@@ -215,15 +225,16 @@
     )
   })
 
-  const grouped = $derived(classDisplay === 'grouped')
+  const grouped = $derived(layout === 'grouped')
   const hasRows = $derived(grouped ? groups.length > 0 : inlineRows.length > 0)
   // A class filter that matches nothing is a distinct, explicit state from "no
   // snapshot at all" — surface which so the tower never blanks silently.
   const emptyReason = $derived(snapshot?.vehicles?.length ? 'no-match' : 'no-state')
 
   // ---- tower overflow: pinned rows + cycling window (ADR 0003) ---------------
-  // Grouped layout stays clamp-only (spec scope); cycling applies to the inline
-  // (single running-order) layout. The CSS clamp on the slot is the hard bound
+  // The grouped layout stays clamp-only (spec scope); cycling applies to the inline
+  // (single running-order) layout — including a configured-grouped tower rendering
+  // inline because its class tags are hidden (`layout`). The CSS clamp on the slot is the hard bound
   // underneath — selection just decides which rows are worth showing.
 
   // Bound to the .tower section so the row/header heights read off the live design
@@ -262,7 +273,7 @@
   // NOT the field size.
   const cycleEnabled = $derived(
     cycle?.enabled === true &&
-      classDisplay === 'inline' &&
+      layout === 'inline' &&
       Number.isFinite(rowBudget) &&
       rowBudget >= 1,
   )
@@ -327,7 +338,7 @@
     // inline tower to whole rows / header-only rather than leaning on the CSS clip to hide
     // a partial row (spec rule 2). Standalone (infinite budget) and grouped fall through
     // to the full field, bounded only by the clamp.
-    if (classDisplay === 'inline' && Number.isFinite(rowBudget)) {
+    if (layout === 'inline' && Number.isFinite(rowBudget)) {
       return inlineRows.slice(0, Math.max(0, rowBudget))
     }
     return inlineRows
@@ -340,8 +351,9 @@
   // snapshot alone. See how/renderer.md "Tower columns".
   const carries = (key) => inlineRows.some((v) => v?.[key] != null)
   const columns = $derived.by(() => {
-    const cols = ['pos', 'class']
-    if (!grouped) cols.push('classpos')
+    const cols = ['pos']
+    if (showTags) cols.push('class')
+    if (showTags && !grouped) cols.push('classpos')
     cols.push('name', 'gap')
     if (m.interval) cols.push('interval')
     if (m.pit && !hideRaceStrategy && (carries('pit_stops') || carries('in_pit'))) cols.push('pit')
@@ -377,7 +389,7 @@
   // Every tower setting whose change is a reset, as one comparable value (a fresh but
   // equal config object from /all is not a change).
   const settingsKey = $derived(
-    JSON.stringify([filterKey, classDisplay, m, maxRows, cycle, nameStyle, baseWidth, textScale]),
+    JSON.stringify([filterKey, classDisplay, showTags, m, maxRows, cycle, nameStyle, baseWidth, textScale]),
   )
   // The session mode as rule 45 compares it; null when the snapshot carries none.
   const modeKey = (snap) =>
@@ -727,9 +739,11 @@
     <!-- One cell per shown column, in column order (rule 49); a column a car has nothing
          for gets a bare empty cell, so the cells after it stay in line. -->
     <span class="row__pos" data-col="pos">{positionText}</span>
-    <span class="row__class" data-col="class"
-      ><ClassChip carClass={v.vehicle_class} size="compact" {classColors} /></span
-    >
+    {#if shown.class}
+      <span class="row__class" data-col="class"
+        ><ClassChip carClass={v.vehicle_class} size="compact" {classColors} /></span
+      >
+    {/if}
     {#if shown.classpos}
       <span class="row__classpos" data-col="classpos" data-testid={tid('class-pos')}>{classBadge}</span>
     {/if}
@@ -837,21 +851,21 @@
 <section
   class="tower"
   data-testid="standings-tower"
-  data-class-display={classDisplay}
+  data-class-display={layout}
   data-name-style={fullStyle ? 'full' : 'short'}
   style:min-width={towerMinWidth}
   bind:this={towerEl}
 >
   <header class="tower__header" data-testid="tower-header">
     <span class="tower__mode">{header}</span>
-    {#if sessionProgress || filterKey !== null}
+    {#if sessionProgress || (filterKey !== null && showTags)}
       <span class="tower__meta">
         {#if sessionProgress}
           <!-- Session countdown / lap counter ("Session Info") — distinct from the
                per-car rows and the flag/FCY/SC status widget. -->
           <span class="tower__session" data-testid="tower-session">{sessionProgress}</span>
         {/if}
-        {#if filterKey !== null}
+        {#if filterKey !== null && showTags}
           <span class="tower__filter" data-testid="tower-filter">
             <ClassChip carClass={filterKey} size="compact" {classColors} />
           </span>

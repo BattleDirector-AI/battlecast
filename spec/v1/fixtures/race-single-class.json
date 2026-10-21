@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-3",
+      "driver_name": "Sam Ortega",
+      "vehicle_class": "Default",
+      "position": 1,
+      "car_number": "3",
+      "last_lap": 98.412,
+      "best_lap": 98.106,
+      "sector_times": [31.204, 33.511, 33.697],
+      "gap_to_leader": 0,
+      "interval_ahead": null
+    },
+    {
+      "slot_id": "car-7",
+      "driver_name": "Erik Jacobs",
+      "vehicle_class": "Default",
+      "position": 2,
+      "car_number": "07",
+      "last_lap": 98.655,
+      "best_lap": 98.320,
+      "sector_times": [31.288, 33.602, 33.765],
+      "gap_to_leader": 0.6,
+      "interval_ahead": 0.6
+    },
+    {
+      "slot_id": "car-12",
+      "driver_name": "Lena Brandt",
+      "vehicle_class": "Default",
+      "position": 3,
+      "car_number": "12",
+      "last_lap": 98.901,
+      "best_lap": 98.544,
+      "sector_times": [31.402, 33.655, 33.844],
+      "gap_to_leader": 1.7,
+      "interval_ahead": 1.1
+    },
+    {
+      "slot_id": "car-21",
+      "driver_name": "Tom Okafor",
+      "vehicle_class": "Default",
+      "position": 4,
+      "car_number": "21",
+      "last_lap": 99.310,
+      "best_lap": 98.977,
+      "sector_times": [31.533, 33.810, 33.967],
+      "gap_to_leader": 4.9,
+      "interval_ahead": 3.2
+    }
+  ],
+  "subject": {
+    "slot_id": "car-7",
+    "driver_name": "Erik Jacobs"
+  },
+  "relationship": {
+    "gap_ahead": 0.6,
+    "gap_behind": 1.1,
+    "battle_intensity": 0.72
+  },
+  "session": {
+    "flag": "green",
+    "multiclass": false
+  }
+}

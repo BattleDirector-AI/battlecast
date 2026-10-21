@@ -207,6 +207,17 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `GridPage`, and `ResultsPage` each read `?class=` from `location.search`. Class-rank badges are
   computed from the *full* field (in `StandingsTower.svelte`) so a filtered view keeps correct
   `n/total` ranks.
+- **Class tags** (behavior in `what/widgets.md` rules 60–64, `what/overlay-config.md` rules
+  47–48; rationale in `docs/decisions/0022-single-class-tags.md`): `theme.classTags` is
+  normalized in `normalizeConfig` like `theme.classColors` and threaded the same way, from
+  `AllView` and each profile-loading standalone page, into every widget that draws a class tag
+  as a `classTags` prop (`'auto' | 'show' | 'hide'`, default `'auto'`). Each widget resolves it
+  against the `session` it already receives (`snapshot.session`, or BattleBox's `session` prop)
+  with one shared helper, so every site gives the same answer: shown unless the setting is
+  `hide`, or it is `auto` and `session.multiclass === false`. The on-board HUD's class field is
+  dropped where `AllView` resolves its identity. Only the tag rendering changes: the class bars
+  keep reading `classColor()`. With the tags hidden, the grouped tower renders its inline branch,
+  and `GridSlide` and `ResultsSlide` render one list in overall position order.
 - **The tower header renders the session-progress readout** (clock / `LAP X OF Y`) via
   `design/sessionProgress.js` (`sessionProgressText`) — NOT the Race Control widget, which draws
   only flag/FCY/SC. Two separate widgets read the same `session` object for different parts.

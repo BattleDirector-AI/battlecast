@@ -75,6 +75,9 @@ const yellowViolations = [];
 let progressiveFinishSeen = false;
 let dnfSeen = false;
 const finishViolations = [];
+// Single-class flag (ADR 0022): see the per-tick check at the top of the loop.
+const multiclassViolations = [];
+let multiclassViolationCount = 0;
 // The director (#237): in the race, the subject is never a retired car, nor a finished one while
 // any car is still running. Guarded by seeing a race tick with a retiree and a part-finished field.
 const directorViolations = [];
@@ -108,6 +111,20 @@ const isFinishCode = (n) => Number.isInteger(n) && n >= 0 && n <= 3;
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
   ticksByMode.set(payload.mode, (ticksByMode.get(payload.mode) || 0) + 1);
+  // Single-class flag (protocol-contract rule 20, ADR 0022): every tick, in every phase, carries
+  // a boolean `session.multiclass` that matches the class mix the mock is actually running:
+  // true exactly when its field holds more than one distinct `vehicle_class`.
+  {
+    const classCount = new Set(payload.vehicles.map((v) => v.vehicle_class)).size;
+    const flag = payload.session?.multiclass;
+    let problem = null;
+    if (typeof flag !== "boolean") problem = `session.multiclass=${JSON.stringify(flag)}`;
+    else if (flag !== classCount > 1) problem = `multiclass=${flag} with ${classCount} class(es)`;
+    if (problem) {
+      multiclassViolationCount += 1;
+      if (multiclassViolations.length < 5) multiclassViolations.push(`tick ${i} (${payload.mode}): ${problem}`);
+    }
+  }
   if (payload.mode === "qualifying" && payload.vehicles.some((v) => v.notable && v.notable.class_best_lap)) {
     qualiClassBestSeen = true;
   }
@@ -398,6 +415,14 @@ if (!localYellowSeen) {
   process.exit(1);
 }
 
+if (multiclassViolationCount > 0) {
+  console.error(
+    `\nsession.multiclass missing or not matching the class mix on ${multiclassViolationCount} tick(s) (ADR 0022):`,
+  );
+  for (const v of multiclassViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
 if (finishViolations.length > 0) {
   console.error("\nfinish_status missing or inconsistent (ADR 0017):");
   for (const v of finishViolations) console.error(`  - ${v}`);
@@ -443,4 +468,5 @@ console.log(`Starting grid within ${START_SPREAD_MAX_SECONDS}s, nobody lapped in
 console.log("Race phase lapped a backmarker and carried valid laps_behind_* fields (ADR 0012).");
 console.log("Race phase staged a local yellow with valid sector_flags / yellow_involved fields (ADR 0016).");
 console.log("Race phase took the chequered flag progressively, retired a car, and results classified every car (ADR 0017).");
+console.log("Every tick carried a boolean session.multiclass matching the class mix (ADR 0022).");
 console.log("Race director never put a retired car, or a finished car while others raced, on camera (#237).");

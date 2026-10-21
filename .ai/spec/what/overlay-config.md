@@ -354,6 +354,33 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     the section carries its own summary and the color-picker control carries a `configHelp.js` entry
     and an ⓘ (rules 17-19).
 
+### Class tags
+
+47. **`theme.classTags`** (default `auto`) is one overlay-wide setting, not a per-widget knob,
+    that decides with the producer's `session.multiclass` whether class tags show
+    (`widgets.md` rules 60–64): `auto` follows the producer, `show` always shows them, `hide`
+    always hides them, with any producer, including one that never sends `multiclass`.
+    Normalization keeps exactly the string `auto`, `show`, or `hide` and replaces anything else
+    with `auto`: absent, null, another case such as `Hide`, a padded string such as `' hide '`,
+    any other string, or a value of another type (`false` is not `hide`). A profile with no
+    `theme`, or a `theme` without the key, renders `auto`, and normalizing never changes
+    `theme.classColors` (rule 32). It is not normalized onto widgets. `/all` reads it, and so
+    does every standalone route that loads a profile: `/tower`, `/battle`, `/driver`,
+    `/qualifying`, `/grid`, and `/results`. The standalone `/onboard` route loads no profile
+    and renders `auto`. There is no URL knob for it, and `configVersion` stays `"1"` (rule 2).
+    Decision record: `docs/decisions/0022-single-class-tags.md`.
+48. **The editor exposes it once for the whole overlay**, as part of rule 14's control surface:
+    a select labelled **class tags** (`data-testid="class-tags"`), in no widget row, with exactly
+    three options, `auto`, `show`, and `hide`, in that order, showing the current value.
+    Choosing an option writes that value to `theme.classTags`, the live preview re-renders with
+    it, and Save writes it into the profile. It changes no geometry and no other setting,
+    `theme.classColors` included. Per rule 16 it carries help copy behind an ⓘ
+    (`data-testid="help-class-tags"`), which says plainly that `auto` follows the producer: it
+    hides the tags when the producer reports a single-class session and shows them when the
+    producer does not say. It says that `show` and `hide` override the producer, and that the
+    editor preview's sample feed does not say, so at `auto` the preview shows the tags (rule
+    21: a preview that keeps its tags at `auto` would otherwise look like a broken setting).
+
 ### Editor help content
 
 16. **Every control the editor renders MUST be explained in the UI itself.** A broadcaster reaches
@@ -541,7 +568,7 @@ Decision record: `docs/decisions/0011-feed-status-accessibility.md`.
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
-`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors}`,
+`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +

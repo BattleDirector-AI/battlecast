@@ -2,6 +2,7 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName, fmtLapTime } from '../../design/format.js'
+  import { classTagsShown } from '../../lib/classTags.js'
 
   // Full-screen end-/mid-session results board (#23). Presentational: it renders
   // whatever snapshot it is handed as a per-class classification — grouped by class
@@ -10,7 +11,12 @@
   // in ResultsPage. Mirrors the grid slide (#24) grouping convention.
   // `classColors` (rule 32, ADR 0010): resolved `theme.classColors` overrides from the
   // saved profile, or `{}` when none is loaded/configured.
-  let { snapshot = null, classFilter = null, label = 'RESULTS', classColors = {} } = $props()
+  // `classTags` (widgets.md rules 60, 64): with the tags hidden the slide renders one list in
+  // overall position order, numbered by overall position, with no class group headers and no
+  // filter chip.
+  let { snapshot = null, classFilter = null, label = 'RESULTS', classColors = {}, classTags = 'auto' } = $props()
+
+  const showTags = $derived(classTagsShown(classTags, snapshot?.session))
 
   // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
   // => show every class, each in its own group.
@@ -33,6 +39,8 @@
           String(v.vehicle_class ?? '').toLowerCase() === filterKey,
       )
       .sort((a, b) => a.position - b.position)
+
+    if (!showTags) return rows.length ? [{ key: '', carClass: null, cars: rows }] : []
 
     const byClass = {}
     for (const v of rows) {
@@ -59,7 +67,7 @@
 <section class="results" data-testid="results-slide">
   <header class="results__header">
     <span class="results__title">{label}</span>
-    {#if filterKey !== null}
+    {#if filterKey !== null && showTags}
       <span class="results__filter" data-testid="results-filter">
         <ClassChip carClass={filterKey} {classColors} />
       </span>
@@ -82,10 +90,12 @@
           data-testid="results-group"
           data-class={group.carClass}
         >
-          <header class="group__head">
-            <ClassChip carClass={group.carClass} {classColors} />
-            <span class="group__count">{group.cars.length} cars</span>
-          </header>
+          {#if showTags}
+            <header class="group__head">
+              <ClassChip carClass={group.carClass} {classColors} />
+              <span class="group__count">{group.cars.length} cars</span>
+            </header>
+          {/if}
           <ol class="group__rows">
             <li class="group__colhead" aria-hidden="true">
               <span class="col col--pos">POS</span>
@@ -93,14 +103,15 @@
               <span class="col col--lap">BEST LAP</span>
             </li>
             <!-- Class positions restart at 1 within each group; `data-position`
-                 keeps the overall running position for identity/debugging. -->
+                 keeps the overall running position for identity/debugging. With the
+                 class tags hidden there is one group and rows carry overall positions. -->
             {#each group.cars as v, i (v.slot_id ?? v.position)}
               <li
                 class="row"
                 data-testid="results-row"
                 data-slot={v.slot_id}
                 data-position={v.position}
-                data-class-pos={i + 1}
+                data-class-pos={showTags ? i + 1 : undefined}
                 data-class={v.vehicle_class}
               >
                 <span
@@ -108,7 +119,7 @@
                   style:background={classColor(v.vehicle_class, classColors)}
                   aria-hidden="true"
                 ></span>
-                <span class="col col--pos row__pos">{i + 1}</span>
+                <span class="col col--pos row__pos">{showTags ? i + 1 : v.position}</span>
                 <span class="col col--name row__name" data-testid="driver-name"
                   >{fmtName(v.driver_name)}</span
                 >

@@ -882,6 +882,9 @@ function createSimulator(config = {}) {
     const { subjectCar, relationship } = running ? runningDirector(order) : staticDirector(order);
 
     const session = buildSession(phase, phaseElapsed, phaseSeconds[phase], raceLegIndex % 2 === 0);
+    // Single-class flag (protocol-contract rule 20, ADR 0022): the producer states its own class
+    // mix, so the overlay never has to work it out from vehicles[].
+    session.multiclass = new Set(order.map((car) => car.vehicle_class)).size > 1;
 
     // Local yellow around the backmarker (race only). The sector comes from how far round its
     // current lap the car is: lap distance is in LAP_UNITs, so the fractional part is the lap

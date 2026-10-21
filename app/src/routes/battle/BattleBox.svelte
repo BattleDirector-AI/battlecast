@@ -52,6 +52,7 @@
   import { fmtName, fmtGap } from '../../design/format.js'
   import ClassChip from '../../design/ClassChip.svelte'
   import IntensityMeter from '../../design/IntensityMeter.svelte'
+  import { classTagsShown } from '../../lib/classTags.js'
 
   let {
     subject = {},
@@ -60,7 +61,11 @@
     mode = null,
     session = null,
     classColors = {},
+    // `theme.classTags` (widgets.md rules 60, 62): resolved against `session.multiclass`.
+    classTags = 'auto',
   } = $props()
+
+  const showTags = $derived(classTagsShown(classTags, session))
 
   const racing = $derived(isRacingMode(mode) && !isCaution(session))
   const active = $derived(isActiveBattle(relationship))
@@ -98,7 +103,7 @@
 >
   <header class="bc-battle__header">
     <span class="bc-battle__title">{active ? headerLabel : 'BATTLE FOR POSITION'}</span>
-    {#if active && carClass}
+    {#if active && carClass && showTags}
       <ClassChip {carClass} size="compact" {classColors} />
     {/if}
   </header>

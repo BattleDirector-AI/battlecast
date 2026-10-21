@@ -47,7 +47,8 @@
     mode={shown.mode ?? null}
     session={shown.session ?? null}
     classColors={config.theme.classColors}
+    classTags={config.theme.classTags}
   />
 {:else}
-  <BattleBox subject={{}} relationship={{}} vehicles={[]} mode={null} classColors={config.theme.classColors} />
+  <BattleBox subject={{}} relationship={{}} vehicles={[]} mode={null} classColors={config.theme.classColors} classTags={config.theme.classTags} />
 {/if}

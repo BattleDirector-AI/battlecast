@@ -20,6 +20,7 @@
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
+  import { CLASS_TAGS_VALUES } from '../../lib/classTags.js'
   import {
     WIDGET_HELP,
     FIELD_HELP,
@@ -429,6 +430,7 @@
   let newClassColorHex = $state('#ffffff')
   const setClassColor = (name, hex) => (config = editor.setClassColor(config, name, hex))
   const removeClassColor = (name) => (config = editor.removeClassColor(config, name))
+  const setClassTags = (value) => (config = editor.setClassTags(config, value))
   function addClassColor() {
     if (!newClassColorName.trim()) return
     setClassColor(newClassColorName, newClassColorHex)
@@ -1080,6 +1082,24 @@
             {/if}
           </fieldset>
         {/each}
+      </section>
+
+      <section class="panel__group">
+        <h2>Class Tags</h2>
+        <!-- Overlay-wide, not per widget (overlay-config rules 47-48, ADR 0022). -->
+        <label class="num">
+          class tags
+          <HelpTip text={FIELD_HELP.classTags} label="class tags" testid="help-class-tags" />
+          <select
+            data-testid="class-tags"
+            value={config.theme.classTags}
+            onchange={(e) => setClassTags(e.currentTarget.value)}
+          >
+            {#each CLASS_TAGS_VALUES as value (value)}
+              <option {value}>{value}</option>
+            {/each}
+          </select>
+        </label>
       </section>
 
       <section class="panel__group" data-testid="class-colors-section">

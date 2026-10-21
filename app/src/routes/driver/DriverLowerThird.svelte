@@ -53,10 +53,13 @@
   import { fmtName, positiveIntOrNull } from '../../design/format.js'
   import { createLowerThirdTrigger, DEFAULT_DWELL_SECONDS } from '../../lib/lowerThirdTrigger.js'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
+  import { classTagsShown } from '../../lib/classTags.js'
 
   // `widget` carries the per-widget lower-third config (trigger, dwellSeconds,
   // showOnConnect) alongside geometry; only lower-thirds read those knobs.
-  let { snapshot = null, widget = {}, classColors = {} } = $props()
+  // `classTags` (widgets.md rules 60, 62): the broadcaster setting, resolved against the
+  // snapshot's `session.multiclass`; it only gates the chip, never the trigger.
+  let { snapshot = null, widget = {}, classColors = {}, classTags = 'auto' } = $props()
 
   const resolved = $derived(resolveSubject(snapshot))
   const active = $derived(resolved.state !== 'invalid')
@@ -89,7 +92,9 @@
 
   // Rule 18: a position renders only when it is a positive integer.
   const position = $derived(positiveIntOrNull(resolved.vehicle?.position))
-  const carClass = $derived(resolved.vehicle?.vehicle_class)
+  const carClass = $derived(
+    classTagsShown(classTags, snapshot?.session) ? resolved.vehicle?.vehicle_class : undefined,
+  )
   const displayName = $derived(fmtName(resolved.name))
 </script>
 
