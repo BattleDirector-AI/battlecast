@@ -64,7 +64,7 @@ async function drag(c, target, steps) {
   const s = previewScale(c)
   await fireEvent.pointerDown(target, { clientX: 0, clientY: 0 })
   for (const [dx, dy] of steps) {
-    await fireEvent.pointerMove(window, { clientX: dx * s, clientY: dy * s })
+    await fireEvent.pointerMove(window, { buttons: 1, clientX: dx * s, clientY: dy * s })
     await tick()
   }
   await fireEvent.pointerUp(window, { clientX: 0, clientY: 0 })

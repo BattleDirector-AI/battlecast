@@ -43,7 +43,8 @@ canvas pixels, not screen pixels. `startDrag` snapshots the widget as `drag.orig
 with the previous step's config (`what/overlay-config.md` rule 41c). Because `drag.orig` is a copy
 taken at `pointerdown`, a drag must not outlive a change it does not know about (rule 41d):
 `endDrag()` is the one way a drag ends, and it runs from `pointerup`, from `pointercancel`, from
-`setTextScale` before the preset is applied, and from `loadProfile` right after the loaded profile
+window `blur`, from `onDrag` when the drag's pointer moves with `event.buttons === 0` (checked after
+the `pointerId` filter, before any geometry is placed), from `setTextScale` before the preset is applied, and from `loadProfile` right after the loaded profile
 is assigned to `config` (not when the load is requested, and not on a failed or not-found load).
 Every code path that assigns a config not derived from the current one (a loaded or imported
 profile) calls `endDrag()` the same way; ordinary edits, which derive the next config from the
@@ -190,13 +191,15 @@ re-fits the stage. The SSE feed is **not** touched — a config edit never recon
   the HUD and the metric toggles show representative data. Never push those fields into the shared
   fixture.
 - **Drag listeners live on `window`,** attached in `startDrag` and removed in `endDrag`, so a pointer
-  that leaves the preview box still tracks and still releases. There are three — `pointermove` →
-  `onDrag`, `pointerup` → `endDrag`, `pointercancel` → `endDrag` — and `endDrag` and the `onMount`
-  cleanup each remove all three, so none outlives a drag or an unmount mid-drag. Being on `window`
+  that leaves the preview box still tracks and still releases. There are four — `pointermove` →
+  `onDrag`, `pointerup` → `onPointerEnd`, `pointercancel` → `onPointerEnd`, `blur` → `endDrag` —
+  and `endDrag` and the `onMount` cleanup each remove all four, so none outlives a drag or an unmount mid-drag. Being on `window`
   they hear every pointer, so `startDrag` stores `event.pointerId` in `drag`, and while one is live
   it still calls `event.preventDefault()` first, as it does for every press today, then returns
   without touching `drag`; the move, up and cancel listeners ignore an event whose `pointerId` is
-  not the drag's (`what/overlay-config.md` rule 41e). `startDrag` does not filter by `pointerType`:
+  not the drag's (`what/overlay-config.md` rule 41e). `onDrag` ends the drag instead of placing
+  when the drag's own pointer reports `buttons === 0` (rule 41d); `blur` carries no pointer and
+  ends it unconditionally. `startDrag` does not filter by `pointerType`:
   a touch or pen press starts a drag like a mouse press. The calls to `endDrag()` from
   `setTextScale` and `loadProfile` carry no pointer and end the drag unconditionally. `.handle` and
   `.handle__resize` deliberately set no `touch-action`, so the browser keeps touch (and, where it

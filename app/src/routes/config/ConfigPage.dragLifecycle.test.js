@@ -64,7 +64,7 @@ function previewScale(c) {
 const down = (c) => fireEvent.pointerDown(moveHandle(c), { clientX: 0, clientY: 0 })
 async function moveTo(c, dx, dy = 0) {
   const s = previewScale(c)
-  await fireEvent.pointerMove(window, { clientX: dx * s, clientY: dy * s })
+  await fireEvent.pointerMove(window, { buttons: 1, clientX: dx * s, clientY: dy * s })
   await tick()
 }
 async function up() {
@@ -340,11 +340,11 @@ describe('pointercancel ends a drag exactly as pointerup does (rule 41d)', () =>
   })
 
   it('the window drag listeners live only while a drag is live, whatever ends it, and never outlive unmount', async () => {
-    // Guards the how/ mechanism (config-editor.md: three listeners added per drag, removed by
+    // Guards the how/ mechanism (config-editor.md: four listeners added per drag, removed by
     // endDrag and by unmount), not a rule 41d behaviour. A leaked window listener has no DOM
     // trace, so this counts live ones of each type. A version that only cleared `drag` at a
-    // preset change or a load would leave all three behind, so both of those end a drag here too.
-    const TYPES = ['pointermove', 'pointerup', 'pointercancel']
+    // preset change or a load would leave all four behind, so both of those end a drag here too.
+    const TYPES = ['pointermove', 'pointerup', 'pointercancel', 'blur']
     const live = Object.fromEntries(TYPES.map((t) => [t, new Set()]))
     const add = window.addEventListener.bind(window)
     const remove = window.removeEventListener.bind(window)
@@ -357,8 +357,8 @@ describe('pointercancel ends a drag exactly as pointerup does (rule 41d)', () =>
       return remove(type, fn, opts)
     })
     const counts = () => Object.fromEntries(TYPES.map((t) => [t, live[t].size]))
-    const ALL = { pointermove: 1, pointerup: 1, pointercancel: 1 }
-    const NONE = { pointermove: 0, pointerup: 0, pointercancel: 0 }
+    const ALL = { pointermove: 1, pointerup: 1, pointercancel: 1, blur: 1 }
+    const NONE = { pointermove: 0, pointerup: 0, pointercancel: 0, blur: 0 }
 
     vi.mocked(api.listProfiles).mockResolvedValue(['pit-wall'])
     vi.mocked(api.getProfile).mockResolvedValue({
@@ -378,6 +378,12 @@ describe('pointercancel ends a drag exactly as pointerup does (rule 41d)', () =>
     await down(c)
     await cancel()
     expect(counts(), 'drag listeners left on window after pointercancel').toEqual(NONE)
+
+    await down(c)
+    expect(counts()).toEqual(ALL)
+    await fireEvent(window, new Event('blur'))
+    await tick()
+    expect(counts(), 'drag listeners left on window after a window blur').toEqual(NONE)
 
     await down(c)
     expect(counts()).toEqual(ALL)
