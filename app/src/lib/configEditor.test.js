@@ -144,6 +144,29 @@ describe('configEditor — canvas', () => {
     expect(next.canvas.w).toBe(DEFAULT_CONFIG.canvas.w)
   })
 
+  it.each([
+    ['whitespace-only string', '   '],
+    ['true', true],
+    ['false', false],
+    ['single-element array', [640]],
+    ['empty array', []],
+    ['plain object', {}],
+    ['null', null],
+    ['NaN', NaN],
+    ['Infinity', Infinity],
+    ['-Infinity', -Infinity],
+    ['the string Infinity', 'Infinity'],
+    ['partly numeric string', '640px'],
+    ['non-numeric string', 'abc'],
+  ])('keeps the current edge for a non-number (%s)', (_label, bad) => {
+    // Number() would coerce '   '/false/[] to 0 and true to 1 (both raised to 320), and [640]
+    // to 640; parseFloat would read '640px' as 640. None is a valid number, so the 1280x720
+    // canvas must not move.
+    const start = setCanvas(DEFAULT_CONFIG, { w: 1280, h: 720 })
+    const next = setCanvas(start, { w: bad, h: bad })
+    expect(next.canvas).toEqual({ w: 1280, h: 720 })
+  })
+
   it('does not shrink widgets when the canvas stays large enough', () => {
     const next = setCanvas(DEFAULT_CONFIG, { w: 1280, h: 720 })
     expect(next.widgets.tower).toMatchObject({ x: 24, w: 400 })
