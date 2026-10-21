@@ -366,6 +366,15 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     outside this rule. During an exit grace (rule 37) the box renders the held battle's snapshot,
     so its name is the held snapshot's. Outside a hold, in `/all` the battle box, the driver
     lower-third and the HUD strip show the same name for the live snapshot.
+68. **Neighbour names.** The ahead slot shows the name of the car whose `position` is exactly
+    the subject's position minus 1, and the behind slot the car at exactly the subject's position
+    plus 1. A subject with no matching vehicle or no `position`, or a position with no car, leaves
+    that slot at `—`. A neighbour's `driver_name` counts as present by the same test as rule 14b:
+    a string with at least one non-whitespace character. A present name renders as the battle box
+    renders every name (rule 48's full form); a missing one — `""`, a whitespace-only string,
+    `null`, absent, a number, a boolean, an object or any other non-string — renders `—`. The
+    empty cell rule 48 gives a missing name is the tower's; the battle box's slots show `—`. Each
+    slot is judged on its own. The focus slot is outside this rule.
 
 ### Subject-driven lower-thirds (`/driver` #21, `/qualifying` #22)
 
