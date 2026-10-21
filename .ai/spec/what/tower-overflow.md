@@ -35,9 +35,10 @@ Decision record: `docs/decisions/0005-standalone-tower-slot-height.md`.
     budget (rule 2) and `maxRows`. `maxRows: "auto"` means the slot budget alone. The derived slot
     height is itself neither a profile field nor a URL knob (`overlay-config.md` rule 13) and nothing
     overrides it but resizing the source. This reaches the **overflow** settings, the
-    tower's name style (`overlay-config.md` rule 42) and its class display (`widgets.md` rule 67)
-    only — the standalone route's other knobs (`?class=`, `?metrics=`) keep the precedence
-    rule 13 already gives them.
+    tower's name style (`overlay-config.md` rule 42), its class display (`widgets.md` rule 67)
+    and its metrics (`overlay-config.md` rule 49, under which `?metrics=` still overrides the
+    profile) only — the standalone route's other knob, `?class=`, keeps the precedence
+    rule 13 already gives it.
 21. **A resize burst re-fits once per animation frame.** Rule 19's re-fit is coalesced. A
     `resize` event re-fits immediately when no frame is already pending; every event arriving
     while one is pending is dropped and replaced by a single catch-up re-fit taken when that

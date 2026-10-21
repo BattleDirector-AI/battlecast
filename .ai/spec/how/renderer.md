@@ -226,7 +226,8 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `design/sessionProgress.js` (`sessionProgressText`) — NOT the Race Control widget, which draws
   only flag/FCY/SC. Two separate widgets read the same `session` object for different parts.
 - **Richer-tower metrics** (`interval_ahead`, `pit_stops`/`in_pit`, `tire_compound`/`tire_wear`,
-  `fuel`) are gated by the per-tower `towerMetrics` toggle (`?metrics=` on the standalone route),
+  `fuel`) are gated by the per-tower `towerMetrics` toggle (the profile's, overridden by
+  `?metrics=` on the standalone route),
   and `StandingsTower.svelte` suppresses pit/tire-wear/fuel outright in lap-timed modes
   (`hideRaceStrategy`) regardless of the toggles or producer data.
 - **Driver name style** (behavior in `what/widgets.md` rules 46–48, `what/overlay-config.md`

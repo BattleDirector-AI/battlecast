@@ -322,15 +322,16 @@ function normalizeCycle(value, fallback) {
 
 /** Parse a `?metrics=` comma list (`interval,pit,tire,fuel,lapflash`) from the standalone
  *  `/tower` route into the toggle shape — listed metrics on, the rest off. An
- *  absent/empty param returns null so the caller can fall back to the config default
- *  (interval on). Mirrors the 0.6.0 `?unit=mph` standalone knob. */
+ *  absent/empty param, or one naming no known toggle, returns null so the caller falls back
+ *  to the profile's metrics (overlay-config rule 49); unknown names are dropped. Mirrors the
+ *  0.6.0 `?unit=mph` standalone knob. */
 export function parseTowerMetricsParam(raw) {
   if (raw == null || !String(raw).trim()) return null
   const on = new Set(splitList(raw).map((s) => s.toLowerCase()))
   const out = {}
   // Case-insensitive match, so the camelCase `lapFlash` is reachable as `lapflash`.
   for (const field of TOWER_METRIC_FIELDS) out[field] = on.has(field.toLowerCase())
-  return out
+  return Object.values(out).some(Boolean) ? out : null
 }
 
 /** The driver/vehicle identity fields the on-board HUD can show, in `/config` order. */
