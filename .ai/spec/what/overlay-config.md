@@ -168,8 +168,21 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     "tower metrics shown" group beside the other toggles, labelled **lap flash** (not the raw key),
     with its own help copy (rules 16, 19). On
     the standalone `/tower` route `?metrics=` matches toggle names case-insensitively, so
-    `?metrics=interval,lapflash` turns it on and a `?metrics=` list that omits it turns it off;
-    with no `?metrics=` the default (on) applies.
+    `?metrics=interval,lapflash` turns it on and a `?metrics=` list that names a known toggle but
+    omits it turns it off (an invalid list is ignored; rule 49);
+    with no `?metrics=` the loaded profile's `lapFlash` applies (default on; rule 49).
+49. **The standalone `/tower` route takes its metrics from the loaded profile, and `?metrics=`
+    overrides them as a whole.** With no `?metrics=` the route turns on exactly the toggles the
+    profile's tower `towerMetrics` turns on (`interval`, `pit`, `tire`, `fuel`, `lapFlash`); `/all`
+    does the same for the same profile (the tower route reads the profile once, when it loads).
+    With no profile that is the default (`interval` and `lapFlash` on, `pit`, `tire`, `fuel`
+    off); a `?profile=` that fails to load counts as no profile. A `?metrics=` that names at
+    least one known toggle is the complete list: each of the five toggles is on if and only if
+    the list names it, and the profile's `towerMetrics` contributes nothing, so a profile toggle
+    the list omits is off and one the list names is on whatever the profile says. A `?metrics=`
+    that is empty, blank, or names no known toggle (`?metrics=bogus`, `?metrics=,`) is ignored
+    and the route behaves as if it were absent. Unknown names in a list that also names a known
+    toggle are ignored. `/all` has no `?metrics=` knob.
 
 ### Per-widget text size
 
