@@ -71,6 +71,17 @@ on a field name/type, `schema.json` wins.
     `slot_id` and no usable `position` still matches `subject.slot_id`. No widget throws on
     either. Widget specifics: `widgets.md` rules 14a, 59, and 66.
 
+    **Entries sharing a `slot_id`.** A `slot_id` is one car. When several object entries carry the
+    same usable `slot_id` (compared as exact strings), the car is the **first listable entry** with
+    that `slot_id`, in array order; when none of them is listable, it is the first entry with that
+    `slot_id`. Every other entry with that `slot_id` is absent in the sense above: never a row,
+    never a match for `subject.slot_id`, never named as the car ahead or behind, and never counted
+    toward a class rank, a class car count, a total, or a column's sizing. The widget renders
+    exactly as if only the winning entry were in the array. The tower, `/grid`, `/results`, the
+    battle box's class chip and neighbours, the driver lower-third, the qualifying lower-third and
+    the on-board HUD all read the same winning entry, so the subject's card, its chip, and its row
+    in a list show the same car's data. Duplicates never stop a widget rendering.
+
 ### Optional additive fields (consumer MUST tolerate absence)
 
 13. Per-vehicle: **`notable`** (open object of booleans — `class_best_lap`, `session_best_lap`,
