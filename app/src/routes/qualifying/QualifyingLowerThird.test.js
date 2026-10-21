@@ -334,6 +334,37 @@ describe('QualifyingLowerThird — idle', () => {
     expect(txt(container, 'qt-best')).toBe('1:28.912')
   })
 
+  it('persistent -> dwell while gated out does not use up the connect fire (rule 17)', async () => {
+    // Reverting the trigger fix turns this red even though both fixtures have subject
+    // car-1: #22 feeds a null slot key while gated out, so the stale persistent
+    // baseline differs from car-1 and the eligible snapshot would fire as a cut.
+    // showOnConnect off, connected on a race snapshot (mode-gated out, card down) in
+    // persistent, then switched to dwell. Same as starting on dwell: the first
+    // eligible subject is the connect event and is suppressed.
+    const persistent = { trigger: 'persistent', showOnConnect: false }
+    const dwell = { trigger: 'dwell', dwellSeconds: 6, showOnConnect: false }
+    const { container, rerender } = render(QualifyingLowerThird, {
+      snapshot: raceCloseBattle,
+      widget: persistent,
+    })
+    await tick()
+    expect(card(container)).toBeNull()
+
+    await rerender({ snapshot: raceCloseBattle, widget: dwell })
+    await tick()
+    expect(card(container)).toBeNull()
+
+    // The session turns eligible: this is the connect fire, suppressed.
+    await rerender({ snapshot: qualTarget, widget: dwell })
+    await tick()
+    expect(card(container)).toBeNull()
+
+    // A later genuine cut still fires.
+    await rerender({ snapshot: qualSectorA, widget: dwell })
+    await tick()
+    expect(txt(container, 'qt-name')).toBe('Leclerc')
+  })
+
   it('renders nothing when the subject has no timing at all', async () => {
     const { container } = render(QualifyingLowerThird, { snapshot: qualNoTiming, widget: {} })
     await tick()
