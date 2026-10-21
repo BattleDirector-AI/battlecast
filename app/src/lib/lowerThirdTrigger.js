@@ -30,6 +30,8 @@
  * driver), gated by `showOnConnect` (default true).
  */
 
+import { finiteOrNull } from './overlayConfig.js'
+
 export const DEFAULT_DWELL_SECONDS = 6
 
 /**
@@ -87,7 +89,8 @@ export function createLowerThirdTrigger({ onChange } = {}) {
   } = {}) {
     const key = subjectSlotId ?? null
     const mode = trigger === 'persistent' ? 'persistent' : 'dwell'
-    const dwell = Number(dwellSeconds) > 0 ? Number(dwellSeconds) : DEFAULT_DWELL_SECONDS
+    const finiteDwell = finiteOrNull(dwellSeconds)
+    const dwell = finiteDwell > 0 ? finiteDwell : DEFAULT_DWELL_SECONDS
     const switchedFromPersistent = prevMode === 'persistent' && mode === 'dwell'
     prevMode = mode
 
