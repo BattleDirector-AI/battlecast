@@ -189,7 +189,15 @@ re-fits the stage. The SSE feed is **not** touched — a config edit never recon
 - **Drag listeners live on `window`,** attached in `startDrag` and removed in `endDrag`, so a pointer
   that leaves the preview box still tracks and still releases. There are three — `pointermove` →
   `onDrag`, `pointerup` → `endDrag`, `pointercancel` → `endDrag` — and `endDrag` and the `onMount`
-  cleanup each remove all three, so none outlives a drag or an unmount mid-drag.
+  cleanup each remove all three, so none outlives a drag or an unmount mid-drag. Being on `window`
+  they hear every pointer, so `startDrag` stores `event.pointerId` in `drag`, and while one is live
+  it still calls `event.preventDefault()` first, as it does for every press today, then returns
+  without touching `drag`; the move, up and cancel listeners ignore an event whose `pointerId` is
+  not the drag's (`what/overlay-config.md` rule 41e). `startDrag` does not filter by `pointerType`:
+  a touch or pen press starts a drag like a mouse press. The calls to `endDrag()` from
+  `setTextScale` and `loadProfile` carry no pointer and end the drag unconditionally. `.handle` and
+  `.handle__resize` deliberately set no `touch-action`, so the browser keeps touch (and, where it
+  scrolls with one, pen) gestures and cancels such a drag (rule 41e's second paragraph).
 - **Config swaps are deliberately un-animated** on the render path — a layout change is an operator
   action, not a broadcast reveal. Do not route a live-reload swap through a transition.
 - **Live reload relies on the API's `no-cache` headers** (`what/companion-server.md` rule 15, set in

@@ -240,6 +240,23 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     because the drag is one rule 41c edit from where it began, the next pointer step places the
     dragged parts — `x` and `y` for a move, `w` and `h` for a resize — from the drag's start: a
     value typed into one of them while the pointer is held is replaced.
+41e. **A drag follows the one pointer that started it.** A preview drag or resize belongs to the
+    pointer (by `pointerId`) whose press on a handle started it. Only that pointer's movement
+    places the widget, and a release or cancel ends the drag (rule 41d) only when it is that
+    pointer's: another pointer's `pointermove` changes nothing, and another pointer's `pointerup`
+    or `pointercancel` leaves the drag live. While a drag is live, a press on any handle — the same
+    widget's or another's, move or resize, by any pointer — is ignored: it starts no drag and
+    changes nothing about the live one, which keeps placing its widget from where it began (rule
+    41c). Once the drag has ended, a pointer that was already down when it ended drives nothing;
+    only a fresh press on a handle starts the next drag.
+
+    Preview dragging is built for a mouse. A touch on a handle — or a pen, on a browser that
+    scrolls or zooms with one — starts a drag like any other pointer, and its steps place the
+    widget until the browser takes the gesture for scrolling or zooming and cancels the pointer.
+    That ends the drag as rule 41d says: the widget keeps the geometry of the last pointer step
+    before the cancel, and later movement changes nothing. So dragging or resizing the preview by
+    touch does not work; by touch, a widget's geometry is edited through its typed `x`, `y`, `w`
+    and `h` fields (rule 44).
 
 ### Typed number fields in the editor
 

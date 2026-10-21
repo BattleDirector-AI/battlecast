@@ -97,9 +97,7 @@
       if (typeof window === 'undefined') return
       window.removeEventListener('resize', fitPreview)
       // Also drop any in-flight drag listeners so unmounting mid-drag can't leak them.
-      window.removeEventListener('pointermove', onDrag)
-      window.removeEventListener('pointerup', endDrag)
-      window.removeEventListener('pointercancel', endDrag)
+      endDrag()
       clearTimeout(copyResetTimer)
     }
   })
@@ -243,14 +241,23 @@
   let drag = null
   function startDrag(event, key, mode) {
     event.preventDefault()
+    // A drag belongs to the pointer that started it; a press while one is live is ignored (rule 41e).
+    if (drag) return
     const w = config.widgets[key]
-    drag = { key, mode, startX: event.clientX, startY: event.clientY, orig: { ...w } }
+    drag = {
+      key,
+      mode,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      orig: { ...w },
+    }
     window.addEventListener('pointermove', onDrag)
-    window.addEventListener('pointerup', endDrag)
-    window.addEventListener('pointercancel', endDrag)
+    window.addEventListener('pointerup', onPointerEnd)
+    window.addEventListener('pointercancel', onPointerEnd)
   }
   function onDrag(event) {
-    if (!drag) return
+    if (!drag || event.pointerId !== drag.pointerId) return
     const dx = Math.round((event.clientX - drag.startX) / previewScale)
     const dy = Math.round((event.clientY - drag.startY) / previewScale)
     if (drag.mode === 'move') {
@@ -259,11 +266,16 @@
       config = editor.resizeWidget(config, drag.key, drag.orig.w + dx, drag.orig.h + dy, drag.orig)
     }
   }
+  // Only the drag's own pointer ends it (overlay-config rule 41e).
+  function onPointerEnd(event) {
+    if (drag && event.pointerId === drag.pointerId) endDrag()
+  }
+  // Ends any live drag unconditionally: a preset change or profile load (rule 41d), or unmount.
   function endDrag() {
     drag = null
     window.removeEventListener('pointermove', onDrag)
-    window.removeEventListener('pointerup', endDrag)
-    window.removeEventListener('pointercancel', endDrag)
+    window.removeEventListener('pointerup', onPointerEnd)
+    window.removeEventListener('pointercancel', onPointerEnd)
   }
 
   // ---- typed number fields (overlay-config rules 44-44c) ----------------------

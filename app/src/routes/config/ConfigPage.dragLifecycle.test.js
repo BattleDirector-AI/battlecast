@@ -339,36 +339,61 @@ describe('pointercancel ends a drag exactly as pointerup does (rule 41d)', () =>
     expect(tower.textScaleOrigin).toEqual({ x: 1426, w: 380 })
   })
 
-  it('the window pointercancel listener lives only while a drag is live, and never outlives unmount', async () => {
-    // Guards the how/ mechanism (config-editor.md: listeners added per drag, removed by
+  it('the window drag listeners live only while a drag is live, whatever ends it, and never outlive unmount', async () => {
+    // Guards the how/ mechanism (config-editor.md: three listeners added per drag, removed by
     // endDrag and by unmount), not a rule 41d behaviour. A leaked window listener has no DOM
-    // trace, so this counts live ones.
-    const live = new Set()
+    // trace, so this counts live ones of each type. A version that only cleared `drag` at a
+    // preset change or a load would leave all three behind, so both of those end a drag here too.
+    const TYPES = ['pointermove', 'pointerup', 'pointercancel']
+    const live = Object.fromEntries(TYPES.map((t) => [t, new Set()]))
     const add = window.addEventListener.bind(window)
     const remove = window.removeEventListener.bind(window)
     vi.spyOn(window, 'addEventListener').mockImplementation((type, fn, opts) => {
-      if (type === 'pointercancel') live.add(fn)
+      live[type]?.add(fn)
       return add(type, fn, opts)
     })
     vi.spyOn(window, 'removeEventListener').mockImplementation((type, fn, opts) => {
-      if (type === 'pointercancel') live.delete(fn)
+      live[type]?.delete(fn)
       return remove(type, fn, opts)
     })
+    const counts = () => Object.fromEntries(TYPES.map((t) => [t, live[t].size]))
+    const ALL = { pointermove: 1, pointerup: 1, pointercancel: 1 }
+    const NONE = { pointermove: 0, pointerup: 0, pointercancel: 0 }
 
+    vi.mocked(api.listProfiles).mockResolvedValue(['pit-wall'])
+    vi.mocked(api.getProfile).mockResolvedValue({
+      configVersion: '1',
+      name: 'pit-wall',
+      widgets: { tower: { visible: true, x: 100, y: 200, w: 380, h: 600 } },
+    })
     const { container: c, unmount } = render(ConfigPage)
     await settle()
+    expect(counts(), 'drag listeners on window before any drag').toEqual(NONE)
+
     await down(c)
-    expect(live.size, 'no pointercancel listener on window during a drag').toBe(1)
+    expect(counts(), 'drag listeners missing from window during a drag').toEqual(ALL)
     await up()
-    expect(live.size, 'pointercancel listener left on window after pointerup').toBe(0)
+    expect(counts(), 'drag listeners left on window after pointerup').toEqual(NONE)
 
     await down(c)
     await cancel()
-    expect(live.size, 'pointercancel listener left on window after pointercancel').toBe(0)
+    expect(counts(), 'drag listeners left on window after pointercancel').toEqual(NONE)
 
     await down(c)
-    expect(live.size).toBe(1)
+    expect(counts()).toEqual(ALL)
+    await pick(c, 'large')
+    expect(counts(), 'drag listeners left on window after a preset change').toEqual(NONE)
+
+    await down(c)
+    expect(counts()).toEqual(ALL)
+    await fireEvent.change(c.querySelector('[data-testid="load"]'), { target: { value: 'pit-wall' } })
+    await settle()
+    expect(value(c, 'x')).toBe(100) // the load landed
+    expect(counts(), 'drag listeners left on window after a profile load').toEqual(NONE)
+
+    await down(c)
+    expect(counts()).toEqual(ALL)
     unmount()
-    expect(live.size, 'pointercancel listener leaked past unmount mid-drag').toBe(0)
+    expect(counts(), 'drag listeners leaked past unmount mid-drag').toEqual(NONE)
   })
 })
