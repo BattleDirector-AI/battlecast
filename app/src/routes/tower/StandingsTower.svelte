@@ -248,7 +248,7 @@
   // Bound to the .tower section so the row/header heights read off the live design
   // tokens (theme-overridable) rather than hardcoding 38/44 (spec rule 3).
   let towerEl = $state(null)
-  let tokenPx = $state({ header: 38, row: 44, towerWidth: 400 })
+  let tokenPx = $state({ header: 38, row: 44, towerWidth: 400, borderY: 2 })
   $effect(() => {
     if (!towerEl || typeof getComputedStyle !== 'function') return
     const cs = getComputedStyle(towerEl)
@@ -257,7 +257,15 @@
     // The standalone configured width (rule 48): the token only when it reads as a px
     // number — a custom property comes back as its authored text — else 400.
     const towerWidth = /^\s*(\d+(?:\.\d+)?)px\s*$/.exec(cs.getPropertyValue('--bc-tower-width'))
+    // The root's top + bottom border (1px each in the CSS). Unmeasurable falls back to 1px per
+    // edge so the budget keeps the chrome the CSS really draws; borderX (width) falls back to 0
+    // instead, because an unmeasured side must not widen the tower.
+    const edge = (v) => {
+      const n = parseFloat(v)
+      return Number.isFinite(n) && n >= 0 ? n : 1
+    }
     tokenPx = {
+      borderY: edge(cs.borderTopWidth) + edge(cs.borderBottomWidth),
       header: Number.isFinite(header) && header > 0 ? header : 38,
       row: Number.isFinite(row) && row > 0 ? row : 44,
       towerWidth: towerWidth ? Number(towerWidth[1]) : 400,
@@ -268,14 +276,16 @@
   // by an explicit integer `maxRows`. No slot height + 'auto' => unbounded (the
   // standalone /tower case), so cycling stays inert.
   // A rendered row is its token height plus a 1px divider (`.row` border-bottom). The frame
-  // adds the header's 1px divider and the root's 1px border top and bottom, less the last
-  // row, which drops its divider (`.row--last`): chrome = header + 2, row cost = row + 1 (#315).
+  // adds the header's 1px divider and the root's border top and bottom (measured, `borderY`),
+  // less the last row, which drops its divider (`.row--last`). The header divider and the
+  // dropped last-row divider are both 1px and cancel (pinned by StandingsTower.borderDrift.test.js):
+  // chrome = header + borderY, row cost = row + 1 (#315).
   // A header-only tower (budget 0) is 41px, since no last-row divider is dropped; a slot of
   // exactly 40px therefore overshoots by 1px, and the CSS clamp covers that edge.
   const rowBudget = $derived.by(() => {
     const fromHeight =
       slotHeight != null
-        ? computeRowBudget(slotHeight, tokenPx.header + 2, tokenPx.row + 1)
+        ? computeRowBudget(slotHeight, tokenPx.header + tokenPx.borderY, tokenPx.row + 1)
         : Infinity
     if (maxRows === 'auto' || maxRows == null) return fromHeight
     const cap = Number(maxRows)
