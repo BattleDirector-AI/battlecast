@@ -40,4 +40,19 @@ describe('parseTowerMetricsParam — ?metrics= and lapFlash (#207)', () => {
   it('turns lapFlash off when a list omits it', () => {
     expect(parseTowerMetricsParam('interval')?.lapFlash).toBe(false)
   })
+
+  it('returns null for a list naming no known toggle, or only empty entries (rule 49)', () => {
+    expect(parseTowerMetricsParam('bogus')).toBeNull()
+    expect(parseTowerMetricsParam(',')).toBeNull()
+  })
+
+  it('drops unknown names and keeps the valid one: only fuel on, the other four off', () => {
+    expect(parseTowerMetricsParam('bogus,fuel')).toEqual({
+      interval: false,
+      pit: false,
+      tire: false,
+      fuel: true,
+      lapFlash: false,
+    })
+  })
 })
