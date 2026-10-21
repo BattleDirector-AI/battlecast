@@ -3,7 +3,7 @@
   import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName } from '../../design/format.js'
   import { classTagsShown } from '../../lib/classTags.js'
-  import { validVehicles } from '../../lib/vehicles.js'
+  import { listableVehicles } from '../../lib/vehicles.js'
 
   // Full-screen pre-race starting-grid board (#24). Presentational: it renders
   // whatever snapshot it is handed as a per-class starting order, sorted strictly
@@ -36,7 +36,7 @@
   // class registry `order` (the same sequence used for class-mode grouping), with
   // an alphabetical tiebreak for classes the registry doesn't know. Never mutate
   // the source array — copy before sort (a review checkpoint on #23).
-  const usable = $derived(validVehicles(snapshot))
+  const usable = $derived(listableVehicles(snapshot))
   const groups = $derived.by(() => {
     const rows = usable
       .filter(

@@ -4,7 +4,7 @@
   import { fmtName, fmtShortName, fmtLapTime } from '../../design/format.js'
   import { sessionProgressText } from '../../design/sessionProgress.js'
   import { classTagsShown } from '../../lib/classTags.js'
-  import { validVehicles } from '../../lib/vehicles.js'
+  import { listableVehicles } from '../../lib/vehicles.js'
   import { onDestroy, untrack } from 'svelte'
   import { computeRowBudget, createTowerCycle, clampPerPageSeconds } from './towerCycle.js'
 
@@ -110,7 +110,7 @@
   }
 
   // The usable entries, derived once; lap-flash reads it and allSorted copies it before sorting.
-  const usable = $derived(validVehicles(snapshot))
+  const usable = $derived(listableVehicles(snapshot))
 
   $effect(() => {
     const vehicles = usable

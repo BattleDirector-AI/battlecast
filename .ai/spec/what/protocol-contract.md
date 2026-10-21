@@ -53,11 +53,23 @@ on a field name/type, `schema.json` wins.
 21. **Malformed `vehicles` is tolerated.** A payload whose `vehicles` is not an array (`{}`, a
     string, `null`) is treated by every widget as an empty array. An entry of a `vehicles` array
     that is not an object (`null`, a number, a string, an array — an array is not an object whatever
-    properties it carries) is treated by every widget as
-    absent: it is never a row, never a match for `subject.slot_id`, and never counts toward a
-    class rank, a class car count, a total, or a column's sizing — the widget renders exactly as
-    if the entry were not in the array, wherever it sits. No widget throws on either. Widget
-    specifics: `widgets.md` rules 14a, 59, and 66.
+    properties it carries) is treated by every widget as absent: it is never a row, never a match
+    for `subject.slot_id`, and never counts toward a class rank, a class car count, a total, or a
+    column's sizing — the widget renders exactly as if the entry were not in the array, wherever it
+    sits.
+
+    An object entry is **listable** when it has a usable `slot_id` and a usable `position`.
+    - A `slot_id` is usable when it is a non-empty string; whitespace-only counts as usable, since
+      it is an opaque key. `""`, a number, `null` and a missing key are not usable.
+    - A `position` is usable when it is a finite number. `0`, a negative number and `2.5` are
+      usable (the schema's integer-from-1 range is not enforced) and sort as the numbers they are.
+      `null`, a string, `NaN`, `Infinity` and a missing key are not usable.
+
+    An entry that is not listable is absent for every consumer that lists, counts, sizes or looks
+    up neighbours by position: the tower, `/grid`, `/results`, and the battle box's ahead/behind
+    lookup. Finding the on-camera subject needs only a usable `slot_id`: an entry with a usable
+    `slot_id` and no usable `position` still matches `subject.slot_id`. No widget throws on
+    either. Widget specifics: `widgets.md` rules 14a, 59, and 66.
 
 ### Optional additive fields (consumer MUST tolerate absence)
 

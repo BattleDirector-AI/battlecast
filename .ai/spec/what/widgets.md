@@ -351,11 +351,14 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     one (rule 38), or caution or a non-racing mode begins. Decision record:
     `docs/decisions/0013-battle-box-exit-grace.md`.
 59. **Malformed `vehicles[]` entries are skipped.** The battle box treats a `vehicles[]` entry that
-    is not an object — `null`, a number, a string, an array — as absent, as rule 14a does: it never matches
-    the subject or the car ahead or behind, and the box renders the subject's class chip and the
-    ahead/behind names from the remaining entries. A `vehicles` that is not an array is
-    treated as empty (`protocol-contract.md` rule 21): no class chip, and both neighbours render
-    as `—`.
+    is not an object — `null`, a number, a string, an array — or is an object without a usable
+    `slot_id` as absent, as rule 14a does: it never matches the subject. An entry without a usable
+    `slot_id` or without a usable `position` (`protocol-contract.md` rule 21) is also never named
+    as the car ahead or behind. The box renders the subject's class chip and the ahead/behind
+    names from the remaining entries; a subject whose own entry has a usable `slot_id` and no
+    usable `position` still shows its class chip, and both neighbours render as `—`. A `vehicles`
+    that is not an array is treated as empty (`protocol-contract.md` rule 21): no class chip, and
+    both neighbours render as `—`.
 65. **The battle box's on-camera name.** The name in the focus slot, and in the idle placeholder's
     line (`CLEAR AIR — <name>`), is picked by rule 14b: `subject.driver_name` when present;
     otherwise the `driver_name` of the `vehicles[]` entry whose `slot_id` matches the subject's,
@@ -389,9 +392,12 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     `driver_name` present (rule 14b) but `slot_id` unresolved (render name only for #21, treat as
     idle for #22); *invalid* = neither → idle. Keyed off `slot_id`, never `driver_name`.
 14a. **Malformed `vehicles[]` entries are skipped.** An entry of `vehicles[]` that is not an object —
-    `null`, a number, a string, an array — never matches a `slot_id` and never stops a
+    `null`, a number, a string, an array — or is an object without a usable `slot_id`
+    (`protocol-contract.md` rule 21) never matches a `slot_id` and never stops a
     subject-driven widget from rendering: resolution runs over the remaining entries exactly as if
-    the malformed one were absent, wherever it sits in the array. This holds for #21, #22, the
+    the malformed one were absent, wherever it sits in the array. A `position` plays no part in
+    resolution: an entry with a usable `slot_id` and no usable `position` resolves the subject,
+    and rules 18 and 54 show no position and render the rest as normal. This holds for #21, #22, the
     on-board HUD's identity strip (rule 57), and the subject resolution `/all` runs on every
     snapshot. A `vehicles` that is not an array resolves nothing — the subject is degraded or
     invalid by rule 14 — as `protocol-contract.md` rule 21 states for every widget.
@@ -681,10 +687,13 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     cars in that order.
 66. **Malformed `vehicles` in the field lists.** The standings tower (standalone `/tower` and the
     tower `/all` composes), `/grid`, and `/results` apply `protocol-contract.md` rule 21. A
-    `vehicles[]` entry that is not an object is not a row, and it is not counted in a class rank
+    `vehicles[]` entry that is not an object, or is an object without a usable `slot_id` or
+    `position`, is not a row, and it is not counted in a class rank
     or total, a class group's car count, or the tower's column sizing; the rows, their order,
-    their positions, and those numbers are exactly those of the array without it. A `vehicles`
-    that is not an array, or whose every entry is not an object, is an empty field: the tower and
+    their positions, and those numbers are exactly those of the array without it. Two such
+    entries render no row and never stop the tower rendering. A `position` of `0` or `2.5` is
+    usable: that entry is a row, sorted by its number. A `vehicles`
+    that is not an array, or whose every entry is absent, is an empty field: the tower and
     the slides show the same placeholder `vehicles: []` shows ("Waiting for state…"), not "No
     cars in this class". `/all` renders every configured widget on a snapshot carrying such an entry.
 

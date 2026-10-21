@@ -6,7 +6,7 @@
  * bound underneath all of this.
  */
 
-import { validVehicles } from '../../lib/vehicles.js'
+import { listableVehicles } from '../../lib/vehicles.js'
 
 /** Minimum seconds per cycling page — below this the tower is unreadable (spec rule 14/16). */
 export const MIN_PER_PAGE_SECONDS = 4
@@ -130,7 +130,7 @@ export function createTowerCycle(config = {}) {
   let rendered = []
 
   function render(snapshot, recompute, field) {
-    field = field ?? validVehicles(snapshot)
+    field = field ?? listableVehicles(snapshot)
     const subjectSlotId = snapshot?.subject?.slot_id ?? null
     if (budget < 1) {
       rendered = []
@@ -193,7 +193,7 @@ export function createTowerCycle(config = {}) {
       return render(snapshot, recompute)
     },
     turn(snapshot) {
-      const field = validVehicles(snapshot)
+      const field = listableVehicles(snapshot)
       const subjectSlotId = snapshot?.subject?.slot_id ?? null
       const { pageCount } = partition(field, budget, cycle, subjectSlotId)
       page = (page + 1) % pageCount
