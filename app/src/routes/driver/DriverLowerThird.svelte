@@ -6,24 +6,38 @@
    *                (name + position + class).
    * - `degraded` — `subject.driver_name` present but the slot_id is unresolved
    *                (absent, or no matching vehicle) → name-only card.
-   * - `invalid`  — no driver_name and no resolvable slot_id → idle (nothing to show).
+   * - `invalid`  — no present driver_name and no resolvable slot_id → idle (nothing to show).
    *
    * Identity is keyed off `slot_id`, never `driver_name` (slot_id is the stable
    * per-session key; two drivers can share a name).
+   *
+   * `name` is `subject.driver_name`, else the resolved vehicle's `driver_name`, each
+   * only when present (widgets.md rule 14b); a non-object `vehicles[]` entry never
+   * matches (rule 14a). The on-board HUD's `resolveIdentity` reuses this resolver.
    */
   export function resolveSubject(snapshot) {
     const subject = snapshot?.subject ?? null
     const slotId = subject?.slot_id ?? null
-    const name = subject?.driver_name ?? null
+    const subjectName = presentName(subject?.driver_name)
     const vehicles = Array.isArray(snapshot?.vehicles) ? snapshot.vehicles : []
-    const vehicle = slotId != null ? vehicles.find((v) => v.slot_id === slotId) : undefined
+    const vehicle =
+      slotId != null
+        ? vehicles.find((v) => v && typeof v === 'object' && v.slot_id === slotId)
+        : undefined
+    const name = subjectName ?? presentName(vehicle?.driver_name)
 
     let state
     if (vehicle) state = 'valid'
-    else if (name) state = 'degraded'
+    else if (subjectName) state = 'degraded'
     else state = 'invalid'
 
     return { slotId, name, vehicle, state }
+  }
+
+  /** A `driver_name` counts as present only when it is a string with a non-whitespace
+   *  character (rule 14b); anything else is `null`. */
+  function presentName(value) {
+    return typeof value === 'string' && value.trim() ? value : null
   }
 
   /** True when there is no subject worth showing (idle). Used by widgetIdle.js so

@@ -345,6 +345,10 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     the grace (rule 37) and drops out only when the grace runs out, the subject changes to an idle
     one (rule 38), or caution or a non-racing mode begins. Decision record:
     `docs/decisions/0013-battle-box-exit-grace.md`.
+59. **Malformed `vehicles[]` entries are skipped.** The battle box treats a `vehicles[]` entry that
+    is not an object — `null`, a number, a string — as absent, as rule 14a does: it never matches
+    the subject or the car ahead or behind, and the box renders the subject's class chip and the
+    ahead/behind names from the remaining entries.
 
 ### Subject-driven lower-thirds (`/driver` #21, `/qualifying` #22)
 
@@ -355,8 +359,24 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 13. **Visibility layering** (every gate must pass): `config.visible` → trigger (`dwell` |
     `persistent`) → subject validity / idle → render. `?show=`/`?hide=` override `visible`.
 14. **Subject resolution:** *valid* = `slot_id` resolves to a `vehicles` entry; *degraded* =
-    `driver_name` present but `slot_id` unresolved (render name only for #21, treat as idle for #22);
-    *invalid* = neither → idle. Keyed off `slot_id`, never `driver_name`.
+    `driver_name` present (rule 14b) but `slot_id` unresolved (render name only for #21, treat as
+    idle for #22); *invalid* = neither → idle. Keyed off `slot_id`, never `driver_name`.
+14a. **Malformed `vehicles[]` entries are skipped.** An entry of `vehicles[]` that is not an object —
+    `null`, a number, a string — never matches a `slot_id` and never stops a subject-driven widget
+    from rendering: resolution runs over the remaining entries exactly as if the malformed one were
+    absent, wherever it sits in the array. This holds for #21, #22, the on-board HUD's identity
+    strip (rule 57), and the subject resolution `/all` runs on every snapshot.
+14b. **The subject's name.** A `driver_name` counts as present only when it is a string with at
+    least one non-whitespace character; `""`, a whitespace-only string, `null`, absent, or a
+    non-string all count as missing. The name a subject-driven widget (#21, #22, the HUD strip)
+    shows is `subject.driver_name` when present; otherwise, for a valid subject, the resolved
+    vehicle's `driver_name` when present; otherwise no name. So:
+    - A valid subject whose `subject.driver_name` and vehicle `driver_name` are both missing stays
+      valid. #21 renders its position and class chip with an empty name; #22 renders its timing
+      with an empty name; the HUD strip shows its other enabled fields and no name.
+    - A subject whose `slot_id` is unresolved and whose `subject.driver_name` is missing is
+      *invalid*: #21 and #22 are idle, the HUD has no strip, and in `/all` the driver lower-third
+      has no card up, so the hand-off (rule 24) holds nothing back.
 15. **Edge-triggered camera cut:** fire only when the new `slot_id` differs from the previous
     snapshot's, including `null→X`, `X→Y`, `X→null`. `A→A` does nothing; `A→null→A` re-fires.
 16. **Trigger modes:** `dwell` (default) — fire on change, show for `dwellSeconds`, then auto-hide
@@ -443,8 +463,8 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     `docs/decisions/0021-onboard-identity-without-telemetry.md` (amendment).
 54. **Identity strip content and order.** Left to right: the `ON BOARD` label (rule 55), position,
     car number, driver name, class chip, then make and model as one line. Each enabled field shows
-    only when it has a value. The name is `subject.driver_name` (falling back to the vehicle's
-    `driver_name`), in the HUD's name format; the others are read off the resolved vehicle.
+    only when it has a value. The name is the subject's name as rule 14b picks it
+    (`subject.driver_name`, falling back to the vehicle's `driver_name`), in the HUD's name format; the others are read off the resolved vehicle.
     Position renders as `P` followed by the vehicle's overall `position` — `P4`. A `position` that
     is null, absent, or anything other than a positive integer shows no position, and the rest of
     the strip renders as normal.
@@ -466,9 +486,9 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     hold off any of the first three rows. Under a `dwell` card it holds the whole HUD; under a
     `persistent` card it holds only the strip, so the HUD renders as if it had no identity
     content — telemetry row only, or nothing.
-57. **Subject resolution for the strip** follows rule 14. A *valid* subject (`slot_id` resolves to a
-    `vehicles[]` entry) shows every enabled field that has a value. A *degraded* subject
-    (`driver_name` present, `slot_id` unresolved) shows the label and the name only — no position,
+57. **Subject resolution for the strip** follows rules 14–14b. A *valid* subject (`slot_id` resolves
+    to a `vehicles[]` entry) shows every enabled field that has a value. A *degraded* subject
+    (`driver_name` present per rule 14b, `slot_id` unresolved) shows the label and the name only — no position,
     number, class, or car, whatever the toggles say. An *invalid* subject (neither) has no strip.
     The vehicle is found by `slot_id`, never by `driver_name`.
 58. **Idle and composition.** The HUD has no `hideWhenIdle` predicate: an idle HUD (rule 56) already

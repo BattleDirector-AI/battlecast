@@ -70,19 +70,21 @@
   const hot = $derived(intensity >= 0.67)
   const headerLabel = $derived(hot ? 'CLOSING' : 'BATTLE FOR POSITION')
 
+  // A non-object `vehicles[]` entry is treated as absent (widgets.md rule 59).
+  const cars = $derived(vehicles.filter((v) => v && typeof v === 'object'))
   const subjectVehicle = $derived(
-    vehicles.find((v) => v.slot_id === subject?.slot_id)
+    cars.find((v) => v.slot_id === subject?.slot_id)
   )
   const carClass = $derived(subjectVehicle?.vehicle_class)
   const subjectPos = $derived(subjectVehicle?.position)
   const aheadDriver = $derived(
     subjectPos != null
-      ? vehicles.find((v) => v.position === subjectPos - 1)?.driver_name
+      ? cars.find((v) => v.position === subjectPos - 1)?.driver_name
       : undefined
   )
   const behindDriver = $derived(
     subjectPos != null
-      ? vehicles.find((v) => v.position === subjectPos + 1)?.driver_name
+      ? cars.find((v) => v.position === subjectPos + 1)?.driver_name
       : undefined
   )
 </script>
