@@ -37,7 +37,7 @@
 
   /** A `driver_name` counts as present only when it is a string with a non-whitespace
    *  character (rule 14b); anything else is `null`. */
-  function presentName(value) {
+  export function presentName(value) {
     return typeof value === 'string' && value.trim() ? value : null
   }
 

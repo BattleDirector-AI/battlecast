@@ -53,7 +53,7 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import IntensityMeter from '../../design/IntensityMeter.svelte'
   import { classTagsShown } from '../../lib/classTags.js'
-  import { resolveSubject } from '../driver/DriverLowerThird.svelte'
+  import { presentName, resolveSubject } from '../driver/DriverLowerThird.svelte'
   import { validVehicles } from '../../lib/vehicles.js'
 
   let {
@@ -86,15 +86,16 @@
   // Rule 65: the on-camera name is picked by the shared rule-14b resolver.
   const subjectName = $derived(resolveSubject({ subject, vehicles }).name)
   const subjectPos = $derived(subjectVehicle?.position)
-  const aheadDriver = $derived(
+  // A neighbour's name counts as present by the rule 14b test; otherwise the slot shows the dash (rule 68).
+  const aheadName = $derived(
     subjectPos != null
-      ? cars.find((v) => v.position === subjectPos - 1)?.driver_name
-      : undefined
+      ? presentName(cars.find((v) => v.position === subjectPos - 1)?.driver_name)
+      : null
   )
-  const behindDriver = $derived(
+  const behindName = $derived(
     subjectPos != null
-      ? cars.find((v) => v.position === subjectPos + 1)?.driver_name
-      : undefined
+      ? presentName(cars.find((v) => v.position === subjectPos + 1)?.driver_name)
+      : null
   )
 </script>
 
@@ -116,7 +117,7 @@
     <div class="bc-battle__body">
       <div class="bc-battle__slot bc-battle__slot--ahead">
         <span class="bc-battle__slot-label">AHEAD</span>
-        <span class="bc-battle__slot-name">{aheadDriver ? fmtName(aheadDriver) : '—'}</span>
+        <span class="bc-battle__slot-name">{aheadName ? fmtName(aheadName) : '—'}</span>
         <span class="bc-battle__gap">{fmtGap(relationship?.gap_ahead)}</span>
       </div>
 
@@ -127,7 +128,7 @@
 
       <div class="bc-battle__slot bc-battle__slot--behind">
         <span class="bc-battle__slot-label">BEHIND</span>
-        <span class="bc-battle__slot-name">{behindDriver ? fmtName(behindDriver) : '—'}</span>
+        <span class="bc-battle__slot-name">{behindName ? fmtName(behindName) : '—'}</span>
         <span class="bc-battle__gap">{fmtGap(relationship?.gap_behind)}</span>
       </div>
     </div>
