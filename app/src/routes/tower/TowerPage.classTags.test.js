@@ -4,16 +4,19 @@
  * innerHeight 500 -> slot 404 -> floor((404 - 38) / 44) = 8 rows; default cycle pinTop 3, 8 s.
  * The profile sets `classDisplay: 'grouped'`; the snapshot says `session.multiclass: false`.
  *
- * These pass today, and are regression guards rather than red tests: TowerPage does not pass
- * `classDisplay` to the tower at all, so the standalone route always renders the inline layout
- * whatever the profile says. They pin that hiding the tags keeps the viewport budget and the
- * page turn intact on this route; the grouped -> inline overflow fallback itself is red in
- * StandingsTower.classTagsOverflow.test.js.
+ * The two hidden-tag tests pass today and are regression guards: TowerPage does not pass
+ * `classDisplay` to the tower at all, so the standalone route renders the inline layout whatever
+ * the profile says, which is also what hiding the tags requires. They pin that hiding the tags
+ * keeps the viewport budget and the page turn intact on this route; the grouped -> inline
+ * overflow fallback itself is pinned in StandingsTower.classTagsOverflow.test.js. The last test is
+ * their counterpart (widgets.md rule 67): with the tags showing, the same profile gives the
+ * grouped layout on this route. It is red until the page passes `classDisplay` through.
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { flushSync, tick } from 'svelte'
 import { render, cleanup } from '@testing-library/svelte'
 import TowerPage from './TowerPage.svelte'
+import multiClass from '../../../../spec/v1/fixtures/grid-multiclass.json'
 
 const sse = vi.hoisted(() => ({ emit: null }))
 vi.mock('../../lib/sseClient.js', () => ({
@@ -95,5 +98,14 @@ describe('standalone /tower — hidden class tags keep the viewport budget and c
     await vi.advanceTimersByTimeAsync(8000)
     flushSync()
     expect(names()).toEqual(d(1, 2, 3, 9, 10, 11, 12, 13))
+  })
+})
+
+describe('standalone /tower — shown class tags render the grouped layout from the profile (rules 61, 67)', () => {
+  it('multiclass true + grouped profile: class sections, not the inline list the hidden-tag case gets', async () => {
+    await mountTower(1000, multiClass, GROUPED)
+    const root = document.querySelector('[data-testid="standings-tower"]')
+    expect(root.getAttribute('data-class-display')).toBe('grouped')
+    expect(document.querySelectorAll('[data-testid="tower-group"]')).not.toHaveLength(0)
   })
 })

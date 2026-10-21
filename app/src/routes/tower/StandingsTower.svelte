@@ -30,12 +30,16 @@
     metrics = {},
     // Tower overflow — pinned rows + cycling window (ADR 0003 / .ai/spec tower-overflow.md).
     // `maxRows` ('auto' | integer cap) and `cycle` come from config; `slotHeight` is the
-    // tower's configured slot height in CANVAS px. Only /all supplies slotHeight — that's
-    // where the tower has a bounded box; the standalone route leaves it null, so cycling
-    // stays inert unless an integer `maxRows` caps the rows directly.
+    // tower's slot height: CANVAS px from /all's configured slot, viewport px less the safe-area
+    // insets from the standalone route (tower-overflow rules 18-19). Null leaves cycling
+    // inert unless an integer `maxRows` caps the rows directly.
     maxRows = 'auto',
     cycle = null,
     slotHeight = null,
+    // Hard height bound in px on the tower root, which clips its own rows (overflow: hidden).
+    // Applied only while the tower renders grouped (no row budget of its own); the inline
+    // layout is bounded by its row budget. /all leaves it null: its widget slot bounds it.
+    maxHeight = null,
     // Broadcaster class-color overrides (rule 32, ADR 0010) — the resolved
     // `theme.classColors` map, or `{}` when the caller has none.
     classColors = {},
@@ -855,6 +859,7 @@
   data-class-display={layout}
   data-name-style={fullStyle ? 'full' : 'short'}
   style:min-width={towerMinWidth}
+  style:max-height={layout === 'grouped' && maxHeight != null ? `${maxHeight}px` : undefined}
   bind:this={towerEl}
 >
   <header class="tower__header" data-testid="tower-header">
