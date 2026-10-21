@@ -96,12 +96,11 @@
   // Mirror the driver lower-third's own "renderable subject" test so the HUD's
   // hand-off timing tracks it exactly.
   const subjectActive = $derived(resolveSubject(snapshot).state !== 'invalid')
-  // Gate the HUD on the driver lower-third only when the broadcaster opted in
-  // (`waitForLowerThird`) AND that card is actually enabled/visible; otherwise there
-  // is nothing to wait for, so pass no gate (the HUD shows immediately).
-  const onboardGate = $derived(
-    !preview && onboardCfg?.waitForLowerThird && driverCfg?.visible ? driverCfg : null,
-  )
+  // The HUD mirrors the driver lower-third's timing whenever that card is visible, so the
+  // mirror keeps pace with the card even while `waitForLowerThird` is off; the knob only
+  // decides whether the HUD holds (rule 24). A hidden card passes no gate, so showing it
+  // again restarts the mirror as a (re)connect, as it does the card itself.
+  const onboardGate = $derived(!preview && driverCfg?.visible ? driverCfg : null)
 </script>
 
 <div
@@ -156,6 +155,7 @@
           {subjectSlotId}
           {subjectActive}
           driverWidget={onboardGate}
+          waitForLowerThird={onboardCfg?.waitForLowerThird}
           {classColors}
         />
       {/if}

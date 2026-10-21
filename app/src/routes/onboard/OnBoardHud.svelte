@@ -121,14 +121,16 @@
     // caller resolves it via resolveIdentity() from the snapshot + the widget config.
     identity = null,
     // Hand-off inputs. When `driverWidget` is supplied (only on `/all`, and only when
-    // the onboard `waitForLowerThird` knob is on and the driver lower-third is
-    // visible), the HUD mirrors that lower-third's fire/dwell timing off the subject
-    // stream and, while the card is up, holds itself (dwell) or its identity strip
-    // (persistent) back. `null` => no gate (standalone
-    // `/onboard`, or the knob is off).
+    // the driver lower-third is visible), the HUD mirrors that lower-third's fire/dwell
+    // timing off the subject stream and, while the card is up and `waitForLowerThird`
+    // is on, holds itself (dwell) or its identity strip (persistent) back. The mirror
+    // keeps running while the knob is off, so ticking it again holds exactly what the
+    // card shows then (rule 24). `null` => no gate (standalone `/onboard`, or the card
+    // hidden), and the mirror restarts as a (re)connect when it comes back.
     subjectSlotId = null,
     subjectActive = false,
     driverWidget = null,
+    waitForLowerThird = true,
     classColors = {},
   } = $props()
 
@@ -142,16 +144,24 @@
   // independently, the exact same shown/hidden timeline as the driver lower-third —
   // no cross-widget state. What the card being up holds back is decided below.
   let lowerThirdShown = $state(false)
-  const gate = createLowerThirdTrigger({ onChange: (v) => (lowerThirdShown = v) })
+  const newGate = () => createLowerThirdTrigger({ onChange: (v) => (lowerThirdShown = v) })
+  let gate = newGate()
+  let gateSynced = false
   onDestroy(() => gate.stop())
 
   $effect(() => {
     if (!driverWidget) {
-      // No gate: standalone route, or waitForLowerThird off / driver card hidden.
-      gate.stop()
+      // No gate: standalone route, or the driver card hidden. The card unmounts when
+      // hidden, so drop the mirror too: its next sync is a (re)connect, like the card's.
+      if (gateSynced) {
+        gate.stop()
+        gate = newGate()
+        gateSynced = false
+      }
       lowerThirdShown = false
       return
     }
+    gateSynced = true
     gate.sync({
       subjectSlotId,
       active: subjectActive,
@@ -164,7 +174,7 @@
   // What the hand-off holds follows the card's trigger mode now (rule 24): a `dwell` card
   // holds the whole HUD, telemetry or not; a `persistent` card holds only the identity
   // strip, since the card already shows the name, and the telemetry row keeps rendering.
-  const held = $derived(!!driverWidget && lowerThirdShown)
+  const held = $derived(!!driverWidget && waitForLowerThird !== false && lowerThirdShown)
   const persistentCard = $derived(driverWidget?.trigger === 'persistent')
   const suppressed = $derived(held && !persistentCard)
   const showIdentity = $derived(!!identity && !(held && persistentCard))
