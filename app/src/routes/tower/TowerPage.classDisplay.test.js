@@ -144,6 +144,17 @@ describe('standalone /tower — a grouped tower is bounded at the derived slot (
     expect(tower.style.height).toBe('')
   })
 
+  it('a viewport resize re-measures the slot: the grouped tower bound follows the new height', async () => {
+    await mountTower('?profile=p', GROUPED, bigMulticlass, INNER_HEIGHT)
+    expect(root().style.maxHeight).toBe(`${INNER_HEIGHT - 2 * SAFE_INSET_PX}px`)
+    const resized = 700
+    window.innerHeight = resized
+    window.dispatchEvent(new Event('resize'))
+    flushSync()
+    await tick()
+    expect(root().style.maxHeight, 'the bound did not follow the resize').toBe(`${resized - 2 * SAFE_INSET_PX}px`)
+  })
+
   it('inline profile, 30 cars: the inline layout gets no inline bound (selection, not the clamp, bounds it)', async () => {
     await mountTower('?profile=p', INLINE, bigMulticlass, INNER_HEIGHT)
     expect(root().getAttribute('data-class-display')).toBe('inline')

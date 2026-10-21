@@ -129,8 +129,8 @@ export function createTowerCycle(config = {}) {
   let lastMode
   let rendered = []
 
-  function render(snapshot, recompute) {
-    const field = validVehicles(snapshot)
+  function render(snapshot, recompute, field) {
+    field = field ?? validVehicles(snapshot)
     const subjectSlotId = snapshot?.subject?.slot_id ?? null
     if (budget < 1) {
       rendered = []
@@ -193,15 +193,12 @@ export function createTowerCycle(config = {}) {
       return render(snapshot, recompute)
     },
     turn(snapshot) {
-      const { pageCount } = partition(
-        validVehicles(snapshot),
-        budget,
-        cycle,
-        snapshot?.subject?.slot_id ?? null,
-      )
+      const field = validVehicles(snapshot)
+      const subjectSlotId = snapshot?.subject?.slot_id ?? null
+      const { pageCount } = partition(field, budget, cycle, subjectSlotId)
       page = (page + 1) % pageCount
       membership = null // re-freeze membership for the new page
-      return render(snapshot, true)
+      return render(snapshot, true, field)
     },
     rows() {
       return rendered
