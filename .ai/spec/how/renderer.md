@@ -61,6 +61,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `/all` unmounting the slot on the first idle snapshot would kill the hold. The grace state has to
   live where both `BattleBox` and the `/all` auto-hide filter can read it (or `/all` keeps the
   battle slot mounted and lets the box report its own idleness) so the two still cannot disagree.
+- **The battle box's neighbour names use the rule 14b presence test** (`what/widgets.md` rule 68).
+  `presentName()` in `routes/driver/DriverLowerThird.svelte`'s module script is that exact test, exported
+  from the module script; `BattleBox` imports it rather than writing a second copy.
 
 ## Integration Points
 
