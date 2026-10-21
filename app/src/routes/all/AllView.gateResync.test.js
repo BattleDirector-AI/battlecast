@@ -265,3 +265,42 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     expectWholeHudHeld(container)
   })
 })
+
+describe('rule 24 — trigger switched while the gate is off', () => {
+  it('persistent -> dwell while unticked, then on: the HUD holds for the rest of the fresh dwell', async () => {
+    vi.useFakeTimers()
+    const { container, rerender } = render(AllView, { snapshot: raceOnboard, config: PERSISTENT_UNTICKED })
+    await tick()
+    expect(driverCardName(container), 'premise: the persistent card is up').toContain('Verstappen')
+    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+
+    await at(10000) // long past any dwell: only a switch can start a fresh one
+    await rerender({ config: DWELL_UNTICKED }) // the switch starts the card's fresh dwell, ending at t = 16s
+    await tick()
+    expect(driverCardName(container), 'premise: the switch starts a fresh dwell').toContain('Verstappen')
+    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+
+    await at(1000) // t = 11s, gate still off: the same subject again must not re-arm the dwell
+    await rerender({ snapshot: structuredClone(raceOnboard) })
+    await tick()
+
+    // The gate comes back on 2s after the switch: a mirror that missed the switch would hold
+    // from here until 18s (a dwell counted from the gate), not 16s.
+    await at(1000) // t = 12s
+    await rerender({ config: DWELL })
+    await tick()
+    expectWholeHudHeld(container)
+
+    await at(2000) // t = 14s, gate on: still the same subject, still no re-arm
+    await rerender({ snapshot: structuredClone(raceOnboard) })
+    await tick()
+
+    await at(1999) // t = 15.999s: the fresh dwell is still running
+    expect(driverCardName(container), 'premise: the card is still up').toContain('Verstappen')
+    expectWholeHudHeld(container)
+
+    await at(1) // t = 16s: the dwell, counted from the switch, ends
+    expect(driverCardName(container), 'premise: the card has wiped out').toBeNull()
+    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+  })
+})
