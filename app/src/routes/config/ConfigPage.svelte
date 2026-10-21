@@ -256,9 +256,12 @@
     window.addEventListener('pointermove', onDrag)
     window.addEventListener('pointerup', onPointerEnd)
     window.addEventListener('pointercancel', onPointerEnd)
+    window.addEventListener('blur', endDrag)
   }
   function onDrag(event) {
     if (!drag || event.pointerId !== drag.pointerId) return
+    // The pointer is no longer pressed, so its end event was lost: end the drag instead of placing.
+    if (event.buttons === 0) return endDrag()
     const dx = Math.round((event.clientX - drag.startX) / previewScale)
     const dy = Math.round((event.clientY - drag.startY) / previewScale)
     if (drag.mode === 'move') {
@@ -277,6 +280,7 @@
     window.removeEventListener('pointermove', onDrag)
     window.removeEventListener('pointerup', onPointerEnd)
     window.removeEventListener('pointercancel', onPointerEnd)
+    window.removeEventListener('blur', endDrag)
   }
 
   // ---- typed number fields (overlay-config rules 44-44c) ----------------------
