@@ -54,7 +54,7 @@
   import IntensityMeter from '../../design/IntensityMeter.svelte'
   import { classTagsShown } from '../../lib/classTags.js'
   import { presentName, resolveSubject } from '../driver/DriverLowerThird.svelte'
-  import { validVehicles } from '../../lib/vehicles.js'
+  import { validVehicleList } from '../../lib/vehicles.js'
 
   let {
     subject = {},
@@ -78,7 +78,7 @@
   const headerLabel = $derived(hot ? 'CLOSING' : 'BATTLE FOR POSITION')
 
   // A non-object `vehicles[]` entry is treated as absent (widgets.md rule 59, protocol-contract.md rule 21).
-  const cars = $derived(validVehicles({ vehicles }))
+  const cars = $derived(validVehicleList(vehicles))
   const subjectVehicle = $derived(
     cars.find((v) => v.slot_id === subject?.slot_id)
   )

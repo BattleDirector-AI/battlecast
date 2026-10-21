@@ -1,5 +1,5 @@
 <script module>
-  import { validVehicles } from '../../lib/vehicles.js'
+  import { isVehicleEntry } from '../../lib/vehicles.js'
 
   /**
    * Resolve the on-camera `subject` against the field into a render decision.
@@ -22,8 +22,8 @@
     const slotId = subject?.slot_id ?? null
     const subjectName = presentName(subject?.driver_name)
     const vehicle =
-      slotId != null
-        ? validVehicles(snapshot).find((v) => v.slot_id === slotId)
+      slotId != null && Array.isArray(snapshot?.vehicles)
+        ? snapshot.vehicles.find((v) => isVehicleEntry(v) && v.slot_id === slotId)
         : undefined
     const name = subjectName ?? presentName(vehicle?.driver_name)
 
