@@ -356,7 +356,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     `slot_id` or without a usable `position` (`protocol-contract.md` rule 21) is also never named
     as the car ahead or behind. The box renders the subject's class chip and the ahead/behind
     names from the remaining entries; a subject whose own entry has a usable `slot_id` and no
-    usable `position` still shows its class chip, and both neighbours render as `—`. A `vehicles`
+    usable `position` still shows its class chip, and both neighbours render as `—`. Among entries
+    sharing a `slot_id`, the subject's entry is the first listable one (`protocol-contract.md`
+    rule 21). A `vehicles`
     that is not an array is treated as empty (`protocol-contract.md` rule 21): no class chip, and
     both neighbours render as `—`.
 65. **The battle box's on-camera name.** The name in the focus slot, and in the idle placeholder's
@@ -398,8 +400,9 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     (`protocol-contract.md` rule 21) never matches a `slot_id` and never stops a
     subject-driven widget from rendering: resolution runs over the remaining entries exactly as if
     the malformed one were absent, wherever it sits in the array. A `position` plays no part in
-    resolution: an entry with a usable `slot_id` and no usable `position` resolves the subject,
-    and rules 18 and 54 show no position and render the rest as normal. This holds for #21, #22, the
+    resolution, except that among entries sharing a `slot_id` the first listable one is the match
+    (`protocol-contract.md` rule 21): an entry with a usable `slot_id` and no usable `position`
+    resolves the subject, and rules 18 and 54 show no position and render the rest as normal. This holds for #21, #22, the
     on-board HUD's identity strip (rule 57), and the subject resolution `/all` runs on every
     snapshot. A `vehicles` that is not an array resolves nothing — the subject is degraded or
     invalid by rule 14 — as `protocol-contract.md` rule 21 states for every widget.

@@ -29,7 +29,17 @@ export function validVehicles(snapshot) {
 
 /** The listable entries of a bare `vehicles` value. Always a NEW array. */
 export function listableVehicleList(vehicles) {
-  return validVehicleList(vehicles).filter(isListable)
+  const seen = new Set()
+  return validVehicleList(vehicles).filter(
+    (v) => isListable(v) && !seen.has(v.slot_id) && seen.add(v.slot_id),
+  )
+}
+
+/** The car for a `slot_id` among entries sharing it: the first listable one, else the first
+ *  entry with that slot_id (rule 21). `undefined` when no entry has it. */
+export function carForSlot(vehicles, slotId) {
+  const copies = validVehicleList(vehicles).filter((v) => hasSlotId(v) && v.slot_id === slotId)
+  return copies.find(isListable) ?? copies[0]
 }
 
 /** The listable entries of `snapshot.vehicles`. Always a NEW array. */

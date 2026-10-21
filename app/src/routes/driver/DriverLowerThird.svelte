@@ -1,5 +1,5 @@
 <script module>
-  import { hasSlotId, isUsableSlotId } from '../../lib/vehicles.js'
+  import { carForSlot, isUsableSlotId } from '../../lib/vehicles.js'
 
   /**
    * Resolve the on-camera `subject` against the field into a render decision.
@@ -21,10 +21,7 @@
     const subject = snapshot?.subject ?? null
     const slotId = subject?.slot_id ?? null
     const subjectName = presentName(subject?.driver_name)
-    const vehicle =
-      isUsableSlotId(slotId) && Array.isArray(snapshot?.vehicles)
-        ? snapshot.vehicles.find((v) => hasSlotId(v) && v.slot_id === slotId)
-        : undefined
+    const vehicle = isUsableSlotId(slotId) ? carForSlot(snapshot?.vehicles, slotId) : undefined
     const name = subjectName ?? presentName(vehicle?.driver_name)
 
     let state
