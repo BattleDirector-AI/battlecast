@@ -138,6 +138,18 @@ describe('configEditor — canvas', () => {
     expect(next.canvas.h).toBe(720)
   })
 
+  it.each([
+    ['a numeric string', '1600', 1600],
+    ['a fractional edge rounding up', 900.6, 901],
+    ['a fractional edge rounding down', 900.4, 900],
+    ['a numeric string below the minimum', '100', 320],
+  ])('accepts %s', (_label, input, expected) => {
+    expect(setCanvas(DEFAULT_CONFIG, { w: input, h: input }).canvas).toEqual({
+      w: expected,
+      h: expected,
+    })
+  })
+
   it('treats a blank edge as "keep current", not zero', () => {
     // A cleared input commits '' — must not collapse the canvas to the minimum.
     const next = setCanvas(DEFAULT_CONFIG, { w: '' })
