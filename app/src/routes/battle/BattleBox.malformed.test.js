@@ -57,3 +57,20 @@ describe('a producer sending vehicles as a non-array', () => {
     expect(container.querySelector('.bc-class-chip')).toBeNull()
   })
 })
+
+describe('rule 59 — an array vehicles[] entry is skipped', () => {
+  it('takes the subject\'s class chip from the real entry, not an array carrying its slot_id', () => {
+    const ghost = Object.assign([], { slot_id: 'car-1', driver_name: 'Ghost Array', vehicle_class: 'ZZ', position: 9 })
+    const { container } = render(BattleBox, {
+      props: {
+        subject: closeBattle.subject,
+        relationship: closeBattle.relationship,
+        vehicles: [ghost, ...closeBattle.vehicles],
+        mode: closeBattle.mode,
+      },
+    })
+    expect(container.textContent).toContain('F1')
+    expect(container.textContent).not.toContain('ZZ')
+    expect(container.textContent).toContain('Hamilton')
+  })
+})
