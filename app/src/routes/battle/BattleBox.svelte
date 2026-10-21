@@ -76,7 +76,7 @@
   const headerLabel = $derived(hot ? 'CLOSING' : 'BATTLE FOR POSITION')
 
   // A non-object `vehicles[]` entry is treated as absent (widgets.md rule 59).
-  const cars = $derived(vehicles.filter((v) => v && typeof v === 'object'))
+  const cars = $derived((Array.isArray(vehicles) ? vehicles : []).filter((v) => v && typeof v === 'object'))
   const subjectVehicle = $derived(
     cars.find((v) => v.slot_id === subject?.slot_id)
   )

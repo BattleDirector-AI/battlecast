@@ -48,6 +48,7 @@ describe('rule 14b — the name the strip shows', () => {
   it.each([
     ['empty', ''],
     ['whitespace-only', '   '],
+    ['a number', 42],
   ])('a subject.driver_name that is %s falls back to the vehicle\'s driver_name', (_label, blank) => {
     const container = renderStrip(subjectBNamed(blank))
 
@@ -55,8 +56,15 @@ describe('rule 14b — the name the strip shows', () => {
     expect(q(container, 'onboard-driver-position')?.textContent.trim()).toBe('P3')
   })
 
-  it('with both names blank the strip shows its other fields and no name', () => {
-    const container = renderStrip(subjectBNamed(' ', ''))
+  // The 42 row is the one that pins the vehicle-side presentName: fmtName trims whitespace,
+  // so '  ' renders as no name even with a loosened check.
+  it.each([
+    ['empty', ''],
+    ['whitespace-only', '  '],
+    ['a number', 42],
+    ['an object', {}],
+  ])('with the subject name blank and the vehicle name %s the strip shows its other fields and no name', (_label, vehicleName) => {
+    const container = renderStrip(subjectBNamed(' ', vehicleName))
 
     expect(q(container, 'onboard-label')?.textContent.trim()).toBe('ON BOARD')
     expect(q(container, 'onboard-driver-position')?.textContent.trim()).toBe('P3')
@@ -66,6 +74,7 @@ describe('rule 14b — the name the strip shows', () => {
   it.each([
     ['empty', ''],
     ['whitespace-only', ' \t '],
+    ['a number', 42],
   ])('an unresolved slot_id with a subject.driver_name that is %s has no strip', (_label, blank) => {
     const snap = { ...degraded, subject: { ...degraded.subject, driver_name: blank } }
     const container = renderStrip(snap)
