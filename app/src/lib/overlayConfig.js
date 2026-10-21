@@ -234,7 +234,7 @@ export const IDLE_GRACE_MAX_SECONDS = 30
 
 /** A finite number clamped to [0, IDLE_GRACE_MAX_SECONDS]; anything else (a string
  *  included — no coercion) is the fallback. */
-function normalizeGraceSeconds(value, fallback) {
+export function normalizeGraceSeconds(value, fallback) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
   return Math.max(0, Math.min(IDLE_GRACE_MAX_SECONDS, value))
 }
