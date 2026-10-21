@@ -144,15 +144,15 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `DriverLowerThird.svelte`'s module script is the one resolver for #21, #22
   (`QualifyingLowerThird.svelte` imports it), `/all`'s hand-off (`AllView.svelte`), and the
   persistent-mode auto-hide in `lib/widgetIdle.js` (via `isDriverSubjectIdle`, and
-  `isQualifyingIdle` for #22). `resolveIdentity()` (below) resolves the same subject on its own;
-  it reuses the same helpers for the malformed-entry skip (14a) and the name pick (14b) rather
-  than repeating them, so the HUD and the lower-thirds cannot drift apart. `BattleBox.svelte` does
+  `isQualifyingIdle` for #22). `resolveIdentity()` (below) calls `resolveSubject()` for its vehicle
+  and name too, so the malformed-entry skip (14a) and the name pick (14b) live in one place and
+  the HUD and the lower-thirds cannot drift apart. `BattleBox.svelte` does
   its own `vehicles[]` lookups (rule 59).
 - **On-board HUD identity** (`what/widgets.md` rules 23, 54–58): `resolveIdentity()` in
   `OnBoardHud.svelte` builds the strip's fields from the subject and its `vehicles[]` match; both
   `/all` (`AllView.svelte`) and `/onboard` (`OnBoardHudPage.svelte`) call it and pass the result in
-  as `identity`. The `driverInfo` default lives in two places that must agree: `ONBOARD_DEFAULTS`
-  and the per-widget literals in `DEFAULT_CONFIG` (`overlayConfig.js`). `normalizeConfig` falls
+  as `identity`. The `driverInfo` default has one source, `ONBOARD_DEFAULTS.driverInfo`
+  (`overlayConfig.js`); each widget in `DEFAULT_CONFIG` spreads its own copy of it. `normalizeConfig` falls
   back to the widget literal first, and `/onboard` reads `DEFAULT_CONFIG.widgets.onboard`
   directly, without normalizing. The field list is `DRIVER_INFO_FIELDS`; the `/config` checkboxes
   and the `DRIVER_INFO_HELP` coverage test both iterate it.

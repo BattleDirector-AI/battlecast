@@ -16,6 +16,7 @@
   // value is producer-owned. Inputs may be null/undefined/partial/garbage — these
   // helpers normalize defensively and never throw.
   import { fmtName, positiveIntOrNull } from '../../design/format.js'
+  import { resolveSubject } from '../driver/DriverLowerThird.svelte'
 
   /** Coerce to a finite number, else null. */
   function finiteOrNull(v) {
@@ -79,7 +80,7 @@
   /**
    * Resolve the on-camera subject's driver/vehicle identity for the HUD, honoring the
    * per-widget `driverInfo` toggles ({ name, number, position, class, make, model }
-   * booleans). `name` is from `subject.driver_name`; the rest are read off the
+   * booleans). `name` is the subject's name as rule 14b picks it; the rest are read off the
    * `vehicles[]` entry matched by `slot_id` — so a degraded subject (slot unresolved)
    * yields the name only (widgets.md rule 57). Returns only the
    * ENABLED and PRESENT fields, or null when there is nothing to show — so the caller
@@ -89,11 +90,9 @@
     const info = widget && typeof widget.driverInfo === 'object' && widget.driverInfo ? widget.driverInfo : {}
     const subject = snapshot?.subject ?? null
     if (!subject || typeof subject !== 'object') return null
-    const slotId = subject.slot_id ?? null
-    const vehicles = Array.isArray(snapshot?.vehicles) ? snapshot.vehicles : []
-    const vehicle = slotId != null ? vehicles.find((v) => v && v.slot_id === slotId) : undefined
-
-    const rawName = subject.driver_name ?? vehicle?.driver_name ?? null
+    // The same resolver as #21/#22, so the malformed-entry skip and the name pick
+    // (widgets.md rules 14a/14b) cannot drift between the HUD and the lower-thirds.
+    const { vehicle, name: rawName } = resolveSubject(snapshot)
     const out = {}
     if (info.name && rawName) out.name = fmtName(rawName)
     const number = vehicle?.car_number
