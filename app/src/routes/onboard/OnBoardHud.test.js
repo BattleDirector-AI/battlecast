@@ -248,7 +248,7 @@ describe('resolveIdentity — driver/vehicle identity from the subject + field',
   })
 
   it('includes class / make / model when toggled on', () => {
-    expect(resolveIdentity(snap, { driverInfo: { class: true, make: true, model: true } })).toEqual({
+    expect(resolveIdentity(snap, { driverInfo: { class: true, make: true, model: true } }, true)).toEqual({
       class: 'GTP',
       make: 'Red Bull',
       model: 'RB20',
@@ -326,7 +326,7 @@ function renderFromFixture(snapshot, widget = onboardDefaults, extra = {}) {
     props: {
       telemetry: snapshot?.subject?.telemetry ?? null,
       mode: snapshot?.mode ?? null,
-      identity: resolveIdentity(snapshot, widget),
+      identity: resolveIdentity(snapshot, widget, true),
       ...extra,
     },
   })

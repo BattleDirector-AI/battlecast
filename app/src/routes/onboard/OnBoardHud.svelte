@@ -85,8 +85,10 @@
    * yields the name only (widgets.md rule 57). Returns only the
    * ENABLED and PRESENT fields, or null when there is nothing to show — so the caller
    * can omit the identity strip entirely. Never throws on partial/garbage data.
+   * `showClass` is the overlay-wide class-tags answer (`classTagsShown`, rule 63): false makes
+   * the class field count as having no value, so a class-only strip resolves to null.
    */
-  export function resolveIdentity(snapshot, widget = {}) {
+  export function resolveIdentity(snapshot, widget = {}, showClass) {
     const info = widget && typeof widget.driverInfo === 'object' && widget.driverInfo ? widget.driverInfo : {}
     const subject = snapshot?.subject ?? null
     if (!subject || typeof subject !== 'object') return null
@@ -99,7 +101,7 @@
     if (info.number && number != null && String(number).trim()) out.number = String(number).trim()
     const position = positiveIntOrNull(vehicle?.position)
     if (info.position && position != null) out.position = position
-    if (info.class && vehicle?.vehicle_class) out.class = String(vehicle.vehicle_class)
+    if (showClass && info.class && vehicle?.vehicle_class) out.class = String(vehicle.vehicle_class)
     if (info.make && vehicle?.make) out.make = String(vehicle.make)
     if (info.model && vehicle?.model) out.model = String(vehicle.model)
 

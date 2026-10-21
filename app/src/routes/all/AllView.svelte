@@ -95,15 +95,9 @@
   // driver lower-third's config to time the hand-off.
   const onboardCfg = $derived(normalized.widgets.onboard)
   const driverCfg = $derived(normalized.widgets.driver)
-  // Hidden class tags (rule 63): the HUD's class field counts as having no value, so a
-  // class-only strip resolves to no identity at all.
+  // Hidden class tags (rule 63): applied inside resolveIdentity via its showClass argument.
   const onboardIdentity = $derived(
-    resolveIdentity(
-      snapshot,
-      classTagsShown(classTags, snapshot?.session)
-        ? onboardCfg
-        : { ...onboardCfg, driverInfo: { ...onboardCfg?.driverInfo, class: false } },
-    ),
+    resolveIdentity(snapshot, onboardCfg, classTagsShown(classTags, snapshot?.session)),
   )
   const subjectSlotId = $derived(snapshot?.subject?.slot_id ?? null)
   // Mirror the driver lower-third's own "renderable subject" test so the HUD's
