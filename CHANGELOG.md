@@ -7,24 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-22
+
 ### Added
 
+- **The tower marks cars in a local yellow, and Race Control shows sector yellows (#205, #234,
+  ADR 0016).** Spec v1 gains two optional fields (`schemaVersion` stays `"1"`): a car whose
+  `yellow_involved` is `true` gets a yellow edge on the right side of its tower row, opposite the
+  class bar, and `session.sector_flags` puts a `YELLOW S2` chip in Race Control. The chip steps
+  aside under a full-course yellow or safety car. The mock producer emits both.
+- **The tower marks finished, retired and disqualified cars (#206, #236, ADR 0017).** A new
+  optional per-car `finish_status` code (`1` finished, `2` DNF, `3` DQ) shows a chequered chip,
+  `DNF` or `DQ` at the end of the row, in race and results sessions only. The mock producer
+  emits it, and its director keeps retired and finished cars off camera (#237, #241).
+- **Short driver names on the tower (#242, ADR 0018).** The tower now shows `E.JAC` by default.
+  A new Name style setting, `full`, shows the whole name instead and widens the tower to fit
+  rather than cutting names off (#244, #245).
+- **Class tags hide in a single-class session (#284, ADR 0022).** A producer can send the new
+  optional `session.multiclass: false`, and every widget drops its class tags; the class colour
+  bars stay. A new Class Tags setting in `/config` (`auto`, `show`, `hide`) lets a broadcaster
+  override it with any producer. With tags hidden, a grouped tower, `/grid` and `/results`
+  render as one list in overall order.
 - **The on-board HUD works as an "on board" name tag (#61, ADR 0021).** Its identity strip now
   leads with an `ON BOARD` label and shows the car's position (`P4`), and it renders from the
   on-camera subject alone — a producer that sends no live telemetry still gets the tag, in
   `/all` and on `/onboard`. The hand-off with the driver lower-third keeps the name from
-  showing in both at once (see the #258 entry below for what it holds back). Position is a new `driverInfo` field, **on by
-  default**, so existing profiles show it after upgrading; untick "position" under the
-  on-board HUD's driver info in `/config` to hide it.
+  showing in both at once (see the #258 entry below for what it holds back). Position is a new
+  `driverInfo` field, **on by default**, so existing profiles show it after upgrading; untick
+  "position" under the on-board HUD's driver info in `/config` to hide it.
 
 ### Changed
 
+- **Tower columns line up across every row, and the default tower is 400px wide (#248, #225,
+  ADR 0019, ADR 0020).** Each column is as wide as its widest entry in the field, so gaps,
+  intervals and chips no longer shift row to row or as digits change. The battle box's default
+  position moves right to keep its gap.
+- **The standalone `/tower` follows the profile (#286, #310).** It now uses the profile's class
+  display and tower metrics, like the tower in `/all`. A `?metrics=` or `?class=` in the URL
+  still wins.
 - **A persistent driver lower-third no longer hides the on-board HUD's telemetry (#258, ADR
   0021).** With the driver lower-third on `persistent` and the HUD's "Wait for driver
   lower-third" on, the HUD now holds back only its identity strip (the `ON BOARD` label, name,
   position, number, class and car), since the card already shows the name; the throttle,
   brake, speed and gear row keeps rendering. A `dwell` card still holds the whole HUD
   until it wipes out.
+- **Number fields in `/config` apply when you press Enter or leave the field (#223, #261),** not
+  on every keystroke, so typing `120` no longer jumps the widget through `1` and `12` first. The
+  arrow keys and spinner still step at once.
+
+### Fixed
+
+- **The battle box uses the same name as the lower-thirds and HUD (#283, #307, #313),** and
+  shows `—` for a neighbour with no name.
+- **The driver lower-third shows a position only when it is a real one (#257),** and fires on
+  connect for a subject that is idle or missing data (#271, #289). Switching its trigger from
+  persistent to dwell now starts a fresh dwell (#268), and clearing the dwell box no longer snaps
+  it to 6 (#288).
+- **The on-board HUD's hand-off with the driver card stays in step (#274, #282, #290),** including
+  after the "Wait for driver lower-third" switch is turned off and on. Standalone `/onboard`
+  honours class tags (#293).
+- **Dragging in the `/config` preview no longer gets stuck (#228, #273, #292),** when the
+  preset or profile changes, a touch is cancelled, a second pointer joins, or the pointer is
+  released outside the window.
+- **Blank or odd values in a profile fall back to the defaults (#224, #252, #265),** for widget
+  geometry, canvas size, the dwell time and text-scale settings.
+- **The tower is no longer 1px taller than its slot (#315).**
+- **Bad producer data no longer breaks the overlay (#262, #279, #291, #303, #309, #314, #322).**
+  A `vehicles` list that is not a list, or holds `null`, non-objects, entries without a
+  `slot_id` or position, or two entries for the same car, is tolerated instead of blanking `/all`.
+
+### Internal
+
+- **`.gitattributes` keeps text files LF (#267),** and the SSE test guard recognises a regex
+  after `export default` (#176). Skill notes corrected (#169, #232).
 
 ## [0.13.0] - 2026-10-16
 
