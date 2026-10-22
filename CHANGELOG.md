@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-22
+
 ### Added
 
 - **The tower marks cars in a local yellow, and Race Control shows sector yellows (#205, #234,
