@@ -17,6 +17,7 @@
   import { textScaleVars } from '../../design/typeScale.js'
   import { isWidgetIdle } from '../../lib/widgetIdle.js'
   import { createBattleGrace } from '../../lib/battleGrace.js'
+  import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
   import { classTagsShown } from '../../lib/classTags.js'
 
   // `preview` (the /config editor) disables the on-board HUD's lower-third hand-off so
@@ -99,14 +100,38 @@
   const onboardIdentity = $derived(
     resolveIdentity(snapshot, onboardCfg, classTagsShown(classTags, snapshot?.session)),
   )
-  const subjectSlotId = $derived(snapshot?.subject?.slot_id ?? null)
-  // Mirror the driver lower-third's own "renderable subject" test so the HUD's
-  // hand-off timing tracks it exactly.
-  const subjectActive = $derived(resolveSubject(snapshot).state !== 'invalid')
-  // The HUD mirrors the driver lower-third's timing whenever that card is visible, so the
-  // mirror keeps pace with the card even while `waitForLowerThird` is off; the knob only
-  // decides whether the HUD holds (rule 24). A hidden card passes no gate, so showing it
-  // again restarts the mirror as a (re)connect, as it does the card itself.
+  // The driver lower-third's one show/hide timer (widgets.md rules 15-17, 24). It lives here,
+  // outside the card, and its flag goes to both the card and the HUD, so they cannot drift.
+  // It runs only while the card is mounted: a card that is hidden or auto-hidden (rule 29)
+  // drops the timer, and coming back is a (re)connect, as it is for the card itself.
+  const driverResolved = $derived(resolveSubject(snapshot))
+  const driverMounted = $derived(widgets.some((w) => w.key === 'driver'))
+  let driverShown = $state(false)
+  const newDriverTrigger = () => createLowerThirdTrigger({ onChange: (v) => (driverShown = v) })
+  let driverTrigger = newDriverTrigger()
+  let driverSynced = false
+  $effect(() => () => driverTrigger.stop())
+  $effect(() => {
+    if (!driverMounted) {
+      if (driverSynced) {
+        driverTrigger.stop()
+        driverTrigger = newDriverTrigger()
+        driverSynced = false
+      }
+      driverShown = false
+      return
+    }
+    driverSynced = true
+    driverTrigger.sync({
+      subjectSlotId: driverResolved.slotId,
+      active: driverResolved.state !== 'invalid',
+      trigger: driverCfg?.trigger === 'persistent' ? 'persistent' : 'dwell',
+      dwellSeconds: driverCfg?.dwellSeconds,
+      showOnConnect: driverCfg?.showOnConnect !== false,
+    })
+  })
+  // The HUD holds only while the driver card is visible (it passes no gate otherwise, or in
+  // the /config preview).
   const onboardGate = $derived(!preview && driverCfg?.visible ? driverCfg : null)
 </script>
 
@@ -150,7 +175,7 @@
       {:else if w.key === 'logos'}
         <LogoRotation rotation={normalized.logoRotation} />
       {:else if w.key === 'driver'}
-        <DriverLowerThird {snapshot} widget={w} {classColors} {classTags} />
+        <DriverLowerThird {snapshot} widget={w} {classColors} {classTags} shownOverride={driverShown} />
       {:else if w.key === 'qualifying'}
         <QualifyingLowerThird {snapshot} widget={w} {classColors} {classTags} />
       {:else if w.key === 'racecontrol'}
@@ -161,9 +186,8 @@
           mode={snapshot?.mode ?? null}
           speedUnit={onboardCfg?.speedUnit}
           identity={onboardIdentity}
-          {subjectSlotId}
-          {subjectActive}
           driverWidget={onboardGate}
+          cardShown={driverShown}
           waitForLowerThird={onboardCfg?.waitForLowerThird}
           {classColors}
         />

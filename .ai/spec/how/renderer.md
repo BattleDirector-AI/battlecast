@@ -38,7 +38,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
    itself (`how/config-editor.md`).
 4. Widgets render from the latest snapshot. Lower-thirds run their fire/dwell state machine
    (`lowerThirdTrigger.js` + `LowerThirdShell.svelte`); `/all` applies `hideWhenIdle` via
-   `isWidgetIdle`.
+   `isWidgetIdle`. On `/all` the driver card's one timer runs in `AllView.svelte` and its shown
+   flag goes to both the card and the on-board HUD (the hand-off, rule 24); the card times itself
+   only on `/driver`.
 
 ## Key Abstractions
 

@@ -57,7 +57,10 @@
   // showOnConnect) alongside geometry; only lower-thirds read those knobs.
   // `classTags` (widgets.md rules 60, 62): the broadcaster setting, resolved against the
   // snapshot's `session.multiclass`; it only gates the chip, never the trigger.
-  let { snapshot = null, widget = {}, classColors = {}, classTags = 'auto' } = $props()
+  // `shownOverride` (boolean): in `/all` the card's show/hide timer runs once in AllView and is
+  // shared with the on-board HUD, so the card just renders that flag. Absent (the standalone
+  // route), the card runs its own timer.
+  let { snapshot = null, widget = {}, classColors = {}, classTags = 'auto', shownOverride = undefined } = $props()
 
   const resolved = $derived(resolveSubject(snapshot))
   const active = $derived(resolved.state !== 'invalid')
@@ -65,17 +68,19 @@
   const showOnConnect = $derived(widget?.showOnConnect !== false)
 
   // The engine owns fire/dwell/hide timing; we mirror its output into reactive
-  // state via onChange. The card renders only while `shown` — when not firing the
-  // component renders nothing, so AllView can always mount the slot and let the
-  // component self-manage visibility (dwell can't be driven by a stateless filter).
-  let shown = $state(false)
-  const engine = createLowerThirdTrigger({ onChange: (v) => (shown = v) })
+  // state via onChange. The card renders only while `shown`. The card times itself only on
+  // the standalone /driver route: /all runs the one timer in AllView and passes the shared
+  // `shownOverride` flag (to this card and the on-board HUD), so the engine stays idle there.
+  let ownShown = $state(false)
+  const shown = $derived(shownOverride != null ? shownOverride : ownShown)
+  const engine = createLowerThirdTrigger({ onChange: (v) => (ownShown = v) })
   onDestroy(() => engine.stop())
 
   // Forward every subject/config change to the engine. Reading the derived values
   // here is what makes this effect re-run on a camera cut; the engine's own
   // edge-detection ignores unchanged repeats, so a steady subject won't re-fire.
   $effect(() => {
+    if (shownOverride != null) return
     engine.sync({
       subjectSlotId: resolved.slotId,
       active,

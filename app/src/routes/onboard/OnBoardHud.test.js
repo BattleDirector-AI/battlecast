@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
 import { tick } from 'svelte'
 import OnBoardHud, {
@@ -459,98 +459,60 @@ describe('OnBoardHud — degraded subject (#61, widgets.md rules 14 + 57)', () =
 describe('OnBoardHud — hand-off holds the identity strip too (#61, rule 24)', () => {
   const driverWidget = { trigger: 'dwell', dwellSeconds: 6, showOnConnect: true }
 
-  it('with no telemetry, holds the strip off during the card and reveals it after the dwell', async () => {
-    vi.useFakeTimers()
-    try {
-      const { container } = renderFromFixture(driverSubjectB, onboardDefaults, {
-        subjectSlotId: driverSubjectB.subject.slot_id,
-        subjectActive: true,
-        driverWidget,
-      })
-      await tick()
-      // The driver lower-third is showing the name: the HUD must not.
-      expect(hudRoot(container)).toBeNull()
-      expect(container.textContent).not.toContain('Leclerc')
+  it('with no telemetry, holds the strip off while the card is up and reveals it when it wipes out', async () => {
+    const { container, rerender } = renderFromFixture(driverSubjectB, onboardDefaults, {
+      driverWidget,
+      cardShown: true,
+    })
+    await tick()
+    // The driver lower-third is showing the name: the HUD must not.
+    expect(hudRoot(container)).toBeNull()
+    expect(container.textContent).not.toContain('Leclerc')
 
-      vi.advanceTimersByTime(6000)
-      await tick()
-      expect(hudRoot(container), 'strip must reveal once the card wipes out').not.toBeNull()
-      expect(text(container, 'onboard-driver-name')).toBe('C. Leclerc')
-      expect(text(container, 'onboard-driver-position')).toBe('P3')
-    } finally {
-      vi.useRealTimers()
-    }
+    await rerender({ driverWidget, cardShown: false })
+    await tick()
+    expect(hudRoot(container), 'strip must reveal once the card wipes out').not.toBeNull()
+    expect(text(container, 'onboard-driver-name')).toBe('C. Leclerc')
+    expect(text(container, 'onboard-driver-position')).toBe('P3')
   })
 })
 
 describe('OnBoardHud — lower-third hand-off (whole HUD waits)', () => {
+  // The card's show/hide timer runs once in AllView (AllView.handoffTimer.test.js); the HUD just
+  // follows the `cardShown` flag it is handed.
   const driverWidget = { trigger: 'dwell', dwellSeconds: 6, showOnConnect: true }
+  const props = (cardShown) => ({ telemetry: { speed: 200, gear: 5 }, driverWidget, cardShown })
 
-  it('is suppressed on connect while the card is up, then reveals after the dwell', async () => {
-    vi.useFakeTimers()
-    try {
-      const { container } = render(OnBoardHud, {
-        props: {
-          telemetry: { speed: 200, gear: 5 },
-          subjectSlotId: 'car-1',
-          subjectActive: true,
-          driverWidget,
-        },
-      })
-      await tick()
-      // The lower-third fires on connect, so the HUD holds off.
-      expect(container.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+  it('is suppressed while the card is up, then reveals when the card wipes out', async () => {
+    const { container, rerender } = render(OnBoardHud, { props: props(true) })
+    await tick()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).toBeNull()
 
-      // Advance past the dwell -> the card hides -> the HUD reveals.
-      vi.advanceTimersByTime(6000)
-      await tick()
-      expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
-    } finally {
-      vi.useRealTimers()
-    }
+    await rerender(props(false))
+    await tick()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
   })
 
-  it('re-suppresses on a camera cut to a new subject, then reveals again', async () => {
-    vi.useFakeTimers()
-    try {
-      const { container, rerender } = render(OnBoardHud, {
-        props: {
-          telemetry: { speed: 200, gear: 5 },
-          subjectSlotId: 'car-1',
-          subjectActive: true,
-          driverWidget,
-        },
-      })
-      await tick()
-      vi.advanceTimersByTime(6000)
-      await tick()
-      expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
+  it('re-suppresses when the card comes back up, then reveals again', async () => {
+    const { container, rerender } = render(OnBoardHud, { props: props(false) })
+    await tick()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
 
-      // Cut to a new driver -> the card re-fires -> the HUD hides again.
-      await rerender({
-        telemetry: { speed: 200, gear: 5 },
-        subjectSlotId: 'car-2',
-        subjectActive: true,
-        driverWidget,
-      })
-      await tick()
-      expect(container.querySelector('[data-testid="onboard-hud"]')).toBeNull()
+    await rerender(props(true))
+    await tick()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).toBeNull()
 
-      vi.advanceTimersByTime(6000)
-      await tick()
-      expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
-    } finally {
-      vi.useRealTimers()
-    }
+    await rerender(props(false))
+    await tick()
+    expect(container.querySelector('[data-testid="onboard-hud"]')).not.toBeNull()
   })
 
   it('does not wait when no driverWidget is supplied (no gate)', async () => {
     const { container } = render(OnBoardHud, {
       props: {
         telemetry: { speed: 200, gear: 5 },
-        subjectSlotId: 'car-1',
-        subjectActive: true,
         driverWidget: null,
+        cardShown: true,
       },
     })
     await tick()

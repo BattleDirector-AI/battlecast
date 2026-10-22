@@ -6,9 +6,10 @@
 // identity strip / whole HUD.
 //
 // These live beside the other /all hand-off tests rather than in routes/onboard: the two ways of
-// turning the gate off (untick vs hide the card) reach OnBoardHud as the same `driverWidget =
-// null`, yet rule 24 asks for different results when each is undone, so only AllView can tell
-// them apart.
+// turning the gate off differ in what they pass the HUD. Unticking passes the card's config with
+// `waitForLowerThird = false`; hiding the card passes no gate at all, and the card's one timer
+// (run in AllView) is dropped, so showing it again is a (re)connect. Rule 24 asks for different
+// results when each is undone, so only AllView can tell them apart.
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
 import { tick } from 'svelte'

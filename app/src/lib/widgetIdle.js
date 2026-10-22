@@ -33,8 +33,8 @@ export const IDLE_PREDICATES = Object.freeze({
   logos: ({ config }) => validLogoImages(config).length === 0,
   // Driver lower-third is idle when there's no valid/degraded subject to show. This
   // keeps persistent-mode auto-hide and the config surfacing consistent; note the
-  // dwell-mode fire/hide timing is handled IN the component, not by this stateless
-  // predicate (AllView always mounts the slot when visible so dwell can run).
+  // dwell-mode fire/hide timing is not decided by this stateless predicate: it runs in
+  // AllView on /all (one timer shared with the on-board HUD) and in the card on /driver.
   driver: ({ snapshot }) => isDriverSubjectIdle(snapshot),
   // Qualifying/sector lower-third is idle when there's no valid subject or no
   // timing to show. Mode-gating and the dwell/class-best fire timing live IN the
