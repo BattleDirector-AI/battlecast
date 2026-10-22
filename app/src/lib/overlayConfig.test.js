@@ -128,6 +128,56 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(config.configVersion).toBe(CONFIG_VERSION)
   })
 
+  // Rule 6: widget geometry is read as a valid number, else the default. The battle box's defaults
+  // (448, 24, 440, 220, 2) are none of 0, 1, 5 or 7 — what `Number()` makes of a blank, null,
+  // a boolean or a one-element array — so a value wrongly read as a number cannot pass for the
+  // default by coincidence.
+  const GEOMETRY = ['x', 'y', 'w', 'h', 'z']
+  describe.each(GEOMETRY)('widget geometry %s (rule 6)', (field) => {
+    const dflt = DEFAULT_CONFIG.widgets.battle[field]
+    it.each([
+      ['a blank string', ''],
+      ['a whitespace-only string', '   '],
+      ['null', null],
+      ['true', true],
+      ['false', false],
+      ['a one-number array', [5]],
+      ['a one-string array', ['7']],
+      ['an empty array', []],
+      ['an object', {}],
+      ["'Infinity'", 'Infinity'],
+      ["a signed hex string '-0x10'", '-0x10'],
+      ["a signed hex string '+0x10'", '+0x10'],
+      ['a partly numeric string', '380px'],
+      ['a non-numeric string', 'abc'],
+      ['NaN', NaN],
+      ['Infinity', Infinity],
+    ])('takes the default for %s', (_label, value) => {
+      const config = normalizeConfig({ widgets: { battle: { [field]: value } } })
+      expect(config.widgets.battle[field]).toBe(dflt)
+    })
+
+    it.each([
+      ["'1500'", '1500', 1500],
+      ["' 380 '", ' 380 ', 380],
+      ["'-12'", '-12', -12],
+      ["'1e3'", '1e3', 1000],
+      ["'0x10'", '0x10', 16],
+      ['the number 0', 0, 0],
+      ['the number 640.5', 640.5, 640.5],
+    ])('stores %s as a number', (_label, value, expected) => {
+      const config = normalizeConfig({ widgets: { battle: { [field]: value } } })
+      expect(config.widgets.battle[field]).toBe(expected)
+    })
+  })
+
+  it('gives an unknown widget key 0 for geometry that is not a valid number (rule 6)', () => {
+    const config = normalizeConfig({
+      widgets: { trackmap: { x: true, y: [5], w: '12', h: '', z: null } },
+    })
+    expect(config.widgets.trackmap).toMatchObject({ x: 0, y: 0, w: 12, h: 0, z: 0 })
+  })
+
   it('preserves an unknown widget key from a newer profile, defaulting it hidden', () => {
     const config = normalizeConfig({
       widgets: { trackmap: { x: 10, y: 10, w: 300, h: 300 } },
@@ -182,6 +232,93 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
 
   it('clamps an absurdly small canvas to the minimum edge', () => {
     expect(normalizeConfig({ canvas: { w: 10, h: -5 } }).canvas).toEqual({ w: 320, h: 320 })
+  })
+
+  // Rule 9: canvas `w` / `h` are read as a valid number (rule 6), else the default edge. The
+  // defaults (1920, 1080) are neither 320 — what a blank, null, a boolean or an empty array becomes
+  // once `Number()` reads it as 0 or 1 and the minimum edge raises it — nor the 1280 inside the
+  // one-element array, so a value wrongly read as a number cannot pass for the default.
+  describe.each([
+    ['w', 1920],
+    ['h', 1080],
+  ])('canvas %s (rule 9)', (field, dflt) => {
+    it.each([
+      ['a blank string', ''],
+      ['a whitespace-only string', '   '],
+      ['null', null],
+      ['true', true],
+      ['false', false],
+      ['a one-number array', [1280]],
+      ['a one-string array', ['1280']],
+      ['an empty array', []],
+      ['an object', {}],
+      ["'Infinity'", 'Infinity'],
+      ["a signed hex string '-0x10'", '-0x10'],
+      ['a partly numeric string', '1280px'],
+      ['a non-numeric string', 'abc'],
+      ['NaN', NaN],
+    ])('takes the default for %s', (_label, value) => {
+      expect(normalizeConfig({ canvas: { [field]: value } }).canvas[field]).toBe(dflt)
+    })
+
+    it.each([
+      ["'1280'", '1280', 1280],
+      ["' 2560 '", ' 2560 ', 2560],
+      ["'1e3'", '1e3', 1000],
+      ["'0x400'", '0x400', 1024],
+      ['the number 1280.4 (rounded)', 1280.4, 1280],
+      ["'-12' (raised to the minimum)", '-12', 320],
+      ['the number 0 (raised to the minimum)', 0, 320],
+    ])('reads %s as a valid number', (_label, value, expected) => {
+      expect(normalizeConfig({ canvas: { [field]: value } }).canvas[field]).toBe(expected)
+    })
+  })
+
+  it('takes the 1920x1080 canvas when canvas is not an object (rule 9)', () => {
+    expect(normalizeConfig({ canvas: 1280 }).canvas).toEqual({ w: 1920, h: 1080 })
+    expect(normalizeConfig({ canvas: 'big' }).canvas).toEqual({ w: 1920, h: 1080 })
+  })
+
+  // Rule 46: `dwellSeconds` is read as a valid number (rule 6) and kept only when > 0, else the
+  // default 6. 6 is none of 0, 1, 5 or 7 — what `Number()` makes of a blank, null, a boolean or
+  // the one-element arrays below — so a value wrongly read as a number cannot pass for the default.
+  describe('lower-third dwellSeconds (rule 46)', () => {
+    it.each([
+      ['a blank string', ''],
+      ['a whitespace-only string', '   '],
+      ['null', null],
+      ['true', true],
+      ['false', false],
+      ['a one-number array', [5]],
+      ['a one-string array', ['7']],
+      ['an empty array', []],
+      ['an object', {}],
+      ["'Infinity'", 'Infinity'],
+      ['Infinity', Infinity],
+      ["a signed hex string '-0x10'", '-0x10'],
+      ['a partly numeric string', '5s'],
+      ['a non-numeric string', 'abc'],
+      ['NaN', NaN],
+      ['0', 0],
+      ['a negative number', -3],
+      ["a negative string '-3'", '-3'],
+    ])('takes the default for %s', (_label, value) => {
+      for (const key of ['driver', 'qualifying']) {
+        const cfg = normalizeConfig({ widgets: { [key]: { dwellSeconds: value } } })
+        expect(cfg.widgets[key].dwellSeconds).toBe(6)
+      }
+    })
+
+    it.each([
+      ["'7.5'", '7.5', 7.5],
+      ["' 8 '", ' 8 ', 8],
+      ["'1e1'", '1e1', 10],
+      ["'0x10'", '0x10', 16],
+      ['the number 0.5', 0.5, 0.5],
+    ])('stores %s as a number', (_label, value, expected) => {
+      const cfg = normalizeConfig({ widgets: { driver: { dwellSeconds: value } } })
+      expect(cfg.widgets.driver.dwellSeconds).toBe(expected)
+    })
   })
 
   it('defaults hideWhenIdle to false and honors an explicit value', () => {
@@ -282,10 +419,35 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(roundTripped.widgets.onboard.speedUnit).toBe('mph')
   })
 
-  it('defaults the onboard driverInfo to name+number and waitForLowerThird on', () => {
+  it('defaults the onboard driverInfo to name+number+position and waitForLowerThird on', () => {
     const w = normalizeConfig({}).widgets.onboard
-    expect(w.driverInfo).toEqual({ name: true, number: true, class: false, make: false, model: false })
+    expect(w.driverInfo).toEqual({
+      name: true,
+      number: true,
+      position: true,
+      class: false,
+      make: false,
+      model: false,
+    })
     expect(w.waitForLowerThird).toBe(true)
+  })
+
+  it('turns position on for a saved driverInfo that predates the field (#61)', () => {
+    // A profile saved before `position` existed carries the other five fields only.
+    const saved = { name: true, number: false, class: true, make: false, model: false }
+    const w = normalizeConfig({ widgets: { onboard: { driverInfo: saved } } }).widgets.onboard
+    expect(w.driverInfo.position).toBe(true)
+    expect(w.driverInfo.number).toBe(false)
+    expect(w.driverInfo.class).toBe(true)
+  })
+
+  it('keeps a saved position=false and falls back to on for a non-boolean position (#61)', () => {
+    const off = normalizeConfig({ widgets: { onboard: { driverInfo: { position: false } } } })
+    expect(off.widgets.onboard.driverInfo.position).toBe(false)
+    for (const garbage of ['yes', 1, null, {}]) {
+      const w = normalizeConfig({ widgets: { onboard: { driverInfo: { position: garbage } } } })
+      expect(w.widgets.onboard.driverInfo.position, `position ${JSON.stringify(garbage)}`).toBe(true)
+    }
   })
 
   it('merges a partial driverInfo over the defaults and coerces garbage to booleans', () => {
@@ -293,8 +455,15 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
       widgets: { onboard: { driverInfo: { name: false, make: true, model: 'yes' } } },
     }).widgets.onboard
     // name overridden off, make on; model garbage -> falls back to default (false);
-    // number/class keep their defaults.
-    expect(w.driverInfo).toEqual({ name: false, number: true, class: false, make: true, model: false })
+    // number/position/class keep their defaults.
+    expect(w.driverInfo).toEqual({
+      name: false,
+      number: true,
+      position: true,
+      class: false,
+      make: true,
+      model: false,
+    })
   })
 
   it('honors and round-trips waitForLowerThird=false and a full driverInfo', () => {
@@ -302,7 +471,7 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
       widgets: {
         onboard: {
           waitForLowerThird: false,
-          driverInfo: { name: true, number: true, class: true, make: true, model: true },
+          driverInfo: { name: true, number: true, position: false, class: true, make: true, model: true },
         },
       },
     })
@@ -312,6 +481,7 @@ describe('normalizeConfig — always yields a complete, well-typed contract', ()
     expect(roundTripped.widgets.onboard.driverInfo).toEqual({
       name: true,
       number: true,
+      position: false,
       class: true,
       make: true,
       model: true,

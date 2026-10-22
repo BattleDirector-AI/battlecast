@@ -6,7 +6,9 @@
 import {
   normalizeConfig,
   normalizeClassColors,
+  normalizeClassTags,
   MIN_CANVAS,
+  finiteOrNull,
   TEXT_SCALES,
   textScaleFactor,
   rendersText,
@@ -107,11 +109,10 @@ export function resizeWidget(config, key, w, h, from) {
 export function setCanvas(config, patch) {
   const next = normalizeConfig(config)
   const toEdge = (v, fallback) => {
-    // Treat blank/absent as "keep current" so clearing the field mid-edit doesn't
-    // snap the canvas (and every widget) down to the minimum.
-    if (v == null || v === '') return Math.max(MIN_CANVAS, Math.round(fallback))
-    const n = Number(v)
-    return Math.max(MIN_CANVAS, Math.round(Number.isFinite(n) ? n : fallback))
+    // Anything that isn't a valid number (blank/absent included) keeps the current
+    // edge, so clearing the field mid-edit doesn't snap the canvas (and every widget)
+    // down to the minimum.
+    return Math.max(MIN_CANVAS, Math.round(finiteOrNull(v) ?? fallback))
   }
   const canvas = {
     w: toEdge(patch?.w, next.canvas.w),
@@ -194,6 +195,14 @@ export function removeClassColor(config, className) {
   const classColors = { ...next.theme.classColors }
   delete classColors[key]
   next.theme = { ...next.theme, classColors }
+  return next
+}
+
+/** Set the overlay-wide class-tag setting (overlay-config rule 48); an unknown value
+ *  normalizes to `auto`. Touches nothing else, `theme.classColors` included. */
+export function setClassTags(config, value) {
+  const next = normalizeConfig(config)
+  next.theme = { ...next.theme, classTags: normalizeClassTags(value) }
   return next
 }
 

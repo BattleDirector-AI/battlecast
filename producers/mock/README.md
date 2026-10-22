@@ -86,11 +86,12 @@ so a single live mock exercises the whole overlay set. It loops forever:
 | ----- | ------ | --------------------------- | --------- |
 | **Qualifying** | `"qualifying"` | by **best lap** (cars without a lap yet sort last) | qualifying lower-third (#22) + driver lower-third (#21) + tower; `best_lap`/`last_lap`/`sector_times` populate and improve, and the class-best holder changes hands (a `notable.class_best_lap` false→true edge → the CLASS BEST flash / re-cut reveal) |
 | **Grid / pre-race** | `"grid"` | **frozen to the qualifying result** (the starting grid) | the `/grid` starting-order slide (#24) — a real grid, not mid-race order |
-| **Race** | `"race"` | by **distance** covered (the original rolling-race logic) | tower + battle box; emergent battles, class-best edges, the tightest-battle director |
-| **Results** | `"results"` | **frozen to the final race order** | the `/results` end-of-session board (#23) |
+| **Race** | `"race"` | by **distance** covered (the original rolling-race logic) | tower + battle box + Race Control; emergent battles, class-best edges, the tightest-battle director; a local yellow from 10%–20% of the leg in the sector the GT3 backmarker is crawling through (`session.sector_flags`, that car `yellow_involved`, `session.flag` `"yellow"`; never before the car's problem starts at 15 s, and not while it is in the pit lane), then an FCY / safety car from 25%–40%; Tsunoda retires at 45% (`finish_status` 2) and stops; the race clock / lap counter run out at 70%, the leader's next line crossing takes the chequered flag (`session.flag` `checkered`), and each running car turns `finish_status` 1 at its own next crossing before the leg ends (slower GT3 cars often don't get there and are classified finished in results), ranked by laps completed then crossing time |
+| **Results** | `"results"` | **frozen to the final race order** | the `/results` end-of-session board (#23); `finish_status` carried over, with any car still running classified as finished (1) |
 
 Positions are always the **overall** running order (multi-class independent), as in a
-real multi-class session. Each transition is logged to stdout, e.g.
+real multi-class session. Every tick also carries `session.multiclass`, set from the
+field's actual class mix (always `true` for the simulator's four-class field). Each transition is logged to stdout, e.g.
 `[mock] phase → grid (sim-clock 312s)`. Phase durations are configurable — see
 [Configuration](#configuration).
 
@@ -141,12 +142,19 @@ The original behavior: each connection independently cycles through the fixtures
   fixture to exercise #22's false→true class-best edge.
 - `race-class-best.json` — multi-class race; the on-camera subject holds a class-best lap
   (`notable.class_best_lap: true`) with `target_lap` set — the v1.x notability fields.
+- `race-local-yellow.json` — sector 2 under a local yellow (`session.sector_flags`), one car
+  `yellow_involved: true`, one `false`, two without the field (ADR 0016).
+- `race-finish.json` — chequered flag; three cars `finish_status: 1`, one still on its last lap
+  (`0`, on camera), one DNF (`2`) (ADR 0017).
 - `qualifying-target.json` — a qualifying snapshot with `target_lap` / `delta_to_target`
   populated on every car and the class/session best flagged on the pole car.
 - `qualifying-sector-a.json` — a qualifying subject with best/last/sector times but no
   `target_lap` (the target/delta-absent render case for #22).
 - `qualifying-no-timing.json` — a qualifying subject whose vehicle carries no lap
   timing at all (#22's no-timing idle case).
+- `race-single-class.json` — a four-car field of one class (`"Default"`) with
+  `session.multiclass: false`, so the overlay hides its class tags at `theme.classTags: auto`
+  (ADR 0022).
 
 Fixtures are the **source of truth** for the app's fixture-based behavioral tests (see
 `CONTRIBUTING.md`) — use this mode when you want a known, reproducible scenario rather

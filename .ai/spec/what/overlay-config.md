@@ -11,7 +11,14 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 1. Config carries its own **`configVersion`** (`"1"`), numbered independently of the spec
    `schemaVersion` and the app release version.
 2. Config additions are **additive + defaulted** — new per-widget knobs are normalized onto every
-   widget and do not bump `configVersion`. Existing profiles keep working unchanged.
+   widget and do not bump `configVersion`. Every existing profile keeps loading and keeps its
+   saved geometry and saved values. A new knob's default may change how an existing profile
+   looks (rule 42's short names do), but never its saved geometry or the meaning of a value it
+   already holds. The same goes for a changed default value of an existing field, such as the
+   tower's default `w` (rule 45): it reaches only profiles that do not store that field. A
+   profile that stores `w: 380` keeps rendering its tower 380 wide. A stored geometry value that
+   rule 6 does not read as a number (`x: ''`, `w: true`) is not saved geometry: that field takes
+   the widget's default, like a field the profile does not store.
 3. **Split read from write:** render pages only *read* config over HTTP; the `/config` UI is the
    only writer. The render path is identical whether config/assets come from the companion server or
    a static host.
@@ -24,8 +31,17 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
    (`/config/<name>.json`). A missing/malformed profile **logs a warning and falls back to default**
    — best-effort, never blank, never thrown (mirrors the spec's tolerance ethos).
 6. Normalization coerces any partial/malformed config into the full shape: every widget gets a
-   boolean `visible`, finite geometry, and all defaulted knobs. **Unknown widget keys from a newer
-   profile are preserved** (forward-compat), defaulting hidden.
+   boolean `visible`, finite geometry, and all defaulted knobs. A widget's `x`, `y`, `w`, `h` and
+   `z` are each read as a **valid number**: a finite number, or a non-blank string that JavaScript
+   `Number()` turns into a finite number (so surrounding whitespace, a sign, a decimal point, an
+   exponent, and a `0x` hex prefix are accepted: `' 1500 '`, `'-12'`, `'1e3'`, `'0x10'`), stored
+   as that number (`'1500'` becomes `1500`). A sign and a `0x` prefix do not combine: `'-0x10'`
+   and `'+0x10'` are not valid numbers. Everything else is not a valid number and MUST NOT be
+   read as one: a blank or whitespace-only string (it is not 0), a string that is not wholly a
+   number (`'abc'`, `' 12abc'`, `'380px'`), `'Infinity'`, `null`, a boolean (`true` is not 1), an
+   array (`[5]` is not 5), an object, a missing value. Such a field takes the widget's default
+   instead; an unknown widget key's default for each of the five is 0.
+   **Unknown widget keys from a newer profile are preserved** (forward-compat), defaulting hidden.
 7. `?show=` / `?hide=` comma lists are the **highest-precedence** visibility override, applied after
    normalization so they win over both profile and default.
 8. Producer SSE URL for `/all` is picked as `?src=` → profile `producer.src` → default
@@ -34,9 +50,21 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 ### Geometry
 
 9. Geometry is **absolute px against a fixed canvas** (default 1920×1080, LMU's supported
-   resolution; configurable per profile via `config.canvas`, min edge 320). The render page scales
+   resolution; configurable per profile via `config.canvas`, min edge 320). `canvas.w` and
+   `canvas.h` are each read as a valid number (rule 6); one that is not takes its default edge
+   (`w` 1920, `h` 1080), so a blank, `true` or `[1280]` is not an edge of 0, 1 or 1280. A valid
+   number is rounded to the nearest integer and then raised to the 320 minimum (`'1280'` becomes
+   1280, `-5` becomes 320). A `canvas` that is not an object takes 1920×1080. The render page scales
    the canvas uniformly to the viewport, so a broadcaster gets the same layout at any Browser Source
    size. Widgets paint in ascending `z` order.
+45. **Default tower and battle-box geometry.** The built-in default tower is 400 wide
+    (`w: 400` at `x: 24`), and the standalone `/tower` route's `--bc-tower-width` token is
+    `400px`, so the tower is the same width on both entry points out of the box. The default
+    battle box sits at `x: 448` (its `w` stays 440), keeping the same 24px gap to the right of
+    the default tower, so no two default widgets in the top band overlap: tower 24–424,
+    battle box 448–888, Race Control 900–1260. The editor's keep-on-canvas clamp applies to the
+    new default as to any geometry: on a canvas narrower than 424 it moves or narrows the
+    tower to fit. Decision record: `docs/decisions/0020-tower-table-columns.md`.
 
 ### Motion
 
@@ -63,7 +91,14 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `classDisplay` | tower | inline vs grouped multi-class layout |
     | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
     | `maxRows`, `cycle` | tower | overflow row cap + pinned-rows/cycling-window config (see `tower-overflow.md`) |
+    | `nameStyle` | tower | `short` (default) / `full` driver names (rules 42–43) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
+
+46. **`dwellSeconds`** (lower-thirds; default `6`) is how long a `dwell`-trigger lower-third shows
+    once it fires (widgets rule 16). It is read as a valid number (rule 6). A valid number greater
+    than 0 is stored as that number (`'7.5'` becomes 7.5); anything else — not a valid number, 0,
+    or negative — takes the default. So a blank, `null`, `true` or `[5]` is not a dwell of 0, 1 or
+    5 seconds.
 
 12. **Tower overflow config** (`maxRows`, `cycle`; only the tower reads them). `maxRows`: `"auto"`
     (fit the configured height) or an integer cap. `cycle`: `enabled` (default true), `perPageSeconds`
@@ -133,8 +168,21 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     "tower metrics shown" group beside the other toggles, labelled **lap flash** (not the raw key),
     with its own help copy (rules 16, 19). On
     the standalone `/tower` route `?metrics=` matches toggle names case-insensitively, so
-    `?metrics=interval,lapflash` turns it on and a `?metrics=` list that omits it turns it off;
-    with no `?metrics=` the default (on) applies.
+    `?metrics=interval,lapflash` turns it on and a `?metrics=` list that names a known toggle but
+    omits it turns it off (an invalid list is ignored; rule 49);
+    with no `?metrics=` the loaded profile's `lapFlash` applies (default on; rule 49).
+49. **The standalone `/tower` route takes its metrics from the loaded profile, and `?metrics=`
+    overrides them as a whole.** With no `?metrics=` the route turns on exactly the toggles the
+    profile's tower `towerMetrics` turns on (`interval`, `pit`, `tire`, `fuel`, `lapFlash`); `/all`
+    does the same for the same profile (the tower route reads the profile once, when it loads).
+    With no profile that is the default (`interval` and `lapFlash` on, `pit`, `tire`, `fuel`
+    off); a `?profile=` that fails to load counts as no profile. A `?metrics=` that names at
+    least one known toggle is the complete list: each of the five toggles is on if and only if
+    the list names it, and the profile's `towerMetrics` contributes nothing, so a profile toggle
+    the list omits is off and one the list names is on whatever the profile says. A `?metrics=`
+    that is empty, blank, or names no known toggle (`?metrics=bogus`, `?metrics=,`) is ignored
+    and the route behaves as if it were absent. Unknown names in a list that also names a known
+    toggle are ignored. `/all` has no `?metrics=` knob.
 
 ### Per-widget text size
 
@@ -155,8 +203,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
     widget leaves `normal`, the editor records its `normal` `x` and `w` on the widget as
     `textScaleOrigin: { x, w }`. At a bigger preset the widget's `x` is the origin's `x` and its
-    `w` is the origin's `w` × the factor, rounded to a whole pixel — the default tower goes 380 →
-    437 at `large` → 494 at `larger` — always computed from the origin, never from the previous
+    `w` is the origin's `w` × the factor, rounded to a whole pixel — the default tower goes 400 →
+    460 at `large` → 520 at `larger` — always computed from the origin, never from the previous
     preset's width, so no rounding drift builds up. The editor's usual keep-on-canvas clamp then
     applies (it may move `x` left or cap `w` at the canvas width). Returning to `normal` restores
     the origin's `x` and `w` exactly, whatever the clamp did at the bigger preset, and removes
@@ -170,8 +218,12 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     zero-pixel drag, a height-only resize, or an `x` the keep-on-canvas clamp moved in answer to a
     new `w` leaves the origin's other part untouched.
 41b. **The origin is editor bookkeeping.** `textScaleOrigin` is saved with the profile so a
-    reload keeps the round trip exact. Normalization keeps it only as an object of two finite
-    numbers on a widget whose preset is not `normal`, and drops it otherwise. Rendering never reads
+    reload keeps the round trip exact. Normalization keeps it only on a text-rendering widget
+    (rule 40's list; never on `logos` or a widget key it does not know) whose preset is not
+    `normal`, as `{ x, w }` and nothing else, and only when both `x` and `w` are valid; otherwise
+    it drops the whole origin. A part is valid when it is a valid number as rule 6 defines it (the
+    same conversion a widget's own geometry gets), and a string part is stored as that number:
+    `{ x: '1500', w: ' 380 ' }` becomes `{ x: 1500, w: 380 }`. Rendering never reads
     it: a widget renders at its stored `x` and `w`, so a hand-set `w` renders at exactly that `w`
     whatever its preset. Decision record: `docs/decisions/0015-per-widget-text-size.md`.
 41c. **A preview drag or resize is one edit, from where it began to where it is now.** Rule 41a
@@ -182,6 +234,122 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     where it would have without the drag; a drag that ends somewhere else moves the origin as one
     rule 41a edit from the drag's start to its end, whatever path the pointer took in between.
     Releasing the pointer ends the edit: the next drag compares with where that one finished.
+41d. **A drag ends on release, on cancel, when no button is held, when the window loses focus, on a preset change, and when the config is replaced.**
+    A preview drag or resize is live from the pointer going down on a handle until the first of:
+    - the pointer is released (`pointerup`);
+    - the browser cancels the pointer (`pointercancel` — a touch or pen gesture the browser takes
+      over, for example), which ends the drag exactly as a release does: the widget keeps the
+      geometry and origin of the last pointer step;
+    - the drag's own pointer moves with no button held (its release or cancel never arrived, for
+      example because it happened outside the window), which ends the drag exactly as a cancel
+      does: the widget keeps the geometry and origin of the last pointer step, and that unpressed
+      move places nothing;
+    - the window loses focus (`blur`), which ends the drag exactly as a cancel does. This includes
+      a drag whose pointer is still held when focus is taken mid-drag, by alt-tab or an OS
+      notification, for example: the held pointer then drives nothing until a fresh press;
+    - the broadcaster changes the text-size preset (rule 41) of any widget, the dragged one or
+      another;
+    - the editor's whole config is replaced, as a profile load does when the loaded profile
+      arrives, whether the drag began before the load was requested or while it was in flight. A
+      load that fails or finds no profile replaces nothing and leaves a live drag live.
+
+    Once a drag has ended, pointer movement changes nothing until the pointer goes down on a handle
+    again, which starts a new drag (rule 41c) from the widget as it is then. So a preset change or a
+    profile load keeps exactly the geometry and `textScaleOrigin` it produced: no later pointer step
+    writes the drag-start geometry or origin over them. Any other edit leaves a live drag live, and
+    because the drag is one rule 41c edit from where it began, the next pointer step places the
+    dragged parts — `x` and `y` for a move, `w` and `h` for a resize — from the drag's start: a
+    value typed into one of them while the pointer is held is replaced.
+41e. **A drag follows the one pointer that started it.** A preview drag or resize belongs to the
+    pointer (by `pointerId`) whose press on a handle started it. Only that pointer's movement
+    places the widget, and a release or cancel ends the drag (rule 41d) only when it is that
+    pointer's: another pointer's `pointermove` changes nothing, and another pointer's `pointerup`
+    or `pointercancel` leaves the drag live. While a drag is live, a press on any handle — the same
+    widget's or another's, move or resize, by any pointer — is ignored: it starts no drag and
+    changes nothing about the live one, which keeps placing its widget from where it began (rule
+    41c). Once the drag has ended, a pointer that was already down when it ended drives nothing;
+    only a fresh press on a handle starts the next drag.
+
+    Preview dragging is built for a mouse. A touch on a handle — or a pen, on a browser that
+    scrolls or zooms with one — starts a drag like any other pointer, and its steps place the
+    widget until the browser takes the gesture for scrolling or zooming and cancels the pointer.
+    That ends the drag as rule 41d says: the widget keeps the geometry of the last pointer step
+    before the cancel, and later movement changes nothing. So dragging or resizing the preview by
+    touch does not work; by touch, a widget's geometry is edited through its typed `x`, `y`, `w`
+    and `h` fields (rule 44).
+
+### Typed number fields in the editor
+
+44. **A typed number applies when it is committed, not on each keystroke.** The editor's typed
+    number fields are: each widget's `x`, `y`, `w`, `h` and `z`; the battle row's exit grace secs
+    (`idleGraceSeconds`); a lower-third row's dwell secs (`dwellSeconds`); the tower row's seconds
+    per page and pin top N (`cycle.perPageSeconds`, `cycle.pinTop`); the canvas width and height;
+    and the logo rotation's per-slot seconds (`logoRotation.perSlotSeconds`). A value typed into one
+    of them is committed in two ways, and is applied then, once. **Enter** commits on its own
+    keydown, whatever the browser does with `change` for it; Shift+Enter (or Enter with any other
+    modifier) commits the same way, and an Enter that ends an IME composition belongs to the
+    composition and commits nothing. **Focus leaving the field** (the field's `change` event)
+    commits whatever the field holds. A field commits a value once: a `change` or blur that follows
+    an Enter, with no keystroke in between, finds the value already committed and writes nothing
+    further, so Enter then leaving the field is one edit (rule 44c). Before the commit the keystrokes change nothing: the config, the live
+    preview, and what Save or Export writes all keep the last committed value, and the field shows
+    exactly the text being typed — the editor never rewrites it mid-entry. Clicking Save or Export
+    moves focus off the field, so a value still being typed is committed before it is saved. Typing
+    `1900` into `w` and backspacing to `190` before committing applies `w = 190`, and the
+    keep-on-canvas clamp never sees `1900`, so `x` does not move.
+44a. **Steps and sliders apply at once.** A step taken with a number field's spinner buttons or its
+    Up/Down arrow keys is a commit, and each step applies as it is taken, in every browser the
+    editor runs in — whether or not that browser fires `change` for a keyboard step. Typing after a
+    step is ordinary typing again. The plate-opacity slider (rule 23) is not a typed field: it
+    applies continuously while it moves. `maxRows` is a text field that applies on commit with its
+    own blank handling (rule 12); the profile name, the producer URL and the class-color fields are
+    not number fields, and rule 44 does not cover them.
+44b. **A commit is clamped or refused, never reset to a default, and the field then shows what is
+    stored.** A committed number that the knob's normalization would **clamp** is stored clamped:
+    the keep-on-canvas clamp for `x`/`y`/`w`/`h` (at least 16 px, inside the canvas), `[0, 30]` for
+    exit grace (rule 36), the 320 px minimum for a canvas edge (rule 9), and a non-whole `pinTop`
+    rounded down to a whole number (rule 12). A committed number that normalization would
+    **replace with the default** — a dwell or a seconds per page not above `0`, a `pinTop` below
+    `0` — is refused like a blank: the stored value is kept. `z` and per-slot seconds keep the
+    number as entered. After every commit the field shows the value now stored, so an out-of-range
+    entry visibly becomes its clamped value or reverts to the kept one. Committing a **blank**
+    field — cleared, or holding text the browser cannot read as a number, which a number input
+    reports as blank — writes nothing: the stored value is kept (never `0`, never reset to a
+    default) and the field shows it again. **Escape** discards the
+    uncommitted text: the field shows the stored value again, nothing is written, and leaving the
+    field afterwards commits nothing.
+44c. **A commit is one rule 41a edit.** At a bigger text preset, a typed `x` or `w` moves
+    `textScaleOrigin` only when it is committed, comparing the committed value with the value
+    stored before the commit. Uncommitted keystrokes never move the origin, the stored `x` or the
+    stored `w`, and a blank or Escaped field moves nothing. An Enter followed by a `change` or blur
+    is one commit and so one rule 41a edit, never two. Rule 44b applies to every commit alike: an
+    Enter on a blank or refused value keeps the stored value, exactly as leaving the field does.
+
+### Tower driver name style
+
+42. **`nameStyle`** (tower; default `short`) selects how the standings tower renders driver
+    names: `short` (`E.JAC`) or `full` (`E. Jacobs`, with the tower growing wider to fit;
+    `widgets.md` rules 46–48). Normalization keeps exactly the string `short` or `full` and
+    replaces anything else with `short`: absent, null, another case such as `Full`, any other
+    string, or a value of another type. It is normalized onto every widget for a uniform
+    shape, and only the tower reads it. Both `/all` and the standalone `/tower` route read it
+    from the loaded profile. A route with no profile, or a profile without the key, renders
+    `short`. There is no URL knob for it. A profile without the key renders short names at its
+    saved geometry, and `configVersion` stays `"1"` (rule 2). Decision record:
+    `docs/decisions/0018-tower-driver-name-style.md`.
+43. **The editor exposes it in the tower row**, as part of rule 14's control surface. It is a
+    select labelled **driver names** with exactly two options, `short` and `full` in that
+    order, showing the current value, offered for `tower` only. Choosing an option writes that
+    value to the tower's `nameStyle` and the live preview re-renders with it. It changes no
+    geometry: unlike a text-size preset (rule 41), the editor never alters `x`, `w` or any
+    other field when the style changes. Per rule 16 it carries help copy, which says that
+    `full` lets the tower grow wider than its set width and can run past the edge of the
+    Browser Source (rule 21: growth past the box would otherwise look like a bug). Per rule 19
+    the coverage tests require it. Like `plateAlpha` (rule 24), withholding the control from
+    the other widgets never rewrites a stored value. In `full` the preview's drag-and-resize
+    box shows the stored `x` and `w`, the tower's left edge and minimum width; a tower
+    grown wider than `w` (`widgets.md` rule 48) draws past the box's right side, and dragging
+    or resizing edits `x` and `w` only.
 
 ### Class color overrides
 
@@ -199,11 +367,39 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 33. **The `/config` editor exposes a Class Colors section** — rule 14's control surface, keyed by
     class name rather than by widget. A broadcaster adds a row (a class-name field plus a color
     picker) for any class string, edits or removes an existing row, and sees the change reflected in
-    the live preview immediately, the same as any other editor control. There is no pre-seeded or
+    the live preview as soon as the picker reports a color — it is not a typed number field, so
+    rule 44's commit-on-Enter-or-blur does not apply to it. There is no pre-seeded or
     fixed list of rows: every row is one the broadcaster has explicitly added, and an empty map
     renders no rows. Removing a row's override returns that class to rule 31's default. Per rule 16
     the section carries its own summary and the color-picker control carries a `configHelp.js` entry
     and an ⓘ (rules 17-19).
+
+### Class tags
+
+47. **`theme.classTags`** (default `auto`) is one overlay-wide setting, not a per-widget knob,
+    that decides with the producer's `session.multiclass` whether class tags show
+    (`widgets.md` rules 60–64): `auto` follows the producer, `show` always shows them, `hide`
+    always hides them, with any producer, including one that never sends `multiclass`.
+    Normalization keeps exactly the string `auto`, `show`, or `hide` and replaces anything else
+    with `auto`: absent, null, another case such as `Hide`, a padded string such as `' hide '`,
+    any other string, or a value of another type (`false` is not `hide`). A profile with no
+    `theme`, or a `theme` without the key, renders `auto`, and normalizing never changes
+    `theme.classColors` (rule 32). It is not normalized onto widgets. `/all` reads it, and so
+    does every standalone route that loads a profile: `/tower`, `/battle`, `/driver`,
+    `/qualifying`, `/grid`, and `/results`. The standalone `/onboard` route loads no profile
+    and renders `auto`. There is no URL knob for it, and `configVersion` stays `"1"` (rule 2).
+    Decision record: `docs/decisions/0022-single-class-tags.md`.
+48. **The editor exposes it once for the whole overlay**, as part of rule 14's control surface:
+    a select labelled **class tags** (`data-testid="class-tags"`), in no widget row, with exactly
+    three options, `auto`, `show`, and `hide`, in that order, showing the current value.
+    Choosing an option writes that value to `theme.classTags`, the live preview re-renders with
+    it, and Save writes it into the profile. It changes no geometry and no other setting,
+    `theme.classColors` included. Per rule 16 it carries help copy behind an ⓘ
+    (`data-testid="help-class-tags"`), which says plainly that `auto` follows the producer: it
+    hides the tags when the producer reports a single-class session and shows them when the
+    producer does not say. It says that `show` and `hide` override the producer, and that the
+    editor preview's sample feed does not say, so at `auto` the preview shows the tags (rule
+    21: a preview that keeps its tags at `auto` would otherwise look like a broken setting).
 
 ### Editor help content
 
@@ -239,8 +435,10 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 
 21. **Behaviors that read as bugs MUST be called out** where the broadcaster meets them: the
     qualifying/practice suppression of pit / tire-wear / fuel (`widgets.md` rule 8), and that the
-    lower-thirds hide themselves between camera cuts (rules 13-19) — both otherwise look like a
-    broken overlay rather than a deliberate rule.
+    lower-thirds hide themselves between camera cuts (rules 13-19), and that a tower in `full`
+    name style grows wider than its set width and can be cut off at the edge of the canvas or
+    the Browser Source (rule 43, `widgets.md` rule 48) — each otherwise looks like a broken
+    overlay rather than a deliberate rule.
 
 ### Live reload
 
@@ -390,12 +588,12 @@ Decision record: `docs/decisions/0011-feed-status-accessibility.md`.
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
-`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors}`,
+`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
-`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
+`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
 but only the widget noted in the rule-11 table actually reads each.
 
 URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,

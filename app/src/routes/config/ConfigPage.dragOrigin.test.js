@@ -41,6 +41,7 @@ const value = (c, field) => Number(input(c, field).value)
 
 async function type(c, field, v) {
   await fireEvent.input(input(c, field), { target: { value: String(v) } })
+  await fireEvent.change(input(c, field)) // a typed value applies on commit (rule 44)
   await tick()
 }
 
@@ -63,7 +64,7 @@ async function drag(c, target, steps) {
   const s = previewScale(c)
   await fireEvent.pointerDown(target, { clientX: 0, clientY: 0 })
   for (const [dx, dy] of steps) {
-    await fireEvent.pointerMove(window, { clientX: dx * s, clientY: dy * s })
+    await fireEvent.pointerMove(window, { buttons: 1, clientX: dx * s, clientY: dy * s })
     await tick()
   }
   await fireEvent.pointerUp(window, { clientX: 0, clientY: 0 })

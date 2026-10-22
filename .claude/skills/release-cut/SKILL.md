@@ -81,11 +81,12 @@ gh pr merge <n> --merge
 Use a plain merge commit here (not squash) so `prerelease` keeps the individual commits
 from `next` — this matters for `git log`-based changelog drafting on the *next* release.
 
-**Note — issues don't auto-close yet.** `Closes #N` in a feature PR only auto-closes the
-issue when it lands on the repo's **default branch**. Since `prerelease` is the default
-branch here (not `main`), merging this integration PR *does* auto-close issues referenced
-by the PRs it carries. If a future change makes `main` the default again, auto-close will
-instead wait until Phase 4.
+**Note — when issues auto-close.** `Closes #N` only auto-closes an issue when the commit
+carrying it lands on the repo's **default branch**, which is `next`
+(`gh repo view --json defaultBranchRef`). Feature PRs therefore close their issues as they
+merge into `next`, and this integration PR closes nothing new. A `Closes #N` written into a
+release-time commit, such as the changelog commit, takes effect only when Phase 5's back-merge
+lands it on `next`.
 
 ## Phase 3 — Cut the version on `prerelease`
 
@@ -202,7 +203,9 @@ uses:
   to a broadcaster.
 - **Put the links *outside* the fence.** Discord does not linkify URLs inside a code block,
   and the download is the point of the post. Verify afterwards that the sent message came
-  back with `embeds: 1` — that is the proof Discord treated the URL as a real link.
+  back with `embeds: 1` — that is the proof Discord treated the URL as a real link. Discord
+  builds link previews asynchronously, so a read straight after sending can show `embeds: 0`;
+  wait a few seconds and read once more before treating 0 as a failure.
 
 ```
 **Download** (Windows, no install needed)

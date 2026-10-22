@@ -27,7 +27,7 @@ describe('configEditor — widget geometry/visibility', () => {
   it('toggles a widget hideWhenIdle without disturbing geometry', () => {
     const next = setWidgetHideWhenIdle(DEFAULT_CONFIG, 'battle', true)
     expect(next.widgets.battle.hideWhenIdle).toBe(true)
-    expect(next.widgets.battle).toMatchObject({ x: 428, w: 440 })
+    expect(next.widgets.battle).toMatchObject({ x: 448, w: 440 })
   })
 
   it('moves a widget and clamps it onto the 1920x1080 canvas', () => {
@@ -124,7 +124,7 @@ describe('configEditor — canvas', () => {
   })
 
   it('re-clamps widgets that no longer fit after the canvas shrinks', () => {
-    // battle default sits at x:428 w:440 (right edge 868); a 640-wide canvas must
+    // battle default sits at x:448 w:440 (right edge 888); a 640-wide canvas must
     // pull it back onto the canvas rather than leave it hanging off the edge.
     const next = setCanvas(DEFAULT_CONFIG, { w: 640, h: 480 })
     const b = next.widgets.battle
@@ -138,15 +138,50 @@ describe('configEditor — canvas', () => {
     expect(next.canvas.h).toBe(720)
   })
 
+  it.each([
+    ['a numeric string', '1600', 1600],
+    ['a fractional edge rounding up', 900.6, 901],
+    ['a fractional edge rounding down', 900.4, 900],
+    ['a numeric string below the minimum', '100', 320],
+  ])('accepts %s', (_label, input, expected) => {
+    expect(setCanvas(DEFAULT_CONFIG, { w: input, h: input }).canvas).toEqual({
+      w: expected,
+      h: expected,
+    })
+  })
+
   it('treats a blank edge as "keep current", not zero', () => {
     // A cleared input commits '' — must not collapse the canvas to the minimum.
     const next = setCanvas(DEFAULT_CONFIG, { w: '' })
     expect(next.canvas.w).toBe(DEFAULT_CONFIG.canvas.w)
   })
 
+  it.each([
+    ['whitespace-only string', '   '],
+    ['true', true],
+    ['false', false],
+    ['single-element array', [640]],
+    ['empty array', []],
+    ['plain object', {}],
+    ['null', null],
+    ['NaN', NaN],
+    ['Infinity', Infinity],
+    ['-Infinity', -Infinity],
+    ['the string Infinity', 'Infinity'],
+    ['partly numeric string', '640px'],
+    ['non-numeric string', 'abc'],
+  ])('keeps the current edge for a non-number (%s)', (_label, bad) => {
+    // Number() would coerce '   '/false/[] to 0 and true to 1 (both raised to 320), and [640]
+    // to 640; parseFloat would read '640px' as 640. None is a valid number, so the 1280x720
+    // canvas must not move.
+    const start = setCanvas(DEFAULT_CONFIG, { w: 1280, h: 720 })
+    const next = setCanvas(start, { w: bad, h: bad })
+    expect(next.canvas).toEqual({ w: 1280, h: 720 })
+  })
+
   it('does not shrink widgets when the canvas stays large enough', () => {
     const next = setCanvas(DEFAULT_CONFIG, { w: 1280, h: 720 })
-    expect(next.widgets.tower).toMatchObject({ x: 24, w: 380 })
+    expect(next.widgets.tower).toMatchObject({ x: 24, w: 400 })
   })
 })
 

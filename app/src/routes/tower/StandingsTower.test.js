@@ -46,7 +46,7 @@ const gapFor = (slotId) =>
 
 describe('StandingsTower — running order', () => {
   it('renders driver names in position order (close-battle fixture)', () => {
-    render(StandingsTower, { snapshot: closeBattle })
+    render(StandingsTower, { nameStyle: 'full', snapshot: closeBattle })
     // Fixture positions: 1 Hamilton, 2 Verstappen, 3 Leclerc, 4 Norris
     expect(renderedNames()).toEqual([
       'Hamilton',
@@ -66,7 +66,7 @@ describe('StandingsTower — running order', () => {
         closeBattle.vehicles[2], // Leclerc P3
       ],
     }
-    render(StandingsTower, { snapshot: shuffled })
+    render(StandingsTower, { nameStyle: 'full', snapshot: shuffled })
     expect(renderedNames()).toEqual([
       'Hamilton',
       'Verstappen',
@@ -199,7 +199,7 @@ describe('StandingsTower — rendering details', () => {
 
   it('renders best-effort for an unknown schemaVersion', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    render(StandingsTower, { snapshot: { ...closeBattle, schemaVersion: '99' } })
+    render(StandingsTower, { nameStyle: 'full', snapshot: { ...closeBattle, schemaVersion: '99' } })
     // Presentational component still renders the field it understands.
     expect(renderedNames()).toEqual([
       'Hamilton',
@@ -266,7 +266,7 @@ describe('StandingsTower — inline class positions (default)', () => {
   // race-class-best overall order: 1 Verstappen/GTP, 2 Hamilton/GTP,
   //                                3 Alonso/GT3, 4 Albon/GT3.
   it('keeps one overall-order list and badges each row with its class rank', () => {
-    render(StandingsTower, { snapshot: classBest })
+    render(StandingsTower, { nameStyle: 'full', snapshot: classBest })
     expect(renderedNames()).toEqual(['Verstappen', 'Hamilton', 'Alonso', 'Albon'])
     // Position column stays the overall running order.
     expect(renderedPositions()).toEqual(['1', '2', '3', '4'])
@@ -277,7 +277,7 @@ describe('StandingsTower — inline class positions (default)', () => {
   })
 
   it('computes class rank across an interleaved multi-class field', () => {
-    render(StandingsTower, { snapshot: multiClass })
+    render(StandingsTower, { nameStyle: 'full', snapshot: multiClass })
     // Overall: 1 Verstappen/GTP, 2 Alonso/GT3, 3 Hamilton/GTP, 4 Rossi/LMP2,
     //          5 Albon/GT3, 6 Bourdais/LMP2.
     expect(renderedNames()).toEqual([
@@ -294,7 +294,7 @@ describe('StandingsTower — inline class positions (default)', () => {
 
 describe('StandingsTower — grouped class sections', () => {
   it('renders per-class sections in registry order with positions restarting', () => {
-    render(StandingsTower, { snapshot: multiClass, classDisplay: 'grouped' })
+    render(StandingsTower, { nameStyle: 'full', snapshot: multiClass, classDisplay: 'grouped' })
 
     // Sections appear in class-registry order: GTP (0), LMP2 (1), GT3 (2).
     expect(groupClasses()).toEqual(['GTP', 'LMP2', 'GT3'])
@@ -330,7 +330,7 @@ describe('StandingsTower — grouped class sections', () => {
 
 describe('StandingsTower — class filter', () => {
   it('inline: narrows to a single class, case-insensitively', () => {
-    render(StandingsTower, { snapshot: multiClass, classFilter: 'lmp2' })
+    render(StandingsTower, { nameStyle: 'full', snapshot: multiClass, classFilter: 'lmp2' })
     expect(renderedNames()).toEqual(['Rossi', 'Bourdais'])
     // Class rank/total is stable regardless of the filter (still /2 of the LMP2 field).
     expect(classBadges()).toEqual(['1/2', '2/2'])
@@ -340,6 +340,7 @@ describe('StandingsTower — class filter', () => {
 
   it('grouped: collapses to the single requested section', () => {
     render(StandingsTower, {
+      nameStyle: 'full',
       snapshot: multiClass,
       classDisplay: 'grouped',
       classFilter: 'GT3',
@@ -433,8 +434,8 @@ describe('StandingsTower — gap to leader (#28)', () => {
 
 describe('StandingsTower — overflow cycling (ADR 0003)', () => {
   // happy-dom does no layout, but the cycling SELECTION is exercisable: `slotHeight` is a
-  // prop and the row/header token heights fall back to 38/44 (getComputedStyle returns no
-  // CSS vars here). budget = floor((slotHeight - 38) / 44). The clamp + real measurement
+  // prop and the row/header token heights fall back to 38/44 (rendered: 40px chrome, 45px rows) (getComputedStyle returns no
+  // CSS vars here). budget = floor((slotHeight - 40) / 45). The clamp + real measurement
   // are covered by the headless-browser verification, not here.
   const bigField = (n, subject = null) => ({
     mode: 'race',
@@ -453,15 +454,26 @@ describe('StandingsTower — overflow cycling (ADR 0003)', () => {
   const rowCount = () => document.querySelectorAll('[data-testid="tower-row"]').length
 
   it('caps the inline tower to the row budget from the slot height (rules 1-2)', () => {
-    // budget = floor((400 - 38) / 44) = 8
+    // budget = floor((400 - 40) / 45) = 8
     render(StandingsTower, { snapshot: bigField(30), slotHeight: 400, cycle: CYCLE })
     flushSync()
     expect(rowCount()).toBeLessThanOrEqual(8)
     expect(rowCount()).toBeGreaterThan(0)
   })
 
+  it('counts the rendered 45px row and 40px frame: a 984px slot fits 20 rows, 985px fits 21 (#315)', () => {
+    // Tower height = 40 + 45n. n=21 is 985px — one over a 984px slot (the old /44 math gave 21).
+    const { unmount } = render(StandingsTower, { snapshot: bigField(30), slotHeight: 984, cycle: CYCLE })
+    flushSync()
+    expect(rowCount()).toBe(20)
+    unmount()
+    render(StandingsTower, { snapshot: bigField(30), slotHeight: 985, cycle: CYCLE })
+    flushSync()
+    expect(rowCount()).toBe(21)
+  })
+
   it('renders header-only when not even one row fits (budget < 1)', () => {
-    // (50 - 38) / 44 -> 0
+    // (50 - 40) / 45 -> 0
     render(StandingsTower, { snapshot: bigField(20), slotHeight: 50, cycle: CYCLE })
     flushSync()
     expect(rowCount()).toBe(0)

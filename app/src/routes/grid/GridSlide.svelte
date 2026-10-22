@@ -2,6 +2,8 @@
   import ClassChip from '../../design/ClassChip.svelte'
   import { classColor, classMeta } from '../../design/classMeta.js'
   import { fmtName } from '../../design/format.js'
+  import { classTagsShown } from '../../lib/classTags.js'
+  import { listableVehicles } from '../../lib/vehicles.js'
 
   // Full-screen pre-race starting-grid board (#24). Presentational: it renders
   // whatever snapshot it is handed as a per-class starting order, sorted strictly
@@ -9,7 +11,17 @@
   // parsing lives in GridPage. Mirrors the results slide (#23) conventions.
   // `classColors` (rule 32, ADR 0010): resolved `theme.classColors` overrides from the
   // saved profile, or `{}` when none is loaded/configured.
-  let { snapshot = null, classFilter = null, label = 'STARTING GRID', classColors = {} } = $props()
+  // `classTags` (widgets.md rules 60, 64): with the tags hidden the slide renders one list in
+  // overall position order, with no class group headers and no filter chip.
+  let {
+    snapshot = null,
+    classFilter = null,
+    label = 'STARTING GRID',
+    classColors = {},
+    classTags = 'auto',
+  } = $props()
+
+  const showTags = $derived(classTagsShown(classTags, snapshot?.session))
 
   // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
   // => show every class, each in its own group.
@@ -24,14 +36,17 @@
   // class registry `order` (the same sequence used for class-mode grouping), with
   // an alphabetical tiebreak for classes the registry doesn't know. Never mutate
   // the source array — copy before sort (a review checkpoint on #23).
+  const usable = $derived(listableVehicles(snapshot))
   const groups = $derived.by(() => {
-    const rows = [...(snapshot?.vehicles ?? [])]
+    const rows = usable
       .filter(
         (v) =>
           filterKey === null ||
           String(v.vehicle_class ?? '').toLowerCase() === filterKey,
       )
       .sort((a, b) => a.position - b.position)
+
+    if (!showTags) return rows.length ? [{ key: '', carClass: null, cars: rows }] : []
 
     const byClass = {}
     for (const v of rows) {
@@ -51,14 +66,14 @@
   // A snapshot with a class filter that matches nothing is a distinct, explicit
   // state from "no snapshot at all" — surface which one so the board never blanks.
   const emptyReason = $derived(
-    snapshot?.vehicles?.length ? 'no-match' : 'no-state',
+    usable.length ? 'no-match' : 'no-state',
   )
 </script>
 
 <section class="grid" data-testid="grid-slide">
   <header class="grid__header">
     <span class="grid__title">{label}</span>
-    {#if filterKey !== null}
+    {#if filterKey !== null && showTags}
       <span class="grid__filter" data-testid="grid-filter">
         <ClassChip carClass={filterKey} {classColors} />
       </span>
@@ -81,10 +96,12 @@
           data-testid="grid-group"
           data-class={group.carClass}
         >
-          <header class="group__head">
-            <ClassChip carClass={group.carClass} {classColors} />
-            <span class="group__count">{group.cars.length} cars</span>
-          </header>
+          {#if showTags}
+            <header class="group__head">
+              <ClassChip carClass={group.carClass} {classColors} />
+              <span class="group__count">{group.cars.length} cars</span>
+            </header>
+          {/if}
           <!-- Conventional staggered two-column grid: the front car sits on the
                left, the next is set back on the right, and so on down the field. -->
           <ol class="group__grid">

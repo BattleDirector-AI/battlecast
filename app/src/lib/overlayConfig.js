@@ -19,6 +19,7 @@
  */
 
 import { DEFAULT_SRC } from './sseClient.js'
+import { CLASS_TAGS_VALUES } from './classTags.js'
 
 /** Config contract version, numbered independently of the app release and the
  *  spec `schemaVersion`. */
@@ -32,6 +33,33 @@ export const OVERLAY_CANVAS = Object.freeze({ w: 1920, h: 1080 })
 /** Smallest sensible canvas edge — guards the scale math against zero/absurd sizes. */
 export const MIN_CANVAS = 320
 
+/** #26 on-board HUD extras — only the on-board HUD reads these, but they're normalized
+ *  onto every widget (like `classDisplay`) for a uniform shape. Additive + defaulted, so
+ *  no `configVersion` bump.
+ *   - `speedUnit`: display unit for the speed readout, `'kmh'` (default) or `'mph'`. The
+ *     producer emits `speed` in canonical km/h (spec/v1/SPEC.md `subject.telemetry`); the
+ *     widget converts to mph when selected.
+ *   - `driverInfo`: which on-camera driver/vehicle identity fields the HUD shows — each of
+ *     `name` / `number` / `position` / `class` / `make` / `model` toggled independently
+ *     (name+number+position on by default). `number`/`make`/`model` come from the additive `vehicle` spec fields.
+ *   - `waitForLowerThird`: when true (default), the HUD keeps the driver name out of two
+ *     places at once: it holds off entirely while the driver lower-third (#21) shows a
+ *     `dwell` card and reveals when the card wipes out, and under a `persistent` card it
+ *     holds back only its identity strip (widgets rule 24). Only applies in `/all` (where both
+ *     widgets coexist); the standalone `/onboard` route has no lower-third to wait for. */
+export const ONBOARD_DEFAULTS = Object.freeze({
+  speedUnit: 'kmh',
+  waitForLowerThird: true,
+  driverInfo: Object.freeze({
+    name: true,
+    number: true,
+    position: true,
+    class: false,
+    make: false,
+    model: false,
+  }),
+})
+
 /** Built-in default layout — reproduces today's side-by-side `/all` arrangement
  *  (tower in the left column, battle box as an upper band to its right) so existing
  *  users are not broken when no configuration is supplied. `logos` defaults hidden. */
@@ -41,7 +69,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   producer: { src: DEFAULT_SRC },
   canvas: { w: OVERLAY_CANVAS.w, h: OVERLAY_CANVAS.h },
   widgets: {
-    // Default widget widths match each component's intrinsic width (tower 380px,
+    // Default widget widths match each component's intrinsic width (tower 400px,
     // battle 440px) so the config editor's drag box lines up with what renders.
     // `hideWhenIdle` defaults off, so widgets that support it keep showing their
     // idle placeholder unless the broadcaster opts in.
@@ -50,25 +78,25 @@ export const DEFAULT_CONFIG = Object.freeze({
     // the normalized shape matches this default exactly. Only the lower-third
     // widgets (driver #21, qualifying #22) actually read the trigger knobs.
     tower: {
-      visible: true, x: 24, y: 24, w: 380, h: 900, z: 1, hideWhenIdle: false,
+      visible: true, x: 24, y: 24, w: 400, h: 900, z: 1, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     battle: {
-      visible: true, x: 428, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
+      visible: true, x: 448, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     logos: {
@@ -77,9 +105,9 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
@@ -91,9 +119,9 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
@@ -107,9 +135,9 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
@@ -124,9 +152,9 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
@@ -134,8 +162,8 @@ export const DEFAULT_CONFIG = Object.freeze({
     // lower-third and not class-aware: the trigger knobs (trigger/dwellSeconds/
     // showOnConnect/fireOnClassBest), `modes`, and `classDisplay` are all INERT for
     // this widget — carried only for a uniform widget shape. It reads the subject's
-    // telemetry every tick and renders whenever visible and there is telemetry
-    // content (its own guard), so it idles automatically in parked phases. `speedUnit`
+    // telemetry every tick and renders whenever visible and there is identity or
+    // telemetry content (its own guard), else it idles (draws nothing). `speedUnit`
     // is the one onboard-specific knob it DOES read: the display unit for the `speed`
     // readout (`'kmh'` | `'mph'`); the producer emits canonical km/h and the widget
     // converts to mph when selected.
@@ -145,17 +173,18 @@ export const DEFAULT_CONFIG = Object.freeze({
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh',
       waitForLowerThird: true,
-      driverInfo: { name: true, number: true, class: false, make: false, model: false },
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   // `classColors` (rule 32, ADR 0010): a freeform broadcaster override map, class-name key
   // (normalized like `vehicle_class` elsewhere) -> 6-digit hex. Empty by default — no override,
-  // no seeded/curated entries.
-  theme: { classColors: {} },
+  // no seeded/curated entries. `classTags` (overlay-config rule 47, ADR 0022): `auto` follows
+  // the producer's `session.multiclass`; `show` / `hide` override it.
+  theme: { classColors: {}, classTags: 'auto' },
   // Overlay-wide motion opt-out. The overlay animates by default (see lib/motion.js —
   // OBS/CEF reports reduced-motion, which must NOT silently kill the reveals); set true
   // to turn transitions down. A `?motion=` URL param overrides this per Browser Source.
@@ -190,6 +219,9 @@ export const QUALIFYING_DEFAULTS = Object.freeze({
  *  `configVersion` bump. */
 export const TOWER_DEFAULTS = Object.freeze({
   classDisplay: 'inline',
+  // Driver name style (overlay-config.md rule 42, ADR 0018): 'short' (E.JAC) or 'full'
+  // (E. Jacobs, the tower growing wider to fit). Only the tower reads it.
+  nameStyle: 'short',
 })
 
 /** Battle box exit grace (overlay-config.md rule 36, ADR 0013): how long an ended battle
@@ -202,7 +234,7 @@ export const IDLE_GRACE_MAX_SECONDS = 30
 
 /** A finite number clamped to [0, IDLE_GRACE_MAX_SECONDS]; anything else (a string
  *  included — no coercion) is the fallback. */
-function normalizeGraceSeconds(value, fallback) {
+export function normalizeGraceSeconds(value, fallback) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
   return Math.max(0, Math.min(IDLE_GRACE_MAX_SECONDS, value))
 }
@@ -290,46 +322,22 @@ function normalizeCycle(value, fallback) {
 
 /** Parse a `?metrics=` comma list (`interval,pit,tire,fuel,lapflash`) from the standalone
  *  `/tower` route into the toggle shape — listed metrics on, the rest off. An
- *  absent/empty param returns null so the caller can fall back to the config default
- *  (interval on). Mirrors the 0.6.0 `?unit=mph` standalone knob. */
+ *  absent/empty param, or one naming no known toggle, returns null so the caller falls back
+ *  to the profile's metrics (overlay-config rule 49); unknown names are dropped. Mirrors the
+ *  0.6.0 `?unit=mph` standalone knob. */
 export function parseTowerMetricsParam(raw) {
   if (raw == null || !String(raw).trim()) return null
   const on = new Set(splitList(raw).map((s) => s.toLowerCase()))
   const out = {}
   // Case-insensitive match, so the camelCase `lapFlash` is reachable as `lapflash`.
   for (const field of TOWER_METRIC_FIELDS) out[field] = on.has(field.toLowerCase())
-  return out
+  return Object.values(out).some(Boolean) ? out : null
 }
 
-/** #26 on-board HUD extras — only the on-board HUD reads these, but they're normalized
- *  onto every widget (like `classDisplay`) for a uniform shape. Additive + defaulted, so
- *  no `configVersion` bump.
- *   - `speedUnit`: display unit for the speed readout, `'kmh'` (default) or `'mph'`. The
- *     producer emits `speed` in canonical km/h (spec/v1/SPEC.md `subject.telemetry`); the
- *     widget converts to mph when selected.
- *   - `driverInfo`: which on-camera driver/vehicle identity fields the HUD shows — each of
- *     `name` / `number` / `class` / `make` / `model` toggled independently (name+number on
- *     by default). `number`/`make`/`model` come from the additive `vehicle` spec fields.
- *   - `waitForLowerThird`: when true (default), the HUD holds off while the driver
- *     lower-third (#21) is showing its "now on camera" dwell, so the two never overlap;
- *     it reveals when the lower-third wipes out. Only applies in `/all` (where both
- *     widgets coexist); the standalone `/onboard` route has no lower-third to wait for. */
-export const ONBOARD_DEFAULTS = Object.freeze({
-  speedUnit: 'kmh',
-  waitForLowerThird: true,
-  driverInfo: Object.freeze({
-    name: true,
-    number: true,
-    class: false,
-    make: false,
-    model: false,
-  }),
-})
+/** The driver/vehicle identity fields the on-board HUD can show, in `/config` order. */
+export const DRIVER_INFO_FIELDS = Object.freeze(['name', 'number', 'position', 'class', 'make', 'model'])
 
-/** The driver/vehicle identity fields the on-board HUD can show, in render order. */
-export const DRIVER_INFO_FIELDS = Object.freeze(['name', 'number', 'class', 'make', 'model'])
-
-/** Coerce an arbitrary `driverInfo` into the full `{name,number,class,make,model}`
+/** Coerce an arbitrary `driverInfo` into the full `{name,number,position,class,make,model}`
  *  boolean shape, filling missing/garbage fields from `fallback`. */
 function normalizeDriverInfo(value, fallback) {
   const src = value && typeof value === 'object' ? value : {}
@@ -421,10 +429,11 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value))
 }
 
-/** Coerce to a finite number, else the provided default. */
+/** A valid number (rule 6, see `finiteOrNull`), else the provided default. A blank
+ *  string, null, a boolean or an array is not read as a number, so it takes the default
+ *  rather than the `0` / `1` / element value `Number()` would give it. */
 function num(value, fallback) {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : fallback
+  return finiteOrNull(value) ?? fallback
 }
 
 /** Coerce to a finite number clamped to [0, 1], else the provided default. Accepts a
@@ -432,14 +441,20 @@ function num(value, fallback) {
  *  fall back — `Number()` would turn several of those into a surprising 0 (a fully
  *  transparent plate) rather than the intended default. */
 function clamp01(value, fallback) {
-  if (typeof value === 'boolean') return fallback
+  const n = finiteOrNull(value)
+  return n !== null ? Math.max(0, Math.min(1, n)) : fallback
+}
+
+/** A finite number, or a non-blank string `Number()` turns into one; else null. A blank
+ *  string, null, a boolean or an array is not read as a number. */
+export function finiteOrNull(value) {
   const n =
     typeof value === 'number'
       ? value
       : typeof value === 'string' && value.trim() !== ''
         ? Number(value)
         : NaN
-  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
+  return Number.isFinite(n) ? n : null
 }
 
 /** Coerce a `modes` value to a clean string array, falling back to `fallback`.
@@ -480,6 +495,12 @@ export function normalizeClassColors(raw) {
   return out
 }
 
+/** Normalize `theme.classTags` (overlay-config rule 47): exactly `auto`, `show`, or `hide`;
+ *  anything else (other case, padding, another type) is `auto`. */
+export function normalizeClassTags(raw) {
+  return CLASS_TAGS_VALUES.includes(raw) ? raw : 'auto'
+}
+
 /** Split a comma list (`?hide=battle,logos`) into trimmed non-empty tokens. */
 function splitList(raw) {
   return String(raw || '')
@@ -507,7 +528,12 @@ export function normalizeConfig(raw) {
     out.logoRotation = { ...out.logoRotation, ...src.logoRotation }
   }
   if (src.theme && typeof src.theme === 'object') {
-    out.theme = { ...out.theme, ...src.theme, classColors: normalizeClassColors(src.theme.classColors) }
+    out.theme = {
+      ...out.theme,
+      ...src.theme,
+      classColors: normalizeClassColors(src.theme.classColors),
+      classTags: normalizeClassTags(src.theme.classTags),
+    }
   }
   // Overlay-wide motion opt-out (see lib/motion.js). Defaults false (animate).
   out.reducedMotion = typeof src.reducedMotion === 'boolean' ? src.reducedMotion : false
@@ -533,11 +559,11 @@ export function normalizeConfig(raw) {
     const d = DEFAULT_CONFIG.widgets[key] || { visible: false, x: 0, y: 0, w: 0, h: 0, z: 0 }
     normalizedWidgets[key] = {
       visible: typeof w.visible === 'boolean' ? w.visible : d.visible,
-      x: num(w.x, d.x),
-      y: num(w.y, d.y),
-      w: num(w.w, d.w),
-      h: num(w.h, d.h),
-      z: num(w.z, d.z),
+      x: finiteOrNull(w.x) ?? d.x,
+      y: finiteOrNull(w.y) ?? d.y,
+      w: finiteOrNull(w.w) ?? d.w,
+      h: finiteOrNull(w.h) ?? d.h,
+      z: finiteOrNull(w.z) ?? d.z,
       // Opt-in: when true, a widget that supports it (see widgetIdle.js) is removed
       // from the render while it has nothing meaningful to show (e.g. the battle box
       // in clear air). Defaults false, so existing profiles keep showing the idle
@@ -551,8 +577,8 @@ export function normalizeConfig(raw) {
           ? w.trigger
           : d.trigger ?? LOWER_THIRD_DEFAULTS.trigger,
       dwellSeconds:
-        Number(w.dwellSeconds) > 0
-          ? num(w.dwellSeconds, d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds)
+        finiteOrNull(w.dwellSeconds) > 0
+          ? finiteOrNull(w.dwellSeconds)
           : d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds,
       showOnConnect:
         typeof w.showOnConnect === 'boolean'
@@ -574,6 +600,12 @@ export function normalizeConfig(raw) {
         w.classDisplay === 'inline' || w.classDisplay === 'grouped'
           ? w.classDisplay
           : d.classDisplay ?? TOWER_DEFAULTS.classDisplay,
+      // Tower driver name style (rule 42) — exactly 'short' or 'full'; anything else
+      // (another case, padding, another type) is the default. Only the tower reads it.
+      nameStyle:
+        w.nameStyle === 'short' || w.nameStyle === 'full'
+          ? w.nameStyle
+          : d.nameStyle ?? TOWER_DEFAULTS.nameStyle,
       // #26 on-board HUD display unit — only the on-board HUD reads it, but it's
       // normalized onto every widget (like classDisplay) for a uniform shape. An
       // unknown value falls back to the default so a stale/typo'd profile still
@@ -619,16 +651,13 @@ export function normalizeConfig(raw) {
           : d.textScale ?? 'normal',
     }
     // #215 editor bookkeeping (overlay-config.md rule 41b): the widget's `normal` x/w while it
-    // sits at a bigger preset. Kept only as two finite numbers off `normal`; never rendered.
+    // sits at a bigger preset. Kept only on a text widget off `normal`, with both parts finite
+    // numbers or non-blank numeric strings (stored as numbers); never rendered.
     const origin = w.textScaleOrigin
-    if (
-      normalizedWidgets[key].textScale !== 'normal' &&
-      origin &&
-      typeof origin === 'object' &&
-      Number.isFinite(origin.x) &&
-      Number.isFinite(origin.w)
-    ) {
-      normalizedWidgets[key].textScaleOrigin = { x: origin.x, w: origin.w }
+    if (rendersText(key) && normalizedWidgets[key].textScale !== 'normal' && origin && typeof origin === 'object') {
+      const x = finiteOrNull(origin.x)
+      const ow = finiteOrNull(origin.w)
+      if (x !== null && ow !== null) normalizedWidgets[key].textScaleOrigin = { x, w: ow }
     }
   }
   out.widgets = normalizedWidgets

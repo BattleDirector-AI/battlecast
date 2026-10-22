@@ -36,7 +36,7 @@
 </script>
 
 <div class="grid-page">
-  <GridSlide {snapshot} {classFilter} classColors={config.theme.classColors} />
+  <GridSlide {snapshot} {classFilter} classColors={config.theme.classColors} classTags={config.theme.classTags} />
 </div>
 
 <style>

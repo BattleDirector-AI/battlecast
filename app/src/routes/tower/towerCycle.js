@@ -6,6 +6,8 @@
  * bound underneath all of this.
  */
 
+import { listableVehicles } from '../../lib/vehicles.js'
+
 /** Minimum seconds per cycling page — below this the tower is unreadable (spec rule 14/16). */
 export const MIN_PER_PAGE_SECONDS = 4
 
@@ -19,7 +21,8 @@ function byPosition(field) {
 
 /**
  * Row budget = floor((slotHeight - headerHeight) / rowHeight), never negative
- * (spec rules 2-4). Pure arithmetic; the caller supplies the measured heights.
+ * (spec rules 2-4). Pure arithmetic; the caller supplies the RENDERED heights: `headerHeight`
+ * is all the non-row chrome, `rowHeight` a row's full height including its divider (#315).
  */
 export function computeRowBudget(slotHeight, headerHeight, rowHeight) {
   if (!(rowHeight > 0)) return 0
@@ -126,8 +129,8 @@ export function createTowerCycle(config = {}) {
   let lastMode
   let rendered = []
 
-  function render(snapshot, recompute) {
-    const field = snapshot?.vehicles ?? []
+  function render(snapshot, recompute, field) {
+    field = field ?? listableVehicles(snapshot)
     const subjectSlotId = snapshot?.subject?.slot_id ?? null
     if (budget < 1) {
       rendered = []
@@ -190,15 +193,12 @@ export function createTowerCycle(config = {}) {
       return render(snapshot, recompute)
     },
     turn(snapshot) {
-      const { pageCount } = partition(
-        snapshot?.vehicles ?? [],
-        budget,
-        cycle,
-        snapshot?.subject?.slot_id ?? null,
-      )
+      const field = listableVehicles(snapshot)
+      const subjectSlotId = snapshot?.subject?.slot_id ?? null
+      const { pageCount } = partition(field, budget, cycle, subjectSlotId)
       page = (page + 1) % pageCount
       membership = null // re-freeze membership for the new page
-      return render(snapshot, true)
+      return render(snapshot, true, field)
     },
     rows() {
       return rendered

@@ -64,22 +64,22 @@ describe('config editor: per-widget text size', () => {
     expect(container.querySelector('[data-testid="text-scale-logos"]')).toBeNull()
   })
 
-  it('rescales the tower width with the preset: 380 -> 437 -> 494 -> 380, x/y/h untouched', async () => {
+  it('rescales the tower width with the preset: 400 -> 460 -> 520 -> 400, x/y/h untouched', async () => {
     const { container } = render(ConfigPage)
     await settle()
     const d = DEFAULT_CONFIG.widgets.tower
-    expect(Number(widthInput(container, 'tower').value)).toBe(380)
+    expect(Number(widthInput(container, 'tower').value)).toBe(400)
 
     await pick(container, 'tower', 'large')
-    expect(Number(widthInput(container, 'tower').value)).toBe(437)
+    expect(Number(widthInput(container, 'tower').value)).toBe(460)
     // The live preview slot follows the edited geometry.
-    expect(container.querySelector('[data-testid="widget-tower"]').style.width).toBe('437px')
+    expect(container.querySelector('[data-testid="widget-tower"]').style.width).toBe('460px')
 
     await pick(container, 'tower', 'larger')
-    expect(Number(widthInput(container, 'tower').value)).toBe(494)
+    expect(Number(widthInput(container, 'tower').value)).toBe(520)
 
     await pick(container, 'tower', 'normal')
-    expect(Number(widthInput(container, 'tower').value)).toBe(380)
+    expect(Number(widthInput(container, 'tower').value)).toBe(400)
 
     for (const f of ['x', 'y', 'h']) {
       expect(Number(container.querySelector(`[data-testid="${f}-tower"]`).value), f).toBe(d[f])
@@ -104,7 +104,7 @@ describe('config editor: per-widget text size', () => {
     expect(api.saveProfile).toHaveBeenCalledTimes(1)
     const saved = vi.mocked(api.saveProfile).mock.calls[0][1]
     expect(saved.widgets.tower.textScale).toBe('larger')
-    expect(saved.widgets.tower.w).toBe(494)
+    expect(saved.widgets.tower.w).toBe(520)
     expect(saved.widgets.battle.textScale).toBe('normal')
   })
 

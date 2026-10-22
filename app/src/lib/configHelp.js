@@ -61,9 +61,10 @@ export const WIDGET_HELP = Object.freeze({
   onboard: {
     title: 'On-board HUD',
     summary:
-      'The telemetry strip for the driver on camera — throttle and brake bars, speed and gear. ' +
-      'It reads live every update and hides itself when a car sends no telemetry, such as when ' +
-      'it is parked.',
+      'An "ON BOARD" name tag for the driver on camera — position, number, name and the other ' +
+      'driver info you tick below — with their live throttle and brake bars, speed and gear ' +
+      'underneath. The tag shows even when the car sends no telemetry; the telemetry row ' +
+      'appears only while it does.',
   },
 })
 
@@ -122,6 +123,11 @@ export const FIELD_HELP = Object.freeze({
     '"inline" keeps one overall running order and badges each row with its position in class ' +
     '(e.g. GTP 3/7). "grouped" splits the tower into a block per class, with positions restarting ' +
     'inside each block.',
+  nameStyle:
+    '"short" shows each driver as a compact code (E.JAC), so the tower keeps its set width. ' +
+    '"full" shows the initial and last name (E. Jacobs) and never cuts a name short: the tower ' +
+    'grows wider than its set width to fit the longest name, and can run past the edge of the ' +
+    'canvas or the Browser Source.',
   cycleEnabled:
     'When there are more cars than fit in the tower’s height, page through the ones that do not ' +
     'fit instead of cutting them off the bottom. Leave this off to simply show as many as fit.',
@@ -144,9 +150,10 @@ export const FIELD_HELP = Object.freeze({
     'Show speed in mph instead of km/h. The producer always sends km/h and the widget converts, so ' +
     'this is purely a display choice.',
   waitForLowerThird:
-    'Hold the HUD off while the driver name-tag is playing its card, then reveal it once the card ' +
-    'wipes away — so the driver’s name never appears in two places at once. Only applies on the ' +
-    'combined /all overlay.',
+    'Keep the driver’s name from showing in two places at once. With the driver name-tag on ' +
+    '"dwell", the whole HUD waits until its card wipes away. On "persistent", only the HUD’s identity ' +
+    'strip is hidden; the speed, gear and pedal bars keep showing (if the producer sends them). Only applies on the combined ' +
+    '/all overlay.',
 
   // --- global settings ---
   profileName:
@@ -186,6 +193,12 @@ export const FIELD_HELP = Object.freeze({
     'everywhere that class appears — the standings tower, battle box, lower-thirds, grid and ' +
     'results. A class with no entry here keeps its automatic color; removing an entry returns it ' +
     'to that automatic color too.',
+  classTags:
+    'Whether class chips, class-rank badges and class group headers show, for the whole overlay. ' +
+    '"auto" follows the producer: it hides them when the producer reports a single-class ' +
+    'session and shows them when the producer does not say. "show" and "hide" override the ' +
+    'producer either way. The class color bars stay in every case. The editor preview’s sample ' +
+    'feed does not say, so at "auto" the preview shows the tags.',
 })
 
 /** Per-metric help for the tower's "tower metrics shown" group. Called out
@@ -214,6 +227,7 @@ export const TOWER_METRIC_HELP = Object.freeze({
 export const DRIVER_INFO_HELP = Object.freeze({
   name: 'Show the driver’s name on the HUD.',
   number: 'Show the car number.',
+  position: 'Show the car’s overall race position, such as P4.',
   class: 'Show the car’s class (e.g. GTP, LMP2).',
   make: 'Show the manufacturer, such as Cadillac. Your producer has to supply it.',
   model: 'Show the car model, such as V-Series.R. Your producer has to supply it.',

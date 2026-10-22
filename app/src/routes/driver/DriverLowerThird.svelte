@@ -1,4 +1,6 @@
 <script module>
+  import { carForSlot, isUsableSlotId } from '../../lib/vehicles.js'
+
   /**
    * Resolve the on-camera `subject` against the field into a render decision.
    *
@@ -6,24 +8,34 @@
    *                (name + position + class).
    * - `degraded` — `subject.driver_name` present but the slot_id is unresolved
    *                (absent, or no matching vehicle) → name-only card.
-   * - `invalid`  — no driver_name and no resolvable slot_id → idle (nothing to show).
+   * - `invalid`  — no present driver_name and no resolvable slot_id → idle (nothing to show).
    *
    * Identity is keyed off `slot_id`, never `driver_name` (slot_id is the stable
    * per-session key; two drivers can share a name).
+   *
+   * `name` is `subject.driver_name`, else the resolved vehicle's `driver_name`, each
+   * only when present (widgets.md rule 14b); an entry without a usable slot_id never
+   * matches (rule 14a). The on-board HUD's `resolveIdentity` reuses this resolver.
    */
   export function resolveSubject(snapshot) {
     const subject = snapshot?.subject ?? null
     const slotId = subject?.slot_id ?? null
-    const name = subject?.driver_name ?? null
-    const vehicles = Array.isArray(snapshot?.vehicles) ? snapshot.vehicles : []
-    const vehicle = slotId != null ? vehicles.find((v) => v.slot_id === slotId) : undefined
+    const subjectName = presentName(subject?.driver_name)
+    const vehicle = isUsableSlotId(slotId) ? carForSlot(snapshot?.vehicles, slotId) : undefined
+    const name = subjectName ?? presentName(vehicle?.driver_name)
 
     let state
     if (vehicle) state = 'valid'
-    else if (name) state = 'degraded'
+    else if (subjectName) state = 'degraded'
     else state = 'invalid'
 
     return { slotId, name, vehicle, state }
+  }
+
+  /** A `driver_name` counts as present only when it is a string with a non-whitespace
+   *  character (rule 14b); anything else is `null`. */
+  export function presentName(value) {
+    return typeof value === 'string' && value.trim() ? value : null
   }
 
   /** True when there is no subject worth showing (idle). Used by widgetIdle.js so
@@ -36,45 +48,53 @@
 <script>
   import { onDestroy } from 'svelte'
   import ClassChip from '../../design/ClassChip.svelte'
-  import { fmtName } from '../../design/format.js'
-  import { createLowerThirdTrigger, DEFAULT_DWELL_SECONDS } from '../../lib/lowerThirdTrigger.js'
+  import { fmtName, positiveIntOrNull } from '../../design/format.js'
+  import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
+  import { classTagsShown } from '../../lib/classTags.js'
 
   // `widget` carries the per-widget lower-third config (trigger, dwellSeconds,
   // showOnConnect) alongside geometry; only lower-thirds read those knobs.
-  let { snapshot = null, widget = {}, classColors = {} } = $props()
+  // `classTags` (widgets.md rules 60, 62): the broadcaster setting, resolved against the
+  // snapshot's `session.multiclass`; it only gates the chip, never the trigger.
+  // `shownOverride` (boolean): in `/all` the card's show/hide timer runs once in AllView and is
+  // shared with the on-board HUD, so the card just renders that flag. Absent (the standalone
+  // route), the card runs its own timer.
+  let { snapshot = null, widget = {}, classColors = {}, classTags = 'auto', shownOverride = undefined } = $props()
 
   const resolved = $derived(resolveSubject(snapshot))
   const active = $derived(resolved.state !== 'invalid')
   const trigger = $derived(widget?.trigger === 'persistent' ? 'persistent' : 'dwell')
-  const dwellSeconds = $derived(
-    Number(widget?.dwellSeconds) > 0 ? Number(widget.dwellSeconds) : DEFAULT_DWELL_SECONDS,
-  )
   const showOnConnect = $derived(widget?.showOnConnect !== false)
 
   // The engine owns fire/dwell/hide timing; we mirror its output into reactive
-  // state via onChange. The card renders only while `shown` — when not firing the
-  // component renders nothing, so AllView can always mount the slot and let the
-  // component self-manage visibility (dwell can't be driven by a stateless filter).
-  let shown = $state(false)
-  const engine = createLowerThirdTrigger({ onChange: (v) => (shown = v) })
+  // state via onChange. The card renders only while `shown`. The card times itself only on
+  // the standalone /driver route: /all runs the one timer in AllView and passes the shared
+  // `shownOverride` flag (to this card and the on-board HUD), so the engine stays idle there.
+  let ownShown = $state(false)
+  const shown = $derived(shownOverride != null ? shownOverride : ownShown)
+  const engine = createLowerThirdTrigger({ onChange: (v) => (ownShown = v) })
   onDestroy(() => engine.stop())
 
   // Forward every subject/config change to the engine. Reading the derived values
   // here is what makes this effect re-run on a camera cut; the engine's own
   // edge-detection ignores unchanged repeats, so a steady subject won't re-fire.
   $effect(() => {
+    if (shownOverride != null) return
     engine.sync({
       subjectSlotId: resolved.slotId,
       active,
       trigger,
-      dwellSeconds,
+      dwellSeconds: widget?.dwellSeconds,
       showOnConnect,
     })
   })
 
-  const position = $derived(resolved.vehicle?.position)
-  const carClass = $derived(resolved.vehicle?.vehicle_class)
+  // Rule 18: a position renders only when it is a positive integer.
+  const position = $derived(positiveIntOrNull(resolved.vehicle?.position))
+  const carClass = $derived(
+    classTagsShown(classTags, snapshot?.session) ? resolved.vehicle?.vehicle_class : undefined,
+  )
   const displayName = $derived(fmtName(resolved.name))
 </script>
 

@@ -112,6 +112,7 @@ const REGEX_MAY_FOLLOW = new Set([
 const REGEX_MAY_FOLLOW_WORD = new Set([
   'await',
   'case',
+  'default',
   'delete',
   'do',
   'else',

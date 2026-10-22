@@ -247,3 +247,27 @@ describe('no timer outlives the page (#216)', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 })
+
+describe('the held name during an exit grace (rule 65)', () => {
+  // GUARD: rule 65 already says the held snapshot's name shows; shipped code satisfies it.
+  it('shows the held battle\'s name, not the live snapshot\'s, until the grace ends', async () => {
+    const held = clone(closeBattle)
+    held.subject.driver_name = 'Max Verstappen'
+    const live = idleSame()
+    live.subject.driver_name = 'Max Verstappen-Live'
+
+    await mountPage()
+    push(held)
+    expect(box().querySelector('.bc-battle__focus-name')?.textContent.trim()).toBe('M. Verstappen')
+
+    push(live)
+    advance(2000)
+    push(live)
+
+    expect(box().querySelector('.bc-battle__focus-name')?.textContent.trim()).toBe('M. Verstappen')
+    expect(text()).not.toContain('Live') // the live name appears nowhere in the held box
+
+    advance(3100) // grace over
+    expect(box().querySelector('.bc-battle__idle-sub')?.textContent.trim()).toBe('CLEAR AIR — M. Verstappen-Live')
+  })
+})

@@ -322,12 +322,153 @@ function testLapDeficitFieldsValidateAgainstSchema() {
   );
 }
 
+// The local-yellow fields (ADR 0016) — per-vehicle `yellow_involved` (boolean) and
+// `session.sector_flags` (array of strings) — are optional. The local-yellow fixture carries
+// both and must validate; a payload with neither must still validate; and the schema must
+// REJECT a string/number `yellow_involved` and a non-array or non-string `sector_flags`, so a
+// producer's bad value fails the harness rather than slipping through untyped.
+function testLocalYellowFieldsValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const yellow = load("race-local-yellow.json");
+  assert(
+    yellow.vehicles.some((v) => v.yellow_involved === true) &&
+      Array.isArray(yellow.session?.sector_flags) &&
+      yellow.session.sector_flags.includes("yellow"),
+    "race-local-yellow.json must carry an involved car and a yellow sector"
+  );
+  let result = validator.validate(yellow);
+  assert(result.valid, `expected race-local-yellow.json to validate, got: ${result.errors.join("; ")}`);
+
+  const none = load("race-tower-metrics.json");
+  assert(
+    none.vehicles.every((v) => !("yellow_involved" in v)) && !("sector_flags" in (none.session ?? {})),
+    "race-tower-metrics.json is the no-yellow-fields base and must NOT carry yellow_involved or sector_flags"
+  );
+  result = validator.validate(none);
+  assert(result.valid, `expected a payload with NO local-yellow fields to still validate, got: ${result.errors.join("; ")}`);
+
+  const rejects = (mutate, where, label) => {
+    const payload = JSON.parse(JSON.stringify(yellow));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes(where)),
+      `expected the ${label} error to name ${where}, got: ${r.errors.join("; ")}`
+    );
+  };
+  for (const bad of ["true", 1]) {
+    rejects((p) => (p.vehicles[2].yellow_involved = bad), "/vehicles/2/yellow_involved", `yellow_involved: ${JSON.stringify(bad)}`);
+  }
+  rejects((p) => (p.session.sector_flags = "yellow"), "/session/sector_flags", 'sector_flags: "yellow"');
+  rejects((p) => (p.session.sector_flags = ["green", 2, "green"]), "/session/sector_flags/1", "sector_flags: [\"green\", 2, \"green\"]");
+
+  console.log(
+    "PASS: local-yellow fields (yellow_involved, session.sector_flags) validate against schema.json, a payload with neither still validates, and wrongly typed values are rejected (ADR 0016)"
+  );
+}
+
+function testFinishStatusFieldValidatesAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const finish = load("race-finish.json");
+  const codes = finish.vehicles.map((v) => v.finish_status);
+  assert(
+    codes.filter((c) => c === 1).length === 3 && codes.includes(0) && codes.includes(2),
+    "race-finish.json must carry three finished cars (1), one running (0), and one DNF (2)"
+  );
+  let result = validator.validate(finish);
+  assert(result.valid, `expected race-finish.json to validate, got: ${result.errors.join("; ")}`);
+
+  const dq = JSON.parse(JSON.stringify(finish));
+  dq.vehicles[4].finish_status = 3;
+  dq.vehicles[3].finish_status = null;
+  result = validator.validate(dq);
+  assert(result.valid, `expected finish_status 3 and null to validate, got: ${result.errors.join("; ")}`);
+
+  const none = load("race-tower-metrics.json");
+  assert(
+    none.vehicles.every((v) => !("finish_status" in v)),
+    "race-tower-metrics.json is the no-finish-status base and must NOT carry finish_status"
+  );
+  result = validator.validate(none);
+  assert(result.valid, `expected a payload with NO finish_status to still validate, got: ${result.errors.join("; ")}`);
+
+  for (const [bad, label] of [["1", 'the string "1"'], [true, "true"], [1.5, "1.5"], [-1, "-1"]]) {
+    const payload = JSON.parse(JSON.stringify(finish));
+    payload.vehicles[0].finish_status = bad;
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected finish_status ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes("/vehicles/0/finish_status")),
+      `expected the finish_status ${label} error to name /vehicles/0/finish_status, got: ${r.errors.join("; ")}`
+    );
+  }
+
+  console.log(
+    "PASS: finish_status validates against schema.json as a non-negative integer code, a payload without it still validates, and wrongly typed values are rejected (ADR 0017)"
+  );
+}
+
+// `session.multiclass` (protocol-contract.md rule 20) is optional: the single-class fixture
+// carries `false` and the multi-class grid fixture `true`, both must validate, as must null and
+// a payload without it; and the schema must REJECT a string or number, so a producer that sends
+// `"false"` or `0` fails the harness rather than reading as "the producer does not say".
+function testMulticlassFieldValidatesAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const single = load("race-single-class.json");
+  assert(
+    single.session?.multiclass === false && single.vehicles.every((v) => v.vehicle_class === "Default"),
+    "race-single-class.json must carry session.multiclass: false and one shared class"
+  );
+  let result = validator.validate(single);
+  assert(result.valid, `expected race-single-class.json to validate, got: ${result.errors.join("; ")}`);
+
+  const multi = load("grid-multiclass.json");
+  assert(multi.session?.multiclass === true, "grid-multiclass.json must carry session.multiclass: true");
+  result = validator.validate(multi);
+  assert(result.valid, `expected grid-multiclass.json to validate, got: ${result.errors.join("; ")}`);
+
+  const nulled = JSON.parse(JSON.stringify(single));
+  nulled.session.multiclass = null;
+  result = validator.validate(nulled);
+  assert(result.valid, `expected session.multiclass: null to validate, got: ${result.errors.join("; ")}`);
+
+  const none = load("race-local-yellow.json");
+  assert(!("multiclass" in (none.session ?? {})), "race-local-yellow.json must NOT carry session.multiclass");
+  result = validator.validate(none);
+  assert(result.valid, `expected a session with NO multiclass to still validate, got: ${result.errors.join("; ")}`);
+
+  for (const [bad, label] of [["false", 'the string "false"'], [0, "0"], [1, "1"]]) {
+    const payload = JSON.parse(JSON.stringify(single));
+    payload.session.multiclass = bad;
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected session.multiclass ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes("/session/multiclass")),
+      `expected the multiclass ${label} error to name /session/multiclass, got: ${r.errors.join("; ")}`
+    );
+  }
+
+  console.log(
+    "PASS: session.multiclass validates against schema.json as a boolean or null, a session without it still validates, and wrongly typed values are rejected"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
   testVehicleIdentityFieldsValidateAgainstSchema();
   testTowerMetricsFixturesValidateAgainstSchema();
   testLapDeficitFieldsValidateAgainstSchema();
+  testLocalYellowFieldsValidateAgainstSchema();
+  testFinishStatusFieldValidatesAgainstSchema();
+  testMulticlassFieldValidatesAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");

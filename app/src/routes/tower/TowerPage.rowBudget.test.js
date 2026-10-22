@@ -10,8 +10,8 @@
  * properties here): header 38px, row 44px, safe inset 48px per edge. That makes the budget
  * arithmetic deterministic:
  *   slot   = innerHeight - 2 * 48
- *   budget = floor((slot - 38) / 44)
- *   innerHeight 500 -> slot 404 -> 8 rows      innerHeight 800 -> slot 704 -> 15 rows
+ *   budget = floor((slot - 40) / 45)
+ *   innerHeight 500 -> slot 404 -> 8 rows      innerHeight 800 -> slot 704 -> 14 rows
  *   innerHeight 130 -> slot  34 -> 0 rows (header alone)
  * The 8 is load-bearing: deriving from a RAW innerHeight of 500 (ignoring the .tower-page
  * safe inset) would give 10 rows and a tower 96px taller than its Browser Source.
@@ -34,8 +34,8 @@ vi.mock('../../lib/sseClient.js', () => ({
   },
 }))
 
-const HEADER_PX = 38
-const ROW_PX = 44
+const HEADER_PX = 40 // 38px header token + 2px of frame (header divider, root borders, less the last row divider) (#315)
+const ROW_PX = 45 // 44px row token + 1px divider (#315)
 const INSET_PX = 48
 const budgetFor = (innerHeight) =>
   Math.max(0, Math.floor((innerHeight - 2 * INSET_PX - HEADER_PX) / ROW_PX))
@@ -109,7 +109,7 @@ describe('standalone /tower — viewport-derived row budget (#140, rules 18-20)'
   it('bounds the tower to the rows its Browser Source viewport fits (rules 1, 2, 18)', async () => {
     await mountTower(500, bigField(30))
 
-    // slot = 500 - 96 = 404 -> floor((404 - 38) / 44) = 8 whole rows.
+    // slot = 500 - 96 = 404 -> floor((404 - 40) / 45) = 8 whole rows.
     expect(budgetFor(500)).toBe(8)
     expect(rowCount()).toBe(8)
     // The rows shown are the top of the field, in running order — not all 30.
@@ -158,9 +158,9 @@ describe('standalone /tower — viewport-derived row budget (#140, rules 18-20)'
   it('re-derives the budget when the Browser Source is resized (rule 19)', async () => {
     await mountTower(800, bigField(30))
 
-    // slot = 704 -> 15 rows.
-    expect(budgetFor(800)).toBe(15)
-    expect(rowCount()).toBe(15)
+    // slot = 704 -> 14 rows.
+    expect(budgetFor(800)).toBe(14)
+    expect(rowCount()).toBe(14)
 
     await resizeTo(500)
 
@@ -184,13 +184,13 @@ describe('standalone /tower — viewport-derived row budget (#140, rules 18-20)'
   })
 
   it('lets an explicit integer maxRows cap below the viewport-derived budget (rule 20)', async () => {
-    // A profile that caps the tower at 5 rows; the viewport alone would allow 15.
+    // A profile that caps the tower at 5 rows; the viewport alone would allow 14.
     await mountTower(800, bigField(30), {
       search: '?profile=capped',
       profile: { widgets: { tower: { maxRows: 5 } } },
     })
 
-    expect(budgetFor(800)).toBe(15)
+    expect(budgetFor(800)).toBe(14)
     expect(rowCount()).toBe(5)
     expect(names().slice(0, 3)).toEqual(['D1', 'D2', 'D3'])
   })
@@ -208,7 +208,7 @@ describe('/all — non-regression: the tower budget stays the configured slot (r
     flushSync()
     await tick()
 
-    // floor((400 - 38) / 44) = 8, exactly as before this change.
+    // floor((400 - 40) / 45) = 8, unchanged by #315.
     expect(rowCount(container)).toBe(8)
     expect(names(container).slice(0, 3)).toEqual(['D1', 'D2', 'D3'])
   })

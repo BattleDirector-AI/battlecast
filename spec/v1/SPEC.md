@@ -184,6 +184,31 @@ required-ness.
   (qualifying / practice) session. Consumers read them, never derive them, and treat a
   value that is not a number ≥ 1 as "on the same lap".
 
+  - **`yellow_involved`** (boolean) — the vehicle is involved in an active **local**
+    yellow: the producer judges it stopped or crawling (not merely lifting for the flag),
+    or off the track surface, inside the yellow zone, and not in the pit lane. A car that
+    only drives through a yellow sector is **not** involved. `false`, null, or absent
+    means not involved. No sim reports involvement directly, so this is the producer's
+    own judgment; it does not claim to identify which car *caused* the yellow. A producer
+    MAY set it without sending `session.sector_flags` (a sim that knows a local yellow is
+    out but not where). Consumers read it and **MUST NOT** infer it from speed, position,
+    or `session.sector_flags`. A tower marks the row of a vehicle whose value is exactly
+    `true`. Which sector is yellow lives on `session.sector_flags`, below.
+  - **`finish_status`** (integer) — whether the vehicle has finished the race, as a code:
+    `0` running (has not taken the chequered flag), `1` finished (has taken it), `2` DNF
+    (retired), `3` DQ (disqualified). The codes match rFactor 2 `mFinishStatus` (Le Mans
+    Ultimate exposes the same field), so a producer for those sims copies the value; a
+    producer for a sim without a per-car finish field (iRacing) works it out from each
+    car's own line crossing after the chequered flag. It is **per car**: a car becomes `1` when *it*
+    crosses the line under the chequered flag, not when the leader does, so cars still on
+    their last lap stay `0`. Null or absent means unknown and renders like `0`. Any other
+    integer is a code this revision does not define; consumers tolerate it and render it
+    like `0`. It is a race concept: a producer **SHOULD** send it only in `race` and
+    `results`, and a tower shows it only when `mode` (trimmed, case-insensitive) is `race`
+    or `results`, ignoring it in every other mode. It is independent of `session.flag`: a
+    car that retires under green is `2` at once.
+    Consumers read it and **MUST NOT** infer it from `session.flag`, laps, or position.
+
   These six per-vehicle metrics are consumed by the LMU-style richer standings tower — an
   **interval column** beside the gap-to-leader, plus config-gated **pit / tire / fuel**
   indicators a broadcaster enables for endurance density. They are kept **flat on
@@ -256,6 +281,29 @@ required-ness.
   - **`safety_car`** (boolean) — a safety/pace car is deployed. Independent of
     `full_course_yellow` (either may be set without the other). Absent or false means
     none.
+  - **`sector_flags`** (array of strings) — the local flag state of each track sector,
+    in lap order: index 0 is sector 1, index 1 is sector 2, and so on, for however many
+    sectors the producer's sim has (commonly 3). Index 0 is sector 1 whatever the sim's
+    own indexing; a producer remaps the sim's sector order and translates its values.
+    `"yellow"` (trimmed, case-insensitive) marks a sector under a local yellow; any other
+    value — `"green"`, `"none"`, a sim-specific string — means no local yellow there, and
+    consumers tolerate unknown values. Null or absent means no sector information, which
+    is not the same as all-clear: a producer whose sim exposes no per-sector flag
+    (iRacing, for one) **SHOULD** omit the field rather than send all-green, and a
+    producer that has sector flags **SHOULD** send every sector. It says *where* a local
+    yellow is; *who* is involved is the per-vehicle `yellow_involved`, above. A local
+    yellow is distinct from
+    `full_course_yellow`: under a full-course caution the producer may still send sector
+    flags, and a consumer showing the full-course caution need not repeat them.
+  - **`multiclass`** (boolean or null) — whether the session has more than one vehicle
+    class. `false` says the session is single-class: every car shares one class, so a
+    consumer **MAY** hide its class tags (class chips, class-rank badges, class group
+    headers), which would otherwise all repeat one label, often a producer's placeholder
+    for a sim that reports no class. `true` says the session has two or more classes. Null
+    or absent gives no signal either way. It is the **producer's** judgment: a consumer never infers it from `vehicles[]`, neither by
+    counting distinct `vehicle_class` values nor by recognizing a placeholder class name
+    such as `"Default"`, which is one producer's convention and not part of this contract.
+    A producer that knows the session's classes **SHOULD** send it on every snapshot.
   - **`time_remaining`** / **`session_length`** (number, seconds) — the countdown clock
     and total length of a **timed** session; `session_length` is the progress
     denominator. Null or absent in a lap-limited session.
