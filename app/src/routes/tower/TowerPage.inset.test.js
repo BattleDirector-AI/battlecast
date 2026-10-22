@@ -27,8 +27,8 @@ vi.mock('../../lib/sseClient.js', () => ({
   },
 }))
 
-const HEADER_PX = 38
-const ROW_PX = 44
+const HEADER_PX = 40 // 38px header token + 2px of frame (header divider, root borders, less the last row divider) (#315)
+const ROW_PX = 45 // 44px row token + 1px divider (#315)
 
 const field = (n) => ({
   schemaVersion: '1',
@@ -105,7 +105,7 @@ describe('standalone /tower — the inset is the resolved padding, not the token
     stubStyles({ paddingPx: 48, tokenText: '3rem' })
     await mountAt(500, field(30))
 
-    // slot = 500 - 2*48 = 404 -> floor((404 - 38) / 44) = 8 rows.
+    // slot = 500 - 2*48 = 404 -> floor((404 - 40) / 45) = 8 rows.
     const expected = Math.floor((500 - 2 * 48 - HEADER_PX) / ROW_PX)
     expect(expected).toBe(8)
     expect(
@@ -121,9 +121,9 @@ describe('standalone /tower — the inset is the resolved padding, not the token
     stubStyles({ paddingPx: 96, tokenText: '3rem' })
     await mountAt(500, field(30))
 
-    // slot = 500 - 2*96 = 308 -> floor((308 - 38) / 44) = 6 rows.
+    // slot = 500 - 2*96 = 308 -> floor((308 - 40) / 45) = 5 rows.
     expect(rowCount()).toBe(Math.floor((500 - 2 * 96 - HEADER_PX) / ROW_PX))
-    expect(rowCount()).toBe(6)
+    expect(rowCount()).toBe(5)
   })
 
   it('falls back to a bounded budget when padding is unreadable, never to an unbounded tower', async () => {

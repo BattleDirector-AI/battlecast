@@ -71,5 +71,8 @@
     "gap_ahead": null,
     "gap_behind": null,
     "battle_intensity": 0.0
+  },
+  "session": {
+    "multiclass": true
   }
 }

@@ -36,7 +36,7 @@
 </script>
 
 <div class="results-page">
-  <ResultsSlide {snapshot} {classFilter} classColors={config.theme.classColors} />
+  <ResultsSlide {snapshot} {classFilter} classColors={config.theme.classColors} classTags={config.theme.classTags} />
 </div>
 
 <style>

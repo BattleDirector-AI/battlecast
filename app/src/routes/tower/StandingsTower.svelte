@@ -1,13 +1,16 @@
 <script>
   import ClassChip from '../../design/ClassChip.svelte'
   import { classColor, classMeta } from '../../design/classMeta.js'
-  import { fmtName, fmtLapTime } from '../../design/format.js'
+  import { fmtName, fmtShortName, fmtLapTime } from '../../design/format.js'
   import { sessionProgressText } from '../../design/sessionProgress.js'
-  import { untrack } from 'svelte'
+  import { classTagsShown } from '../../lib/classTags.js'
+  import { listableVehicles } from '../../lib/vehicles.js'
+  import { onDestroy, untrack } from 'svelte'
   import { computeRowBudget, createTowerCycle, clampPerPageSeconds } from './towerCycle.js'
 
   // Class-aware standings tower (#28). Presentational: renders whatever snapshot it
-  // is handed. Two layouts, selected by `classDisplay`:
+  // is handed. Two layouts; the rendered one is `layout`: `classDisplay` while class tags
+  // show, otherwise inline (widgets.md rule 61):
   //   inline  — one list in overall `position` order, each row badged with its rank
   //             within its class (e.g. '1/7').
   //   grouped — per-class sections in class-registry order (mirrors the grid/results
@@ -27,16 +30,36 @@
     metrics = {},
     // Tower overflow — pinned rows + cycling window (ADR 0003 / .ai/spec tower-overflow.md).
     // `maxRows` ('auto' | integer cap) and `cycle` come from config; `slotHeight` is the
-    // tower's configured slot height in CANVAS px. Only /all supplies slotHeight — that's
-    // where the tower has a bounded box; the standalone route leaves it null, so cycling
-    // stays inert unless an integer `maxRows` caps the rows directly.
+    // tower's slot height: CANVAS px from /all's configured slot, viewport px less the safe-area
+    // insets from the standalone route (tower-overflow rules 18-19). Null leaves cycling
+    // inert unless an integer `maxRows` caps the rows directly.
     maxRows = 'auto',
     cycle = null,
     slotHeight = null,
+    // Hard height bound in px on the tower root, which clips its own rows (overflow: hidden).
+    // Applied only while the tower renders grouped (no row budget of its own); the inline
+    // layout is bounded by its row budget. /all leaves it null: its widget slot bounds it.
+    maxHeight = null,
     // Broadcaster class-color overrides (rule 32, ADR 0010) — the resolved
     // `theme.classColors` map, or `{}` when the caller has none.
     classColors = {},
+    // Driver name style (widgets.md rules 46-48, ADR 0018): 'short' (E.JAC, the default —
+    // it never changes width) or 'full' (E. Jacobs, the tower growing to fit).
+    // `configuredWidth` is the tower's configured width in canvas px (/all passes its `w`;
+    // standalone leaves it null and the resolved --bc-tower-width is used). `textScale` is
+    // only a reset trigger for the full-style width; the slot's type tokens do the scaling.
+    nameStyle = 'short',
+    configuredWidth = null,
+    textScale = null,
+    // `theme.classTags` (widgets.md rules 60-61, ADR 0022): resolved against the snapshot's
+    // `session.multiclass`. With the tags hidden the class / classpos columns and the filter
+    // chip go, and a `grouped` tower renders the inline layout.
+    classTags = 'auto',
   } = $props()
+
+  const showTags = $derived(classTagsShown(classTags, snapshot?.session))
+  // The layout actually rendered: the configured `classDisplay` while the tags show, else inline.
+  const layout = $derived(showTags ? classDisplay : 'inline')
 
   // Normalize the metric toggles once — tolerate a partial/garbage object so a caller
   // may pass just `{ interval: true }`. Missing keys are off.
@@ -86,8 +109,11 @@
     }, LAP_FLASH_MS)
   }
 
+  // The usable entries, derived once; lap-flash reads it and allSorted copies it before sorting.
+  const usable = $derived(listableVehicles(snapshot))
+
   $effect(() => {
-    const vehicles = snapshot?.vehicles ?? []
+    const vehicles = usable
     const enabled = m.lapFlash
     untrack(() => {
       if (!enabled) clearFlashes()
@@ -138,6 +164,15 @@
   // interval column. Same session set as `lapTimed`.
   const hideRaceStrategy = $derived(lapTimed)
 
+  // Finish status (rule 45): the producer's per-car code, shown only in a race or results
+  // board. Exactly 1 / 2 / 3 map to a chip; anything else (0, null, "1", true, 4…) is none.
+  const FINISH_KINDS = { 1: 'finished', 2: 'dnf', 3: 'dq' }
+  const finishBoard = $derived(
+    ['race', 'results'].includes(String(snapshot?.mode ?? '').trim().toLowerCase()),
+  )
+  const finishKind = (v) =>
+    finishBoard && Number.isInteger(v.finish_status) ? (FINISH_KINDS[v.finish_status] ?? null) : null
+
   // Normalize the requested class once (case-insensitive, trimmed). Empty/absent
   // => show every class.
   const filterKey = $derived(
@@ -151,7 +186,7 @@
   // Full field in overall running order — the basis for both layouts and for each
   // car's rank within its class. Never mutate the source array — copy before sort.
   const allSorted = $derived(
-    [...(snapshot?.vehicles ?? [])].sort((a, b) => a.position - b.position),
+    [...usable].sort((a, b) => a.position - b.position),
   )
 
   // Class rank + class size, computed once from the full field's running order so a
@@ -175,6 +210,11 @@
   // inline: overall order, filtered.
   const inlineRows = $derived(allSorted.filter(matchesFilter))
 
+  // Layout only: once any rendered row carries a finish chip (rule 45), every row reserves
+  // the chip's slot so the gap / interval / metric columns stay aligned between marked and
+  // unmarked rows. Grouped rows are the same filtered field, so this covers both layouts.
+  const finishSlot = $derived(finishBoard && inlineRows.some((v) => finishKind(v)))
+
   // grouped: per-class sections. Bucket the filtered field by class, ordered by the
   // class registry `order` (alphabetical tiebreak for unknown classes) — the same
   // sequence the grid/results slides group by. Positions restart within each class.
@@ -193,38 +233,60 @@
     )
   })
 
-  const grouped = $derived(classDisplay === 'grouped')
+  const grouped = $derived(layout === 'grouped')
   const hasRows = $derived(grouped ? groups.length > 0 : inlineRows.length > 0)
   // A class filter that matches nothing is a distinct, explicit state from "no
   // snapshot at all" — surface which so the tower never blanks silently.
-  const emptyReason = $derived(snapshot?.vehicles?.length ? 'no-match' : 'no-state')
+  const emptyReason = $derived(allSorted.length ? 'no-match' : 'no-state')
 
   // ---- tower overflow: pinned rows + cycling window (ADR 0003) ---------------
-  // Grouped layout stays clamp-only (spec scope); cycling applies to the inline
-  // (single running-order) layout. The CSS clamp on the slot is the hard bound
+  // The grouped layout stays clamp-only (spec scope); cycling applies to the inline
+  // (single running-order) layout — including a configured-grouped tower rendering
+  // inline because its class tags are hidden (`layout`). The CSS clamp on the slot is the hard bound
   // underneath — selection just decides which rows are worth showing.
 
   // Bound to the .tower section so the row/header heights read off the live design
   // tokens (theme-overridable) rather than hardcoding 38/44 (spec rule 3).
   let towerEl = $state(null)
-  let tokenPx = $state({ header: 38, row: 44 })
+  let tokenPx = $state({ header: 38, row: 44, towerWidth: 400, borderY: 2 })
   $effect(() => {
     if (!towerEl || typeof getComputedStyle !== 'function') return
     const cs = getComputedStyle(towerEl)
     const header = parseFloat(cs.getPropertyValue('--bc-widget-header'))
     const row = parseFloat(cs.getPropertyValue('--bc-row-standard'))
+    // The standalone configured width (rule 48): the token only when it reads as a px
+    // number — a custom property comes back as its authored text — else 400.
+    const towerWidth = /^\s*(\d+(?:\.\d+)?)px\s*$/.exec(cs.getPropertyValue('--bc-tower-width'))
+    // The root's top + bottom border (1px each in the CSS). Unmeasurable falls back to 1px per
+    // edge so the budget keeps the chrome the CSS really draws; borderX (width) falls back to 0
+    // instead, because an unmeasured side must not widen the tower.
+    const edge = (v) => {
+      const n = parseFloat(v)
+      return Number.isFinite(n) && n >= 0 ? n : 1
+    }
     tokenPx = {
+      borderY: edge(cs.borderTopWidth) + edge(cs.borderBottomWidth),
       header: Number.isFinite(header) && header > 0 ? header : 38,
       row: Number.isFinite(row) && row > 0 ? row : 44,
+      towerWidth: towerWidth ? Number(towerWidth[1]) : 400,
     }
   })
 
   // Row budget: how many rows fit the configured slot height (measured tokens), capped
   // by an explicit integer `maxRows`. No slot height + 'auto' => unbounded (the
   // standalone /tower case), so cycling stays inert.
+  // A rendered row is its token height plus a 1px divider (`.row` border-bottom). The frame
+  // adds the header's 1px divider and the root's border top and bottom (measured, `borderY`),
+  // less the last row, which drops its divider (`.row--last`). The header divider and the
+  // dropped last-row divider are both 1px and cancel (pinned by StandingsTower.borderDrift.test.js):
+  // chrome = header + borderY, row cost = row + 1 (#315).
+  // A header-only tower (budget 0) is 41px, since no last-row divider is dropped; a slot of
+  // exactly 40px therefore overshoots by 1px, and the CSS clamp covers that edge.
   const rowBudget = $derived.by(() => {
     const fromHeight =
-      slotHeight != null ? computeRowBudget(slotHeight, tokenPx.header, tokenPx.row) : Infinity
+      slotHeight != null
+        ? computeRowBudget(slotHeight, tokenPx.header + tokenPx.borderY, tokenPx.row + 1)
+        : Infinity
     if (maxRows === 'auto' || maxRows == null) return fromHeight
     const cap = Number(maxRows)
     return Number.isFinite(cap) ? Math.min(fromHeight, Math.floor(cap)) : fromHeight
@@ -236,7 +298,7 @@
   // NOT the field size.
   const cycleEnabled = $derived(
     cycle?.enabled === true &&
-      classDisplay === 'inline' &&
+      layout === 'inline' &&
       Number.isFinite(rowBudget) &&
       rowBudget >= 1,
   )
@@ -301,11 +363,264 @@
     // inline tower to whole rows / header-only rather than leaning on the CSS clip to hide
     // a partial row (spec rule 2). Standalone (infinite budget) and grouped fall through
     // to the full field, bounded only by the clamp.
-    if (classDisplay === 'inline' && Number.isFinite(rowBudget)) {
+    if (layout === 'inline' && Number.isFinite(rowBudget)) {
       return inlineRows.slice(0, Math.max(0, rowBudget))
     }
     return inlineRows
   })
+
+  // ---- table columns (widgets.md rules 49-53, ADR 0020) ----
+  // One CSS grid per tower; each row is a subgrid of it, so a column's width is shared by
+  // every row. A strategy column is shown when any car in the class-filtered field carries
+  // its field at all (`pit_stops: 0` counts), so the column set is a function of the
+  // snapshot alone. See how/renderer.md "Tower columns".
+  const carries = (key) => inlineRows.some((v) => v?.[key] != null)
+  const columns = $derived.by(() => {
+    const cols = ['pos']
+    if (showTags) cols.push('class')
+    if (showTags && !grouped) cols.push('classpos')
+    cols.push('name', 'gap')
+    if (m.interval) cols.push('interval')
+    if (m.pit && !hideRaceStrategy && (carries('pit_stops') || carries('in_pit'))) cols.push('pit')
+    if (m.tire && (carries('tire_compound') || (!hideRaceStrategy && carries('tire_wear')))) cols.push('tire')
+    if (m.fuel && !hideRaceStrategy && carries('fuel')) cols.push('fuel')
+    if (finishSlot) cols.push('finish')
+    return cols
+  })
+  const gridTemplate = $derived(
+    columns.map((c) => (c === 'name' ? 'minmax(max-content, 1fr)' : 'max-content')).join(' '),
+  )
+  const shown = $derived(Object.fromEntries(columns.map((c) => [c, true])))
+  // Inline layout: the class-filtered cars the cycling window or maxRows leaves out. Each
+  // gets a zero-height, invisible sizer row so its content still sizes the tracks (rule 50).
+  const sizerRows = $derived.by(() => {
+    const rendered = Object.fromEntries(renderRows.map((v) => [v.slot_id, true]))
+    return inlineRows.filter((v) => !rendered[v.slot_id])
+  })
+
+  // ---- driver name style + the full-style width (widgets.md rules 46-48, ADR 0018) ----
+  // Short (E.JAC) never changes width. Full (E. Jacobs) is never ellipsized: the tower root
+  // carries an inline min-width of max(configured width, ceil(widestName + widestRest +
+  // borderX)), the running maxima cleared only by a reset. See how/renderer.md "Driver name style".
+  const fullStyle = $derived(nameStyle === 'full')
+  const fullNameOf = (v) => (typeof v.driver_name === 'string' ? fmtName(v.driver_name) : '')
+  const nameOf = (v) => (fullStyle ? fullNameOf(v) : fmtShortName(v.driver_name))
+
+  const baseWidth = $derived(
+    typeof configuredWidth === 'number' && Number.isFinite(configuredWidth)
+      ? configuredWidth
+      : tokenPx.towerWidth,
+  )
+  // Every tower setting whose change is a reset, as one comparable value (a fresh but
+  // equal config object from /all is not a change).
+  const settingsKey = $derived(
+    JSON.stringify([filterKey, classDisplay, showTags, m, maxRows, cycle, nameStyle, baseWidth, textScale]),
+  )
+  // The session mode as rule 45 compares it; null when the snapshot carries none.
+  const modeKey = (snap) =>
+    snap?.mode != null && String(snap.mode).trim() ? String(snap.mode).trim().toLowerCase() : null
+
+  // The measuring font: the on-camera row-name weight, size and family off the tower's
+  // computed style, each token falling back to its tokens/typography.css default.
+  function nameFontParts() {
+    const cs = computedStyle(towerEl)
+    const read = (prop, fallback) => cs?.getPropertyValue(prop).trim() || fallback
+    return {
+      weight: read('--bc-weight-leader', '700'),
+      size: read('--bc-size-name', '22px'),
+      family: read('--bc-font-display', "'Saira Condensed', 'Arial Narrow', sans-serif"),
+    }
+  }
+  const measuringFont = () => {
+    const f = nameFontParts()
+    return `${f.weight} ${f.size} ${f.family}`
+  }
+  const familyKey = (family) =>
+    String(family ?? '').trim().replace(/^['"]|['"]$/g, '').trim().toLowerCase()
+
+  let widestName = $state(0)
+  let widestRest = $state(0)
+  let borderX = $state(0) // the tower root's left + right border, inside its min-width
+  let namesMeasured = $state(false) // false until a pass ran with the name font loaded
+  // Full name -> px, every name measured since the last reset. Prototype-free, so a driver
+  // named '__proto__' caches like any other.
+  let measuredNames = Object.create(null)
+  // Measuring fonts already asked of document.fonts.load: each is requested once, ever.
+  let requestedFonts = Object.create(null)
+  // Measuring fonts whose load failed: measured in the fallback face from then on, no retry.
+  let failedFonts = Object.create(null)
+  let destroyed = false
+  let lastSettings = null
+  let lastMode = null
+  let measureCtx // undefined until first use; null when there is no 2D context
+
+  function textWidth(text, font) {
+    if (measureCtx === undefined) {
+      try {
+        measureCtx = document.createElement('canvas').getContext?.('2d') ?? null
+      } catch {
+        measureCtx = null
+      }
+    }
+    if (!measureCtx) return 0
+    measureCtx.font = font
+    return measureCtx.measureText(text).width
+  }
+
+  // A computed length in px; non-finite ('normal', '' in happy-dom) counts 0.
+  const cssPx = (value) => {
+    const n = parseFloat(value)
+    return Number.isFinite(n) ? n : 0
+  }
+  const computedStyle = (el) =>
+    el && typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+      ? window.getComputedStyle(el)
+      : null
+
+  // Canvas measureText ignores CSS letter-spacing, so it is added per code point, read off
+  // the first rendered name cell (the tower root when no row is rendered: correct while the
+  // name cell inherits its letter-spacing, as it does from :root today).
+  function nameLetterSpacing() {
+    const cell = towerEl?.querySelector('[data-testid="driver-name"]') ?? towerEl
+    return cssPx(computedStyle(cell)?.letterSpacing)
+  }
+  const nameWidth = (name, font, spacing) => textWidth(name, font) + [...name].length * spacing
+
+  function nameFontLoaded(font) {
+    const fonts = typeof document !== 'undefined' ? document.fonts : null
+    if (!fonts || typeof fonts.check !== 'function') return true
+    if (failedFonts[font]) return true
+    try {
+      if (fonts.check(font)) return true
+    } catch {
+      return true
+    }
+    // The measuring weight may be one no rendered text uses yet (only the on-camera row is
+    // bold), and an unused face never loads by itself. Ask for it once; its loadingdone
+    // re-measures the names. A refused request measures in the fallback face instead.
+    if (!requestedFonts[font]) {
+      requestedFonts[font] = true
+      let request
+      try {
+        request = fonts.load?.(font)
+      } catch {
+        request = Promise.reject()
+      }
+      Promise.resolve(request).catch(() => nameFontFailed(font))
+    }
+    return false
+  }
+
+  // Reset, grow and re-read after every render of the rows: each snapshot, page turn,
+  // layout or setting change. Runs after the DOM update, so the rows read are current.
+  $effect(() => {
+    const field = inlineRows // the class-filtered field, rendered or not
+    const key = settingsKey
+    const mode = modeKey(snapshot)
+    const full = fullStyle
+    const el = towerEl
+    void [renderRows, groups, pageEpoch] // re-read the rest when the rows re-render
+    untrack(() => {
+      let reset = key !== lastSettings
+      lastSettings = key
+      if (mode !== null) {
+        if (lastMode !== null && mode !== lastMode) reset = true
+        lastMode = mode
+      }
+      if (reset) {
+        measuredNames = Object.create(null)
+        widestName = 0
+        widestRest = 0
+        namesMeasured = false
+      }
+      if (!full || !el) return
+      const font = measuringFont()
+      if (nameFontLoaded(font)) {
+        const spacing = nameLetterSpacing()
+        let widest = widestName
+        for (const v of field) {
+          const name = fullNameOf(v)
+          if (!name || hasOwn(measuredNames, name)) continue
+          measuredNames[name] = nameWidth(name, font, spacing)
+          widest = Math.max(widest, measuredNames[name])
+        }
+        widestName = widest
+        namesMeasured = true
+      }
+      let rest = widestRest
+      for (const row of el.querySelectorAll('[data-testid="tower-row"]')) {
+        const nameCell = row.querySelector('[data-testid="driver-name"]')
+        rest = Math.max(rest, row.scrollWidth - (nameCell?.clientWidth ?? 0))
+      }
+      widestRest = rest
+      const cs = computedStyle(el)
+      borderX = cssPx(cs?.borderLeftWidth) + cssPx(cs?.borderRightWidth)
+    })
+  })
+
+  // A load of the name font's family re-measures the names only — every name since the
+  // last reset plus the current field — and may narrow the name part; the rest is kept.
+  function onNameFontLoad() {
+    if (destroyed || !fullStyle || !towerEl) return
+    const font = measuringFont()
+    if (!nameFontLoaded(font)) return
+    const spacing = nameLetterSpacing()
+    const next = Object.create(null)
+    let widest = 0
+    for (const name of [...Object.keys(measuredNames), ...inlineRows.map(fullNameOf)]) {
+      if (!name || hasOwn(next, name)) continue
+      next[name] = nameWidth(name, font, spacing)
+      widest = Math.max(widest, next[name])
+    }
+    measuredNames = next
+    widestName = widest
+    namesMeasured = true
+  }
+
+  // The name font failed (its request refused, or a face of the family errored): stop
+  // waiting and measure in the fallback face the rows render in. A later loadingdone for the
+  // family is an ordinary name-font load.
+  function nameFontFailed(font) {
+    if (destroyed) return
+    failedFonts[font] = true
+    onNameFontLoad()
+  }
+
+  $effect(() => {
+    const fonts = typeof document !== 'undefined' ? document.fonts : null
+    if (!fonts) return
+    let cancelled = false
+    const isNameFamily = (event) => {
+      const family = familyKey(nameFontParts().family.split(',')[0])
+      return Array.from(event?.fontfaces ?? []).some((face) => familyKey(face?.family) === family)
+    }
+    const onLoadingDone = (event) => {
+      if (isNameFamily(event)) onNameFontLoad()
+    }
+    const onLoadingError = (event) => {
+      if (isNameFamily(event)) nameFontFailed(measuringFont())
+    }
+    fonts.addEventListener?.('loadingdone', onLoadingDone)
+    fonts.addEventListener?.('loadingerror', onLoadingError)
+    Promise.resolve(fonts.ready).then(
+      () => !cancelled && onNameFontLoad(),
+      () => {},
+    )
+    return () => {
+      cancelled = true
+      fonts.removeEventListener?.('loadingdone', onLoadingDone)
+      fonts.removeEventListener?.('loadingerror', onLoadingError)
+    }
+  })
+  onDestroy(() => {
+    destroyed = true
+  })
+
+  const towerMinWidth = $derived(
+    fullStyle
+      ? `${Math.max(baseWidth, namesMeasured ? Math.ceil(widestName + widestRest + borderX) : 0)}px`
+      : null,
+  )
 
   // Gap-to-leader readout (#28). Each row shows its interval to the leader, from the
   // producer's `gap_to_leader` (gap to the OVERALL leader). The grouped layout shows
@@ -389,29 +704,42 @@
      reduced-motion gating are identical in inline and grouped. `positionText` is the
      overall position (inline) or the within-class rank (grouped); `classBadge` is the
      inline-only 'rank/total' chip. -->
-{#snippet towerRow(v, positionText, zebra, classBadge, gap)}
-  {@const oncam = v.slot_id === subjectSlot}
+{#snippet towerRow(v, positionText, zebra, classBadge, gap, last = false, sizer = false)}
+  <!-- A sizer row (rule 50) has the same cells and content but no hooks: no data-testid on
+       the row or any cell, so rendered-row selectors and the overflow rules see only
+       rendered rows. -->
+  {@const tid = (id) => (sizer ? undefined : id)}
+  {@const oncam = !sizer && v.slot_id === subjectSlot}
+  <!-- Local-yellow involvement (rule 43): the producer's own per-car flag, exactly true. -->
+  {@const yellow = !sizer && v.yellow_involved === true}
+  {@const finish = finishKind(v)}
   {@const vm = resolveVehicleMetrics(v)}
-  {@const flash = flashes[v.slot_id]}
+  {@const flash = sizer ? null : flashes[v.slot_id]}
   <!-- Per-cell visibility: the config toggle AND the field's presence AND, for the
        race-only metrics, that this is not a qualifying/practice board. Tire compound is
        exempt from the race gate. -->
-  {@const inPitActive = m.pit && !hideRaceStrategy && vm.inPit}
+  {@const inPitActive = !sizer && m.pit && !hideRaceStrategy && vm.inPit}
   {@const showPit = m.pit && !hideRaceStrategy && hasPit(vm)}
   {@const showCompound = m.tire && vm.tireCompound != null}
   {@const showWear = m.tire && !hideRaceStrategy && vm.tireWear != null}
   {@const showFuel = m.fuel && !hideRaceStrategy && vm.fuel != null}
   <li
     class="row"
+    class:row--sizer={sizer}
+    class:row--last={last}
     class:row--oncam={oncam}
     class:row--zebra={zebra}
     class:row--inpit={inPitActive}
-    data-testid="tower-row"
+    class:row--finishslot={shown.finish}
+    data-testid={sizer ? 'tower-sizer-row' : 'tower-row'}
     data-slot={v.slot_id}
-    data-position={v.position}
-    data-oncam={oncam ? 'true' : 'false'}
+    data-position={sizer ? undefined : v.position}
+    data-oncam={sizer ? undefined : oncam ? 'true' : 'false'}
     data-in-pit={inPitActive ? 'true' : undefined}
+    data-yellow={yellow ? 'true' : undefined}
+    data-finish={sizer ? undefined : (finish ?? undefined)}
     aria-current={oncam ? 'true' : undefined}
+    aria-hidden={sizer ? 'true' : undefined}
   >
     {#if oncam}
       <!-- Re-cut reveal (#64/#68): a fresh, subject-keyed flash overlay mounts only
@@ -423,17 +751,28 @@
         <span class="row__oncam-flash" data-testid="row-oncam-flash" aria-hidden="true"></span>
       {/key}
     {/if}
-    <span
-      class="row__classbar"
-      style:background={classColor(v.vehicle_class, classColors)}
-      aria-hidden="true"
-    ></span>
-    <span class="row__pos">{positionText}</span>
-    <ClassChip carClass={v.vehicle_class} size="compact" {classColors} />
-    {#if classBadge}
-      <span class="row__classpos" data-testid="class-pos">{classBadge}</span>
+    {#if !sizer}
+      <span
+        class="row__classbar"
+        style:background={classColor(v.vehicle_class, classColors)}
+        aria-hidden="true"
+      ></span>
     {/if}
-    <span class="row__name" data-testid="driver-name">{fmtName(v.driver_name)}</span>
+    {#if yellow}
+      <span class="row__yellowedge" data-testid="row-yellow-edge" aria-hidden="true"></span>
+    {/if}
+    <!-- One cell per shown column, in column order (rule 49); a column a car has nothing
+         for gets a bare empty cell, so the cells after it stay in line. -->
+    <span class="row__pos" data-col="pos">{positionText}</span>
+    {#if shown.class}
+      <span class="row__class" data-col="class"
+        ><ClassChip carClass={v.vehicle_class} size="compact" {classColors} /></span
+      >
+    {/if}
+    {#if shown.classpos}
+      <span class="row__classpos" data-col="classpos" data-testid={tid('class-pos')}>{classBadge}</span>
+    {/if}
+    <span class="row__name" data-col="name" data-testid={tid('driver-name')}>{nameOf(v)}</span>
     <!-- Interval to the leader — overall leader in the inline layout, class leader in
          the grouped layout — from the producer's `gap_to_leader`. The leader reads
          LEADER; an undetermined gap reads '—'; a lapped car reads `+N LAP(S)`. -->
@@ -441,16 +780,19 @@
       <!-- Lap-time flash (rule 40): the just-completed lap over the gap, tiered (rule 41). -->
       <span
         class="row__gap row__gap--flash row__gap--flash-{flash.tier}"
-        data-testid="row-gap"
+        data-col="gap"
+        data-testid={tid('row-gap')}
         data-lap-flash={flash.tier}>{fmtLapTime(flash.lap)}</span
       >
     {:else if gap.leader && gap.lap != null}
       <!-- Lap-timed session: the leader's cell is its pole/benchmark lap time. -->
-      <span class="row__gap row__gap--leadlap" data-testid="row-gap">{fmtLapTime(gap.lap)}</span>
+      <span class="row__gap row__gap--leadlap" data-col="gap" data-testid={tid('row-gap')}
+        >{fmtLapTime(gap.lap)}</span
+      >
     {:else if gap.leader}
-      <span class="row__gap row__gap--leader" data-testid="row-gap">LEADER</span>
+      <span class="row__gap row__gap--leader" data-col="gap" data-testid={tid('row-gap')}>LEADER</span>
     {:else}
-      <span class="row__gap" data-testid="row-gap"
+      <span class="row__gap" data-col="gap" data-testid={tid('row-gap')}
         >{gap.laps ? lapsText(gap.laps) : gapCell(gap.seconds)}</span
       >
     {/if}
@@ -460,46 +802,73 @@
          cluster. `gapCell` renders the interval identically to the gap ('—' when
          null — e.g. the leader, who has no one ahead), and `laps_behind_ahead`
          replaces it with `+N LAP(S)`. -->
-    {#if m.interval}
-      <span class="row__interval" data-testid="row-interval"
+    {#if shown.interval}
+      <span class="row__interval" data-col="interval" data-testid={tid('row-interval')}
         >{vm.lapsAhead ? lapsText(vm.lapsAhead) : gapCell(vm.intervalAhead)}</span
       >
     {/if}
-    {#if showPit}
-      {#if vm.inPit}
-        <span class="row__pit row__pit--in" data-testid="row-pit">PIT</span>
-      {:else}
-        <span class="row__pit" data-testid="row-pit" title="pit stops">
+    {#if shown.pit}
+      {#if showPit && vm.inPit}
+        <span class="row__pit row__pit--in" data-col="pit" data-testid={tid('row-pit')}>PIT</span>
+      {:else if showPit}
+        <span class="row__pit" data-col="pit" data-testid={tid('row-pit')} title="pit stops">
           <span class="row__pit-label">STOP</span>{vm.pitStops}
         </span>
+      {:else}
+        <span data-col="pit"></span>
       {/if}
     {/if}
-    {#if showCompound || showWear}
-      <span class="row__tire" data-testid="row-tire">
-        {#if showCompound}
-          <span class="row__tire-compound" data-testid="row-tire-compound">{vm.tireCompound}</span>
-        {/if}
-        {#if showWear}
-          <span class="row__bar row__bar--wear" title="tire wear">
-            <span
-              class="row__bar-fill"
-              data-testid="row-tire-wear-fill"
-              style:width={barPct(vm.tireWear)}
+    {#if shown.tire}
+      {#if showCompound || showWear}
+        <span class="row__tire" data-col="tire" data-testid={tid('row-tire')}>
+          {#if showCompound}
+            <span class="row__tire-compound" data-testid={tid('row-tire-compound')}>{vm.tireCompound}</span>
+          {/if}
+          {#if showWear}
+            <span class="row__bar row__bar--wear" title="tire wear">
+              <span
+                class="row__bar-fill"
+                data-testid={tid('row-tire-wear-fill')}
+                style:width={barPct(vm.tireWear)}
+              ></span>
+            </span>
+          {/if}
+        </span>
+      {:else}
+        <span data-col="tire"></span>
+      {/if}
+    {/if}
+    {#if shown.fuel}
+      {#if showFuel}
+        <span class="row__fuel" data-col="fuel" data-testid={tid('row-fuel')} title="fuel / energy">
+          <span class="row__bar row__bar--fuel">
+            <span class="row__bar-fill" data-testid={tid('row-fuel-fill')} style:width={barPct(vm.fuel)}
             ></span>
           </span>
-        {/if}
-      </span>
-    {/if}
-    {#if showFuel}
-      <span class="row__fuel" data-testid="row-fuel" title="fuel / energy">
-        <span class="row__bar row__bar--fuel">
-          <span
-            class="row__bar-fill"
-            data-testid="row-fuel-fill"
-            style:width={barPct(vm.fuel)}
-          ></span>
         </span>
-      </span>
+      {:else}
+        <span data-col="fuel"></span>
+      {/if}
+    {/if}
+    <!-- Finish chip (rule 45): always the row's last cell, in its own column. -->
+    {#if shown.finish}
+      {#if finish === 'finished'}
+        <span
+          class="row__finish row__finish--flag"
+          data-col="finish"
+          data-testid={tid('row-finish')}
+          role="img"
+          aria-label="Finished"
+        ></span>
+      {:else if finish}
+        <span class="row__finish row__finish--{finish}" data-col="finish" data-testid={tid('row-finish')}
+          >{finish === 'dnf' ? 'DNF' : 'DQ'}</span
+        >
+      {:else}
+        <!-- Not bare like the other empty cells: it keeps its class (rule 45's reserved slot,
+             which the finish tests pin) and stays hidden from assistive tech. -->
+        <span class="row__finish row__finish--empty" data-col="finish" aria-hidden="true"></span>
+      {/if}
     {/if}
   </li>
 {/snippet}
@@ -507,19 +876,22 @@
 <section
   class="tower"
   data-testid="standings-tower"
-  data-class-display={classDisplay}
+  data-class-display={layout}
+  data-name-style={fullStyle ? 'full' : 'short'}
+  style:min-width={towerMinWidth}
+  style:max-height={layout === 'grouped' && maxHeight != null ? `${maxHeight}px` : undefined}
   bind:this={towerEl}
 >
   <header class="tower__header" data-testid="tower-header">
     <span class="tower__mode">{header}</span>
-    {#if sessionProgress || filterKey !== null}
+    {#if sessionProgress || (filterKey !== null && showTags)}
       <span class="tower__meta">
         {#if sessionProgress}
           <!-- Session countdown / lap counter ("Session Info") — distinct from the
                per-car rows and the flag/FCY/SC status widget. -->
           <span class="tower__session" data-testid="tower-session">{sessionProgress}</span>
         {/if}
-        {#if filterKey !== null}
+        {#if filterKey !== null && showTags}
           <span class="tower__filter" data-testid="tower-filter">
             <ClassChip carClass={filterKey} size="compact" {classColors} />
           </span>
@@ -533,7 +905,12 @@
       {emptyReason === 'no-match' ? 'No cars in this class' : 'Waiting for state…'}
     </div>
   {:else if grouped}
-    <div class="tower__groups">
+    <div
+      class="tower__groups tower__grid"
+      data-testid="tower-grid"
+      data-columns={columns.join(' ')}
+      style:grid-template-columns={gridTemplate}
+    >
       {#each groups as group (group.key)}
         <section class="group" data-testid="tower-group" data-class={group.carClass}>
           <header class="group__head">
@@ -547,7 +924,7 @@
           </header>
           <ol class="tower__rows">
             {#each group.cars as v, i (v.slot_id)}
-              {@render towerRow(v, i + 1, i % 2 === 1, null, classGap(group, v, i))}
+              {@render towerRow(v, i + 1, i % 2 === 1, null, classGap(group, v, i), i === group.cars.length - 1)}
             {/each}
           </ol>
         </section>
@@ -559,9 +936,25 @@
          re-render in place with no animation. `renderRows` is the cycled subset (or the
          whole filtered field when not cycling / before the first sync). -->
     {#key cycleEnabled ? pageEpoch : 'all'}
-      <ol class="tower__rows" class:tower__rows--turn={cycleEnabled}>
+      <ol
+        class="tower__rows tower__grid"
+        class:tower__rows--turn={cycleEnabled}
+        data-testid="tower-grid"
+        data-columns={columns.join(' ')}
+        style:grid-template-columns={gridTemplate}
+      >
         {#each renderRows as v, i (v.slot_id)}
-          {@render towerRow(v, v.position, i % 2 === 1, `${classRankOf(v)}/${classTotalOf(v)}`, overallGap(v))}
+          {@render towerRow(
+            v,
+            v.position,
+            i % 2 === 1,
+            `${classRankOf(v)}/${classTotalOf(v)}`,
+            overallGap(v),
+            i === renderRows.length - 1,
+          )}
+        {/each}
+        {#each sizerRows as v (v.slot_id)}
+          {@render towerRow(v, v.position, false, `${classRankOf(v)}/${classTotalOf(v)}`, overallGap(v), false, true)}
         {/each}
       </ol>
     {/key}
@@ -570,6 +963,9 @@
 
 <style>
   .tower {
+    /* The tower's class bars are wider than the design token so a class colour reads at a
+       glance (#234). */
+    --tower-classbar: calc(var(--bc-classbar) + 2px);
     width: var(--bc-tower-width);
     box-sizing: border-box;
     background: var(--bc-plate);
@@ -636,6 +1032,25 @@
     padding: 0;
   }
 
+  /* Table columns (rules 49-53, ADR 0020): one grid per tower, its track list set inline;
+     every row (and, grouped, every group and its list) spans all tracks as a subgrid, so a
+     column is as wide as its widest cell in any row, sizer rows included. A column gap and
+     no row gap, so zero-height sizer rows add no height. */
+  .tower__grid {
+    display: grid;
+    column-gap: var(--bc-space-2);
+    row-gap: 0;
+  }
+  .tower__groups > .group,
+  .group > .tower__rows {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+  }
+  .group__head {
+    grid-column: 1 / -1;
+  }
+
   /* Grouped layout: a class header per section, then that class's rows. */
   .group__head {
     position: relative;
@@ -653,7 +1068,7 @@
     left: 0;
     top: 0;
     bottom: 0;
-    width: var(--bc-classbar);
+    width: var(--tower-classbar);
   }
   .group__count {
     margin-left: auto;
@@ -671,14 +1086,35 @@
        above the row's background, below the text/chips. */
     isolation: isolate;
     height: var(--bc-row-standard);
-    display: flex;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
     align-items: center;
-    gap: var(--bc-space-2);
     padding: 0 var(--bc-space-3) 0 var(--bc-space-4);
     border-bottom: 1px solid var(--bc-divider);
   }
-  .row:last-child {
+  /* The last rendered row drops its divider. A class, not `:last-child` (sizer rows follow it
+     in the inline grid) and not `:has()` (missing in OBS 30's engine). */
+  .row--last {
     border-bottom: none;
+  }
+  /* A sizer row (rule 50): in the grid, so its cells size the tracks, but takes no height
+     and is never seen or hit. */
+  .row--sizer {
+    height: 0;
+    padding-block: 0;
+    border: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .row__class {
+    display: flex;
+    align-items: center;
+  }
+  .row__gap,
+  .row__interval {
+    justify-self: end;
   }
 
   .row--zebra {
@@ -691,7 +1127,18 @@
     left: 0;
     top: 0;
     bottom: 0;
+    width: var(--tower-classbar);
+  }
+
+  /* Local-yellow edge (rule 43): a yellow strip on the row's right edge, opposite the class bar,
+     so it never merges into an amber or orange class colour (#234). */
+  .row__yellowedge {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
     width: var(--bc-classbar);
+    background: var(--bc-intensity-mid);
   }
 
   .row__pos {
@@ -716,11 +1163,19 @@
     letter-spacing: var(--bc-track-label);
   }
 
+  /* Flex declarations on rows and cells only take effect in the no-subgrid fallback below;
+     in the grid the max-content tracks already keep every cell at its content width.
+     No cell gives way (rules 45, 47, 48): the chip and timing cells keep their width and the
+     name never truncates to make room. A row wider than the tower is clipped at its right
+     edge, trailing cells first; in full style the tower's inline min-width makes the room. */
+  .row > :global(*) {
+    flex-shrink: 0;
+  }
+
   .row__name {
-    flex: 1 1 auto;
-    /* Keep a floor so the metric columns can never squeeze the driver name to nothing
-       (they clip at the tower's right edge instead — the cue to widen the tower). */
-    min-width: 4em;
+    /* Takes the spare width, but never shrinks below its text. The name track's
+       max-content minimum is its only floor (rule 53). */
+    flex: 1 0 auto;
     font-family: var(--bc-font-display);
     font-size: var(--bc-size-name);
     font-weight: var(--bc-weight-name);
@@ -775,14 +1230,18 @@
   }
 
   /* ---- richer-tower metrics (slice 3 of #20) ------------------------------
-     Each cell is config-gated and content-sized, appended after the gap column.
-     The interval is a dimmer sibling of the gap (its own timing column); pit /
-     tire / fuel form a compact strategy cluster on the right. */
+     Each cell is config-gated and appended after the gap column. The interval is a
+     dimmer sibling of the gap (its own timing column); pit / tire / fuel form a
+     compact strategy cluster on the right and are content-sized. */
 
   /* Interval to the car immediately ahead — same mono/tabular look as the gap, one
-     tone dimmer so the gap-to-leader stays the primary interval. */
+     tone dimmer so the gap-to-leader stays the primary interval. Rule 42b: the gap
+     cell's fixed 8-character slot (rule 42a), so a changing interval never moves the
+     row. */
   .row__interval {
     flex: 0 0 auto;
+    min-width: calc(var(--bc-size-gap) * 5);
+    white-space: nowrap;
     font-family: var(--bc-font-mono);
     font-size: var(--bc-size-gap);
     font-weight: var(--bc-weight-num);
@@ -852,6 +1311,55 @@
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
+  }
+
+  /* Finish chip (rule 45): a fixed-width trailing slot so chips line up down the tower and
+     the columns before it don't shift between marked and unmarked rows. The slot tucks into
+     the row's right padding, stopping short of the local-yellow strip on that edge, and while
+     it is reserved the finish column takes its room from the name column's spare width. */
+  .row__finish {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: 28px;
+    height: 16px;
+    margin-right: -4px;
+    /* Offsets the trailing letter-spacing so DNF / DQ sit centred. */
+    padding-left: var(--bc-track-label);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--bc-radius-chip);
+    font-family: var(--bc-font-ui);
+    font-size: var(--bc-size-chip-compact);
+    font-weight: var(--bc-weight-label);
+    letter-spacing: var(--bc-track-label);
+    line-height: 1;
+  }
+  /* 16px square centred in the same 28px slot (6px each side, less the slot's tuck). */
+  .row__finish--flag {
+    width: 16px;
+    padding-left: 0;
+    margin-left: 6px;
+    margin-right: -2px;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, #0b0e13 25%, transparent 25%, transparent 75%, #0b0e13 75%, #0b0e13),
+      linear-gradient(45deg, #0b0e13 25%, #fff 25%, #fff 75%, #0b0e13 75%, #0b0e13);
+    background-size: 8px 8px;
+    background-position:
+      0 0,
+      4px 4px;
+  }
+  .row__finish--dnf,
+  .row__finish--dq {
+    color: var(--bc-text-2);
+    border: 1px solid var(--bc-text-3);
+  }
+  .row__finish--dq {
+    color: var(--bc-live);
+    border-color: var(--bc-live);
   }
 
   /* Shared compact meter for tire wear + fuel. */
@@ -967,6 +1475,30 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  /* Engines without subgrid (OBS before 31): each row is its own flex row. Every cell still
+     renders; columns line up only as far as their contents match. The name keeps the floor
+     the grid track gives it, or overflow: hidden would let flex squeeze and ellipsize it. */
+  @supports not (grid-template-columns: subgrid) {
+    .tower__grid,
+    .tower__groups > .group,
+    .group > .tower__rows {
+      display: block;
+    }
+    .row {
+      display: flex;
+      gap: var(--bc-space-2);
+    }
+    .row__name {
+      min-width: max-content;
+    }
+    /* Without shared tracks an empty cell aligns nothing and would only cost a gap; the
+       reserved finish slot (rule 45) stays. Sizer rows size nothing here either. */
+    .row > [data-col]:empty:not(.row__finish--empty),
+    .row--sizer {
+      display: none;
     }
   }
 </style>

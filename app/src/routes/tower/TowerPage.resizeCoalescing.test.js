@@ -14,8 +14,8 @@
  *
  * Budget arithmetic matches TowerPage.rowBudget.test.js — happy-dom does no layout, so the
  * tokens fall back to their defaults (header 38px, row 44px, safe inset 48px per edge):
- *   budget = floor((innerHeight - 2 * 48 - 38) / 44)
- *   800 -> 15 rows   1200 -> 24 rows   500 -> 8 rows   700 -> 12 rows   300 -> 3 rows
+ *   budget = floor((innerHeight - 2 * 48 - 40) / 45)
+ *   800 -> 14 rows   1200 -> 23 rows   500 -> 8 rows   700 -> 12 rows   300 -> 3 rows
  * The sizes below are chosen so every step is a DIFFERENT row count: a burst that measured an
  * intermediate size, or settled on the wrong one, renders a visibly different tower.
  */
@@ -36,8 +36,8 @@ vi.mock('../../lib/sseClient.js', () => ({
   },
 }))
 
-const HEADER_PX = 38
-const ROW_PX = 44
+const HEADER_PX = 40 // 38px header token + 2px of frame (header divider, root borders, less the last row divider) (#315)
+const ROW_PX = 45 // 44px row token + 1px divider (#315)
 const INSET_PX = 48
 const budgetFor = (innerHeight) =>
   Math.max(0, Math.floor((innerHeight - 2 * INSET_PX - HEADER_PX) / ROW_PX))
@@ -143,7 +143,7 @@ async function resizeTo(innerHeight) {
 describe('standalone /tower — resize coalescing (#155, rule 21)', () => {
   it('re-fits on the first event of a burst, then drops the rest until the frame runs', async () => {
     await mountTower(800, bigField(30))
-    expect(rowCount()).toBe(budgetFor(800)) // 15
+    expect(rowCount()).toBe(budgetFor(800)) // 14
     resetMeasurements()
 
     // The drag starts: nothing is pending, so this one re-fits at once (rule 21).
@@ -157,7 +157,7 @@ describe('standalone /tower — resize coalescing (#155, rule 21)', () => {
     await resizeTo(300)
 
     expect(pageMeasurements, 'events inside an open frame must not measure').toBe(1)
-    // The tower keeps the LEADING budget — not 24 (1200), not 12 (700), not 3 (300).
+    // The tower keeps the LEADING budget — not 23 (1200), not 12 (700), not 3 (300).
     expect(rowCount()).toBe(budgetFor(500))
     expect(names()).toEqual(['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8'])
   })
@@ -209,10 +209,10 @@ describe('standalone /tower — resize coalescing (#155, rule 21)', () => {
     expect(pageMeasurements).toBe(1)
     await pumpFrame()
     expect(pageMeasurements).toBe(2)
-    expect(rowCount()).toBe(budgetFor(1200)) // 24
+    expect(rowCount()).toBe(budgetFor(1200)) // 23
 
     // Frame 2 — the drag has not stopped. The catch-up opened the next gate, so these land
-    // inside it and the tower must hold 24 rows until the frame comes due.
+    // inside it and the tower must hold 23 rows until the frame comes due.
     await resizeTo(700)
     await resizeTo(300)
     expect(pageMeasurements, 'the catch-up must open the next frame’s gate').toBe(2)

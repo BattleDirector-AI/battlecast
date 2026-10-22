@@ -68,6 +68,13 @@ edit, measured from where the pointer went down (rule 41c). Rejected: leaving it
 grounds that the broadcaster did move the widget, since the widget ends where it began and
 nothing visible tells them the remembered position has changed.
 
+## Amendment (#248)
+
+The default tower is now 400px wide (ADR 0020), so the preset ladder for the default tower is
+400 → 460 (`large`) → 520 (`larger`). The fit table above was measured at the old 380px
+default, before table columns. ADR 0020 records the 400px measurements; the rule 41
+arithmetic is unchanged.
+
 ## Consequences
 
 - With every tower column on, the tower is already cut off at ×1.00 today, and it

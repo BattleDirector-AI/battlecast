@@ -34,9 +34,11 @@ Decision record: `docs/decisions/0005-standalone-tower-slot-height.md`.
     routes. An explicit integer `maxRows` still caps: the effective budget is the smaller of the slot
     budget (rule 2) and `maxRows`. `maxRows: "auto"` means the slot budget alone. The derived slot
     height is itself neither a profile field nor a URL knob (`overlay-config.md` rule 13) and nothing
-    overrides it but resizing the source. This reaches the **overflow** settings only — the
-    standalone route's other knobs (`?class=`, `?metrics=`) keep the precedence rule 13 already
-    gives them.
+    overrides it but resizing the source. This reaches the **overflow** settings, the
+    tower's name style (`overlay-config.md` rule 42), its class display (`widgets.md` rule 67)
+    and its metrics (`overlay-config.md` rule 49, under which `?metrics=` still overrides the
+    profile) only — the standalone route's other knob, `?class=`, keeps the precedence
+    rule 13 already gives it.
 21. **A resize burst re-fits once per animation frame.** Rule 19's re-fit is coalesced. A
     `resize` event re-fits immediately when no frame is already pending; every event arriving
     while one is pending is dropped and replaced by a single catch-up re-fit taken when that
@@ -96,8 +98,10 @@ Decision record: `docs/decisions/0005-standalone-tower-slot-height.md`.
 
 ## Scope
 
-These rules apply to the **flat** standings tower (a single running-order list). A class-grouped
-tower is outside their scope and is bounded only by rule 1.
+These rules apply to the **flat** standings tower (a single running-order list). A tower rendering
+the grouped layout is outside their scope and is bounded only by rule 1; on the standalone route
+that bound is the derived slot (rule 18). A tower configured `grouped` whose class tags are hidden
+renders the flat list (`widgets.md` rule 61), so these rules apply to it.
 
 They apply on **both** entry points the flat tower renders on — the tower widget inside `/all` and
 the standalone `/tower` Browser Source — which differ only in where the slot height comes from

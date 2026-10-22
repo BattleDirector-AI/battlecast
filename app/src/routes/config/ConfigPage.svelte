@@ -16,9 +16,11 @@
     rendersPlate,
     rendersText,
     TEXT_SCALE_PRESETS,
+    normalizeGraceSeconds,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
+  import { CLASS_TAGS_VALUES } from '../../lib/classTags.js'
   import {
     WIDGET_HELP,
     FIELD_HELP,
@@ -96,8 +98,7 @@
       if (typeof window === 'undefined') return
       window.removeEventListener('resize', fitPreview)
       // Also drop any in-flight drag listeners so unmounting mid-drag can't leak them.
-      window.removeEventListener('pointermove', onDrag)
-      window.removeEventListener('pointerup', endDrag)
+      endDrag()
       clearTimeout(copyResetTimer)
     }
   })
@@ -241,13 +242,26 @@
   let drag = null
   function startDrag(event, key, mode) {
     event.preventDefault()
+    // A drag belongs to the pointer that started it; a press while one is live is ignored (rule 41e).
+    if (drag) return
     const w = config.widgets[key]
-    drag = { key, mode, startX: event.clientX, startY: event.clientY, orig: { ...w } }
+    drag = {
+      key,
+      mode,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      orig: { ...w },
+    }
     window.addEventListener('pointermove', onDrag)
-    window.addEventListener('pointerup', endDrag)
+    window.addEventListener('pointerup', onPointerEnd)
+    window.addEventListener('pointercancel', onPointerEnd)
+    window.addEventListener('blur', endDrag)
   }
   function onDrag(event) {
-    if (!drag) return
+    if (!drag || event.pointerId !== drag.pointerId) return
+    // The pointer is no longer pressed, so its end event was lost: end the drag instead of placing.
+    if (event.buttons === 0) return endDrag()
     const dx = Math.round((event.clientX - drag.startX) / previewScale)
     const dy = Math.round((event.clientY - drag.startY) / previewScale)
     if (drag.mode === 'move') {
@@ -256,10 +270,66 @@
       config = editor.resizeWidget(config, drag.key, drag.orig.w + dx, drag.orig.h + dy, drag.orig)
     }
   }
+  // Only the drag's own pointer ends it (overlay-config rule 41e).
+  function onPointerEnd(event) {
+    if (drag && event.pointerId === drag.pointerId) endDrag()
+  }
+  // Ends any live drag unconditionally: a preset change or profile load (rule 41d), or unmount.
   function endDrag() {
     drag = null
     window.removeEventListener('pointermove', onDrag)
-    window.removeEventListener('pointerup', endDrag)
+    window.removeEventListener('pointerup', onPointerEnd)
+    window.removeEventListener('pointercancel', onPointerEnd)
+    window.removeEventListener('blur', endDrag)
+  }
+
+  // ---- typed number fields (overlay-config rules 44-44c) ----------------------
+  // Attached to every `type="number"` input: a typed value applies only when committed —
+  // Enter (not mid-IME) or the `change` focus leaving fires — never per keystroke. An
+  // Up/Down step commits on the `input` the browser fires after applying it, since Firefox
+  // holds `change` for a keyboard step until blur. `apply(n)` writes a committed number,
+  // clamping or refusing it (rule 44b); `stored()` reads what the config holds now. After
+  // every commit, refusal or Escape the field is rewritten to the stored value itself: the
+  // one-way `value={…}` skips the DOM write when the bound number did not change.
+  function numberField(apply, stored) {
+    return (el) => {
+      let stepping = false
+      const shown = () => String(stored() ?? '')
+      const commit = () => {
+        // Already showing what is stored: the change or blur after an Enter or an Escape is
+        // not a second commit (rule 44c). Guards future setters that are not safe to repeat.
+        if (el.value === shown()) return
+        // A number input reports unreadable text as '', and Number('') is 0: blank first.
+        const n = Number(el.value)
+        if (el.value !== '' && Number.isFinite(n)) apply(n)
+        el.value = shown()
+      }
+      const onkeydown = (e) => {
+        // Any other key ends a step, so typing after it is ordinary typing (rule 44a).
+        stepping = e.key === 'ArrowUp' || e.key === 'ArrowDown'
+        if (e.key === 'Enter' && !e.isComposing) commit()
+        else if (e.key === 'Escape') el.value = shown()
+      }
+      // A step at min/max fires no `input`; the key's release or a blur ends it, so a later paste is not one.
+      const onkeyup = () => (stepping = false)
+      const oninput = () => {
+        if (!stepping) return
+        stepping = false
+        commit()
+      }
+      el.addEventListener('change', commit)
+      el.addEventListener('keydown', onkeydown)
+      el.addEventListener('keyup', onkeyup)
+      el.addEventListener('blur', onkeyup)
+      el.addEventListener('input', oninput)
+      return () => {
+        el.removeEventListener('change', commit)
+        el.removeEventListener('keydown', onkeydown)
+        el.removeEventListener('keyup', onkeyup)
+        el.removeEventListener('blur', onkeyup)
+        el.removeEventListener('input', oninput)
+      }
+    }
   }
 
   // ---- canvas ---------------------------------------------------------------
@@ -273,7 +343,12 @@
   const METRIC_LABEL = { lapFlash: { text: 'lap flash', help: 'the lap flash' } }
   const setHideWhenIdle = (key, hide) => (config = editor.setWidgetHideWhenIdle(config, key, hide))
   // #188: the text-size preset; also rescales the widget's width (overlay-config rule 41).
-  const setTextScale = (key, preset) => (config = editor.setWidgetTextScale(config, key, preset))
+  // A preset change ends any live drag first, so no later pointer step writes the drag-start
+  // geometry and origin over it (rule 41d).
+  const setTextScale = (key, preset) => {
+    endDrag()
+    config = editor.setWidgetTextScale(config, key, preset)
+  }
   // Lower-third trigger knobs (only surfaced for lower-third widgets).
   const setTrigger = (key, value) => (config = editor.setWidgetField(config, key, 'trigger', value))
   const setDwellSeconds = (key, value) =>
@@ -293,6 +368,10 @@
   // with positions restarting per class (`grouped`).
   const setClassDisplay = (key, value) =>
     (config = editor.setWidgetField(config, key, 'classDisplay', value))
+  // Tower-only (rule 43): driver name style. Writes `nameStyle` and nothing else — unlike a
+  // text-size preset, it never touches `x` / `w`.
+  const setNameStyle = (key, value) =>
+    (config = editor.setWidgetField(config, key, 'nameStyle', value))
   // Richer-tower (slice 3 of #20): which additive per-vehicle metrics the standings
   // tower surfaces — interval column + pit / tire / fuel indicators, each toggled
   // independently. Only the tower reads `towerMetrics`; the producer must supply the
@@ -361,6 +440,7 @@
   let newClassColorHex = $state('#ffffff')
   const setClassColor = (name, hex) => (config = editor.setClassColor(config, name, hex))
   const removeClassColor = (name) => (config = editor.removeClassColor(config, name))
+  const setClassTags = (value) => (config = editor.setClassTags(config, value))
   function addClassColor() {
     if (!newClassColorName.trim()) return
     setClassColor(newClassColorName, newClassColorHex)
@@ -406,6 +486,8 @@
         return
       }
       config = normalizeConfig(loaded)
+      // The whole config was replaced: a live drag's drag-start copy is stale (rule 41d).
+      endDrag()
       profileName = name
       status = `Loaded profile "${name}".`
     } catch (err) {
@@ -558,10 +640,10 @@
         <h2>Canvas size<HelpTip text={FIELD_HELP.canvasSize} label="canvas size" testid="help-canvas" /></h2>
         <p class="hint">Output resolution the layout is designed against (default 1920×1080).</p>
         <div class="row">
-          <!-- Commit on change (blur/Enter), not every keystroke: setCanvas
-               re-clamps every widget to the canvas and clamping only shrinks, so
-               committing intermediate keystrokes (1 -> 12 -> 128) would collapse
-               widgets before the full value is typed. -->
+          <!-- Commit (Enter/blur), not every keystroke: setCanvas re-clamps every
+               widget to the canvas and clamping only shrinks, so committing
+               intermediate keystrokes (1 -> 12 -> 128) would collapse widgets before
+               the full value is typed. -->
           <label class="num">
             width
             <input
@@ -569,7 +651,7 @@
               min="320"
               data-testid="canvas-w"
               value={canvas.w}
-              onchange={(e) => setCanvas({ w: e.currentTarget.value })}
+              {@attach numberField((n) => setCanvas({ w: n }), () => config.canvas.w)}
             />
           </label>
           <label class="num">
@@ -579,7 +661,7 @@
               min="320"
               data-testid="canvas-h"
               value={canvas.h}
-              onchange={(e) => setCanvas({ h: e.currentTarget.value })}
+              {@attach numberField((n) => setCanvas({ h: n }), () => config.canvas.h)}
             />
           </label>
         </div>
@@ -645,7 +727,10 @@
                     type="number"
                     data-testid="{field}-{key}"
                     value={w[field]}
-                    oninput={(e) => setField(key, field, Number(e.currentTarget.value))}
+                    {@attach numberField(
+                      (n) => setField(key, field, n),
+                      () => config.widgets[key][field],
+                    )}
                   />
                 </label>
               {/each}
@@ -656,7 +741,7 @@
                   type="number"
                   data-testid="z-{key}"
                   value={w.z}
-                  oninput={(e) => setField(key, 'z', Number(e.currentTarget.value))}
+                  {@attach numberField((n) => setField(key, 'z', n), () => config.widgets[key].z)}
                 />
               </label>
             </div>
@@ -732,7 +817,10 @@
                   step="1"
                   data-testid="idle-grace-{key}"
                   value={w.idleGraceSeconds}
-                  oninput={(e) => setField(key, 'idleGraceSeconds', Number(e.currentTarget.value))}
+                  {@attach numberField(
+                    (n) => setField(key, 'idleGraceSeconds', normalizeGraceSeconds(n, 0)),
+                    () => config.widgets[key].idleGraceSeconds,
+                  )}
                 />
               </label>
             {/if}
@@ -763,7 +851,10 @@
                     data-testid="dwell-{key}"
                     value={w.dwellSeconds}
                     disabled={w.trigger !== 'dwell'}
-                    oninput={(e) => setDwellSeconds(key, e.currentTarget.value)}
+                    {@attach numberField(
+                      (n) => n > 0 && setDwellSeconds(key, n),
+                      () => config.widgets[key].dwellSeconds,
+                    )}
                   />
                 </label>
               </div>
@@ -819,6 +910,20 @@
                 >
                   <option value="inline">inline</option>
                   <option value="grouped">grouped</option>
+                </select>
+              </label>
+              <!-- Rule 43: driver name style. `full` lets the tower grow past its `w`; the
+                   drag box keeps showing the stored x / w. -->
+              <label class="num class-display-row">
+                driver names
+                <HelpTip text={FIELD_HELP.nameStyle} label="driver names" testid="help-name-style-{key}" />
+                <select
+                  data-testid="name-style-{key}"
+                  value={w.nameStyle}
+                  onchange={(e) => setNameStyle(key, e.currentTarget.value)}
+                >
+                  <option value="short">short</option>
+                  <option value="full">full</option>
                 </select>
               </label>
               <!-- #28 follow-on: which additive per-vehicle metrics the tower surfaces —
@@ -884,7 +989,10 @@
                   step="1"
                   data-testid="per-page-seconds-{key}"
                   value={w.cycle?.perPageSeconds}
-                  onchange={(e) => setCycleField(key, 'perPageSeconds', Number(e.currentTarget.value))}
+                  {@attach numberField(
+                    (n) => n > 0 && setCycleField(key, 'perPageSeconds', n),
+                    () => config.widgets[key].cycle?.perPageSeconds,
+                  )}
                 />
               </label>
               <label class="num">
@@ -896,7 +1004,10 @@
                   step="1"
                   data-testid="pin-top-{key}"
                   value={w.cycle?.pinTop}
-                  onchange={(e) => setCycleField(key, 'pinTop', Number(e.currentTarget.value))}
+                  {@attach numberField(
+                    (n) => n >= 0 && setCycleField(key, 'pinTop', Math.floor(n)),
+                    () => config.widgets[key].cycle?.pinTop,
+                  )}
                 />
               </label>
               <label class="num class-display-row">
@@ -961,9 +1072,9 @@
                   </label>
                 {/each}
               </fieldset>
-              <!-- #26 + #21 hand-off: hold the HUD off while the driver lower-third
-                   plays its "now on camera" card, so the driver name never shows in
-                   both at once; the HUD reveals when the card wipes out. -->
+              <!-- #26 + #21 hand-off: keep the driver name out of two places at once.
+                   A dwell card holds the whole HUD until it wipes out; a persistent card
+                   holds only the HUD's identity strip (widgets rule 24). -->
               <label class="checkline">
                 <input
                   type="checkbox"
@@ -981,6 +1092,24 @@
             {/if}
           </fieldset>
         {/each}
+      </section>
+
+      <section class="panel__group">
+        <h2>Class Tags</h2>
+        <!-- Overlay-wide, not per widget (overlay-config rules 47-48, ADR 0022). -->
+        <label class="num">
+          class tags
+          <HelpTip text={FIELD_HELP.classTags} label="class tags" testid="help-class-tags" />
+          <select
+            data-testid="class-tags"
+            value={config.theme.classTags}
+            onchange={(e) => setClassTags(e.currentTarget.value)}
+          >
+            {#each CLASS_TAGS_VALUES as value (value)}
+              <option {value}>{value}</option>
+            {/each}
+          </select>
+        </label>
       </section>
 
       <section class="panel__group" data-testid="class-colors-section">
@@ -1074,7 +1203,10 @@
               min="1"
               data-testid="per-slot"
               value={config.logoRotation.perSlotSeconds}
-              oninput={(e) => setRotation({ perSlotSeconds: Number(e.currentTarget.value) })}
+              {@attach numberField(
+                (n) => setRotation({ perSlotSeconds: n }),
+                () => config.logoRotation.perSlotSeconds,
+              )}
             />
           </label>
           <label class="num">

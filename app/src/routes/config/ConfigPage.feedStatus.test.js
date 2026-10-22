@@ -857,7 +857,8 @@ describe('rule 27 — the connection follows the configured producer URL, deboun
 describe('rule 28 — the preview never renders live data', () => {
   it('keeps drawing the sample fixture before, during, and after a live connection', async () => {
     const { container } = await mount()
-    const expected = ['Hamilton', 'Verstappen', 'Leclerc', 'Norris']
+    // The tower renders short names by default (widgets.md rule 47).
+    const expected = ['HAM', 'VER', 'LEC', 'NOR']
     expect(previewNames(container)).toEqual(expected)
 
     const es = feed()

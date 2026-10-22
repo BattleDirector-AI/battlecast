@@ -190,6 +190,19 @@ describe('config editor: help explains the behaviors that read as bugs', () => {
     }
   })
 
+  it('explains the position identity toggle (#61)', async () => {
+    expect(DRIVER_INFO_FIELDS).toContain('position')
+    expect(typeof DRIVER_INFO_HELP.position).toBe('string')
+    expect(DRIVER_INFO_HELP.position.toLowerCase()).toContain('position')
+    const { container } = render(ConfigPage)
+    const btn = container.querySelector('[data-testid="help-driver-info-onboard-position"]')
+    expect(btn, 'no help for driver info position').toBeTruthy()
+    await fireEvent.click(btn)
+    await tick()
+    const pop = container.querySelector('[data-testid="help-driver-info-onboard-position-text"]')
+    expect(pop.textContent.trim()).toBe(DRIVER_INFO_HELP.position)
+  })
+
   it('explains each on-board identity toggle', async () => {
     const { container } = render(ConfigPage)
     for (const field of DRIVER_INFO_FIELDS) {

@@ -50,6 +50,37 @@ on a field name/type, `schema.json` wins.
 12. **`relationship`** (object) — the subject's battle context: `gap_ahead` / `gap_behind` (seconds,
     null/absent when the subject leads/trails the field) and `battle_intensity` (`[0,1]`, opaque
     producer computation). Drives the battle box.
+21. **Malformed `vehicles` is tolerated.** A payload whose `vehicles` is not an array (`{}`, a
+    string, `null`) is treated by every widget as an empty array. An entry of a `vehicles` array
+    that is not an object (`null`, a number, a string, an array — an array is not an object whatever
+    properties it carries) is treated by every widget as absent: it is never a row, never a match
+    for `subject.slot_id`, and never counts toward a class rank, a class car count, a total, or a
+    column's sizing — the widget renders exactly as if the entry were not in the array, wherever it
+    sits.
+
+    An object entry is **listable** when it has a usable `slot_id` and a usable `position`.
+    - A `slot_id` is usable when it is a non-empty string; whitespace-only counts as usable, since
+      it is an opaque key. `""`, a number, `null` and a missing key are not usable.
+    - A `position` is usable when it is a finite number. `0`, a negative number and `2.5` are
+      usable (the schema's integer-from-1 range is not enforced) and sort as the numbers they are.
+      `null`, a string, `NaN`, `Infinity` and a missing key are not usable.
+
+    An entry that is not listable is absent for every consumer that lists, counts, sizes or looks
+    up neighbours by position: the tower, `/grid`, `/results`, and the battle box's ahead/behind
+    lookup. Finding the on-camera subject needs only a usable `slot_id`: an entry with a usable
+    `slot_id` and no usable `position` still matches `subject.slot_id`. No widget throws on
+    either. Widget specifics: `widgets.md` rules 14a, 59, and 66.
+
+    **Entries sharing a `slot_id`.** A `slot_id` is one car. When several object entries carry the
+    same usable `slot_id` (compared as exact strings), the car is the **first listable entry** with
+    that `slot_id`, in array order; when none of them is listable, it is the first entry with that
+    `slot_id`. Every other entry with that `slot_id` is absent in the sense above: never a row,
+    never a match for `subject.slot_id`, never named as the car ahead or behind, and never counted
+    toward a class rank, a class car count, a total, or a column's sizing. The widget renders
+    exactly as if only the winning entry were in the array. The tower, `/grid`, `/results`, the
+    battle box's class chip and neighbours, the driver lower-third, the qualifying lower-third and
+    the on-board HUD all read the same winning entry, so the subject's card, its chip, and its row
+    in a list show the same car's data. Duplicates never stop a widget rendering.
 
 ### Optional additive fields (consumer MUST tolerate absence)
 
@@ -76,11 +107,32 @@ on a field name/type, `schema.json` wins.
     (`widgets.md` rules 33–35). A lapped vehicle's `gap_to_leader` stays a real time and is never a
     `0` placeholder. The class field is a producer fact, not re-derivable from the overall one.
     Decision record: `docs/decisions/0012-lap-deficit-fields.md`.
+18. **Local-yellow fields** (additive): per-vehicle **`yellow_involved`** (boolean — the producer
+    judges the car stopped or crawling, or off the track surface, inside an active local yellow
+    and not in the pit lane; a car only driving through is not involved) and
+    **`session.sector_flags`** (array of strings in lap order, index 0 = sector 1; `yellow`,
+    trimmed and case-insensitive, marks a local yellow, anything else does not). Both are producer judgments: the overlay never infers
+    involvement or a sector's flag. The tower marks involved rows (`widgets.md` rule 43) and Race
+    Control names the yellow sectors (rule 44). Decision record:
+    `docs/decisions/0016-local-yellow-fields.md`.
+19. **Finish status** (additive): per-vehicle **`finish_status`**, an integer code — `0` running,
+    `1` finished (this car has taken the chequered flag), `2` DNF, `3` DQ; null, absent, or any
+    other integer reads as running. Per car and producer-owned: the overlay never infers it from
+    the session flag, laps, or position. The tower marks finished, DNF, and DQ rows when `mode` is
+    `race` or `results`, under any session flag (`widgets.md` rule 45). Decision record: `docs/decisions/0017-finish-status-field.md`.
+20. **Single-class session** (additive): **`session.multiclass`** (boolean or null) says whether
+    the session has more than one vehicle class. Exactly `false` means single-class; `true`
+    means two or more; null, absent, or no `session` means the producer does not say. Producer
+    fact: the overlay never infers it from `vehicles[]` (not by counting distinct
+    `vehicle_class` values, not by recognizing a class string such as `"Default"`). With the
+    broadcaster's `theme.classTags` at `auto`, exactly `false` hides every class tag
+    (`widgets.md` rules 60–64); every other value leaves them showing. Decision record:
+    `docs/decisions/0022-single-class-tags.md`.
 15. **`session`** (open object) — session status: **`flag`** (free-form string;
     `green`/`yellow`/`red`/`checkered`/`white`/`none` common), **`full_course_yellow`** /
     **`safety_car`** (booleans, independent), timed fields **`time_remaining`** / **`session_length`**
     (seconds), lap fields **`laps_remaining`** / **`total_laps`** / **`current_lap`** (integers), and
-    optional **`basis`** (`"time"` | `"laps"`).
+    optional **`basis`** (`"time"` | `"laps"`), and **`multiclass`** (boolean or null; rule 20).
 16. **Timed-vs-lap progress selection** (consumer-inferred): honor `basis` if set; else if
     `time_remaining` non-null → session clock; else if a lap field non-null → lap counter; else hide
     the progress readout. The widget MUST render `current_lap`/`total_laps` verbatim (`"LAP X OF Y"`)

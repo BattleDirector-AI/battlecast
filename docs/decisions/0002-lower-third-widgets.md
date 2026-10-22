@@ -205,3 +205,9 @@ the class-best flash and target time wait on these:
 
 The reference producer (`producers/mock`) gains these alongside the spec bump so #22's
 full behavior can be built and tested against it.
+
+## Amendment (#262)
+
+The name on #21 and #22 is `subject.driver_name`, falling back to the resolved vehicle's
+`driver_name` when the subject's is blank or missing; a blank name counts as missing
+(`what/widgets.md` rule 14b).

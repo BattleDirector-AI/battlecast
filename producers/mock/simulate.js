@@ -61,6 +61,28 @@ const GRID = [
 // grouped tower's class-lap readout needs RACE_SECONDS >= ~500.
 const BACKMARKER_PENALTY = 40;
 const BACKMARKER_ONSET_SECONDS = 15;
+// Local yellow (ADR 0016): from 10%–20% of the race leg (never before the backmarker's problem
+// starts) and before the 25% FCY window, the sector the crawling backmarker is in shows a local
+// yellow and the backmarker is `yellow_involved` — except while it is in the pit lane, which the
+// contract excludes from involvement. Every other race tick sends three green sectors and
+// nobody involved, so both the staged and the all-clear paths run live.
+const LOCAL_YELLOW_START = 0.1; // validate-simulator.js's long-race pit check mirrors these two
+const LOCAL_YELLOW_END = 0.2;
+const SECTOR_COUNT = 3;
+// Finish status (ADR 0017), spec-v1 `finish_status` codes. The RETIREE (a GT3 car that is NOT
+// the backmarker, which already stages the local yellow and the lapped case) retires at
+// RETIRE_FRAC of the race leg, after the FCY window, and stops where it is (code 2). The race
+// clock / lap counter run out at CHECKERED_FRAC of the leg; the leader's next crossing after that
+// takes the chequered flag, and from then on `session.flag` is `checkered` and every running car
+// becomes 1 at its OWN next crossing, so the flag falls progressively down the field. The
+// remaining 30% of the leg (~90 s at the default 300 s) is about one GTP lap, so the leader always
+// takes the flag and the faster cars finish behind it; results classifies any car still running
+// as finished. Finished cars are classified by where and when they crossed the line, not by the
+// distance their cool-down lap adds.
+const FINISH = { running: 0, finished: 1, dnf: 2 };
+const RETIREE_DRIVER = "Tsunoda";
+const RETIRE_FRAC = 0.45;
+const CHECKERED_FRAC = 0.7;
 // Starting-grid spread, as a fraction of a lap across the whole field. A real grid is
 // ~8 m a slot, so 14 cars fill ~100 m of a ~5 km lap: about 0.02 laps, ~2.1 s from
 // front to back in the first race snapshot (#217; validate-simulator pins it below 2.5 s).
@@ -163,6 +185,11 @@ function round3(n) {
  */
 function buildSession(phase, elapsed, total, timedRaceLeg) {
   const frac = total > 0 ? clamp(elapsed / total, 0, 1) : 0;
+  // The race's clock and lap counter run to the chequered point (CHECKERED_FRAC of the leg),
+  // not to the end of the leg: the clock reaches zero, the leader's next crossing takes the
+  // flag, and the rest of the leg is the field finishing behind it.
+  const raceTotal = total * CHECKERED_FRAC;
+  const raceFrac = raceTotal > 0 ? clamp(elapsed / raceTotal, 0, 1) : 0;
 
   if (phase === "qualifying") {
     // Timed qualifying: a green-flag countdown clock, no lap limit.
@@ -224,14 +251,14 @@ function buildSession(phase, elapsed, total, timedRaceLeg) {
     // populates laps_remaining so the widget flips clock → lap counter with no
     // endurance logic of its own; both time_remaining and laps_remaining are
     // briefly non-null here, and `basis` breaks the tie.
-    const flipping = frac >= 0.9;
+    const flipping = raceFrac >= 0.9;
     return {
       flag,
       full_course_yellow: fcy,
       safety_car: sc,
-      time_remaining: round1(total - elapsed),
-      session_length: total,
-      laps_remaining: flipping ? Math.max(1, Math.ceil((1 - frac) / 0.05)) : null,
+      time_remaining: round1(Math.max(0, raceTotal - elapsed)),
+      session_length: round1(raceTotal),
+      laps_remaining: flipping ? Math.max(1, Math.ceil((1 - raceFrac) / 0.05)) : null,
       total_laps: null,
       current_lap: null,
       basis: flipping ? "laps" : null,
@@ -244,7 +271,7 @@ function buildSession(phase, elapsed, total, timedRaceLeg) {
   // lap the leader is on) so the widget renders it verbatim rather than deriving
   // it; here that is total_laps − laps_remaining + 1.
   const totalLaps = 20;
-  const lapsRemaining = clamp(Math.ceil(totalLaps * (1 - frac)), 1, totalLaps);
+  const lapsRemaining = clamp(Math.ceil(totalLaps * (1 - raceFrac)), 1, totalLaps);
   return {
     flag,
     full_course_yellow: fcy,
@@ -302,7 +329,7 @@ function buildTelemetry(car, clock) {
  * leader is 0 once it has comparable timing (else null — e.g. a qualifying leader
  * before any lap is set); a trailing car with no comparable timing is null.
  */
-function gapToLeaderMap(order, byLap) {
+function gapToLeaderMap(order, byLap, clock) {
   const map = new Map();
   if (order.length === 0) return map;
   const leader = order[0];
@@ -315,11 +342,8 @@ function gapToLeaderMap(order, byLap) {
     let cum = 0;
     map.set(leader.slot_id, 0);
     for (let i = 1; i < order.length; i++) {
-      const ahead = order[i - 1];
-      const car = order[i];
-      const avgSpeed = (1 / car.pace + 1 / ahead.pace) / 2;
-      cum += (ahead.distance - car.distance) / avgSpeed;
-      map.set(car.slot_id, round3(cum));
+      cum += pairGapSeconds(order[i - 1], order[i], clock);
+      map.set(order[i].slot_id, round3(cum));
     }
   }
   return map;
@@ -334,7 +358,7 @@ function gapToLeaderMap(order, byLap) {
  * distance-classified phase (race / results). The leader has no one ahead (null);
  * a car without comparable timing is null.
  */
-function intervalAheadMap(order, byLap) {
+function intervalAheadMap(order, byLap, clock) {
   const map = new Map();
   if (order.length === 0) return map;
   map.set(order[0].slot_id, null);
@@ -347,8 +371,7 @@ function intervalAheadMap(order, byLap) {
         ahead.best_lap != null && car.best_lap != null ? round3(car.best_lap - ahead.best_lap) : null
       );
     } else {
-      const avgSpeed = (1 / car.pace + 1 / ahead.pace) / 2;
-      map.set(car.slot_id, round3((ahead.distance - car.distance) / avgSpeed));
+      map.set(car.slot_id, round3(pairGapSeconds(ahead, car, clock)));
     }
   }
   return map;
@@ -366,7 +389,12 @@ function intervalAheadMap(order, byLap) {
 function lapDeficitMap(order) {
   const map = new Map();
   if (order.length === 0) return map;
-  const lapsBetween = (front, back) => Math.max(0, Math.floor((front.distance - back.distance) / LAP_UNIT));
+  // Two finished cars are apart by the laps each completed: flooring their finish distances can
+  // read 0 for a lapped car that crossed further past the line than the leader did.
+  const lapsBetween = (front, back) =>
+    front.finishLaps != null && back.finishLaps != null
+      ? Math.max(0, front.finishLaps - back.finishLaps)
+      : Math.max(0, Math.floor((classDistance(front) - classDistance(back)) / LAP_UNIT));
   const leader = order[0];
   const classLeaders = new Map();
   order.forEach((car, i) => {
@@ -402,9 +430,10 @@ function makeCars(startClock = 0) {
       backmarker: entry.backmarker === true,
       noiseFactor: 0,
       distance,
-      // Measure the first lap from the car's own staggered start (not 0), so the
-      // opening lap is a normal flying lap rather than an inflated multi-lap "out
-      // lap" for cars that start further back.
+      // Qualifying only: measure the first lap from the car's own staggered start (not 0),
+      // so the opening lap is a normal flying lap rather than an inflated multi-lap "out
+      // lap" for cars that start further back. The race resets this to the shared
+      // start/finish line in startRaceFromGrid.
       lapStartDistance: distance,
       lastLapClock: startClock,
       last_lap: null,
@@ -502,7 +531,102 @@ function byBestLap(a, b) {
 
 /** Race classification: farthest total distance covered first (multi-class independent). */
 function byDistance(a, b) {
-  return b.distance - a.distance;
+  const af = a.finishClock != null;
+  const bf = b.finishClock != null;
+  // Once anyone has finished, rank like a timing screen: laps completed first, a finished car
+  // ahead of a running one on the same lap count, then crossing time (finished) or distance
+  // (running). Before the flag nobody has finished and this is plain distance.
+  if (af || bf) {
+    const laps = lapsDone(b) - lapsDone(a);
+    if (laps !== 0) return laps;
+    if (af !== bf) return af ? -1 : 1;
+    if (af) return a.finishClock - b.finishClock;
+  }
+  return classDistance(b) - classDistance(a);
+}
+
+// Whole laps completed: a finished car's at the flag; a running car's from the start/finish line.
+function lapsDone(car) {
+  if (car.finishLaps != null) return car.finishLaps;
+  return Math.round(car.lapStartDistance / LAP_UNIT);
+}
+
+// A finished car is classified where it crossed the line under the chequered flag (finish
+// status, ADR 0017): its cool-down lap adds distance but no places.
+function classDistance(car) {
+  return car.finishDistance ?? car.distance;
+}
+
+// On-track time gap from `car` back to the car `ahead` in classification. Two cars that
+// finished on the same lap are apart by their line-crossing times; a running car behind a
+// finished one is the time since that car crossed plus its own distance still to its line.
+function pairGapSeconds(ahead, car, clock) {
+  const avgSpeed = (1 / car.pace + 1 / ahead.pace) / 2;
+  if (car.finishClock != null && ahead.finishClock != null && car.finishLaps === ahead.finishLaps) {
+    return Math.max(0, car.finishClock - ahead.finishClock);
+  }
+  if (ahead.finishClock != null && car.finishClock == null) {
+    const toLine = Math.max(0, car.lapStartDistance + LAP_UNIT - car.distance) * car.pace;
+    return Math.max(0, clock - ahead.finishClock) + toLine;
+  }
+  return Math.max(0, (classDistance(ahead) - classDistance(car)) / avgSpeed);
+}
+
+// Pure battle-picking core of the running director: who is contending, the reported
+// neighbour gaps (full order), and the best battle among the contenders only. Exported so
+// director.test.js can drive it on a hand-built field.
+function analyseBattle(order, phase) {
+  // In the race, a retired car is out of the fight, and so is a finished car while anyone is
+  // still racing to the line: neither is the camera subject nor a battle partner (#237). The
+  // fallbacks (everyone finished, only the retiree left) are defensive: the race leg ends
+  // before the last car takes the flag.
+  let contenders = order;
+  if (phase === "race") {
+    const notRetired = order.filter((c) => c.finish_status !== FINISH.dnf);
+    const racing = notRetired.filter((c) => c.finish_status !== FINISH.finished);
+    contenders = racing.length > 0 ? racing : notRetired.length > 0 ? notRetired : order;
+  }
+
+  // Gap to the car immediately ahead/behind in `list`, converted from a distance
+  // delta to seconds via the pair's average speed.
+  function neighbourGaps(list) {
+    const ahead = new Map();
+    const behind = new Map();
+    for (let i = 0; i < list.length; i++) {
+      const car = list[i];
+      if (i > 0) {
+        const other = list[i - 1];
+        const avgSpeed = (1 / car.pace + 1 / other.pace) / 2;
+        ahead.set(car.slot_id, (other.distance - car.distance) / avgSpeed);
+      }
+      if (i < list.length - 1) {
+        const other = list[i + 1];
+        const avgSpeed = (1 / car.pace + 1 / other.pace) / 2;
+        behind.set(car.slot_id, (car.distance - other.distance) / avgSpeed);
+      }
+    }
+    return { ahead, behind };
+  }
+  // The reported gaps are to the cars immediately ahead/behind in running order (the battle
+  // box names those cars); battles are picked and rated among the contenders only.
+  const { ahead: gapAhead, behind: gapBehind } = neighbourGaps(order);
+  const battle = neighbourGaps(contenders);
+
+  function closestGapFor(slotId) {
+    return Math.min(battle.ahead.get(slotId) ?? Infinity, battle.behind.get(slotId) ?? Infinity);
+  }
+
+  let bestSlotId = contenders[0].slot_id;
+  let bestGap = closestGapFor(bestSlotId);
+  for (const car of contenders) {
+    const g = closestGapFor(car.slot_id);
+    if (g < bestGap) {
+      bestGap = g;
+      bestSlotId = car.slot_id;
+    }
+  }
+
+  return { contenders, gapAhead, gapBehind, closestGapFor, bestSlotId, bestGap };
 }
 
 function createSimulator(config = {}) {
@@ -527,6 +651,8 @@ function createSimulator(config = {}) {
   // For the static (grid / results) phases: the frozen running order captured on
   // entry, as an array of slot_ids in classified order.
   let frozenOrder = null;
+  // Whether the race leader has taken the chequered flag this leg (finish status, ADR 0017).
+  let checkeredTaken = false;
 
   let subjectSlotId = null;
   let subjectSinceClock = 0;
@@ -554,15 +680,23 @@ function createSimulator(config = {}) {
       const car = cars.find((c) => c.slot_id === slotId);
       car.distance = -i * (LAP_UNIT / n) * GRID_SPREAD;
       car.pace = car.basePace;
-      car.lapStartDistance = car.distance;
+      // Every car's lap is timed from the one start/finish line (distance 0), not from its own
+      // grid slot, so "laps completed" means the same thing for the whole field: the grid lines
+      // up just behind the line and the first lap runs from there.
+      car.lapStartDistance = 0;
       car.lastLapClock = clock;
       car.last_lap = null;
       car.best_lap = null;
       car.sector_times = [];
       car.noiseFactor = 0;
       car.improvedBestThisStep = false;
+      car.finish_status = FINISH.running;
+      car.finishDistance = null;
+      car.finishClock = null;
+      car.finishLaps = null;
       resetStint(car);
     });
+    checkeredTaken = false;
   }
 
   function enterPhase(p) {
@@ -587,8 +721,12 @@ function createSimulator(config = {}) {
       if (!frozenOrder) freezeOrder(byBestLap);
       startRaceFromGrid();
     } else if (p === "results") {
-      // Results = the final race classification, frozen.
+      // Results = the final race classification, frozen. A car still running when the leg
+      // ended is classified as finished; a retired car stays DNF.
       freezeOrder(byDistance);
+      for (const car of cars) {
+        if (car.finish_status == null || car.finish_status === FINISH.running) car.finish_status = FINISH.finished;
+      }
     }
     announce(p);
   }
@@ -596,39 +734,10 @@ function createSimulator(config = {}) {
   // Running phases (qualifying, race): pick the tightest on-track battle with
   // hysteresis and derive the subject's gaps/intensity from track proximity.
   function runningDirector(order) {
-    // Gap to the car immediately ahead/behind, converted from a distance
-    // delta to seconds via the pair's average speed.
-    const gapAhead = new Map();
-    const gapBehind = new Map();
-    for (let i = 0; i < order.length; i++) {
-      const car = order[i];
-      if (i > 0) {
-        const ahead = order[i - 1];
-        const avgSpeed = (1 / car.pace + 1 / ahead.pace) / 2;
-        gapAhead.set(car.slot_id, (ahead.distance - car.distance) / avgSpeed);
-      }
-      if (i < order.length - 1) {
-        const behind = order[i + 1];
-        const avgSpeed = (1 / car.pace + 1 / behind.pace) / 2;
-        gapBehind.set(car.slot_id, (car.distance - behind.distance) / avgSpeed);
-      }
-    }
+    const { contenders, gapAhead, gapBehind, closestGapFor, bestSlotId, bestGap } = analyseBattle(order, phase);
 
-    function closestGapFor(slotId) {
-      return Math.min(gapAhead.get(slotId) ?? Infinity, gapBehind.get(slotId) ?? Infinity);
-    }
-
-    let bestSlotId = order[0].slot_id;
-    let bestGap = closestGapFor(bestSlotId);
-    for (const car of order) {
-      const g = closestGapFor(car.slot_id);
-      if (g < bestGap) {
-        bestGap = g;
-        bestSlotId = car.slot_id;
-      }
-    }
-
-    if (subjectSlotId == null) {
+    // A subject that has dropped out of the fight is cut away from at once, dwell or not.
+    if (subjectSlotId == null || !contenders.some((c) => c.slot_id === subjectSlotId)) {
       subjectSlotId = bestSlotId;
       subjectSinceClock = clock;
     } else if (clock - subjectSinceClock >= SUBJECT_MIN_DWELL_SECONDS && bestSlotId !== subjectSlotId) {
@@ -692,6 +801,10 @@ function createSimulator(config = {}) {
     // Strategy (fuel/tire/pit) evolves and is emitted only in the race — see the
     // vehicle map and advanceCar. Qualifying runs the cars but not the pit cycle.
     const isRace = phase === "race";
+    const raceFrac = isRace ? phaseElapsed / phaseSeconds[phase] : 0;
+    // The leader at the start of this step: the car that takes the chequered flag.
+    const raceLeader = isRace ? [...cars].sort(byDistance)[0] : null;
+    const crossers = [];
     for (const car of cars) {
       // Reset the per-step "just set a personal best" flag; only a lap completed
       // on THIS step in a running phase can set it true.
@@ -699,7 +812,31 @@ function createSimulator(config = {}) {
       if (isRace && car.backmarker && phaseElapsed >= BACKMARKER_ONSET_SECONDS) {
         car.pace = car.basePace + BACKMARKER_PENALTY;
       }
-      if (running) advanceCar(car, dtSeconds, clock, isRace);
+      if (isRace && car.driver_name === RETIREE_DRIVER && raceFrac >= RETIRE_FRAC) {
+        car.finish_status = FINISH.dnf;
+        car.in_pit = false;
+      }
+      // A retired car stops where it is: no more distance, laps, or pit cycle.
+      if (running && !(isRace && car.finish_status === FINISH.dnf)) {
+        const lapStartBefore = car.lapStartDistance;
+        advanceCar(car, dtSeconds, clock, isRace);
+        if (isRace && car.lapStartDistance !== lapStartBefore && car.finish_status === FINISH.running) {
+          crossers.push(car);
+        }
+      }
+    }
+    // Chequered flag, decided after every car has moved so processing order can't matter: the
+    // leader's crossing takes the flag, and every car that crossed this step under it finishes.
+    if (!checkeredTaken && raceFrac >= CHECKERED_FRAC && crossers.includes(raceLeader)) checkeredTaken = true;
+    if (checkeredTaken) {
+      for (const car of crossers) {
+        // The exact crossing time, backed out from how far past the line the car is.
+        car.finish_status = FINISH.finished;
+        car.finishDistance = car.distance;
+        // The car covered that distance at its noisy speed this step, not its base pace.
+        car.finishClock = clock - ((car.distance - car.lapStartDistance) * car.pace) / (1 + car.noiseFactor);
+        car.finishLaps = lapsDone(car);
+      }
     }
 
     // Producer-computed notability (dumb overlay, smart producer — see
@@ -736,15 +873,44 @@ function createSimulator(config = {}) {
     // Gap to the overall leader for each car — lap-delta in the lap-classified
     // phases, on-track time gap in the distance-classified ones.
     const byLap = phase === "qualifying" || phase === "grid";
-    const gapToLeader = gapToLeaderMap(order, byLap);
+    const gapToLeader = gapToLeaderMap(order, byLap, clock);
     // Interval to the car immediately ahead (slice 3 of #20) — same phase treatment.
-    const intervalAhead = intervalAheadMap(order, byLap);
+    const intervalAhead = intervalAheadMap(order, byLap, clock);
     // Lap deficits (ADR 0012) — a race concept, so only in the distance-classified phases.
     const lapDeficits = byLap ? null : lapDeficitMap(order);
 
     const { subjectCar, relationship } = running ? runningDirector(order) : staticDirector(order);
 
     const session = buildSession(phase, phaseElapsed, phaseSeconds[phase], raceLegIndex % 2 === 0);
+    // Single-class flag (protocol-contract rule 20, ADR 0022): the producer states its own class
+    // mix, so the overlay never has to work it out from vehicles[].
+    session.multiclass = new Set(order.map((car) => car.vehicle_class)).size > 1;
+
+    // Local yellow around the backmarker (race only). The sector comes from how far round its
+    // current lap the car is: lap distance is in LAP_UNITs, so the fractional part is the lap
+    // position, split evenly into SECTOR_COUNT sectors (index 0 = sector 1).
+    let involvedSlot = null;
+    if (isRace) {
+      const total = phaseSeconds[phase];
+      const sectorFlags = Array(SECTOR_COUNT).fill("green");
+      const backmarker = cars.find((c) => c.backmarker);
+      const windowStart = Math.max(LOCAL_YELLOW_START * total, BACKMARKER_ONSET_SECONDS);
+      const inWindow = phaseElapsed >= windowStart && phaseElapsed < LOCAL_YELLOW_END * total;
+      if (backmarker && inWindow && !backmarker.in_pit) {
+        const lapPos = ((backmarker.distance % LAP_UNIT) + LAP_UNIT) % LAP_UNIT;
+        sectorFlags[Math.min(SECTOR_COUNT - 1, Math.floor((lapPos / LAP_UNIT) * SECTOR_COUNT))] = "yellow";
+        involvedSlot = backmarker.slot_id;
+        session.flag = "yellow";
+      }
+      session.sector_flags = sectorFlags;
+      if (checkeredTaken) {
+        // Under the chequered flag the race is over for the clock and the lap counter.
+        session.flag = "checkered";
+        if (session.time_remaining != null) session.time_remaining = 0;
+        if (session.laps_remaining != null) session.laps_remaining = 0;
+        if (session.total_laps != null) session.current_lap = session.total_laps;
+      }
+    }
 
     return {
       schemaVersion: "1",
@@ -772,11 +938,13 @@ function createSimulator(config = {}) {
           // exercised live.
           interval_ahead: intervalAhead.get(car.slot_id) ?? null,
           ...(lapDeficits ? lapDeficits.get(car.slot_id) : {}),
+          ...(phase === "race" || phase === "results" ? { finish_status: car.finish_status } : {}),
           ...(running ? { tire_compound: COMPOUNDS[car.tireCompoundIndex] } : {}),
           ...(isRace
             ? {
                 pit_stops: car.pit_stops,
                 in_pit: car.in_pit,
+                yellow_involved: car.slot_id === involvedSlot,
                 tire_wear: round2(car.tire_wear),
                 fuel: round2(car.fuel),
               }
@@ -816,4 +984,4 @@ function createSimulator(config = {}) {
   return { step };
 }
 
-module.exports = { createSimulator, PHASES, classPace };
+module.exports = { analyseBattle, createSimulator, PHASES, classPace };

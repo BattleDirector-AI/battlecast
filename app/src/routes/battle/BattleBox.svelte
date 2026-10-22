@@ -52,6 +52,9 @@
   import { fmtName, fmtGap } from '../../design/format.js'
   import ClassChip from '../../design/ClassChip.svelte'
   import IntensityMeter from '../../design/IntensityMeter.svelte'
+  import { classTagsShown } from '../../lib/classTags.js'
+  import { presentName, resolveSubject } from '../driver/DriverLowerThird.svelte'
+  import { listableVehicleList, isListable } from '../../lib/vehicles.js'
 
   let {
     subject = {},
@@ -60,7 +63,11 @@
     mode = null,
     session = null,
     classColors = {},
+    // `theme.classTags` (widgets.md rules 60, 62): resolved against `session.multiclass`.
+    classTags = 'auto',
   } = $props()
+
+  const showTags = $derived(classTagsShown(classTags, session))
 
   const racing = $derived(isRacingMode(mode) && !isCaution(session))
   const active = $derived(isActiveBattle(relationship))
@@ -70,20 +77,25 @@
   const hot = $derived(intensity >= 0.67)
   const headerLabel = $derived(hot ? 'CLOSING' : 'BATTLE FOR POSITION')
 
-  const subjectVehicle = $derived(
-    vehicles.find((v) => v.slot_id === subject?.slot_id)
-  )
+  // Neighbours are looked up among listable entries only: an entry without a usable slot_id or
+  // a finite position is absent (widgets.md rule 59, protocol-contract.md rule 21).
+  const cars = $derived(listableVehicleList(vehicles))
+  const resolved = $derived(resolveSubject({ subject, vehicles }))
+  const subjectVehicle = $derived(resolved.vehicle)
   const carClass = $derived(subjectVehicle?.vehicle_class)
-  const subjectPos = $derived(subjectVehicle?.position)
-  const aheadDriver = $derived(
+  // Rule 65: the on-camera name is picked by the shared rule-14b resolver.
+  const subjectName = $derived(resolved.name)
+  const subjectPos = $derived(isListable(subjectVehicle) ? subjectVehicle.position : undefined)
+  // A neighbour's name counts as present by the rule 14b test; otherwise the slot shows the dash (rule 68).
+  const aheadName = $derived(
     subjectPos != null
-      ? vehicles.find((v) => v.position === subjectPos - 1)?.driver_name
-      : undefined
+      ? presentName(cars.find((v) => v.position === subjectPos - 1)?.driver_name)
+      : null
   )
-  const behindDriver = $derived(
+  const behindName = $derived(
     subjectPos != null
-      ? vehicles.find((v) => v.position === subjectPos + 1)?.driver_name
-      : undefined
+      ? presentName(cars.find((v) => v.position === subjectPos + 1)?.driver_name)
+      : null
   )
 </script>
 
@@ -96,7 +108,7 @@
 >
   <header class="bc-battle__header">
     <span class="bc-battle__title">{active ? headerLabel : 'BATTLE FOR POSITION'}</span>
-    {#if active && carClass}
+    {#if active && carClass && showTags}
       <ClassChip {carClass} size="compact" {classColors} />
     {/if}
   </header>
@@ -105,18 +117,18 @@
     <div class="bc-battle__body">
       <div class="bc-battle__slot bc-battle__slot--ahead">
         <span class="bc-battle__slot-label">AHEAD</span>
-        <span class="bc-battle__slot-name">{aheadDriver ? fmtName(aheadDriver) : '—'}</span>
+        <span class="bc-battle__slot-name">{aheadName ? fmtName(aheadName) : '—'}</span>
         <span class="bc-battle__gap">{fmtGap(relationship?.gap_ahead)}</span>
       </div>
 
       <div class="bc-battle__slot bc-battle__slot--focus">
         <span class="bc-battle__slot-label">FOCUS</span>
-        <span class="bc-battle__focus-name">{fmtName(subject?.driver_name)}</span>
+        <span class="bc-battle__focus-name">{fmtName(subjectName)}</span>
       </div>
 
       <div class="bc-battle__slot bc-battle__slot--behind">
         <span class="bc-battle__slot-label">BEHIND</span>
-        <span class="bc-battle__slot-name">{behindDriver ? fmtName(behindDriver) : '—'}</span>
+        <span class="bc-battle__slot-name">{behindName ? fmtName(behindName) : '—'}</span>
         <span class="bc-battle__gap">{fmtGap(relationship?.gap_behind)}</span>
       </div>
     </div>
@@ -127,7 +139,7 @@
   {:else}
     <div class="bc-battle__idle">
       <span class="bc-battle__idle-heading">NO ACTIVE BATTLE</span>
-      <span class="bc-battle__idle-sub">CLEAR AIR — {fmtName(subject?.driver_name) || 'ON-CAMERA CAR'}</span>
+      <span class="bc-battle__idle-sub">CLEAR AIR — {fmtName(subjectName) || 'ON-CAMERA CAR'}</span>
     </div>
   {/if}
 </section>
