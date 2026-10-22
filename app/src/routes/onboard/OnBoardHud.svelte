@@ -111,9 +111,7 @@
 </script>
 
 <script>
-  import { onDestroy } from 'svelte'
   import ClassChip from '../../design/ClassChip.svelte'
-  import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
 
   let {
     telemetry = null,
@@ -122,16 +120,14 @@
     // Pre-resolved identity ({ name?, number?, position?, class?, make?, model? } or null) — the
     // caller resolves it via resolveIdentity() from the snapshot + the widget config.
     identity = null,
-    // Hand-off inputs. When `driverWidget` is supplied (only on `/all`, and only when
-    // the driver lower-third is visible), the HUD mirrors that lower-third's fire/dwell
-    // timing off the subject stream and, while the card is up and `waitForLowerThird`
-    // is on, holds itself (dwell) or its identity strip (persistent) back. The mirror
-    // keeps running while the knob is off, so ticking it again holds exactly what the
-    // card shows then (rule 24). `null` => no gate (standalone `/onboard`, or the card
-    // hidden), and the mirror restarts as a (re)connect when it comes back.
-    subjectSlotId = null,
-    subjectActive = false,
+    // Hand-off inputs (only on `/all`). `driverWidget` is the driver lower-third's config while
+    // that card is visible, else null (no gate: standalone `/onboard`, or the card hidden).
+    // `cardShown` is whether the card is up right now: AllView runs the card's one show/hide
+    // timer and hands the same flag to the card and here, so the two cannot drift (rule 24).
+    // While the card is up and `waitForLowerThird` is on, the HUD holds itself (dwell) or its
+    // identity strip (persistent) back.
     driverWidget = null,
+    cardShown = false,
     waitForLowerThird = true,
     classColors = {},
   } = $props()
@@ -142,41 +138,10 @@
   const unit = $derived(unitLabel(speedUnit))
   const carLine = $derived(identity ? [identity.make, identity.model].filter(Boolean).join(' ') : '')
 
-  // Hand-off (#26 + #21): reuse the shared lower-third trigger engine to compute,
-  // independently, the exact same shown/hidden timeline as the driver lower-third —
-  // no cross-widget state. What the card being up holds back is decided below.
-  let lowerThirdShown = $state(false)
-  const newGate = () => createLowerThirdTrigger({ onChange: (v) => (lowerThirdShown = v) })
-  let gate = newGate()
-  let gateSynced = false
-  onDestroy(() => gate.stop())
-
-  $effect(() => {
-    if (!driverWidget) {
-      // No gate: standalone route, or the driver card hidden. The card unmounts when
-      // hidden, so drop the mirror too: its next sync is a (re)connect, like the card's.
-      if (gateSynced) {
-        gate.stop()
-        gate = newGate()
-        gateSynced = false
-      }
-      lowerThirdShown = false
-      return
-    }
-    gateSynced = true
-    gate.sync({
-      subjectSlotId,
-      active: subjectActive,
-      trigger: driverWidget.trigger,
-      dwellSeconds: driverWidget.dwellSeconds,
-      showOnConnect: driverWidget.showOnConnect,
-    })
-  })
-
   // What the hand-off holds follows the card's trigger mode now (rule 24): a `dwell` card
   // holds the whole HUD, telemetry or not; a `persistent` card holds only the identity
   // strip, since the card already shows the name, and the telemetry row keeps rendering.
-  const held = $derived(!!driverWidget && waitForLowerThird !== false && lowerThirdShown)
+  const held = $derived(!!driverWidget && waitForLowerThird !== false && cardShown)
   const persistentCard = $derived(driverWidget?.trigger === 'persistent')
   const suppressed = $derived(held && !persistentCard)
   const showIdentity = $derived(!!identity && !(held && persistentCard))
