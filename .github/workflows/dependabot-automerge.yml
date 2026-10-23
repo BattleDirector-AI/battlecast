@@ -1,0 +1,20 @@
+name: Dependabot auto-merge
+
+# Turns on auto-merge for every Dependabot PR. GitHub merges it only once the
+# checks the `next` ruleset requires (lint, test, compliance, server, mock) pass;
+# a red run leaves the PR open for a human.
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
