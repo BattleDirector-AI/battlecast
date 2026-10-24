@@ -144,7 +144,12 @@ same precedence chain and compares; on a difference the page applies the new con
 initial load did, including `applyMotion(resolveMotion(location.search, { reducedMotion }))` so the
 profile's `reducedMotion` refines `App.svelte`'s boot baseline (a `?motion=` param still wins;
 `AllPage` also re-fits the stage). The SSE feed is **not** touched — a config edit never reconnects
-the producer.
+the producer. The poll loads with `loadConfig(search, { strict: true })`, which **rejects** when the
+named profile cannot be fetched (network error, non-OK from both the API and the static path — a
+deleted profile's 404 included — or unparseable JSON) where the initial load falls back to the
+default; the watcher skips a rejected tick, so a companion-server blip keeps the last good config
+instead of snapping to the default layout (#353). The first failed tick after a good one logs one
+`console.warn`; further failures stay quiet until a tick succeeds.
 
 ## Key Abstractions
 
