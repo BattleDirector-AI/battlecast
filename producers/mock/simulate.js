@@ -86,8 +86,15 @@ const RETIRE_FRAC = 0.45;
 // Each event stays listed for RACE_EVENT_KEEP_SECONDS (the SPEC asks for at least 30 s) and the
 // list holds at most RACE_EVENT_MAX (the SPEC's 20), oldest dropped first. The race stages one
 // penalty at PENALTY_FRAC of the leg, on the car then running P3. Fastest laps are announced
-// from each car's second completed lap on: the standing-start opening lap is not news.
+// from each car's second completed lap on: the standing-start opening lap is not news. A class
+// fastest lap is announced only when it beats a class best set after the opening lap, so the
+// first flying laps (which beat every class's lap-1 time at once) don't burst out (#346); an
+// overall fastest lap is still announced from a car's second lap, by design (one event, and #346
+// named class laps only). A new
+// leader is announced only after the opening lap and once it has led for LEADER_HOLD_SECONDS,
+// so the start-order shuffle and a pass that is taken straight back are not news (#346).
 const RACE_EVENT_KEEP_SECONDS = 45;
+const LEADER_HOLD_SECONDS = 10;
 const RACE_EVENT_MAX = 20;
 const PENALTY_FRAC = 0.3;
 const CHECKERED_FRAC = 0.7;
@@ -166,14 +173,28 @@ function classPace(classKey) {
   return CLASSES.find((c) => c.key === classKey).basePace;
 }
 
+/** A small seeded PRNG (mulberry32): returns a () => [0, 1) function, like Math.random. The
+ *  live mock uses Math.random; validate-simulator.js passes `config.rng` from this so its run
+ *  is the same every time. */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
 /** Split a lap time into 3 sectors that sum back to it exactly. */
-function splitSectors(lapTime) {
-  const r1 = 0.32 + (Math.random() - 0.5) * 0.02;
-  const r2 = 0.34 + (Math.random() - 0.5) * 0.02;
+function splitSectors(lapTime, rng) {
+  const r1 = 0.32 + (rng() - 0.5) * 0.02;
+  const r2 = 0.34 + (rng() - 0.5) * 0.02;
   const s1 = lapTime * r1;
   const s2 = lapTime * r2;
   const s3 = lapTime - s1 - s2;
@@ -487,14 +508,14 @@ function resetStint(car) {
 /** Advance one car's distance and, on a completed lap, its lap/sector timing. When
  *  `evolveStint` is true (the RACE phase only) it also drains fuel, wears tires, and runs
  *  the pit cycle — a race concept, so qualifying laps never accrue stops. */
-function advanceCar(car, dtSeconds, clock, evolveStint) {
+function advanceCar(car, dtSeconds, clock, evolveStint, rng) {
   // Slow random-walk pace fluctuation so gaps ebb and flow organically instead of
   // separating (or converging) monotonically. It is a fraction of the car's OWN
   // base speed (a ±4% band), not an absolute term: an absolute term is a huge
   // fraction of the slower classes' speed and produced implausible lap times and
   // cross-class pace inversion (a GT3 out-lapping a GTP). ±4% keeps lap times within
   // a realistic band of the car's pace while still shuffling intra-class order.
-  car.noiseFactor = clamp(car.noiseFactor + (Math.random() - 0.5) * 0.01, -0.04, 0.04);
+  car.noiseFactor = clamp(car.noiseFactor + (rng() - 0.5) * 0.01, -0.04, 0.04);
   const baseSpeed = 1 / car.pace;
   const distanceStep = baseSpeed * (1 + car.noiseFactor) * dtSeconds;
   car.distance += distanceStep;
@@ -509,7 +530,7 @@ function advanceCar(car, dtSeconds, clock, evolveStint) {
       car.best_lap = car.last_lap;
       car.improvedBestThisStep = true;
     }
-    car.sector_times = splitSectors(car.last_lap);
+    car.sector_times = splitSectors(car.last_lap, rng);
   }
 
   // Strategy synthesis (slice 3 of #20) — RACE ONLY: drain fuel and wear tires with the
@@ -651,6 +672,8 @@ function analyseBattle(order, phase) {
 }
 
 function createSimulator(config = {}) {
+  // Every random draw goes through `rng`: Math.random live, a seeded PRNG in validation.
+  const rng = typeof config.rng === "function" ? config.rng : Math.random;
   const phaseSeconds = { ...DEFAULT_PHASE_SECONDS, ...(config.phaseSeconds || {}) };
   const onPhaseChange = typeof config.onPhaseChange === "function" ? config.onPhaseChange : null;
   // Optional single-phase lock (e.g. { lockPhase: "race" }) for eye-testing one session
@@ -690,6 +713,8 @@ function createSimulator(config = {}) {
   // staged penalty has been issued; reset at each race start.
   let raceBest = { overall: null, byClass: new Map() };
   let raceLeaderSlot = null;
+  // A car that has taken the lead from `raceLeaderSlot` but not yet held it LEADER_HOLD_SECONDS.
+  let leaderCandidate = null; // { slot, since }
   let penaltyIssued = false;
 
   function addRaceEvent(event) {
@@ -739,6 +764,7 @@ function createSimulator(config = {}) {
     checkeredTaken = false;
     raceBest = { overall: null, byClass: new Map() };
     raceLeaderSlot = null;
+    leaderCandidate = null;
     penaltyIssued = false;
   }
 
@@ -872,7 +898,7 @@ function createSimulator(config = {}) {
       // A retired car stops where it is: no more distance, laps, or pit cycle.
       if (running && !(isRace && car.finish_status === FINISH.dnf)) {
         const lapStartBefore = car.lapStartDistance;
-        advanceCar(car, dtSeconds, clock, isRace);
+        advanceCar(car, dtSeconds, clock, isRace, rng);
         if (isRace && car.lapStartDistance !== lapStartBefore && car.finish_status === FINISH.running) {
           crossers.push(car);
         }
@@ -894,17 +920,19 @@ function createSimulator(config = {}) {
 
     // Fastest-lap events (race only): a lap that beats this leg's overall best is announced once,
     // as the overall event, even though it is also its class's best; a lap that beats only its
-    // class's best is a class event.
+    // class's best is a class event. Class bests remember whether they were set on the opening
+    // lap; beating one of those is not announced (it becomes the class's first real reference).
     if (isRace) {
       for (const car of cars) {
         if (!car.improvedBestThisStep || car.best_lap == null) continue;
         const lap = car.best_lap;
         const overall = raceBest.overall == null || lap < raceBest.overall;
         const classPrev = raceBest.byClass.get(car.vehicle_class);
-        const classRecord = classPrev == null || lap < classPrev;
+        const classRecord = classPrev == null || lap < classPrev.lap;
         if (overall) raceBest.overall = lap;
-        if (classRecord) raceBest.byClass.set(car.vehicle_class, lap);
-        if (lapsDone(car) < 2 || !(overall || classRecord)) continue;
+        if (classRecord) raceBest.byClass.set(car.vehicle_class, { lap, opening: lapsDone(car) < 2 });
+        if (lapsDone(car) < 2) continue;
+        if (!overall && !(classRecord && classPrev != null && !classPrev.opening)) continue;
         addRaceEvent({
           type: "fastest_lap",
           driver_name: car.driver_name,
@@ -951,15 +979,25 @@ function createSimulator(config = {}) {
     // the finish, not a pass, so no leader change is announced then.
     if (isRace) {
       const leader = order[0];
-      if (raceLeaderSlot != null && leader.slot_id !== raceLeaderSlot && !checkeredTaken) {
-        addRaceEvent({
-          type: "leader_change",
-          driver_name: leader.driver_name,
-          slot_id: leader.slot_id,
-          detail: `Lap ${lapsDone(leader) + 1}`,
-        });
+      const settling = raceLeaderSlot == null || lapsDone(leader) < 1 || checkeredTaken;
+      if (settling || leader.slot_id === raceLeaderSlot) {
+        // The opening-lap shuffle, the leader holding on (or retaking the lead within the hold),
+        // or the finish order under the flag: nothing to announce.
+        if (settling) raceLeaderSlot = leader.slot_id;
+        leaderCandidate = null;
+      } else {
+        if (leaderCandidate?.slot !== leader.slot_id) leaderCandidate = { slot: leader.slot_id, since: clock };
+        if (clock - leaderCandidate.since >= LEADER_HOLD_SECONDS) {
+          addRaceEvent({
+            type: "leader_change",
+            driver_name: leader.driver_name,
+            slot_id: leader.slot_id,
+            detail: `Lap ${lapsDone(leader) + 1}`,
+          });
+          raceLeaderSlot = leader.slot_id;
+          leaderCandidate = null;
+        }
       }
-      raceLeaderSlot = leader.slot_id;
       if (!penaltyIssued && raceFrac >= PENALTY_FRAC) {
         penaltyIssued = true;
         const offender = order.find((car) => car.position === 3 && car.finish_status === FINISH.running);
@@ -1094,4 +1132,4 @@ function createSimulator(config = {}) {
   return { step };
 }
 
-module.exports = { analyseBattle, createSimulator, PHASES, classPace };
+module.exports = { analyseBattle, createSimulator, mulberry32, PHASES, classPace };

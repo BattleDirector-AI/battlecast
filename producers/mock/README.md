@@ -93,7 +93,9 @@ Positions are always the **overall** running order (multi-class independent), as
 real multi-class session. Every tick also carries `session.multiclass`, set from the
 field's actual class mix (always `true` for the simulator's four-class field), and a rolling
 `race_events` list (ADR 0023): in the race, fastest laps from each car's second lap (overall, or
-per class when only the class best falls), leader changes, Tsunoda's retirement, and a staged
+per class when only the class best falls, and only once the class has a best from after the
+opening lap; an overall fastest lap can still come on a car's second lap), leader changes (after the opening lap, once the new leader has held it 10 s),
+Tsunoda's retirement, and a staged
 `+5s` penalty to the car running P3 at 30%; each event stays listed 45 sim-seconds, at most 20,
 with ids prefixed by a per-run key. Every tick also carries an `event` (ADR 0024:
 `battlecast Demo Endurance` at `Mock Raceway`, whose `round` counts the broadcast cycles, so it
@@ -184,6 +186,8 @@ Both check against the same required-field contract in
 visits **every** phase, and asserts that each of qualifying / grid / race / results was
 observed and validated (not just the race), and that qualifying surfaced a
 `notable.class_best_lap` flag so the class-best edge is exercised.
+The run is seeded (every random draw goes through a PRNG passed as `config.rng`; the live
+mock uses `Math.random`), so it is identical every time; `VALIDATE_SEED=<n>` tries another seed.
 
 ## Requirements
 

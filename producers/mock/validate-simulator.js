@@ -11,7 +11,7 @@
 // `notable.class_best_lap` flag, so the class-best edge the #22 widget relies on
 // is exercised. Exits non-zero on any failure.
 
-const { createSimulator, PHASES, classPace } = require("./simulate.js");
+const { createSimulator, mulberry32, PHASES, classPace } = require("./simulate.js");
 const { validate } = require("./validate.js");
 
 // Lap-time realism band, as a fraction of a class's base pace. A completed lap far
@@ -19,14 +19,16 @@ const { validate } = require("./validate.js");
 // bug: slower classes posting sub-pace laps); far above means an inflated multi-lap
 // "out lap". Per-car skill offset (±0.5s) plus the ±4% pace noise keep real laps
 // comfortably inside [0.9x, 1.5x]; the pre-fix code produced laps down to ~0.55x.
-// The band is probabilistic (unseeded Math.random) but the 0.9x floor keeps a
-// deliberate ~0.05 margin over the observed worst legitimate lap (~0.95x), so the
-// check is stable in practice; tightening the band or widening the noise clamp
-// would erode that margin.
+// The run is seeded (VALIDATE_SEED below), but the 0.9x floor keeps a deliberate ~0.05
+// margin over the observed worst legitimate lap (~0.95x), so the check also holds for other
+// seeds; tightening the band or widening the noise clamp would erode that margin.
 const LAP_MIN_FACTOR = 0.9;
 const LAP_MAX_FACTOR = 1.5;
 
 const TICKS = Number(process.env.VALIDATE_TICKS) || 3000;
+// Every random draw in the simulator goes through a PRNG seeded here, and the run key is fixed,
+// so the run is identical every time (#346). VALIDATE_SEED tries another seed.
+const SEED = Number(process.env.VALIDATE_SEED) || 346;
 const DT_SECONDS = Number(process.env.SIM_DT_SECONDS) || 2;
 
 // Drive the phase machine with short, explicit durations (independent of any
@@ -35,6 +37,8 @@ const DT_SECONDS = Number(process.env.SIM_DT_SECONDS) || 2;
 // to complete flying laps and set class bests.
 const simulator = createSimulator({
   phaseSeconds: { qualifying: 400, grid: 40, race: 400, results: 40 },
+  rng: mulberry32(SEED),
+  runKey: `seed${SEED}`,
 });
 
 let failed = 0;
@@ -112,7 +116,22 @@ const isFinishCode = (n) => Number.isInteger(n) && n >= 0 && n <= 3;
 // prefix; an id's entry never changes while listed; an id that leaves the list was listed for at
 // least 30 s and never comes back; an overall fastest lap is not also sent as a class event; and
 // the run announces all four types.
+// No bursts at the race start (#346): nothing is announced in a race leg's first
+// RACE_START_QUIET_SECONDS (the opening-lap shuffle and the standing-start lap are not news), two
+// leader changes are never announced within LEADER_CHANGE_MIN_GAP_SECONDS of each other (simulate.js
+// LEADER_HOLD_SECONDS) in one race leg, and a class fastest lap is announced only once its class
+// has a best set after the opening lap: some other lap in the class, completed on a car's second
+// lap or later, beat the class best before it and is slower than the announced lap. Laps are
+// counted per car from the `last_lap` changes in the leg. Overall fastest laps from a car's
+// second lap on are not part of this guard, by design (#346 named class laps only).
 const RACE_EVENT_MIN_LISTED_SECONDS = 30;
+const RACE_START_QUIET_SECONDS = 60;
+const LEADER_CHANGE_MIN_GAP_SECONDS = 10;
+let lastLeaderChangeTick = null;
+let legLapCount = new Map(); // slot_id -> laps completed this leg
+let legLastLap = new Map(); // slot_id -> last_lap last seen
+let legClassMin = new Map(); // vehicle_class -> fastest lap completed this leg
+let legClassRecords = new Map(); // vehicle_class -> [{ slot_id, lap }] post-opening laps that beat the class best
 const raceEventViolations = [];
 const raceEventFirstTick = new Map(); // id -> tick first listed
 const raceEventBody = new Map(); // id -> JSON of its entry
@@ -346,6 +365,30 @@ for (let i = 0; i < TICKS; i++) {
   }
   lastRaceTick = payload.mode === "race" ? payload : payload.mode === "results" ? lastRaceTick : null;
 
+  if (payload.mode === "race") {
+    if (raceTicks === 0) {
+      lastLeaderChangeTick = null;
+      legLapCount = new Map();
+      legLastLap = new Map();
+      legClassMin = new Map();
+      legClassRecords = new Map();
+    }
+    const before = new Map(legClassMin);
+    for (const v of payload.vehicles) {
+      if (v.last_lap == null || v.last_lap === legLastLap.get(v.slot_id)) continue;
+      legLastLap.set(v.slot_id, v.last_lap);
+      const laps = (legLapCount.get(v.slot_id) || 0) + 1;
+      legLapCount.set(v.slot_id, laps);
+      const best = before.get(v.vehicle_class);
+      if (laps >= 2 && (best == null || v.last_lap < best)) {
+        if (!legClassRecords.has(v.vehicle_class)) legClassRecords.set(v.vehicle_class, []);
+        legClassRecords.get(v.vehicle_class).push({ slot_id: v.slot_id, lap: v.last_lap });
+      }
+      const min = legClassMin.get(v.vehicle_class);
+      if (min == null || v.last_lap < min) legClassMin.set(v.vehicle_class, v.last_lap);
+    }
+  }
+
   {
     const list = payload.race_events;
     const problems = [];
@@ -365,6 +408,18 @@ for (let i = 0; i < TICKS; i++) {
         if (!raceEventFirstTick.has(e.id)) {
           raceEventFirstTick.set(e.id, i);
           raceEventBody.set(e.id, body);
+          if (payload.mode === "race" && raceTicks * DT_SECONDS < RACE_START_QUIET_SECONDS) {
+            problems.push(`${e.type} ${e.id} announced ${raceTicks * DT_SECONDS}s into the race`);
+          }
+          if (e.type === "leader_change") {
+            const gap = lastLeaderChangeTick == null ? Infinity : (i - lastLeaderChangeTick) * DT_SECONDS;
+            if (gap < LEADER_CHANGE_MIN_GAP_SECONDS) problems.push(`leader_change ${e.id} ${gap}s after the previous one`);
+            lastLeaderChangeTick = i;
+          }
+          if (payload.mode === "race" && e.type === "fastest_lap" && e.vehicle_class != null) {
+            const beaten = (legClassRecords.get(e.vehicle_class) ?? []).some((r) => r.lap > e.lap_time);
+            if (!beaten) problems.push(`class fastest lap ${e.id} before ${e.vehicle_class} had a best from after the opening lap`);
+          }
         } else if (raceEventBody.get(e.id) !== body) problems.push(`id ${e.id} changed while listed`);
         if (e.type === "fastest_lap" && e.vehicle_class == null) {
           const dup = list.find(
@@ -448,7 +503,11 @@ if (yellowViolations.length > 0) {
 // a car in the pit lane is never `yellow_involved` (SPEC.md; #234).
 {
   const LONG_RACE_SECONDS = 2000;
-  const longRace = createSimulator({ lockPhase: "race", phaseSeconds: { race: LONG_RACE_SECONDS } });
+  const longRace = createSimulator({
+    lockPhase: "race",
+    phaseSeconds: { race: LONG_RACE_SECONDS },
+    rng: mulberry32(SEED + 1),
+  });
   // The window fractions mirror simulate.js LOCAL_YELLOW_START / LOCAL_YELLOW_END.
   const involvedSlots = new Set();
   let pitDuringWindow = false;
