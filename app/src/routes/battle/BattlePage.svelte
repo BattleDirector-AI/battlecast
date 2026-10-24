@@ -4,6 +4,7 @@
   import { createBattleGrace } from '../../lib/battleGrace.js'
   import { connect, resolveSrc } from '../../lib/sseClient.js'
   import { watchConfig } from '../../lib/configWatch.js'
+  import { resolveMotion, applyMotion } from '../../lib/motion.js'
   import { loadConfig, DEFAULT_CONFIG, normalizeConfig } from '../../lib/overlayConfig.js'
 
   let snapshot = $state(null)
@@ -28,6 +29,9 @@
     loadConfig(window.location.search).then((resolved) => {
       if (cancelled) return
       config = resolved
+      // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=`
+      // URL param still wins). App.svelte already set a URL/default baseline at boot.
+      applyMotion(resolveMotion(window.location.search, { reducedMotion: resolved.reducedMotion }))
       // Live-reload (#115, overlay-config rule 22): re-read the profile on an interval and
       // apply a change without a manual refresh — immediately, no transition. The producer
       // feed is left untouched (a config edit does not reconnect SSE).
@@ -35,6 +39,9 @@
         window.location.search,
         (nextConfig) => {
           config = nextConfig
+          applyMotion(
+            resolveMotion(window.location.search, { reducedMotion: nextConfig.reducedMotion }),
+          )
         },
         { initial: resolved },
       )

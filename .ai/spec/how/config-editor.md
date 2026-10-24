@@ -138,11 +138,13 @@ stays accurate and a later edit still reopens. It is a control, so rule 16 appli
 
 **Live reload (read path, rule 22).** Every render page — `AllPage.svelte` and each standalone
 page (`TowerPage`, `BattlePage`, `DriverPage`, `QualifyingPage`, `GridPage`, `ResultsPage`,
-`LogosPage`, `UpdatesPage`) — calls `watchConfig(location.search, …, { initial: resolved })` after
-its initial `loadConfig`, and stops it on unmount. Each tick re-resolves the config through the same
-precedence chain and compares; on a difference the page applies the new config exactly as its initial
-load did (`AllPage` also re-applies motion and re-fits the stage). The SSE feed is **not** touched — a
-config edit never reconnects the producer.
+`LogosPage`, `UpdatesPage`, `InfoPage`) — calls `watchConfig(location.search, …, { initial: resolved })`
+after its initial `loadConfig`, and stops it on unmount. Each tick re-resolves the config through the
+same precedence chain and compares; on a difference the page applies the new config exactly as its
+initial load did, including `applyMotion(resolveMotion(location.search, { reducedMotion }))` so the
+profile's `reducedMotion` refines `App.svelte`'s boot baseline (a `?motion=` param still wins;
+`AllPage` also re-fits the stage). The SSE feed is **not** touched — a config edit never reconnects
+the producer.
 
 ## Key Abstractions
 

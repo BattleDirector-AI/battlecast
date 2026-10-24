@@ -8,6 +8,11 @@
  *
  * The page is loaded through a non-static specifier so its absence fails each test with a
  * message naming it, rather than failing the whole file at import time.
+ *
+ * Every URL carries `motion=reduced`: the page applies the resolved motion mode to the root on
+ * load (overlay-config rule 10), which would otherwise replace the suite's reduced-motion
+ * default with `full` and give the panel its real exit transition, so these timing cases pin the
+ * instant (duration 0) path.
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { flushSync, tick } from 'svelte'
@@ -51,7 +56,7 @@ function advance(ms) {
 
 async function mountPage({ profile = null, failing = false } = {}) {
   const Page = await loadPage()
-  window.history.replaceState({}, '', profile || failing ? '/info?profile=p' : '/info')
+  window.history.replaceState({}, '', profile || failing ? '/info?profile=p&motion=reduced' : '/info?motion=reduced')
   const fetchMock = vi.fn(async () =>
     profile ? { ok: true, status: 200, json: async () => profile } : { ok: false, status: 404, json: async () => ({}) },
   )
@@ -152,7 +157,7 @@ describe('/info standalone route (rule 82)', () => {
 
   it('applies nothing and starts no reload poll when unmounted before the profile arrives', async () => {
     const Page = await loadPage()
-    window.history.replaceState({}, '', '/info?profile=p')
+    window.history.replaceState({}, '', '/info?profile=p&motion=reduced')
     let release
     const gate = new Promise((resolve) => (release = resolve))
     const profile = { widgets: { info: { lines: ['Follow us @battlecast'] } } }
