@@ -17,6 +17,8 @@
     rendersText,
     TEXT_SCALE_PRESETS,
     normalizeGraceSeconds,
+    UPDATES_DWELL_MIN,
+    UPDATES_DWELL_MAX,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
@@ -31,6 +33,7 @@
   import * as api from '../../lib/configApi.js'
   import { connect as connectFeed, DEFAULT_SRC } from '../../lib/sseClient.js'
   import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
+  import raceEventsFixture from '../../../../spec/v1/fixtures/race-events.json'
 
   // Preview snapshot. `race-close-battle.json` is the canonical NO-telemetry fixture (so
   // it must NOT gain a `subject.telemetry` block — the compliance harness and an AllLayout
@@ -64,6 +67,9 @@
       ...baseSnapshot.subject,
       telemetry: { throttle: 0.82, brake: 0, speed: 247, gear: 6 },
     },
+    // Sample race events so the preview's race update box has cards to play through
+    // (overlay-config rule 51); the preview AllView takes no baseline for them.
+    race_events: raceEventsFixture.race_events,
   }
 
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
@@ -858,6 +864,30 @@
                   />
                 </label>
               </div>
+            {/if}
+            {#if key === 'updates'}
+              <!-- #27: how long each race update card stays up (2-60 s, rule 50). A value
+                   outside the range is refused and the stored one kept (rule 44b). -->
+              <label class="num">
+                dwell secs
+                <HelpTip
+                  text={FIELD_HELP.updatesDwellSeconds}
+                  label="dwell seconds"
+                  testid="help-dwell-{key}"
+                />
+                <input
+                  type="number"
+                  min={UPDATES_DWELL_MIN}
+                  max={UPDATES_DWELL_MAX}
+                  step="0.5"
+                  data-testid="dwell-{key}"
+                  value={w.dwellSeconds}
+                  {@attach numberField(
+                    (n) => n >= UPDATES_DWELL_MIN && n <= UPDATES_DWELL_MAX && setDwellSeconds(key, n),
+                    () => config.widgets[key].dwellSeconds,
+                  )}
+                />
+              </label>
             {/if}
             {#if key === 'qualifying'}
               <!-- #22-only: which session modes the timing bar dwells on every

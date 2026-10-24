@@ -178,6 +178,21 @@ export const DEFAULT_CONFIG = Object.freeze({
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
+    // Race update box (#27, overlay-config rule 50): one producer race event at a time,
+    // top-right clear of Race Control. Reads only `dwellSeconds` (its own default 8 and
+    // [2, 60] range, applied in normalizeConfig), plate opacity and text size; the other
+    // knobs are inert, carried for a uniform widget shape. Draws nothing with no card up.
+    updates: {
+      visible: true, x: 1376, y: 24, w: 520, h: 120, z: 8, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline', speedUnit: 'kmh',
+      waitForLowerThird: true,
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
+    },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   // `classColors` (rule 32, ADR 0010): a freeform broadcaster override map, class-name key
@@ -387,6 +402,7 @@ export const PLATE_WIDGET_KEYS = Object.freeze([
   'qualifying',
   'racecontrol',
   'onboard',
+  'updates',
 ])
 
 /** Per-widget text size presets (overlay-config.md rules 39-41, ADR 0015): the factor
@@ -402,6 +418,7 @@ export const TEXT_WIDGET_KEYS = Object.freeze([
   'qualifying',
   'racecontrol',
   'onboard',
+  'updates',
 ])
 
 /** Whether the config UI offers a text-size control for this widget. Withholding it is a
@@ -464,6 +481,18 @@ function normalizeModes(value, fallback) {
   const list = Array.isArray(value) ? value : value != null ? String(value).split(',') : []
   const cleaned = list.map((s) => String(s).trim()).filter(Boolean)
   return cleaned.length ? cleaned : [...fallback]
+}
+
+/** Update card dwell range (rule 50): the `updates` widget only. */
+export const UPDATES_DWELL_MIN = 2
+export const UPDATES_DWELL_MAX = 60
+
+/** A widget's `dwellSeconds`: for `updates` a valid number in [2, 60] (rule 50), for every
+ *  other widget any valid number above 0 (rule 46); else the fallback. */
+function normalizeDwell(key, value, fallback) {
+  const n = finiteOrNull(value)
+  if (key === 'updates') return n !== null && n >= UPDATES_DWELL_MIN && n <= UPDATES_DWELL_MAX ? n : fallback
+  return n > 0 ? n : fallback
 }
 
 // Prototype-polluting keys, same set `normalizeConfig` already drops from `widgets` —
@@ -576,10 +605,7 @@ export function normalizeConfig(raw) {
         w.trigger === 'dwell' || w.trigger === 'persistent'
           ? w.trigger
           : d.trigger ?? LOWER_THIRD_DEFAULTS.trigger,
-      dwellSeconds:
-        finiteOrNull(w.dwellSeconds) > 0
-          ? finiteOrNull(w.dwellSeconds)
-          : d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds,
+      dwellSeconds: normalizeDwell(key, w.dwellSeconds, d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds),
       showOnConnect:
         typeof w.showOnConnect === 'boolean'
           ? w.showOnConnect

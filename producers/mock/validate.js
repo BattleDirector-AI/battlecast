@@ -59,7 +59,47 @@ function validate(payload) {
     );
   }
 
+  // Optional, additive `race_events` (ADR 0023): null/absent, or an array of events, each with
+  // a non-blank string id (unique in the list), a known type, a driver_name, and the field its
+  // type requires.
+  if (payload.race_events != null) {
+    check(Array.isArray(payload.race_events), "race_events must be an array or null", errors);
+    if (Array.isArray(payload.race_events)) {
+      const ids = new Set();
+      payload.race_events.forEach((e, idx) => {
+        for (const problem of raceEventProblems(e)) errors.push(`race_events[${idx}]: ${problem}`);
+        if (e && typeof e.id === "string") {
+          check(!ids.has(e.id), `race_events[${idx}].id "${e.id}" is not unique`, errors);
+          ids.add(e.id);
+        }
+      });
+    }
+  }
+
   return errors;
 }
 
-module.exports = { validate };
+const RACE_EVENT_TYPES = ["fastest_lap", "leader_change", "retirement", "penalty"];
+const nonBlank = (v) => typeof v === "string" && v.trim() !== "";
+
+/** What is wrong with one `race_events` entry (empty when it is a valid event). */
+function raceEventProblems(e) {
+  if (!e || typeof e !== "object" || Array.isArray(e)) return ["must be an object"];
+  const problems = [];
+  if (!nonBlank(e.id)) problems.push("id must be a non-blank string");
+  if (!RACE_EVENT_TYPES.includes(e.type)) problems.push(`type ${JSON.stringify(e.type)} is not a known type`);
+  if (!nonBlank(e.driver_name)) problems.push("driver_name must be a non-blank string");
+  if (e.slot_id != null && typeof e.slot_id !== "string") problems.push("slot_id must be a string");
+  if (e.vehicle_class != null && typeof e.vehicle_class !== "string") problems.push("vehicle_class must be a string or null");
+  if (e.detail != null && typeof e.detail !== "string") problems.push("detail must be a string");
+  if (e.type === "fastest_lap" && !(typeof e.lap_time === "number" && Number.isFinite(e.lap_time) && e.lap_time > 0)) {
+    problems.push("fastest_lap needs a lap_time > 0");
+  }
+  if (e.type === "retirement" && e.finish_status !== 2 && e.finish_status !== 3) {
+    problems.push("retirement needs finish_status 2 or 3");
+  }
+  if (e.type === "penalty" && !nonBlank(e.penalty)) problems.push("penalty needs penalty text");
+  return problems;
+}
+
+module.exports = { validate, raceEventProblems };
