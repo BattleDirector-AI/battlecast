@@ -573,6 +573,93 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     while the HUD is idle or held off, and the strip reads that widget's saved `driverInfo`. The
     standalone `/onboard` route uses the default `driverInfo` (name, number, position).
 
+### Race update box (`/updates`, #27)
+
+The race update box shows the producer's race events (fastest laps, leader changes, retirements,
+penalties) one card at a time. It reads only the snapshot's `race_events`
+(`protocol-contract.md` rule 22) and never derives an event from `vehicles[]` or from changes
+between snapshots. Decision record: `docs/decisions/0023-race-update-box.md`.
+
+69. **Which entries are events.** An absent, null, or non-array `race_events` holds no events.
+    An entry of the array is an **event** only when all of these hold:
+    - it is an object, and not an array;
+    - its `id` is a string with at least one non-whitespace character;
+    - its `type` is exactly one of `fastest_lap`, `leader_change`, `retirement`, `penalty`
+      (compared as sent: case-sensitive, untrimmed);
+    - its `driver_name` is present by the test of rule 14b;
+    - for `fastest_lap`, `lap_time` is a finite number greater than 0; for `retirement`,
+      `finish_status` is exactly the integer `2` or `3`; for `penalty`, `penalty` is a string
+      with at least one non-whitespace character.
+
+    Any other entry is skipped: it is never shown or queued, and it does not stop the box
+    reading the entries around it. Optional fields never disqualify an entry: a
+    `vehicle_class` or `detail` that is not a string with a non-whitespace character counts as
+    absent, and the box does not read `slot_id`. Ids are compared as exact strings. Only an
+    event's id is ever marked seen (rules 71–72): a skipped entry marks nothing, so the same id
+    sent later as a valid event is a new event.
+70. **The card.** The box shows one event at a time as a card (`data-testid="race-update"`)
+    carrying `data-event-id` (the event's `id`) and `data-event-type` (its `type`). The card
+    holds, in order:
+    - **Label** (`data-testid="update-label"`): `FASTEST LAP` for `fastest_lap`, `NEW LEADER`
+      for `leader_change`, `RETIRED` for a `retirement` whose `finish_status` is `2`,
+      `DISQUALIFIED` for one whose `finish_status` is `3`, and `PENALTY` for `penalty`. A
+      **class event**, one whose `vehicle_class` is a string with a non-whitespace character,
+      puts that class first, trimmed and uppercased (locale-independent `toUpperCase`), then
+      one space: `GT3 FASTEST LAP`, `LMGT3 PRO-AM NEW LEADER`, `GT3 RETIRED`. Any other event is
+      overall and its label has no prefix. The prefix is part of the label, not a class tag:
+      hiding class tags (rule 60) does not remove it.
+    - **Name** (`data-testid="update-name"`): the event's `driver_name` in the full form of
+      rule 48: `Kevin Estre` → `K. Estre`, `Estre` → `Estre`, `E.Jacobs` → `E.Jacobs`.
+    - **Value** (`data-testid="update-value"`): for `fastest_lap`, `lap_time` formatted exactly
+      as the tower's lap-time flash formats a lap (rule 40): `208.977` → `3:28.977`, `58.204`
+      → `58.204`. For `penalty`, the `penalty` string trimmed and otherwise verbatim
+      (`Drive-through`, `+5s`). A `leader_change` or `retirement` card has no value element.
+    - **Detail** (`data-testid="update-detail"`): the `detail` string, trimmed and otherwise
+      verbatim, when it has a non-whitespace character; otherwise the card has no detail
+      element.
+
+    The card shows nothing else from the event. While no card is up the box draws nothing: no
+    plate, no placeholder.
+71. **Events already listed when the box starts are never shown.** The first non-null snapshot
+    the box receives after it mounts is its **baseline**: every event in it is marked seen and
+    none is shown. That holds whatever the snapshot carries: with no `race_events` the baseline
+    is empty, and every event in a later snapshot is new. So an OBS reload, a page refresh, or
+    the widget being switched on in `/all` never replays an event the producer is still
+    listing. The seen ids last as long as the box stays mounted: a feed that drops and resumes
+    takes no new baseline, and an event first listed after it resumes is new. In the `/config`
+    preview (`overlay-config.md` rule 51) there is no baseline: the first snapshot's events
+    are new.
+72. **Each event shows once.** After the baseline, the events in a snapshot whose id has not
+    been seen are **new**. The box marks each one seen and takes them in array order: a new
+    event shows at once when no card is up, and otherwise joins the end of the **waiting
+    queue**. An id that has been seen never shows again: not when the producer re-sends it, not
+    when it leaves `race_events` and comes back, and not when a second entry in the same
+    snapshot repeats it.
+73. **Dwell, queue, and hiding.** A card stays up for the box's dwell (`dwellSeconds`, default
+    8; `overlay-config.md` rule 50), counted from when it appeared, whatever snapshots arrive in
+    the meantime and whether or not its event is still listed. When the dwell ends, the first
+    waiting event replaces it at once (rule 74), and its own full dwell counts from that swap;
+    with nothing waiting, the box hides. At most **5** events wait behind the card that is up: when a sixth would join, the
+    oldest waiting event is dropped. A dropped event is never shown and stays seen. A change of
+    `dwellSeconds` applies from the next card; the card that is up keeps the dwell it started
+    with. The box shows events in every `mode`; it has no mode gate, no trigger, and no
+    show-on-connect.
+74. **Reveal.** Each card enters and leaves with the lower-thirds' skewed bar-wipe (the shared
+    lower-third shell). When a waiting card replaces the one on screen, the swap is two plates,
+    not new text in the old one: at the same moment, the outgoing card's plate plays its
+    wipe-out and the incoming card's plate plays its wipe-in, as a camera cut does on the
+    driver lower-third. The incoming card is up, and its dwell is counting, from that moment.
+    Under reduced motion (`overlay-config.md` rule 10) cards appear and disappear without the
+    wipe.
+75. **Routes and composition.** The standalone `/updates` route is a transparent overlay route.
+    It connects to the producer the way every render page does (`?src=`, then the default), loads
+    the profile named by `?profile=` and reads its `updates` widget's `dwellSeconds`, and uses
+    8 when there is no profile or the profile fails to load. Inside `/all` the box is the
+    `updates` widget: while `visible` it is mounted at its configured geometry and reads its own
+    `dwellSeconds`; while not `visible` it is not mounted. The box has no idle predicate: with no
+    card up it already draws nothing, so `/config` offers no "Hide when idle" for it and a saved
+    `hideWhenIdle: true` on it changes nothing (as for the HUD, rule 58).
+
 ### Composite & takeover routes
 
 25. **`/all`** composes configured widgets onto the fixed canvas by `z` order (see
