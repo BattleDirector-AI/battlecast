@@ -160,11 +160,23 @@ on a field name/type, `schema.json` wins.
     `info_lines` entry that is not a string, or is blank, is skipped, and an `info_lines` that is
     not an array holds no lines. Neither is ever an error. Decision record:
     `docs/decisions/0024-info-panel.md`.
+24. **Weather** (additive): **`session.weather`**, an open object with the session's live
+    weather, or null, with three optional fields: **`air_temp`** and **`track_temp`** (numbers,
+    canonical **°C**; consumers convert for display, as they do `subject.telemetry.speed`), and
+    **`conditions`** (a short producer string such as `Clear` or `Light rain`, shown verbatim
+    apart from trimming; the info panel's weather card uppercases it). All are producer
+    readings: the overlay never derives weather from `vehicles[]` or anything else. The weather
+    box and the info panel's weather card consume it (`widgets.md` rules 83–88). A field that is
+    absent, null or of the wrong type (a temperature that is not a finite number, a blank
+    `conditions`) counts as absent and the others still render; a `session.weather` that is not
+    an object has no fields. Neither is ever an error. Decision record:
+    `docs/decisions/0025-weather-box.md`.
 15. **`session`** (open object) — session status: **`flag`** (free-form string;
     `green`/`yellow`/`red`/`checkered`/`white`/`none` common), **`full_course_yellow`** /
     **`safety_car`** (booleans, independent), timed fields **`time_remaining`** / **`session_length`**
     (seconds), lap fields **`laps_remaining`** / **`total_laps`** / **`current_lap`** (integers), and
-    optional **`basis`** (`"time"` | `"laps"`), and **`multiclass`** (boolean or null; rule 20).
+    optional **`basis`** (`"time"` | `"laps"`), **`multiclass`** (boolean or null; rule 20), and
+    **`weather`** (object or null; rule 24).
 16. **Timed-vs-lap progress selection** (consumer-inferred): honor `basis` if set; else if
     `time_remaining` non-null → session clock; else if a lap field non-null → lap counter; else hide
     the progress readout. The widget MUST render `current_lap`/`total_laps` verbatim (`"LAP X OF Y"`)

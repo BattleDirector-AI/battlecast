@@ -318,6 +318,23 @@ required-ness.
     All null or absent in a timed session.
   - **`basis`** (string) — an optional explicit `"time"` \| `"laps"` override of the
     progress mode.
+  - **`weather`** (object or null, **ADDITIVE**) — the session's live weather. Null or
+    absent means the producer does not say. Every field is optional and nullable:
+    - **`air_temp`** (number, **°C**) — the air temperature.
+    - **`track_temp`** (number, **°C**) — the track surface temperature.
+    - **`conditions`** (string) — a short description of the conditions in the
+      producer's own words (`Clear`, `Overcast`, `Light rain`), shown **verbatim** apart
+      from trimming (battlecast's info panel card uppercases it).
+
+    Temperatures are canonical °C, like `subject.telemetry.speed` is canonical km/h:
+    battlecast converts to °F when the broadcaster chooses it and shows whole degrees. The
+    values are the **producer's** readings: a consumer **MUST NOT** derive weather from
+    anything else. A consumer treats a field that is absent, null, of the wrong type, or
+    (for `conditions`) blank as absent, and renders the others. battlecast shows it in a
+    compact weather box and as a weather card in the info panel's rotation. A worked
+    example is [`fixtures/race-weather.json`](fixtures/race-weather.json). Added in a
+    minor revision of v1; `schemaVersion` stays `"1"`. Later revisions may add fields
+    (track wetness, wind).
 
   **Timed vs lap-limited — automatic selection.** The consumer infers which progress
   readout to draw; the producer only disambiguates the endurance case via `basis`:

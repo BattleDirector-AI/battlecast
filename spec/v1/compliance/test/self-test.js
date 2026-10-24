@@ -575,6 +575,57 @@ function testEventAndInfoLinesValidateAgainstSchema() {
   );
 }
 
+// `session.weather` (protocol-contract.md rule 24, ADR 0025) is an optional object inside
+// `session`. The race-weather fixture carries air and track temperature and conditions and must
+// validate, as must null, a partial weather, a payload whose session has no weather, and a
+// payload with no session at all; and the schema must REJECT a temperature that is not a number,
+// a non-string conditions, and a weather that is not an object.
+function testSessionWeatherValidatesAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const weather = load("race-weather.json");
+  const w = weather.session && weather.session.weather;
+  assert(
+    w && typeof w.air_temp === "number" && typeof w.track_temp === "number" && typeof w.conditions === "string",
+    "race-weather.json must carry session.weather with air_temp, track_temp and conditions"
+  );
+  let result = validator.validate(weather);
+  assert(result.valid, `expected race-weather.json to validate, got: ${result.errors.join("; ")}`);
+
+  const accepts = (mutate, label) => {
+    const payload = JSON.parse(JSON.stringify(weather));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(r.valid, `expected ${label} to validate, got: ${r.errors.join("; ")}`);
+  };
+  accepts((p) => (p.session.weather = null), "session.weather: null");
+  accepts((p) => (p.session.weather = { track_temp: -2.5 }), "a weather with only a (negative) track_temp");
+  accepts((p) => (p.session.weather = { air_temp: null, track_temp: null, conditions: null }), "a weather with null fields");
+  accepts((p) => (p.session.weather.track_wetness = 0.3), "a weather with a field this revision does not define");
+  accepts((p) => delete p.session.weather, "a session without weather");
+  accepts((p) => delete p.session, "a payload without session");
+
+  const rejects = (mutate, where, label) => {
+    const payload = JSON.parse(JSON.stringify(weather));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes(where)),
+      `expected the ${label} error to name ${where}, got: ${r.errors.join("; ")}`
+    );
+  };
+  rejects((p) => (p.session.weather.air_temp = "22"), "/session/weather/air_temp", 'air_temp "22"');
+  rejects((p) => (p.session.weather.track_temp = true), "/session/weather/track_temp", "track_temp true");
+  rejects((p) => (p.session.weather.conditions = 3), "/session/weather/conditions", "a numeric conditions");
+  rejects((p) => (p.session.weather = "Clear"), "/session/weather", 'weather: "Clear"');
+
+  console.log(
+    "PASS: session.weather validates against schema.json, null, partial and absent forms still validate, and a non-numeric temperature, a non-string conditions and a non-object weather are rejected (ADR 0025)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
@@ -586,6 +637,7 @@ async function main() {
   testMulticlassFieldValidatesAgainstSchema();
   testRaceEventsValidateAgainstSchema();
   testEventAndInfoLinesValidateAgainstSchema();
+  testSessionWeatherValidatesAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");

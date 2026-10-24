@@ -89,6 +89,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
     | `dwellSeconds` | updates | how long each race update card stays up (rule 50) |
     | `dwellSeconds`, `lines` | info | how long each info line stays up, and the broadcaster's own lines (rule 52; `lines` is carried by the `info` widget only) |
+    | `weatherCard` | info | whether the weather card joins the info panel's rotation (rule 57; carried by the `info` widget only) |
+    | `tempUnit` | weather, info | `c` (default) / `f` temperature display unit (rule 54) |
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
     | `classDisplay` | tower | inline vs grouped multi-class layout |
     | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
@@ -135,11 +137,11 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     plate-opacity control in the widget row — rule 14's control surface — for each widget that
     renders a background plate, so rule 15's broadcaster judgement call ("a more see-through plate
     over busy footage") never requires hand-editing a profile JSON or a round-trip through
-    Export/Import. The **plate-rendering widgets** are the eight that paint one of the plate tokens:
+    Export/Import. The **plate-rendering widgets** are the nine that paint one of the plate tokens:
     `tower` and `battle` (panel + header bar), `driver`, `qualifying`, `updates` and `info` (the
-    shared lower-third card), `racecontrol` and `onboard` (header-bar plate). `logos` composites its images straight
+    shared lower-third card), `racecontrol`, `onboard` and `weather` (header-bar plate). `logos` composites its images straight
     over the video with no panel behind them, so it gets **no** control — gated the same way
-    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all nine. The
+    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all ten. The
     control spans the full `[0,1]` range in steps of `0.01`, starts at the `0.82` default, and
     renders its current value as text beside it — two decimals, matching the step — so the setting is
     readable at a glance instead of inferred from a slider position. Per rule 16 it carries its own
@@ -207,9 +209,9 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     - once 10 lines are kept, the remaining entries are dropped.
 
     So `[' Follow us @battlecast ', '', 42, 'Follow us @battlecast']` gives
-    `['Follow us @battlecast']`. Unlike every other knob, `lines` is carried by the `info` widget
-    only: no other widget, including an unknown widget key (rule 6), has a `lines` key after
-    normalization. Both `/all` and the standalone `/info` route read `dwellSeconds` and `lines`
+    `['Follow us @battlecast']`. Unlike every other knob, `lines` (like `weatherCard`, rule 57)
+    is carried by the `info` widget only: no other widget, including an unknown widget key
+    (rule 6), has a `lines` key after normalization. Both `/all` and the standalone `/info` route read `dwellSeconds` and `lines`
     from the loaded profile. A profile saved before the widget existed has no `info` entry and
     gets these defaults, and `configVersion` stays `"1"` (rule 2).
 53. **The editor's `info` row** is part of rule 14's control surface. The row shows the
@@ -242,7 +244,52 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     `info_lines` only while the `info` widget's `lines` is empty: as soon as the broadcaster has
     a line of their own, the sample lines leave the preview snapshot, so the preview rotates the
     broadcaster's lines alone and a first added line shows in the preview at once (as a changed
-    line list, `widgets.md` rule 80). Removing the last line brings the sample lines back.
+    line list, `widgets.md` rule 80), unless the weather card (`widgets.md` rule 88, rule 57) is
+    the entry on screen: the preview's sample `session.weather` (rule 56) stays in the snapshot
+    whatever the `lines`, so the card is still in the new list, keeps the rest of its dwell, and
+    the new line follows it (`widgets.md` rules 80, 88). Removing the last line brings the sample
+    lines back.
+
+### Weather
+
+54. **`tempUnit`** (default `c`) is the temperature display unit: `c` for °C, `f` for °F
+    (`widgets.md` rule 84). Normalization keeps exactly the string `c` or `f` and replaces
+    anything else with `c`: absent, null, another case such as `F`, a padded string, `celsius`,
+    or a value of another type. It is normalized onto every widget for a uniform shape, as
+    `speedUnit` is, and the `weather` and `info` widgets read it, each its own. `/all`, the
+    standalone `/weather` route and the standalone `/info` route read it from the loaded
+    profile; with no profile, or a profile without the key, it is `c`. There is no URL knob for
+    it, and `configVersion` stays `"1"` (rule 2).
+55. **Weather box defaults.** The `weather` widget (`widgets.md` rules 83–87) defaults to
+    `visible: true` at `x: 900`, `y: 80`, `w: 360`, `h: 44`, `z: 10`: top centre, directly under
+    Race Control (which ends at `y` 68) and right of the battle box (which ends at `x` 888), so
+    it overlaps no other default widget, hidden ones included. A profile saved before the widget
+    existed has no `weather` entry and gets these defaults, and `configVersion` stays `"1"`.
+56. **The editor's `weather` row** is part of rule 14's control surface. The row shows the
+    widget's title and summary (rule 17); the summary says that the box shows only what the
+    producer sends and draws nothing without weather (rule 21). The row offers geometry,
+    visibility, plate opacity (rule 23), text size (rule 40), and a **Temperature in °F**
+    checkbox (`data-testid="temp-f-weather"`), checked exactly when the stored `tempUnit` is
+    `f`, which writes `f` when checked and `c` when cleared, with its own help copy behind an ⓘ
+    (`data-testid="help-temp-f-weather"`; rules 16, 19). The row offers no trigger,
+    show-on-connect, or hide-when-idle control. The editor's preview sample snapshot always
+    carries a `session.weather`, whatever the `info` widget's `lines` (rule 53), so the preview
+    shows the box while the broadcaster places it.
+57. **The info panel's weather card setting.** The `info` widget's **`weatherCard`** (default
+    `false`) turns the weather card (`widgets.md` rule 88) on or off. Off by default because the
+    weather box (rule 55) is visible by default: with both on, `/all` would show the weather
+    twice, and an info panel with no event and no lines would become a weather-only strip.
+    Normalization keeps a boolean and replaces anything else with `false`. Like `lines`, it is carried by the `info`
+    widget only: no other widget, including an unknown widget key, has a `weatherCard` key after
+    normalization. Both `/all` and the standalone `/info` route read it from the loaded profile.
+    The editor's `info` row (rule 53) adds a **Weather card** checkbox
+    (`data-testid="weather-card-info"`, checked exactly when `weatherCard` is true, so
+    unchecked by default) and a
+    **Temperature in °F** checkbox (`data-testid="temp-f-info"`, as in rule 56), each with its
+    own help copy behind an ⓘ (`data-testid="help-weather-card-info"`,
+    `data-testid="help-temp-f-info"`). The card help says that the card shows only while the
+    producer sends weather. Every change reaches the live preview at once and is what Save
+    writes.
 
 ### Tower lap-time flash toggle
 
@@ -281,7 +328,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     render at `normal` size.
 40. **The editor exposes it in the widget row** — rule 14's control surface — as a select of the
     three presets, for each text-rendering widget: `tower`, `battle`, `driver`, `qualifying`,
-    `racecontrol`, `onboard`, `updates`, `info`. `logos` renders no text and gets no control. Per rule 16 it carries
+    `racecontrol`, `onboard`, `updates`, `info`, `weather`. `logos` renders no text and gets no control. Per rule 16 it carries
     help copy, per rule 19 the coverage tests require it, and like `plateAlpha` (rule 24)
     withholding the control never rewrites a stored value.
 41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
@@ -523,7 +570,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     lower-thirds hide themselves between camera cuts (rules 13-19), and that a tower in `full`
     name style grows wider than its set width and can be cut off at the edge of the canvas or
     the Browser Source (rule 43, `widgets.md` rule 48), and that the info panel draws nothing
-    while it has no event and no lines to show (rule 53, `widgets.md` rule 78) — each otherwise looks like a broken
+    while it has no event and no lines to show (rule 53, `widgets.md` rule 78), and that the
+    weather box draws nothing while the producer sends no weather (rule 56, `widgets.md` rule 85) — each otherwise looks like a broken
     overlay rather than a deliberate rule.
 
 ### Live reload
@@ -677,11 +725,11 @@ Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 `widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
-`qualifying`, `racecontrol`, `onboard`, `updates`, `info`. Each widget carries the full normalized knob set (geometry +
+`qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
-`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
-but only the widget noted in the rule-11 table actually reads each. The `info` widget also
-carries `lines`, which no other widget has (rule 52).
+`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird` +
+`tempUnit`), but only the widget noted in the rule-11 table actually reads each. The `info`
+widget also carries `lines` and `weatherCard`, which no other widget has (rules 52, 57).
 
 URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,
 `?hide=`, `?motion=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),
