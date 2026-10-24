@@ -82,6 +82,14 @@ const SECTOR_COUNT = 3;
 const FINISH = { running: 0, finished: 1, dnf: 2 };
 const RETIREE_DRIVER = "Tsunoda";
 const RETIRE_FRAC = 0.45;
+// Race events (spec/v1 `race_events`, ADR 0023): the producer's rolling list of recent events.
+// Each event stays listed for RACE_EVENT_KEEP_SECONDS (the SPEC asks for at least 30 s) and the
+// list holds at most RACE_EVENT_MAX (the SPEC's 20), oldest dropped first. The race stages one
+// penalty at PENALTY_FRAC of the leg, on the car then running P3. Fastest laps are announced
+// from each car's second completed lap on: the standing-start opening lap is not news.
+const RACE_EVENT_KEEP_SECONDS = 45;
+const RACE_EVENT_MAX = 20;
+const PENALTY_FRAC = 0.3;
 const CHECKERED_FRAC = 0.7;
 // Starting-grid spread, as a fraction of a lap across the whole field. A real grid is
 // ~8 m a slot, so 14 cars fill ~100 m of a ~5 km lap: about 0.02 laps, ~2.1 s from
@@ -657,6 +665,23 @@ function createSimulator(config = {}) {
   let subjectSlotId = null;
   let subjectSinceClock = 0;
 
+  // Race events. Ids are `<runKey>-<n>`: the run key keeps them unique across mock restarts
+  // (an overlay that stayed connected remembers the ids it has shown), the counter within one.
+  const runKey =
+    typeof config.runKey === "string" && config.runKey ? config.runKey : `run${Date.now().toString(36)}`;
+  let raceEventSeq = 0;
+  let raceEvents = []; // { clock, event }, oldest first
+  // This leg's fastest lap overall and per class, the current race leader, and whether the
+  // staged penalty has been issued; reset at each race start.
+  let raceBest = { overall: null, byClass: new Map() };
+  let raceLeaderSlot = null;
+  let penaltyIssued = false;
+
+  function addRaceEvent(event) {
+    raceEventSeq += 1;
+    raceEvents.push({ clock, event: { id: `${runKey}-${raceEventSeq}`, ...event } });
+  }
+
   function announce(p) {
     if (onPhaseChange) onPhaseChange(p, Math.round(clock));
   }
@@ -697,6 +722,9 @@ function createSimulator(config = {}) {
       resetStint(car);
     });
     checkeredTaken = false;
+    raceBest = { overall: null, byClass: new Map() };
+    raceLeaderSlot = null;
+    penaltyIssued = false;
   }
 
   function enterPhase(p) {
@@ -813,6 +841,15 @@ function createSimulator(config = {}) {
         car.pace = car.basePace + BACKMARKER_PENALTY;
       }
       if (isRace && car.driver_name === RETIREE_DRIVER && raceFrac >= RETIRE_FRAC) {
+        if (car.finish_status !== FINISH.dnf) {
+          addRaceEvent({
+            type: "retirement",
+            driver_name: car.driver_name,
+            slot_id: car.slot_id,
+            finish_status: FINISH.dnf,
+            detail: `Lap ${lapsDone(car) + 1}`,
+          });
+        }
         car.finish_status = FINISH.dnf;
         car.in_pit = false;
       }
@@ -836,6 +873,30 @@ function createSimulator(config = {}) {
         // The car covered that distance at its noisy speed this step, not its base pace.
         car.finishClock = clock - ((car.distance - car.lapStartDistance) * car.pace) / (1 + car.noiseFactor);
         car.finishLaps = lapsDone(car);
+      }
+    }
+
+    // Fastest-lap events (race only): a lap that beats this leg's overall best is announced once,
+    // as the overall event, even though it is also its class's best; a lap that beats only its
+    // class's best is a class event.
+    if (isRace) {
+      for (const car of cars) {
+        if (!car.improvedBestThisStep || car.best_lap == null) continue;
+        const lap = car.best_lap;
+        const overall = raceBest.overall == null || lap < raceBest.overall;
+        const classPrev = raceBest.byClass.get(car.vehicle_class);
+        const classRecord = classPrev == null || lap < classPrev;
+        if (overall) raceBest.overall = lap;
+        if (classRecord) raceBest.byClass.set(car.vehicle_class, lap);
+        if (lapsDone(car) < 2 || !(overall || classRecord)) continue;
+        addRaceEvent({
+          type: "fastest_lap",
+          driver_name: car.driver_name,
+          slot_id: car.slot_id,
+          vehicle_class: overall ? null : car.vehicle_class,
+          lap_time: lap,
+          detail: `Lap ${lapsDone(car)}`,
+        });
       }
     }
 
@@ -869,6 +930,36 @@ function createSimulator(config = {}) {
     order.forEach((car, i) => {
       car.position = i + 1;
     });
+
+    // Leader change and the staged penalty (race only). Under the chequered flag the order is
+    // the finish, not a pass, so no leader change is announced then.
+    if (isRace) {
+      const leader = order[0];
+      if (raceLeaderSlot != null && leader.slot_id !== raceLeaderSlot && !checkeredTaken) {
+        addRaceEvent({
+          type: "leader_change",
+          driver_name: leader.driver_name,
+          slot_id: leader.slot_id,
+          detail: `Lap ${lapsDone(leader) + 1}`,
+        });
+      }
+      raceLeaderSlot = leader.slot_id;
+      if (!penaltyIssued && raceFrac >= PENALTY_FRAC) {
+        penaltyIssued = true;
+        const offender = order.find((car) => car.position === 3 && car.finish_status === FINISH.running);
+        if (offender) {
+          addRaceEvent({
+            type: "penalty",
+            driver_name: offender.driver_name,
+            slot_id: offender.slot_id,
+            penalty: "+5s",
+            detail: "Track limits",
+          });
+        }
+      }
+    }
+    // The rolling list: drop events older than the keep window, then all but the newest MAX.
+    raceEvents = raceEvents.filter((e) => clock - e.clock < RACE_EVENT_KEEP_SECONDS).slice(-RACE_EVENT_MAX);
 
     // Gap to the overall leader for each car — lap-delta in the lap-classified
     // phases, on-track time gap in the distance-classified ones.
@@ -968,6 +1059,7 @@ function createSimulator(config = {}) {
       },
       relationship,
       session,
+      race_events: raceEvents.map((e) => ({ ...e.event })),
     };
   }
 

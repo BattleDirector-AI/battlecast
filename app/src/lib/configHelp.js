@@ -12,7 +12,7 @@
  * ship undocumented.
  */
 
-/** The seven widgets, keyed exactly as `config.widgets`. `title` is the human name
+/** The eight widgets, keyed exactly as `config.widgets`. `title` is the human name
  *  (the editor's own labels are the terse config keys); `summary` says what the
  *  broadcaster will actually see on stream. */
 export const WIDGET_HELP = Object.freeze({
@@ -66,6 +66,14 @@ export const WIDGET_HELP = Object.freeze({
       'underneath. The tag shows even when the car sends no telemetry; the telemetry row ' +
       'appears only while it does.',
   },
+  updates: {
+    title: 'Race updates',
+    summary:
+      'A card that announces what just happened in the race — a fastest lap, a new leader, a ' +
+      'retirement or a penalty — one at a time, each for a few seconds. It only shows news your ' +
+      'producer sends, never replays what was already happening when the overlay loaded, and ' +
+      'stays empty between updates.',
+  },
 })
 
 /** Per-control help. Keys are logical field names, not `data-testid`s, so one entry
@@ -107,6 +115,11 @@ export const FIELD_HELP = Object.freeze({
   dwellSeconds:
     'How long the card stays up after a camera cut, in dwell mode. If the camera cuts again while ' +
     'it is showing, the timer restarts in place rather than flickering off and back on.',
+
+  // --- race updates only ---
+  updatesDwellSeconds:
+    'How long each race update card stays on screen, from 2 to 60 seconds. Updates that arrive ' +
+    'together wait their turn and show one after another, each for this long.',
 
   // --- qualifying timing bar only ---
   modes:

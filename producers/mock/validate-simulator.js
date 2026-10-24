@@ -107,6 +107,19 @@ let anyFinished = false;
 let lastRaceTick = null;
 let resultsClassifiedSeen = false;
 const isFinishCode = (n) => Number.isInteger(n) && n >= 0 && n <= 3;
+// Race events (ADR 0023), the mock producer's own output policy (each entry's shape is checked by
+// validate.js): every tick carries a `race_events` array of at most 20; every id shares one run key
+// prefix; an id's entry never changes while listed; an id that leaves the list was listed for at
+// least 30 s and never comes back; an overall fastest lap is not also sent as a class event; and
+// the run announces all four types.
+const RACE_EVENT_MIN_LISTED_SECONDS = 30;
+const raceEventViolations = [];
+const raceEventFirstTick = new Map(); // id -> tick first listed
+const raceEventBody = new Map(); // id -> JSON of its entry
+const raceEventGone = new Set();
+const raceEventTypesSeen = new Set();
+let raceEventRunKey = null;
+let raceEventPrevIds = new Set();
 
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
@@ -303,6 +316,46 @@ for (let i = 0; i < TICKS; i++) {
   }
   lastRaceTick = payload.mode === "race" ? payload : payload.mode === "results" ? lastRaceTick : null;
 
+  {
+    const list = payload.race_events;
+    const problems = [];
+    if (!Array.isArray(list)) problems.push(`race_events=${JSON.stringify(list)}`);
+    else {
+      if (list.length > 20) problems.push(`${list.length} events listed`);
+      const ids = new Set();
+      for (const e of list) {
+        if (!e || typeof e.id !== "string") continue;
+        ids.add(e.id);
+        raceEventTypesSeen.add(e.type);
+        const key = e.id.slice(0, e.id.lastIndexOf("-"));
+        if (raceEventRunKey == null) raceEventRunKey = key;
+        else if (key !== raceEventRunKey) problems.push(`id ${e.id} lacks run key ${raceEventRunKey}`);
+        if (raceEventGone.has(e.id)) problems.push(`id ${e.id} came back after leaving the list`);
+        const body = JSON.stringify(e);
+        if (!raceEventFirstTick.has(e.id)) {
+          raceEventFirstTick.set(e.id, i);
+          raceEventBody.set(e.id, body);
+        } else if (raceEventBody.get(e.id) !== body) problems.push(`id ${e.id} changed while listed`);
+        if (e.type === "fastest_lap" && e.vehicle_class == null) {
+          const dup = list.find(
+            (o) => o !== e && o.type === "fastest_lap" && o.vehicle_class != null && o.slot_id === e.slot_id && o.lap_time === e.lap_time,
+          );
+          if (dup) problems.push(`overall fastest lap ${e.id} also sent as class event ${dup.id}`);
+        }
+      }
+      for (const id of raceEventPrevIds) {
+        if (ids.has(id)) continue;
+        raceEventGone.add(id);
+        const listed = (i - raceEventFirstTick.get(id)) * DT_SECONDS;
+        if (listed < RACE_EVENT_MIN_LISTED_SECONDS) problems.push(`id ${id} dropped after ${listed}s`);
+      }
+      raceEventPrevIds = ids;
+    }
+    if (problems.length > 0 && raceEventViolations.length < 10) {
+      raceEventViolations.push(`tick ${i} (${payload.mode}): ${problems.join(", ")}`);
+    }
+  }
+
   const errors = validate(payload);
   if (errors.length > 0) {
     failed += 1;
@@ -455,6 +508,20 @@ if (!dnfSeen) {
   process.exit(1);
 }
 
+if (raceEventViolations.length > 0) {
+  console.error("\nrace_events missing or breaking the mock's rolling-list policy (ADR 0023):");
+  for (const v of raceEventViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+{
+  const missingTypes = ["fastest_lap", "leader_change", "retirement", "penalty"].filter((t) => !raceEventTypesSeen.has(t));
+  if (missingTypes.length > 0) {
+    console.error(`\nThe race never announced these race_events types: ${missingTypes.join(", ")} — the race update box is not exercised.`);
+    process.exit(1);
+  }
+}
+
 if (!lappedSeen) {
   console.error("\nThe race phase never lapped a car (no laps_behind_leader >= 1) — the lapped-car case is not exercised.");
   process.exit(1);
@@ -469,4 +536,5 @@ console.log("Race phase lapped a backmarker and carried valid laps_behind_* fiel
 console.log("Race phase staged a local yellow with valid sector_flags / yellow_involved fields (ADR 0016).");
 console.log("Race phase took the chequered flag progressively, retired a car, and results classified every car (ADR 0017).");
 console.log("Every tick carried a boolean session.multiclass matching the class mix (ADR 0022).");
+console.log("Every tick carried a valid rolling race_events list, and the race announced all four types (ADR 0023).");
 console.log("Race director never put a retired car, or a finished car while others raced, on camera (#237).");

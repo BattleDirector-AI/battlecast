@@ -502,7 +502,7 @@ describe('resolveWidgets — ordered render list', () => {
         onboard: { z: 8 },
       },
     }).map((w) => w.key)
-    expect(order).toEqual(['battle', 'logos', 'driver', 'tower', 'qualifying', 'racecontrol', 'onboard'])
+    expect(order).toEqual(['battle', 'logos', 'driver', 'tower', 'qualifying', 'racecontrol', 'onboard', 'updates'])
   })
 })
 

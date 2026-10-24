@@ -460,6 +460,60 @@ function testMulticlassFieldValidatesAgainstSchema() {
   );
 }
 
+// `race_events` (protocol-contract.md rule 22, ADR 0023) is an optional top-level array. The
+// race-events fixture carries one entry of each type and must validate, as must null and a
+// payload without it; and the schema must REJECT an entry without an id, and an entry missing
+// the field its type requires, so a producer's malformed event fails the harness.
+function testRaceEventsValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const events = load("race-events.json");
+  const types = (events.race_events ?? []).map((e) => e.type);
+  assert(
+    ["fastest_lap", "leader_change", "retirement", "penalty"].every((t) => types.includes(t)),
+    "race-events.json must carry at least one event of each type"
+  );
+  let result = validator.validate(events);
+  assert(result.valid, `expected race-events.json to validate, got: ${result.errors.join("; ")}`);
+
+  const nulled = JSON.parse(JSON.stringify(events));
+  nulled.race_events = null;
+  result = validator.validate(nulled);
+  assert(result.valid, `expected race_events: null to validate, got: ${result.errors.join("; ")}`);
+
+  const none = load("race-finish.json");
+  assert(!("race_events" in none), "race-finish.json must NOT carry race_events");
+  result = validator.validate(none);
+  assert(result.valid, `expected a payload with NO race_events to still validate, got: ${result.errors.join("; ")}`);
+
+  const unknownType = JSON.parse(JSON.stringify(events));
+  unknownType.race_events.push({ id: "ev-x", type: "overtake", driver_name: "Kevin Estre" });
+  result = validator.validate(unknownType);
+  assert(result.valid, `expected an event of a type this revision does not define to validate, got: ${result.errors.join("; ")}`);
+
+  const rejects = (mutate, where, label) => {
+    const payload = JSON.parse(JSON.stringify(events));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes(where)),
+      `expected the ${label} error to name ${where}, got: ${r.errors.join("; ")}`
+    );
+  };
+  rejects((p) => (p.race_events = { id: "ev-1" }), "/race_events", "race_events: {…}");
+  rejects((p) => delete p.race_events[0].id, "/race_events/0", "an event without an id");
+  rejects((p) => (p.race_events[0].id = ""), "/race_events/0/id", 'an event with id ""');
+  rejects((p) => delete p.race_events[0].lap_time, "/race_events/0", "a fastest_lap without lap_time");
+  rejects((p) => (p.race_events[3].finish_status = 1), "/race_events/3/finish_status", "a retirement with finish_status 1");
+  rejects((p) => delete p.race_events[4].penalty, "/race_events/4", "a penalty without penalty");
+
+  console.log(
+    "PASS: race_events validates against schema.json, null and a payload without it still validate, an unknown type is allowed, and an event missing its id or its type's field is rejected (ADR 0023)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
@@ -469,6 +523,7 @@ async function main() {
   testLocalYellowFieldsValidateAgainstSchema();
   testFinishStatusFieldValidatesAgainstSchema();
   testMulticlassFieldValidatesAgainstSchema();
+  testRaceEventsValidateAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");
