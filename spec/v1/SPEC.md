@@ -341,6 +341,49 @@ required-ness.
   while a newer consumer tolerates its absence from an older producer. See *Versioning
   policy* above.
 
+- **`race_events`** (array, **OPTIONAL, ADDITIVE**) — the producer's **recent** race
+  events, **oldest first**: fastest laps, leader changes, retirements, penalties. It is
+  not an SSE event type and not a delta. It rides in every `state` snapshot as a short
+  **rolling list**: the producer adds an event when it happens, keeps listing it for a
+  while (it **SHOULD** keep each event for at least 30 seconds, so a consumer that misses
+  a few snapshots still sees it), then drops it, and it **SHOULD** keep at most the 20
+  most recent. Null or absent means no recent events. The events are the **producer's**
+  judgment (dumb overlay, smart producer): a consumer **MUST NOT** derive an event from
+  `vehicles[]` or from changes between snapshots. Each entry carries:
+  - **`id`** (string, required) — unique and stable: the same event carries the same id
+    in every snapshot that lists it, and the producer never reuses an id for a different
+    event while it runs. Because the list repeats, the id is how a consumer shows each
+    event **once**. A consumer that stays connected remembers the ids it has shown, so a
+    producer **SHOULD** keep ids unique across its own restarts too (for example by
+    prefixing a run or session key).
+  - **`type`** (string, required) — `fastest_lap`, `leader_change`, `retirement`, or
+    `penalty` in this revision. Later revisions may add types; a consumer skips a type it
+    does not know.
+  - **`driver_name`** (string, required) — the driver the event is about.
+  - **`slot_id`** (string, optional) — the event's vehicle, matching a `vehicles` entry
+    while the car is in the field.
+  - **`vehicle_class`** (string or null, optional) — a string makes this a **class**
+    event (the fastest lap or new leader *of that class*); null or absent makes it an
+    overall event. An event that is both overall and a class's (the overall fastest lap
+    is also its class's fastest lap; an overall leader change is also the top class's)
+    **SHOULD** be sent once, as the overall event: a consumer cannot tell the two entries
+    are the same event without deriving it.
+  - **`lap_time`** (number, seconds) — required for `fastest_lap`.
+  - **`finish_status`** (integer) — required for `retirement`: `2` DNF (retired) or `3`
+    DQ (disqualified), the same codes as the per-vehicle `finish_status`.
+  - **`penalty`** (string) — required for `penalty`: short producer text, rendered
+    verbatim (`Drive-through`, `+5s`, `Stop-go 10s`).
+  - **`detail`** (string, optional) — a free-text second line for any type (`Lap 14`,
+    `Gearbox`), rendered verbatim.
+
+  A consumer skips an entry it cannot read — not an object, no `id`, an unknown `type`,
+  or a missing field its type requires — and renders the rest. battlecast's race update
+  box shows each new event once, one at a time, and treats every event already listed
+  when it starts as already shown, so reloading a Browser Source never replays old
+  events. A worked example with one event of each type is
+  [`fixtures/race-events.json`](fixtures/race-events.json). Added in a minor revision of
+  v1; `schemaVersion` stays `"1"`.
+
 ## Fixtures and compliance
 
 Concrete example payloads live in [`fixtures/`](fixtures/) and are the basis for

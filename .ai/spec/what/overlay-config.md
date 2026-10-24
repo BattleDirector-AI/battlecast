@@ -87,6 +87,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `hideWhenIdle` | supporting widgets (battle, logos, driver, qualifying) | auto-hide when idle |
     | `idleGraceSeconds` | battle | exit grace before an ended battle goes idle (rule 36) |
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
+    | `dwellSeconds` | updates | how long each race update card stays up (rule 50) |
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
     | `classDisplay` | tower | inline vs grouped multi-class layout |
     | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
@@ -98,7 +99,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     once it fires (widgets rule 16). It is read as a valid number (rule 6). A valid number greater
     than 0 is stored as that number (`'7.5'` becomes 7.5); anything else — not a valid number, 0,
     or negative — takes the default. So a blank, `null`, `true` or `[5]` is not a dwell of 0, 1 or
-    5 seconds.
+    5 seconds. The race update box's `dwellSeconds` has its own default and range (rule 50).
 
 12. **Tower overflow config** (`maxRows`, `cycle`; only the tower reads them). `maxRows`: `"auto"`
     (fit the configured height) or an integer cap. `cycle`: `enabled` (default true), `perPageSeconds`
@@ -132,11 +133,11 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     plate-opacity control in the widget row — rule 14's control surface — for each widget that
     renders a background plate, so rule 15's broadcaster judgement call ("a more see-through plate
     over busy footage") never requires hand-editing a profile JSON or a round-trip through
-    Export/Import. The **plate-rendering widgets** are the six that paint one of the plate tokens:
-    `tower` and `battle` (panel + header bar), `driver` and `qualifying` (the shared lower-third
-    card), `racecontrol` and `onboard` (header-bar plate). `logos` composites its images straight
+    Export/Import. The **plate-rendering widgets** are the seven that paint one of the plate tokens:
+    `tower` and `battle` (panel + header bar), `driver`, `qualifying` and `updates` (the shared
+    lower-third card), `racecontrol` and `onboard` (header-bar plate). `logos` composites its images straight
     over the video with no panel behind them, so it gets **no** control — gated the same way
-    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all seven. The
+    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all eight. The
     control spans the full `[0,1]` range in steps of `0.01`, starts at the `0.82` default, and
     renders its current value as text beside it — two decimals, matching the step — so the setting is
     readable at a glance instead of inferred from a slider position. Per rule 16 it carries its own
@@ -159,6 +160,33 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     (`0`–`30`, step `1`) showing the current value, offered for `battle` only. Per rule 16 it carries
     its own help copy, and per rule 19 the coverage tests then require it. Like `plateAlpha`
     (rule 24), withholding the control from the other widgets never rewrites a stored value.
+
+### Race update box
+
+50. **Race update box defaults.** The `updates` widget (`widgets.md` rules 69–75) defaults to
+    `visible: true` at `x: 1376`, `y: 24`, `w: 520`, `h: 120`, `z: 8`, clear of every other default
+    widget (Race Control ends at `x` 1260). Its `dwellSeconds` is how long each update card stays
+    up, default `8`. It is read as a valid number (rule 6): a valid number from `2` to `60`
+    inclusive is stored as that number (`'7.5'` becomes 7.5), and anything else — not a valid
+    number, or a number below 2 or above 60 — takes `8`. So a blank, `null`, `true`, `0`, `1` or
+    `90` gives 8. Rule 46's default and range apply to every other widget's `dwellSeconds`. Both
+    `/all` and the standalone `/updates` route read it from the loaded profile. A profile saved
+    before the widget existed has no `updates` entry and gets these defaults, and
+    `configVersion` stays `"1"` (rule 2).
+51. **The editor's `updates` row** is part of rule 14's control surface. The row shows the
+    widget's title and summary (rule 17) and offers geometry, visibility, plate opacity
+    (rule 23), text size (rule 40), and a **dwell secs** number input
+    (`data-testid="dwell-updates"`, min `2`, max `60`, step `0.5`, so the spinner reaches
+    half-second values such as 7.5 that rule 50 keeps) showing the stored value. The
+    dwell input carries its own help copy behind an ⓘ (`data-testid="help-dwell-updates"`) that
+    describes update cards, not camera cuts (rules 16, 19). It is a typed number field
+    (rule 44): a committed value outside `[2, 60]` is refused and the stored value is kept
+    (rule 44b). The row offers no trigger, show-on-connect, or hide-when-idle control. The
+    editor's preview sample snapshot carries race events and the preview box takes no baseline
+    (`widgets.md` rule 71), so the preview shows update cards while the broadcaster places the
+    widget. The sample cards play through once, each for the dwell, and then the box stays
+    empty for the rest of the editing session, as the lower-thirds already do in the preview;
+    the widget's slot and drag box stay in place.
 
 ### Tower lap-time flash toggle
 
@@ -197,7 +225,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     render at `normal` size.
 40. **The editor exposes it in the widget row** — rule 14's control surface — as a select of the
     three presets, for each text-rendering widget: `tower`, `battle`, `driver`, `qualifying`,
-    `racecontrol`, `onboard`. `logos` renders no text and gets no control. Per rule 16 it carries
+    `racecontrol`, `onboard`, `updates`. `logos` renders no text and gets no control. Per rule 16 it carries
     help copy, per rule 19 the coverage tests require it, and like `plateAlpha` (rule 24)
     withholding the control never rewrites a stored value.
 41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
@@ -282,7 +310,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 
 44. **A typed number applies when it is committed, not on each keystroke.** The editor's typed
     number fields are: each widget's `x`, `y`, `w`, `h` and `z`; the battle row's exit grace secs
-    (`idleGraceSeconds`); a lower-third row's dwell secs (`dwellSeconds`); the tower row's seconds
+    (`idleGraceSeconds`); a lower-third row's and the `updates` row's dwell secs (`dwellSeconds`); the tower row's seconds
     per page and pin top N (`cycle.perPageSeconds`, `cycle.pinTop`); the canvas width and height;
     and the logo rotation's per-slot seconds (`logoRotation.perSlotSeconds`). A value typed into one
     of them is committed in two ways, and is applied then, once. **Enter** commits on its own
@@ -309,8 +337,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     the keep-on-canvas clamp for `x`/`y`/`w`/`h` (at least 16 px, inside the canvas), `[0, 30]` for
     exit grace (rule 36), the 320 px minimum for a canvas edge (rule 9), and a non-whole `pinTop`
     rounded down to a whole number (rule 12). A committed number that normalization would
-    **replace with the default** — a dwell or a seconds per page not above `0`, a `pinTop` below
-    `0` — is refused like a blank: the stored value is kept. `z` and per-slot seconds keep the
+    **replace with the default** — a lower-third dwell or a seconds per page not above `0`, an
+    `updates` dwell outside `[2, 60]` (rule 50), a `pinTop` below `0` — is refused like a blank: the stored value is kept. `z` and per-slot seconds keep the
     number as entered. After every commit the field shows the value now stored, so an out-of-range
     entry visibly becomes its clamped value or reverts to the kept one. Committing a **blank**
     field — cleared, or holding text the browser cannot read as a number, which a number input
@@ -591,7 +619,7 @@ Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 `widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
-`qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +
+`qualifying`, `racecontrol`, `onboard`, `updates`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
 `classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
 but only the widget noted in the rule-11 table actually reads each.
