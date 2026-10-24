@@ -660,6 +660,105 @@ between snapshots. Decision record: `docs/decisions/0023-race-update-box.md`.
     card up it already draws nothing, so `/config` offers no "Hide when idle" for it and a saved
     `hideWhenIdle: true` on it changes nothing (as for the HUD, rule 58).
 
+### Info panel (`/info`, #62)
+
+The info panel is a compact strip: a header naming the event and a row of free text that
+rotates one line at a time. It reads only the snapshot's `event` and `info_lines`
+(`protocol-contract.md` rule 23) and the broadcaster's own lines from its profile entry
+(`overlay-config.md` rule 52). It derives nothing from `vehicles[]` or `session`. It changes
+producer text only as rules 76–77 say: it trims every part and line, uppercases the header, and
+shows a repeated line once. Decision record: `docs/decisions/0024-info-panel.md`.
+
+76. **The header.** An absent, null, or non-object `event` (an array is not an object) has no
+    event fields. Of an object `event`, each field is a **part** only when it holds:
+    - `round`: a number that is an integer of at least 1 (`3`, not `0`, `-1`, `2.5`, `"3"` or
+      `true`). The part reads `ROUND ` followed by the number: `ROUND 3`.
+    - `name`: a string with at least one non-whitespace character. The part is the string
+      trimmed.
+    - `track`: a string with at least one non-whitespace character. The part is the string
+      trimmed.
+
+    Any other value counts as absent and does not stop the other fields being read. The header
+    (`data-testid="info-header"`) joins the parts that hold, in the order round, name, track,
+    with ` · ` (a space, U+00B7 MIDDLE DOT, a space) between two parts and nowhere else, and
+    uppercases the result with locale-independent `toUpperCase`: `{ round: 3, name: "Spa 6
+    Hours", track: "Spa-Francorchamps" }` gives `ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`;
+    with only `name` and `track`, `SPA 6 HOURS · SPA-FRANCORCHAMPS`; with only `round`,
+    `ROUND 3`. Whitespace inside a part is kept as sent. With no part, the panel has no header
+    element.
+77. **The line list.** The panel's **line list** is built in this order:
+    1. the producer's lines: each entry of `info_lines` that is a string with at least one
+       non-whitespace character, trimmed and otherwise verbatim (case kept), in array order.
+       An absent, null, or non-array `info_lines` gives none, and any other entry (blank, a
+       number, null, an object) is skipped without stopping the entries around it;
+    2. then the broadcaster's lines: the `info` widget's `lines` (`overlay-config.md` rule
+       52), in their stored order.
+
+    A line equal (exact string comparison, after trimming) to a line earlier in the list is
+    dropped, so a line the producer and the profile both carry, or that either repeats, appears
+    once, at its first place. The broadcaster's lines do not depend on the producer: they are in
+    the list while no snapshot has arrived, and while the snapshot carries no lines.
+78. **Layout and hiding.** The panel (`data-testid="info-panel"`) holds, in order, the header
+    (rule 76) and the line row, whose line element (`data-testid="info-line"`) shows the current
+    line of the rotation (rule 79). With no header part it has the line row only; with an empty
+    line list it has the header only and no line element; with neither it draws nothing at all:
+    no panel element, no plate, no placeholder. The line row is one line high: a line too long
+    for the panel's width is cut off with an ellipsis and never wraps or grows the panel. The
+    panel shows in every `mode`; it has no mode gate, no trigger, and no class awareness.
+79. **Rotation.** The line row shows one line of the line list at a time. When the list first
+    has a line (at mount, or after it was empty), its first line shows. A line stays up for the
+    panel's dwell (`dwellSeconds`, default 8; `overlay-config.md` rule 52), counted from when it
+    appeared, and when the dwell ends the next line in the list replaces it, wrapping from the
+    last line to the first. While the list holds exactly one line, that line stays up and no
+    dwell runs, however long it has already been up; when the list grows from one line to more,
+    the shown line's dwell starts at that moment, from zero. So a line alone from mount (0 s) that
+    a second line joins at 3 s stays up until 11 s, and with `[A, B]` and `A` up
+    from 0 s, a list that shrinks to `[A]` at 5 s and grows back to `[A, B]` at 6 s shows `B`
+    at 14 s, not at 8 s. A change of `dwellSeconds` applies from the next line: the line that is up keeps the
+    dwell it started with. A snapshot that gives the same line list, in the same order, changes
+    nothing.
+80. **A changed line list.** Whenever a snapshot or a config change gives a line list that
+    differs from the current one (a line added, removed, edited, or moved):
+    - if the line on screen is still in the new list, it stays up and its running dwell is not
+      restarted; the rotation continues from its place in the new list, so the line after it in
+      the new list comes next;
+    - otherwise the line at the same place (index) in the new list replaces it at once and gets
+      a full dwell (unless it is the only line, rule 79), and when the new list is too short to
+      have that place, the new list's first line does. The place is the index, not the next line
+      of the old list that survives: whatever line the new list holds at that index shows;
+    - when the new list is empty, the line element goes (rule 78);
+    - while the new list holds one line, no dwell runs (rule 79).
+
+    So, with `[A, B, C]` and `B` up, a new list `[X, A, B, C]` keeps `B` up and `C` comes next;
+    a new list `[A, C]` replaces `B` with `C` at once; and with `C` up, a new list `[A, B]`
+    replaces it with `A` at once. With `[A, B, C, D]` and `B` up, a new list `[X, A, C, D]`
+    replaces `B` with `A` (index 1), not with `C`.
+81. **Motion.** The panel enters and leaves with the lower-thirds' skewed bar-wipe (the shared
+    lower-third shell): it plays the wipe-in when it goes from drawing nothing to drawing
+    something, and the wipe-out when it goes back to drawing nothing. A header or line change
+    while it is up does not replay the wipe. When a line replaces another, the line row
+    crossfades: the outgoing line fades out while the incoming line fades in, over 300 ms, so
+    for that time the row holds both line elements. There is no crossfade, and no fade at all,
+    when the line list goes from empty to a line or from a line to empty: the first line after
+    an empty list appears at once, and the last line before one goes at once (when the panel
+    itself appears or goes with it, the wipe covers it). Under reduced motion (`overlay-config.md`
+    rule 10) the panel appears and disappears without the wipe, and a line replaces another at
+    once, with no crossfade.
+82. **Routes and composition.** The standalone `/info` route is a transparent overlay route. It
+    connects to the producer the way every render page does (`?src=`, then the default), loads
+    the profile named by `?profile=` and reads its `info` widget's `dwellSeconds` and `lines`,
+    and uses a dwell of 8 and no broadcaster lines when there is no profile or the profile fails
+    to load. It reloads that profile live as `/all` does (`overlay-config.md` rule 22): an edit
+    saved in `/config` to the `info` widget's `lines` or `dwellSeconds` reaches a running `/info`
+    Browser Source without a refresh, as a changed line list (rule 80) or a dwell change (rule
+    79). A live `lines` edit, on `/info` or in `/all`, changes the line on screen with rule 81's
+    crossfade: `overlay-config.md` rule 22's "without transition" covers the layout and geometry,
+    not the panel's line. Inside `/all` the panel is the `info` widget: while `visible` it is mounted at its
+    configured geometry and reads its own `dwellSeconds` and `lines`; while not `visible` it is
+    not mounted. The panel has no idle predicate: with nothing to show it already draws nothing,
+    so `/config` offers no "Hide when idle" for it and a saved `hideWhenIdle: true` on it
+    changes nothing (as for the HUD, rule 58, and the race update box, rule 75).
+
 ### Composite & takeover routes
 
 25. **`/all`** composes configured widgets onto the fixed canvas by `z` order (see

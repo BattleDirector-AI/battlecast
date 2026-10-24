@@ -38,9 +38,38 @@
       "type": ["array", "null"],
       "items": { "$ref": "#/$defs/raceEvent" },
       "description": "Optional rolling list of the producer's RECENT race events (fastest laps, leader changes, retirements, penalties), oldest first. Not an SSE event type and not a delta: it rides in every `state` snapshot, and the producer keeps each event listed for a while (SHOULD be at least 30 seconds) and then drops it, keeping the list short (SHOULD be at most the 20 most recent). Each entry's `id` identifies the event across snapshots, so a consumer shows each event once however many snapshots repeat it. Null or absent = no recent events. Producer-owned (dumb overlay, smart producer): a consumer MUST NOT derive events from `vehicles[]` or from changes between snapshots."
+    },
+    "event": {
+      "$ref": "#/$defs/event",
+      "description": "Optional description of the EVENT this session belongs to (the weekend or race meeting, not the live session, which is `session`): its name, championship round and track. Null or absent = the producer does not say. Producer-authored text (battlecast trims `name` and `track` and shows them in an uppercased header); a consumer MUST NOT derive any of it from other fields, and treats a field that is absent, null, blank or of the wrong type as absent."
+    },
+    "info_lines": {
+      "type": ["array", "null"],
+      "items": { "type": "string" },
+      "description": "Optional free-text lines the producer wants on screen (commentary, a session note, what is next), each shown verbatim. A consumer such as battlecast's info panel shows one line at a time on a dwell. Producers SHOULD keep each line short (roughly 80 characters) and send the same list, in the same order, while the lines are unchanged. Null or absent = no lines. A consumer skips a blank entry; battlecast shows a line that repeats an earlier one once."
     }
   },
   "$defs": {
+    "event": {
+      "type": ["object", "null"],
+      "description": "The event (weekend / race meeting) the session belongs to, or null. Every field is optional and nullable.",
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": ["string", "null"],
+          "description": "The event's name, e.g. `Spa 6 Hours`."
+        },
+        "round": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "The event's round number in its championship (1 = the first round). Consumers show it as a number (battlecast renders `ROUND 3`); an event whose round has a name rather than a number puts that in `name` and leaves `round` out."
+        },
+        "track": {
+          "type": ["string", "null"],
+          "description": "The circuit's name, e.g. `Spa-Francorchamps`."
+        }
+      }
+    },
     "raceEvent": {
       "type": "object",
       "description": "One race event. `type` selects which of the type-specific fields is required. Consumers skip an entry they cannot read (an unknown `type`, a missing required field) rather than failing.",

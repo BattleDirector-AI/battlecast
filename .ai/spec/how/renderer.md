@@ -22,6 +22,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/raceEvents.js` | `raceEventCard`, `createRaceUpdateFeed` | Race update box logic, pure and DOM-free (`what/widgets.md` rules 69–73). `raceEventCard(entry)` validates one `race_events` entry and returns `{ id, type, label, name, value, detail }` with the card's exact strings (`value`/`detail` `null` when the card has none), or `null` for an entry rule 69 skips. `createRaceUpdateFeed` owns the seen ids, the baseline, the waiting queue and its cap of 5. |
 | `src/routes/updates/RaceUpdateBox.svelte` | props `snapshot`, `dwellSeconds`, `preview` | The race update box: feeds each snapshot to its feed, times the card on screen, renders it inside `LowerThirdShell`, keyed on the event id (`{#key}`) inside a stable `.lt3-anchor`, as `DriverLowerThird` keys its shell on the slot, so a replacement remounts the plate: the old one plays its exit while the new one enters (rule 74). |
 | `src/routes/updates/UpdatesPage.svelte` | — | Standalone `/updates` route: `sseClient.connect` + `loadConfig(location.search)` for the `updates` widget's `dwellSeconds`. |
+| `src/lib/infoPanel.js` | `eventHeader`, `infoLines` | Info panel logic, pure and DOM-free (`what/widgets.md` rules 76–77). `eventHeader(event)` returns the header string exactly as rendered (`ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`), or `null` when no part holds. `infoLines(infoLinesField, configLines)` returns the line list: the producer's valid lines, trimmed, then the configured lines, duplicates dropped. The rotation's place-keeping on a changed list (rule 80) lives beside them. |
+| `src/routes/info/InfoPanel.svelte` | props `snapshot`, `dwellSeconds`, `lines` | The info panel: builds the header and line list from the snapshot and `lines`, runs the rotation timer, renders inside `LowerThirdShell` only while it has something to show (rule 81's wipe on enter/leave), and keys the line element on the line text with a 300 ms fade in/out, duration 0 under reduced motion (`prefersReducedMotion()`), so a change crossfades. |
+| `src/routes/info/InfoPage.svelte` | — | Standalone `/info` route: `sseClient.connect` + `loadConfig(location.search)` for the `info` widget's `dwellSeconds` and `lines`. |
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
 | `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. |
@@ -177,6 +180,15 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   The card's strings come from existing formatters, not new ones: the name from `fmtName` after
   `presentName` (rule 14b), the lap time from `fmtLapTime`, the same call the tower's lap flash
   makes. The box's one timer is the card on screen; it reads `dwellSeconds` when a card starts.
+- **Info panel** (`what/widgets.md` rules 76–82, `what/overlay-config.md` rules 52–53): `/info`
+  joins `OVERLAY_ROUTES` in `App.svelte`, and `info` joins `DEFAULT_CONFIG.widgets` (so
+  `WIDGET_KEYS` and the `configHelp.js` coverage tests), `RENDERABLE` in `AllView.svelte`,
+  `PLATE_WIDGET_KEYS` and `TEXT_WIDGET_KEYS`. It is not a `LOWER_THIRD_KEYS` member and has no
+  `IDLE_PREDICATES` entry. `normalizeDwell` applies rule 50's `[2, 60]` range to `info` as to
+  `updates`. `lines` is the one knob that is not normalized onto every widget: `normalizeConfig`
+  adds it to the `info` entry only (as `textScaleOrigin` is added only where rule 41b keeps it),
+  so the `DEFAULT_CONFIG.widgets.info` literal carries `lines: []` and no other literal has the
+  key. The panel's one timer is the line on screen; it reads `dwellSeconds` when a line starts.
 - **Lower-third dwell default** (`what/overlay-config.md` rule 46): the default `6` lives in three
   places that must agree: the per-widget `dwellSeconds` literals in `DEFAULT_CONFIG`,
   `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).

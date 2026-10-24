@@ -17,8 +17,11 @@
     rendersText,
     TEXT_SCALE_PRESETS,
     normalizeGraceSeconds,
-    UPDATES_DWELL_MIN,
-    UPDATES_DWELL_MAX,
+    RANGED_DWELL_MIN,
+    RANGED_DWELL_MAX,
+    normalizeInfoLine,
+    INFO_LINES_MAX,
+    INFO_LINE_MAX_LENGTH,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
@@ -34,6 +37,7 @@
   import { connect as connectFeed, DEFAULT_SRC } from '../../lib/sseClient.js'
   import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
   import raceEventsFixture from '../../../../spec/v1/fixtures/race-events.json'
+  import eventInfoFixture from '../../../../spec/v1/fixtures/event-info.json'
 
   // Preview snapshot. `race-close-battle.json` is the canonical NO-telemetry fixture (so
   // it must NOT gain a `subject.telemetry` block — the compliance harness and an AllLayout
@@ -70,7 +74,16 @@
     // Sample race events so the preview's race update box has cards to play through
     // (overlay-config rule 51); the preview AllView takes no baseline for them.
     race_events: raceEventsFixture.race_events,
+    // A sample event so the preview's info panel has a header (overlay-config rule 53).
+    event: eventInfoFixture.event,
   }
+  // Sample producer lines join the preview only while the info widget has no lines of its
+  // own, so a broadcaster's first line shows in the preview at once (rule 53). Both snapshots
+  // are built once; the preview switches only when `lines` flips between empty and not, not on
+  // every config edit (a drag's pointer steps included).
+  const sampleWithInfoLines = { ...sampleSnapshot, info_lines: eventInfoFixture.info_lines }
+  const hasOwnInfoLines = $derived((config.widgets.info?.lines?.length ?? 0) > 0)
+  const previewSnapshot = $derived(hasOwnInfoLines ? sampleSnapshot : sampleWithInfoLines)
 
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
   let profileName = $state('default')
@@ -338,6 +351,45 @@
     }
   }
 
+  // ---- info panel lines (overlay-config rules 52-53) ---------------------------
+  // The new-line input is local UI state until Add (as the Class Colors fields are). A stored
+  // line's input commits like a typed number field: Enter (not mid-IME) or `change`, never per
+  // keystroke; a refused commit, or Escape, shows the stored line again. The editor helpers
+  // refuse a blank or duplicate line and an 11th.
+  let newInfoLine = $state('')
+  const infoLines = () => config.widgets.info?.lines ?? []
+  function addInfoLine() {
+    const before = infoLines().length
+    config = editor.addInfoLine(config, newInfoLine)
+    if (infoLines().length > before) newInfoLine = ''
+  }
+  const removeInfoLine = (index) => (config = editor.removeInfoLine(config, index))
+  function infoLineField(index) {
+    return (el) => {
+      const shown = () => infoLines()[index] ?? ''
+      const commit = () => {
+        // A change that normalizes to the stored line (whitespace only) writes nothing, so it
+        // does not mark the profile edited.
+        if (normalizeInfoLine(el.value) === shown()) {
+          el.value = shown()
+          return
+        }
+        config = editor.setInfoLine(config, index, el.value)
+        el.value = shown()
+      }
+      const onkeydown = (e) => {
+        if (e.key === 'Enter' && !e.isComposing) commit()
+        else if (e.key === 'Escape') el.value = shown()
+      }
+      el.addEventListener('change', commit)
+      el.addEventListener('keydown', onkeydown)
+      return () => {
+        el.removeEventListener('change', commit)
+        el.removeEventListener('keydown', onkeydown)
+      }
+    }
+  }
+
   // ---- canvas ---------------------------------------------------------------
   const setCanvas = (patch) => (config = editor.setCanvas(config, patch))
 
@@ -567,7 +619,7 @@
           class="preview__canvas"
           style="width: {canvas.w}px; height: {canvas.h}px; transform: scale({previewScale});"
         >
-          <AllView snapshot={sampleSnapshot} {config} preview />
+          <AllView snapshot={previewSnapshot} {config} preview />
 
           {#each WIDGET_KEYS as key (key)}
             {#if config.widgets[key]?.visible}
@@ -865,29 +917,75 @@
                 </label>
               </div>
             {/if}
-            {#if key === 'updates'}
-              <!-- #27: how long each race update card stays up (2-60 s, rule 50). A value
-                   outside the range is refused and the stored one kept (rule 44b). -->
+            {#if key === 'updates' || key === 'info'}
+              <!-- #27 / #62: how long each race update card (rule 50) or info line (rule 52)
+                   stays up, 2-60 s. A value outside the range is refused and the stored one
+                   kept (rule 44b). -->
               <label class="num">
                 dwell secs
                 <HelpTip
-                  text={FIELD_HELP.updatesDwellSeconds}
+                  text={key === 'info' ? FIELD_HELP.infoDwellSeconds : FIELD_HELP.updatesDwellSeconds}
                   label="dwell seconds"
                   testid="help-dwell-{key}"
                 />
                 <input
                   type="number"
-                  min={UPDATES_DWELL_MIN}
-                  max={UPDATES_DWELL_MAX}
+                  min={RANGED_DWELL_MIN}
+                  max={RANGED_DWELL_MAX}
                   step="0.5"
                   data-testid="dwell-{key}"
                   value={w.dwellSeconds}
                   {@attach numberField(
-                    (n) => n >= UPDATES_DWELL_MIN && n <= UPDATES_DWELL_MAX && setDwellSeconds(key, n),
+                    (n) => n >= RANGED_DWELL_MIN && n <= RANGED_DWELL_MAX && setDwellSeconds(key, n),
                     () => config.widgets[key].dwellSeconds,
                   )}
                 />
               </label>
+            {/if}
+            {#if key === 'info'}
+              <!-- #62: the broadcaster's own info lines (rule 53). -->
+              <div class="info-lines">
+                <span class="info-lines__title">
+                  info lines
+                  <HelpTip text={FIELD_HELP.infoLines} label="info lines" testid="help-info-lines" />
+                </span>
+                <ul class="logo-list">
+                  {#each w.lines as line, i (i)}
+                    <li>
+                      <input
+                        type="text"
+                        maxlength={INFO_LINE_MAX_LENGTH}
+                        aria-label="info line {i + 1}"
+                        data-testid="info-line-{i}"
+                        value={line}
+                        {@attach infoLineField(i)}
+                      />
+                      <button
+                        type="button"
+                        aria-label="remove info line {i + 1}"
+                        data-testid="info-line-remove-{i}"
+                        onclick={() => removeInfoLine(i)}
+                      >✕</button>
+                    </li>
+                  {/each}
+                </ul>
+                <div class="info-lines__add">
+                  <input
+                    type="text"
+                    maxlength={INFO_LINE_MAX_LENGTH}
+                    placeholder="New line (e.g. a sponsor)"
+                    aria-label="new info line"
+                    data-testid="info-line-new"
+                    bind:value={newInfoLine}
+                  />
+                  <button
+                    type="button"
+                    data-testid="info-line-add"
+                    disabled={w.lines.length >= INFO_LINES_MAX}
+                    onclick={addInfoLine}
+                  >Add</button>
+                </div>
+              </div>
             {/if}
             {#if key === 'qualifying'}
               <!-- #22-only: which session modes the timing bar dwells on every
@@ -1602,6 +1700,22 @@
   }
   .class-color-add input[type='text'] {
     flex: 1;
+  }
+  .info-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 100%;
+  }
+  .info-lines .logo-list li input[type='text'],
+  .info-lines__add input[type='text'] {
+    flex: 1;
+    min-width: 0;
+  }
+  .info-lines__add {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
   }
   .class-color-swatch {
     flex: 0 0 auto;

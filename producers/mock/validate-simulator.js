@@ -120,9 +120,39 @@ const raceEventGone = new Set();
 const raceEventTypesSeen = new Set();
 let raceEventRunKey = null;
 let raceEventPrevIds = new Set();
+// Event metadata and info lines (ADR 0024), the mock's own output policy (shape is checked by
+// validate.js): every tick carries an `event` with a non-blank name and track and an integer
+// round >= 1 that never goes down, and a non-empty `info_lines` of distinct non-blank strings;
+// across the run the round advances (a loop back to qualifying) and the line list changes, so
+// the info panel's header and its changed-list path are both exercised live.
+const eventInfoViolations = [];
+let lastEventRound = null;
+let eventRoundAdvanced = false;
+const infoLineListsSeen = new Set();
+const nonBlankString = (v) => typeof v === "string" && v.trim() !== "";
 
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
+  {
+    const ev = payload.event;
+    const lines = payload.info_lines;
+    const problems = [];
+    if (!ev || !nonBlankString(ev.name) || !nonBlankString(ev.track) || !(Number.isInteger(ev.round) && ev.round >= 1)) {
+      problems.push(`event=${JSON.stringify(ev)}`);
+    } else {
+      if (lastEventRound != null && ev.round < lastEventRound) problems.push(`round went back ${lastEventRound} -> ${ev.round}`);
+      if (lastEventRound != null && ev.round > lastEventRound) eventRoundAdvanced = true;
+      lastEventRound = ev.round;
+    }
+    if (!Array.isArray(lines) || lines.length === 0 || !lines.every(nonBlankString) || new Set(lines).size !== lines.length) {
+      problems.push(`info_lines=${JSON.stringify(lines)}`);
+    } else {
+      infoLineListsSeen.add(JSON.stringify(lines));
+    }
+    if (problems.length > 0 && eventInfoViolations.length < 10) {
+      eventInfoViolations.push(`tick ${i} (${payload.mode}): ${problems.join(", ")}`);
+    }
+  }
   ticksByMode.set(payload.mode, (ticksByMode.get(payload.mode) || 0) + 1);
   // Single-class flag (protocol-contract rule 20, ADR 0022): every tick, in every phase, carries
   // a boolean `session.multiclass` that matches the class mix the mock is actually running:
@@ -522,6 +552,19 @@ if (raceEventViolations.length > 0) {
   }
 }
 
+if (eventInfoViolations.length > 0) {
+  console.error("\nevent / info_lines missing or malformed (ADR 0024):");
+  for (const v of eventInfoViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+if (!eventRoundAdvanced || infoLineListsSeen.size < 2) {
+  console.error(
+    `\nThe event round never advanced (${eventRoundAdvanced}) or info_lines never changed (${infoLineListsSeen.size} list(s)) — the info panel's live changes are not exercised.`
+  );
+  process.exit(1);
+}
+
 if (!lappedSeen) {
   console.error("\nThe race phase never lapped a car (no laps_behind_leader >= 1) — the lapped-car case is not exercised.");
   process.exit(1);
@@ -537,4 +580,5 @@ console.log("Race phase staged a local yellow with valid sector_flags / yellow_i
 console.log("Race phase took the chequered flag progressively, retired a car, and results classified every car (ADR 0017).");
 console.log("Every tick carried a boolean session.multiclass matching the class mix (ADR 0022).");
 console.log("Every tick carried a valid rolling race_events list, and the race announced all four types (ADR 0023).");
+console.log(`Every tick carried an event and info_lines; the round advanced and ${infoLineListsSeen.size} line lists were sent (ADR 0024).`);
 console.log("Race director never put a retired car, or a finished car while others raced, on camera (#237).");

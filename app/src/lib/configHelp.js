@@ -74,6 +74,14 @@ export const WIDGET_HELP = Object.freeze({
       'producer sends, never replays what was already happening when the overlay loaded, and ' +
       'stays empty between updates.',
   },
+  info: {
+    title: 'Info panel',
+    summary:
+      'A strip naming the event — round, event name and track — with one line of text below it ' +
+      'at a time: lines your producer sends first, then the lines you add here, each for a few ' +
+      'seconds. It hides itself completely while there is no event and no line to show, so an ' +
+      'empty panel is not a fault.',
+  },
 })
 
 /** Per-control help. Keys are logical field names, not `data-testid`s, so one entry
@@ -115,6 +123,15 @@ export const FIELD_HELP = Object.freeze({
   dwellSeconds:
     'How long the card stays up after a camera cut, in dwell mode. If the camera cuts again while ' +
     'it is showing, the timer restarts in place rather than flickering off and back on.',
+
+  // --- info panel only ---
+  infoDwellSeconds:
+    'How long each info line stays on screen before the next one replaces it, from 2 to 60 ' +
+    'seconds. A single line stays up for as long as it is the only one.',
+  infoLines:
+    'Your own lines for the info panel, such as sponsors or where to follow the broadcast. ' +
+    'They show after any lines your producer sends, one at a time. Up to 10 lines of up to 120 ' +
+    'characters; a line you already have is not added twice.',
 
   // --- race updates only ---
   updatesDwellSeconds:

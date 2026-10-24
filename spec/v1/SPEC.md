@@ -384,6 +384,40 @@ required-ness.
   [`fixtures/race-events.json`](fixtures/race-events.json). Added in a minor revision of
   v1; `schemaVersion` stays `"1"`.
 
+- **`event`** (object, **OPTIONAL, ADDITIVE**) — the **event** this session belongs to:
+  the weekend or race meeting, not the live session (that is `session`). It changes
+  rarely, typically once per event. Null or absent means the producer does not say. All
+  of its fields are optional and nullable:
+  - **`name`** (string) — the event's name (`Spa 6 Hours`).
+  - **`round`** (integer, at least 1) — the event's round number in its championship. A
+    consumer shows it as a round number (battlecast renders `ROUND 3`), so a producer
+    with an event whose round has a name rather than a number (a finale, a
+    non-championship race) puts that in `name` and leaves `round` out.
+  - **`track`** (string) — the circuit's name (`Spa-Francorchamps`).
+
+  The fields are the **producer's** text; a consumer **MUST NOT** derive any of them from
+  other fields. battlecast trims `name` and `track` and shows them in an uppercased header
+  (`ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`), and changes nothing else. A consumer treats a field that is absent, null, of the
+  wrong type, blank, or (for `round`) not an integer of at least 1 as absent, and renders
+  the others.
+
+- **`info_lines`** (array of strings, **OPTIONAL, ADDITIVE**) — free-text lines the
+  producer wants on screen: commentary, a note about the session, a reminder of what is
+  next (`Live from the Ardennes`, `Race 2 starts at 15:00 CET`). Each line is shown
+  **verbatim**: battlecast trims surrounding whitespace and keeps the case and everything
+  else. battlecast's info panel shows one line at a time, cycling through them on a dwell,
+  followed by the broadcaster's own lines from the overlay profile; a line that repeats an
+  earlier one (in the list or among the broadcaster's lines) is shown once, and when the list
+  changes, the line on screen stays if it is still listed. A producer **SHOULD** keep each line
+  short enough to fit on one line of a lower-screen strip (roughly 80 characters) and the
+  list short; it **SHOULD** send the same list, in the same order, while the lines are
+  unchanged. Null or absent means no lines. A consumer skips an entry that is not a
+  string, or is blank, and renders the rest.
+
+  A worked example carrying both is
+  [`fixtures/event-info.json`](fixtures/event-info.json). Both were added in a minor
+  revision of v1; `schemaVersion` stays `"1"`.
+
 ## Fixtures and compliance
 
 Concrete example payloads live in [`fixtures/`](fixtures/) and are the basis for

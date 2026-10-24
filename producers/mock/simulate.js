@@ -133,6 +133,19 @@ const SUBJECT_STATIC_DWELL_SECONDS = 10;
 // board.
 const PHASES = ["qualifying", "grid", "race", "results"];
 
+// Event metadata and info lines (spec/v1 `event` / `info_lines`, ADR 0024). The event is fixed
+// for a run except its round, which counts the broadcast cycles (each loop back to qualifying
+// is the next round), so the info panel's header changes live. The lines follow the phase, so
+// the panel's rotation sees its list change; the last line is the same in every phase.
+const MOCK_EVENT = { name: "battlecast Demo Endurance", track: "Mock Raceway" };
+const INFO_LINES_BY_PHASE = {
+  qualifying: ["Qualifying is underway: one flying lap at a time"],
+  grid: ["The field forms up on the grid", "Lights out in under a minute"],
+  race: ["The race is underway", "Watch the gaps in the tower to the left"],
+  results: ["Provisional results: subject to stewards' review"],
+};
+const INFO_LINE_ALWAYS = "This is the battlecast mock producer's demo feed";
+
 // Default phase durations in SIM seconds (race-time), overridable via env so a
 // tester can cycle faster or slower. Qualifying and race are long enough for
 // cars to complete several flying/racing laps (a lap is ~92–107 sim-seconds at
@@ -651,6 +664,8 @@ function createSimulator(config = {}) {
 
   let phase = PHASES[0]; // "qualifying"
   let phaseElapsed = 0;
+  // The event round (ADR 0024): 1 for the first cycle, +1 on each loop back to qualifying.
+  let eventRound = 1;
   let announced = false;
   // Alternates the race phase between a timed leg and a lap-limited leg on
   // successive cycles, so a long enough run exercises both session progress
@@ -739,6 +754,7 @@ function createSimulator(config = {}) {
       // against clock 0 (which would report the whole prior session as one lap).
       cars = makeCars(clock);
       frozenOrder = null;
+      eventRound += 1;
     } else if (p === "grid") {
       // Grid = the qualifying result, frozen as the starting order.
       freezeOrder(byBestLap);
@@ -1060,6 +1076,8 @@ function createSimulator(config = {}) {
       relationship,
       session,
       race_events: raceEvents.map((e) => ({ ...e.event })),
+      event: { ...MOCK_EVENT, round: eventRound },
+      info_lines: [...INFO_LINES_BY_PHASE[phase], INFO_LINE_ALWAYS],
     };
   }
 
