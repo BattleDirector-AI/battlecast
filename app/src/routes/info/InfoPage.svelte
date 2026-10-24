@@ -4,6 +4,7 @@
   import { connect, resolveSrc } from '../../lib/sseClient.js'
   import { loadConfig, DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
   import { watchConfig } from '../../lib/configWatch.js'
+  import { resolveMotion, applyMotion } from '../../lib/motion.js'
 
   // Standalone info panel Browser Source (widgets.md rule 82). Connects like every render
   // page (`?src=`, then the default) and reads the `info` widget's dwell and lines from the
@@ -17,6 +18,9 @@
   function applyConfig(config) {
     dwellSeconds = config.widgets.info.dwellSeconds
     lines = config.widgets.info.lines
+    // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=` URL
+    // param still wins). App.svelte already set a URL/default baseline at boot.
+    applyMotion(resolveMotion(window.location.search, { reducedMotion: config.reducedMotion }))
   }
 
   onMount(() => {

@@ -3,6 +3,7 @@
   import DriverLowerThird from './DriverLowerThird.svelte'
   import { connect } from '../../lib/sseClient.js'
   import { watchConfig } from '../../lib/configWatch.js'
+  import { resolveMotion, applyMotion } from '../../lib/motion.js'
   import { loadConfig, pickProducerSrc, DEFAULT_CONFIG, normalizeConfig } from '../../lib/overlayConfig.js'
 
   // Standalone driver lower-third Browser Source. Like /tower and /all it is driven
@@ -23,6 +24,9 @@
     loadConfig(window.location.search).then((resolved) => {
       if (cancelled) return
       config = resolved
+      // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=`
+      // URL param still wins). App.svelte already set a URL/default baseline at boot.
+      applyMotion(resolveMotion(window.location.search, { reducedMotion: resolved.reducedMotion }))
       const src = pickProducerSrc(window.location.search, resolved)
       disconnect = connect(src, (next) => {
         snapshot = next
@@ -34,6 +38,9 @@
         window.location.search,
         (nextConfig) => {
           config = nextConfig
+          applyMotion(
+            resolveMotion(window.location.search, { reducedMotion: nextConfig.reducedMotion }),
+          )
         },
         { initial: resolved },
       )

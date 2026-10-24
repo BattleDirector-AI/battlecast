@@ -7,6 +7,11 @@
  *
  * The page is loaded through a non-static specifier so its absence fails each test with a
  * message naming it, rather than failing the whole file at import time.
+ *
+ * Every URL carries `motion=reduced`: the page applies the resolved motion mode to the root on
+ * load (overlay-config rule 10), which would otherwise replace the suite's reduced-motion
+ * default with `full` and give the box its real exit transition, so these timing cases pin the
+ * instant (duration 0) path.
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { flushSync, tick } from 'svelte'
@@ -57,7 +62,7 @@ function advance(ms) {
 
 async function mountPage({ profile = null } = {}) {
   const Page = await loadPage()
-  window.history.replaceState({}, '', profile ? '/updates?profile=p' : '/updates')
+  window.history.replaceState({}, '', profile ? '/updates?profile=p&motion=reduced' : '/updates?motion=reduced')
   vi.stubGlobal(
     'fetch',
     vi.fn(async () =>
@@ -115,7 +120,7 @@ describe('/updates standalone route (rule 75)', () => {
 
   it('uses the 8 s default when ?profile= names a profile that fails to load', async () => {
     const Page = await loadPage()
-    window.history.replaceState({}, '', '/updates?profile=p')
+    window.history.replaceState({}, '', '/updates?profile=p&motion=reduced')
     const fetchMock = vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) }))
     vi.stubGlobal('fetch', fetchMock)
     render(Page)

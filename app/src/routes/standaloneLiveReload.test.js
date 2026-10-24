@@ -43,10 +43,13 @@ async function settle() {
   flushSync()
 }
 
+// `motion=reduced`: the page applies the resolved motion mode to the root (overlay-config
+// rule 10), so without it a page would replace the suite's reduced-motion default with `full`
+// and the /updates timing case would see the box's real exit transition.
 async function mount(Page, route, profile) {
   served = profile
   window.innerHeight = 800
-  window.history.replaceState({}, '', `${route}?profile=p`)
+  window.history.replaceState({}, '', `${route}?profile=p&motion=reduced`)
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => ({ ok: true, status: 200, json: async () => structuredClone(served) })),
