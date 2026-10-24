@@ -9,6 +9,7 @@
     DEFAULT_CONFIG,
     normalizeConfig,
   } from '../../lib/overlayConfig.js'
+  import { watchConfig } from '../../lib/configWatch.js'
 
   let snapshot = $state(null)
 
@@ -102,6 +103,7 @@
 
   onMount(() => {
     let cancelled = false
+    let stopWatch = () => {}
 
     // The first fit is direct: there is no burst to coalesce, and the tower must be
     // bounded on its very first render rather than a frame later.
@@ -113,6 +115,16 @@
     loadConfig(window.location.search).then((resolved) => {
       if (cancelled) return
       config = resolved
+      // Live-reload (#115, overlay-config rule 22): re-read the profile on an interval and
+      // apply a change without a manual refresh — immediately, no transition. The producer
+      // feed is left untouched (a config edit does not reconnect SSE).
+      stopWatch = watchConfig(
+        window.location.search,
+        (nextConfig) => {
+          config = nextConfig
+        },
+        { initial: resolved },
+      )
     })
 
     const url = resolveSrc(window.location.search)
@@ -128,6 +140,7 @@
         cancelAnimationFrame(pendingFrame)
         pendingFrame = null
       }
+      stopWatch()
       disconnect()
     }
   })
