@@ -19,6 +19,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/lowerThirdTrigger.js` | — | Edge-triggered camera-cut / dwell state machine for lower-thirds. |
 | `src/routes/tower/towerCycle.js` | `computeRowBudget`, `clampPerPageSeconds`, `selectPins`, `selectRows`, `createTowerCycle` | Tower overflow selection + cycling-window stability (see `what/tower-overflow.md`). |
 | `src/lib/LowerThirdShell.svelte` | — | Shared reveal/dwell/wipe shell for lower-third widgets. |
+| `src/lib/raceEvents.js` | `raceEventCard`, `createRaceUpdateFeed` | Race update box logic, pure and DOM-free (`what/widgets.md` rules 69–73). `raceEventCard(entry)` validates one `race_events` entry and returns `{ id, type, label, name, value, detail }` with the card's exact strings (`value`/`detail` `null` when the card has none), or `null` for an entry rule 69 skips. `createRaceUpdateFeed` owns the seen ids, the baseline, the waiting queue and its cap of 5. |
+| `src/routes/updates/RaceUpdateBox.svelte` | props `snapshot`, `dwellSeconds`, `preview` | The race update box: feeds each snapshot to its feed, times the card on screen, renders it inside `LowerThirdShell`, keyed on the event id (`{#key}`) inside a stable `.lt3-anchor`, as `DriverLowerThird` keys its shell on the slot, so a replacement remounts the plate: the old one plays its exit while the new one enters (rule 74). |
+| `src/routes/updates/UpdatesPage.svelte` | — | Standalone `/updates` route: `sseClient.connect` + `loadConfig(location.search)` for the `updates` widget's `dwellSeconds`. |
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
 | `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. |
@@ -163,6 +166,17 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   back to the widget literal first, and `/onboard` reads `DEFAULT_CONFIG.widgets.onboard`
   directly, without normalizing. The field list is `DRIVER_INFO_FIELDS`; the `/config` checkboxes
   and the `DRIVER_INFO_HELP` coverage test both iterate it.
+- **Race update box** (`what/widgets.md` rules 69–75, `what/overlay-config.md` rules 50–51):
+  `/updates` joins `OVERLAY_ROUTES` in `App.svelte` (transparent, full-bleed), and `updates`
+  joins `DEFAULT_CONFIG.widgets` (so `WIDGET_KEYS`, and with it the `configHelp.js` coverage
+  tests), `RENDERABLE` in `AllView.svelte`, `PLATE_WIDGET_KEYS` and `TEXT_WIDGET_KEYS`. It is not a
+  `LOWER_THIRD_KEYS` member (no trigger knobs) and has no `IDLE_PREDICATES` entry. Its default
+  `dwellSeconds: 8` is the widget literal in `DEFAULT_CONFIG`; `normalizeConfig` applies rule 50's
+  `[2, 60]` range to the `updates` key only, every other widget keeping rule 46's `> 0`. The
+  editor's dwell input reuses the lower-third dwell field's commit path with rule 50's range.
+  The card's strings come from existing formatters, not new ones: the name from `fmtName` after
+  `presentName` (rule 14b), the lap time from `fmtLapTime`, the same call the tower's lap flash
+  makes. The box's one timer is the card on screen; it reads `dwellSeconds` when a card starts.
 - **Lower-third dwell default** (`what/overlay-config.md` rule 46): the default `6` lives in three
   places that must agree: the per-widget `dwellSeconds` literals in `DEFAULT_CONFIG`,
   `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).

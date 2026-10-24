@@ -190,6 +190,9 @@ re-fits the stage. The SSE feed is **not** touched — a config edit never recon
   `subject.telemetry`. The editor spreads a **copy** and adds telemetry plus richer-tower fields so
   the HUD and the metric toggles show representative data. Never push those fields into the shared
   fixture.
+  The copy also carries a `race_events` list (taken from `race-events.json`'s entries) so the
+  preview's race update box has cards to show (`what/overlay-config.md` rule 51); `AllView` is
+  rendered with `preview`, which it passes to `RaceUpdateBox` so the box takes no baseline.
 - **Drag listeners live on `window`,** attached in `startDrag` and removed in `endDrag`, so a pointer
   that leaves the preview box still tracks and still releases. There are four — `pointermove` →
   `onDrag`, `pointerup` → `onPointerEnd`, `pointercancel` → `onPointerEnd`, `blur` → `endDrag` —

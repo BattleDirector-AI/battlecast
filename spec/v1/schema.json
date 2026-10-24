@@ -33,9 +33,75 @@
     "session": {
       "$ref": "#/$defs/session",
       "description": "Optional session-level broadcast state: flag, Full Course Yellow / Safety Car status, and the timed-vs-lap progress readout (session clock or laps remaining). Additive and backward-compatible — a payload with NO `session` still validates and older consumers ignore it. Every field is producer-owned (dumb overlay, smart producer); consumers render what they are handed and MUST tolerate its absence."
+    },
+    "race_events": {
+      "type": ["array", "null"],
+      "items": { "$ref": "#/$defs/raceEvent" },
+      "description": "Optional rolling list of the producer's RECENT race events (fastest laps, leader changes, retirements, penalties), oldest first. Not an SSE event type and not a delta: it rides in every `state` snapshot, and the producer keeps each event listed for a while (SHOULD be at least 30 seconds) and then drops it, keeping the list short (SHOULD be at most the 20 most recent). Each entry's `id` identifies the event across snapshots, so a consumer shows each event once however many snapshots repeat it. Null or absent = no recent events. Producer-owned (dumb overlay, smart producer): a consumer MUST NOT derive events from `vehicles[]` or from changes between snapshots."
     }
   },
   "$defs": {
+    "raceEvent": {
+      "type": "object",
+      "description": "One race event. `type` selects which of the type-specific fields is required. Consumers skip an entry they cannot read (an unknown `type`, a missing required field) rather than failing.",
+      "required": ["id", "type", "driver_name"],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique, stable identifier for this event. The same event carries the same id in every snapshot that lists it, and the producer never reuses an id for a different event while it runs; it SHOULD keep ids unique across its own restarts too (for example by prefixing a run or session key), because a consumer that stays connected remembers the ids it has shown."
+        },
+        "type": {
+          "type": "string",
+          "description": "The kind of event. This revision defines `fastest_lap`, `leader_change`, `retirement`, and `penalty`. Free-form so later revisions can add types without a schema break; a consumer skips a type it does not know.",
+          "examples": ["fastest_lap", "leader_change", "retirement", "penalty"]
+        },
+        "driver_name": {
+          "type": "string",
+          "description": "Name of the driver the event is about: the new fastest-lap holder, the new leader, the retiring or disqualified driver, the penalised driver."
+        },
+        "slot_id": {
+          "type": "string",
+          "description": "Optional `slot_id` of the event's vehicle, matching a `vehicles` entry when the car is still in the field."
+        },
+        "vehicle_class": {
+          "type": ["string", "null"],
+          "description": "Optional. A string makes this a CLASS event (the fastest lap or new leader of that class); null or absent makes it an overall event. Same free-form class names as `vehicles[].vehicle_class`. An event that is both overall and a class's (the overall fastest lap is also its class's fastest lap; an overall leader change is also the top class's) SHOULD be sent once, as the overall event, because a consumer cannot tell two such entries are the same event without deriving it."
+        },
+        "lap_time": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "The lap time in seconds. Required for `fastest_lap`."
+        },
+        "finish_status": {
+          "type": ["integer", "null"],
+          "description": "Required for `retirement`: `2` = DNF (retired), `3` = DQ (disqualified), the same codes as `vehicles[].finish_status`."
+        },
+        "penalty": {
+          "type": ["string", "null"],
+          "description": "Required for `penalty`: the penalty as short producer text, rendered verbatim (e.g. `Drive-through`, `+5s`, `Stop-go 10s`)."
+        },
+        "detail": {
+          "type": ["string", "null"],
+          "description": "Optional free-text second line for any type (e.g. `Lap 14`, `Gearbox`, `Speeding in the pit lane`), rendered verbatim."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "fastest_lap" } }, "required": ["type"] },
+          "then": { "required": ["lap_time"], "properties": { "lap_time": { "type": "number" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "retirement" } }, "required": ["type"] },
+          "then": { "required": ["finish_status"], "properties": { "finish_status": { "enum": [2, 3] } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "penalty" } }, "required": ["type"] },
+          "then": { "required": ["penalty"], "properties": { "penalty": { "type": "string", "minLength": 1 } } }
+        }
+      ]
+    },
     "vehicle": {
       "type": "object",
       "description": "A single vehicle's running-order and timing state.",
