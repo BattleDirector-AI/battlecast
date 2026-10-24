@@ -784,11 +784,17 @@ async function fetchProfile(name, fetchImpl) {
  * built-in default. `?profile=<name>` selects a saved profile; if it cannot be
  * loaded we warn and keep the default (best-effort, never blank).
  *
+ * `strict` is for the live-reload poll (overlay-config rule 22): there a profile that cannot be
+ * loaded (network error, non-OK status from both candidates — a deleted profile's 404 included —
+ * or unparseable JSON) rejects instead of resolving to the default, so the watcher skips that
+ * poll and the page keeps its last good config rather than snapping to the default layout.
+ *
  * @param {string} search - a `location.search` string (e.g. `?profile=race`).
- * @param {{ fetchImpl?: typeof fetch }} [opts] - injectable fetch for testing.
+ * @param {{ fetchImpl?: typeof fetch, strict?: boolean }} [opts] - injectable fetch for
+ *   testing; `strict` rejects when the named profile cannot be loaded.
  * @returns {Promise<object>} the normalized config.
  */
-export async function loadConfig(search, { fetchImpl } = {}) {
+export async function loadConfig(search, { fetchImpl, strict = false } = {}) {
   const params = new URLSearchParams(search || '')
   const doFetch = fetchImpl || (typeof globalThis !== 'undefined' ? globalThis.fetch : undefined)
 
@@ -796,6 +802,9 @@ export async function loadConfig(search, { fetchImpl } = {}) {
   const profileName = params.get('profile')
   if (profileName && profileName.trim()) {
     raw = doFetch ? await fetchProfile(profileName.trim(), doFetch) : null
+    if (!raw && strict) {
+      throw new Error(`profile "${profileName.trim()}" could not be loaded`)
+    }
     if (!raw) {
       console.warn(
         `[battlecast] profile "${profileName.trim()}" could not be loaded; using default layout.`,

@@ -132,6 +132,30 @@ describe('standalone pages live-reload their profile (overlay-config rule 22)', 
     expect(sse.connects).toBe(1)
   })
 
+  it('/tower: a failed poll keeps profile A rather than snapping to the default (#353)', async () => {
+    // Profile A sets `full`; the default is `short`, so a snap to the default would show.
+    await mount(TowerPage, '/tower', { widgets: { tower: { nameStyle: 'full' } } })
+    push(singleClass)
+    const tower = () => document.querySelector('[data-testid="standings-tower"]')
+    expect(tower().getAttribute('data-name-style')).toBe('full')
+
+    const working = fetch
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch') // companion server down
+      }),
+    )
+    await vi.advanceTimersByTimeAsync(5000)
+    await settle()
+    expect(tower().getAttribute('data-name-style'), 'still profile A through the outage').toBe('full')
+
+    vi.stubGlobal('fetch', working) // server back, profile unchanged
+    await vi.advanceTimersByTimeAsync(5000)
+    await settle()
+    expect(tower().getAttribute('data-name-style'), 'and after it').toBe('full')
+  })
+
   it('/logos: an images edit swaps the rotation to the new logo without a refresh', async () => {
     await mount(LogosPage, '/logos', { logoRotation: { images: ['/logos/a.png'], perSlotSeconds: 30 } })
     const src = () => document.querySelector('[data-testid="logo-image"]')?.getAttribute('src')
