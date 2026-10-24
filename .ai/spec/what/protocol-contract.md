@@ -34,8 +34,9 @@ on a field name/type, `schema.json` wins.
 ### Required payload shape
 
 8. Top-level required fields: `schemaVersion`, `mode`, `vehicles`, `subject`, `relationship`.
-   Optional additive top-level object: `session`; optional additive top-level array:
-   `race_events` (rule 22). Optional additive object under subject: `subject.telemetry`.
+   Optional additive top-level objects: `session`, `event` (rule 23); optional additive
+   top-level arrays: `race_events` (rule 22), `info_lines` (rule 23). Optional additive object
+   under subject: `subject.telemetry`.
 9. **`mode`** (string) — broadcast intent (`race`, `qualifying`, `practice`, `replay`, …). Consumers
    MUST tolerate unknown values.
 10. **`vehicles`** (array, no guaranteed order) — each entry has the **required** identity fields
@@ -145,6 +146,20 @@ on a field name/type, `schema.json` wins.
     An entry that is not an object, has an unknown `type`, or lacks its `id` or a field its
     type requires is skipped, never an error, and a `race_events` that is not an array holds
     no events. Decision record: `docs/decisions/0023-race-update-box.md`.
+23. **Event and info lines** (additive): top-level **`event`**, an open object describing the
+    event the session belongs to (the weekend, not the live session), or null, with three
+    optional fields: **`name`** (string, the event's name), **`round`** (integer, at least 1,
+    the round of a championship), and **`track`** (string, the circuit's name). Top-level
+    **`info_lines`**, an array of strings or null: free-text lines the producer wants on screen,
+    shown verbatim apart from trimming (the panel uppercases only the event header and shows a
+    repeated line once). Both are producer-authored text: the overlay never builds an event name, a
+    round, a track or a line from `vehicles[]`, `session` or anything else. The info panel
+    consumes them (`widgets.md` rules 76–82). A field of `event` that is absent, null, or of the
+    wrong type (a non-integer or a `round` below 1, a blank `name` or `track`) counts as absent
+    and the other fields still render; an `event` that is not an object has no fields. An
+    `info_lines` entry that is not a string, or is blank, is skipped, and an `info_lines` that is
+    not an array holds no lines. Neither is ever an error. Decision record:
+    `docs/decisions/0024-info-panel.md`.
 15. **`session`** (open object) — session status: **`flag`** (free-form string;
     `green`/`yellow`/`red`/`checkered`/`white`/`none` common), **`full_course_yellow`** /
     **`safety_car`** (booleans, independent), timed fields **`time_remaining`** / **`session_length`**

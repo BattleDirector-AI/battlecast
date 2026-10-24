@@ -514,6 +514,67 @@ function testRaceEventsValidateAgainstSchema() {
   );
 }
 
+// `event` and `info_lines` (protocol-contract.md rule 23, ADR 0024) are optional top-level
+// fields. The event-info fixture carries both and must validate, as must null, a partial
+// `event`, and a payload without either; and the schema must REJECT a `round` that is not an
+// integer of at least 1, an `event` that is not an object, and a non-string line, so a
+// producer's malformed event metadata fails the harness.
+function testEventAndInfoLinesValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const info = load("event-info.json");
+  assert(
+    info.event && typeof info.event.name === "string" && Number.isInteger(info.event.round) && typeof info.event.track === "string",
+    "event-info.json must carry an event with a name, an integer round and a track"
+  );
+  assert(
+    Array.isArray(info.info_lines) && info.info_lines.length >= 2,
+    "event-info.json must carry at least two info_lines"
+  );
+  let result = validator.validate(info);
+  assert(result.valid, `expected event-info.json to validate, got: ${result.errors.join("; ")}`);
+
+  const accepts = (mutate, label) => {
+    const payload = JSON.parse(JSON.stringify(info));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(r.valid, `expected ${label} to validate, got: ${r.errors.join("; ")}`);
+  };
+  accepts((p) => (p.event = null), "event: null");
+  accepts((p) => (p.info_lines = null), "info_lines: null");
+  accepts((p) => (p.event = { track: "Monza" }), "an event with only a track");
+  accepts((p) => (p.event = { name: "Spa 6 Hours", round: null, track: null }), "an event with null fields");
+  accepts((p) => (p.info_lines = []), "an empty info_lines");
+
+  const none = load("race-finish.json");
+  assert(!("event" in none) && !("info_lines" in none), "race-finish.json must NOT carry event or info_lines");
+  result = validator.validate(none);
+  assert(result.valid, `expected a payload with NO event or info_lines to still validate, got: ${result.errors.join("; ")}`);
+
+  const rejects = (mutate, where, label) => {
+    const payload = JSON.parse(JSON.stringify(info));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes(where)),
+      `expected the ${label} error to name ${where}, got: ${r.errors.join("; ")}`
+    );
+  };
+  rejects((p) => (p.event.round = 0), "/event/round", "round 0");
+  rejects((p) => (p.event.round = 2.5), "/event/round", "round 2.5");
+  rejects((p) => (p.event.round = "3"), "/event/round", 'round "3"');
+  rejects((p) => (p.event = "Spa 6 Hours"), "/event", 'event: "Spa 6 Hours"');
+  rejects((p) => (p.event.name = 6), "/event/name", "a numeric event name");
+  rejects((p) => (p.info_lines = "Live from the Ardennes"), "/info_lines", "info_lines: a string");
+  rejects((p) => p.info_lines.push(42), "/info_lines/3", "a numeric info line");
+
+  console.log(
+    "PASS: event and info_lines validate against schema.json, null, partial and absent forms still validate, and a bad round, a non-object event and a non-string line are rejected (ADR 0024)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
@@ -524,6 +585,7 @@ async function main() {
   testFinishStatusFieldValidatesAgainstSchema();
   testMulticlassFieldValidatesAgainstSchema();
   testRaceEventsValidateAgainstSchema();
+  testEventAndInfoLinesValidateAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");

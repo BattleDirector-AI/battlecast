@@ -88,6 +88,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `idleGraceSeconds` | battle | exit grace before an ended battle goes idle (rule 36) |
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
     | `dwellSeconds` | updates | how long each race update card stays up (rule 50) |
+    | `dwellSeconds`, `lines` | info | how long each info line stays up, and the broadcaster's own lines (rule 52; `lines` is carried by the `info` widget only) |
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
     | `classDisplay` | tower | inline vs grouped multi-class layout |
     | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
@@ -99,7 +100,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     once it fires (widgets rule 16). It is read as a valid number (rule 6). A valid number greater
     than 0 is stored as that number (`'7.5'` becomes 7.5); anything else — not a valid number, 0,
     or negative — takes the default. So a blank, `null`, `true` or `[5]` is not a dwell of 0, 1 or
-    5 seconds. The race update box's `dwellSeconds` has its own default and range (rule 50).
+    5 seconds. The race update box's and the info panel's `dwellSeconds` have their own default
+    and range (rules 50, 52).
 
 12. **Tower overflow config** (`maxRows`, `cycle`; only the tower reads them). `maxRows`: `"auto"`
     (fit the configured height) or an integer cap. `cycle`: `enabled` (default true), `perPageSeconds`
@@ -133,11 +135,11 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     plate-opacity control in the widget row — rule 14's control surface — for each widget that
     renders a background plate, so rule 15's broadcaster judgement call ("a more see-through plate
     over busy footage") never requires hand-editing a profile JSON or a round-trip through
-    Export/Import. The **plate-rendering widgets** are the seven that paint one of the plate tokens:
-    `tower` and `battle` (panel + header bar), `driver`, `qualifying` and `updates` (the shared
-    lower-third card), `racecontrol` and `onboard` (header-bar plate). `logos` composites its images straight
+    Export/Import. The **plate-rendering widgets** are the eight that paint one of the plate tokens:
+    `tower` and `battle` (panel + header bar), `driver`, `qualifying`, `updates` and `info` (the
+    shared lower-third card), `racecontrol` and `onboard` (header-bar plate). `logos` composites its images straight
     over the video with no panel behind them, so it gets **no** control — gated the same way
-    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all eight. The
+    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all nine. The
     control spans the full `[0,1]` range in steps of `0.01`, starts at the `0.82` default, and
     renders its current value as text beside it — two decimals, matching the step — so the setting is
     readable at a glance instead of inferred from a slider position. Per rule 16 it carries its own
@@ -169,7 +171,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     up, default `8`. It is read as a valid number (rule 6): a valid number from `2` to `60`
     inclusive is stored as that number (`'7.5'` becomes 7.5), and anything else — not a valid
     number, or a number below 2 or above 60 — takes `8`. So a blank, `null`, `true`, `0`, `1` or
-    `90` gives 8. Rule 46's default and range apply to every other widget's `dwellSeconds`. Both
+    `90` gives 8. The `info` widget's `dwellSeconds` follows the same default and range
+    (rule 52); rule 46's default and range apply to every other widget's `dwellSeconds`. Both
     `/all` and the standalone `/updates` route read it from the loaded profile. A profile saved
     before the widget existed has no `updates` entry and gets these defaults, and
     `configVersion` stays `"1"` (rule 2).
@@ -187,6 +190,59 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     widget. The sample cards play through once, each for the dwell, and then the box stays
     empty for the rest of the editing session, as the lower-thirds already do in the preview;
     the widget's slot and drag box stay in place.
+
+### Info panel
+
+52. **Info panel defaults and lines.** The `info` widget (`widgets.md` rules 76–82) defaults to
+    `visible: true` at `x: 1200`, `y: 816`, `w: 696`, `h: 72`, `z: 9`: bottom right, above the
+    logo slot (which starts at `y` 900) and right of the on-board HUD (which ends at `x` 1160),
+    so it overlaps no other default widget, hidden ones included. Its `dwellSeconds` is how long
+    each line stays up, with rule 50's default and range: a valid number from `2` to `60`
+    inclusive is stored as that number, and anything else takes `8`. Its **`lines`** is the
+    broadcaster's own list of lines (default `[]`), normalized in this order:
+    - a `lines` that is not an array gives `[]`;
+    - each entry, in array order, that is not a string is dropped; a string is trimmed, then cut
+      to its first 120 characters (JavaScript string length) and trimmed again;
+    - an entry that is then blank is dropped, and so is one equal to a line already kept;
+    - once 10 lines are kept, the remaining entries are dropped.
+
+    So `[' Follow us @battlecast ', '', 42, 'Follow us @battlecast']` gives
+    `['Follow us @battlecast']`. Unlike every other knob, `lines` is carried by the `info` widget
+    only: no other widget, including an unknown widget key (rule 6), has a `lines` key after
+    normalization. Both `/all` and the standalone `/info` route read `dwellSeconds` and `lines`
+    from the loaded profile. A profile saved before the widget existed has no `info` entry and
+    gets these defaults, and `configVersion` stays `"1"` (rule 2).
+53. **The editor's `info` row** is part of rule 14's control surface. The row shows the
+    widget's title and summary (rule 17); the summary says that the panel hides itself when it
+    has nothing to show (rule 21: an empty panel would otherwise look broken). The row offers
+    geometry, visibility, plate opacity (rule 23), text size (rule 40), a **dwell secs** number
+    input (`data-testid="dwell-info"`, min `2`, max `60`, step `0.5`) showing the stored value,
+    with its own help copy behind an ⓘ (`data-testid="help-dwell-info"`) that describes info
+    lines, not camera cuts or update cards, and an **info lines** list with its own help copy
+    behind an ⓘ (`data-testid="help-info-lines"`; rules 16, 19). The dwell input is a typed
+    number field (rule 44): a committed value outside `[2, 60]` is refused and the stored value
+    is kept (rule 44b). The info lines list holds:
+    - one text input per stored line, in stored order (`data-testid="info-line-<i>"`, `<i>`
+      counting from 0, `maxlength` 120), showing the line, each with a remove button
+      (`data-testid="info-line-remove-<i>"`);
+    - a new-line text input (`data-testid="info-line-new"`, `maxlength` 120) and an **Add**
+      button (`data-testid="info-line-add"`).
+
+    **Add** appends the new-line input's text, trimmed, to the end of `lines` and clears the
+    input. When the trimmed text is blank or equal to a stored line, Add writes nothing and the
+    input keeps its text. While 10 lines are stored, the Add button is disabled. **Editing a
+    stored line** commits as rule 44's typed fields do, on Enter or when focus leaves the input,
+    and keystrokes before the commit change nothing. The committed text is trimmed and replaces
+    that line in place. A committed text that is blank, or equal to another stored line, is
+    refused: the stored line is kept and the input shows it again. **Remove** deletes that line,
+    and the lines after it move up one place. Every change to `lines` reaches the live preview
+    at once and is what Save writes. The row offers no trigger, show-on-connect, or
+    hide-when-idle control. The editor's preview sample snapshot carries an `event`, so the
+    preview shows the header while the broadcaster places the widget. It carries sample
+    `info_lines` only while the `info` widget's `lines` is empty: as soon as the broadcaster has
+    a line of their own, the sample lines leave the preview snapshot, so the preview rotates the
+    broadcaster's lines alone and a first added line shows in the preview at once (as a changed
+    line list, `widgets.md` rule 80). Removing the last line brings the sample lines back.
 
 ### Tower lap-time flash toggle
 
@@ -225,7 +281,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     render at `normal` size.
 40. **The editor exposes it in the widget row** — rule 14's control surface — as a select of the
     three presets, for each text-rendering widget: `tower`, `battle`, `driver`, `qualifying`,
-    `racecontrol`, `onboard`, `updates`. `logos` renders no text and gets no control. Per rule 16 it carries
+    `racecontrol`, `onboard`, `updates`, `info`. `logos` renders no text and gets no control. Per rule 16 it carries
     help copy, per rule 19 the coverage tests require it, and like `plateAlpha` (rule 24)
     withholding the control never rewrites a stored value.
 41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
@@ -310,7 +366,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 
 44. **A typed number applies when it is committed, not on each keystroke.** The editor's typed
     number fields are: each widget's `x`, `y`, `w`, `h` and `z`; the battle row's exit grace secs
-    (`idleGraceSeconds`); a lower-third row's and the `updates` row's dwell secs (`dwellSeconds`); the tower row's seconds
+    (`idleGraceSeconds`); a lower-third row's, the `updates` row's and the `info` row's dwell secs (`dwellSeconds`); the tower row's seconds
     per page and pin top N (`cycle.perPageSeconds`, `cycle.pinTop`); the canvas width and height;
     and the logo rotation's per-slot seconds (`logoRotation.perSlotSeconds`). A value typed into one
     of them is committed in two ways, and is applied then, once. **Enter** commits on its own
@@ -330,15 +386,16 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     editor runs in — whether or not that browser fires `change` for a keyboard step. Typing after a
     step is ordinary typing again. The plate-opacity slider (rule 23) is not a typed field: it
     applies continuously while it moves. `maxRows` is a text field that applies on commit with its
-    own blank handling (rule 12); the profile name, the producer URL and the class-color fields are
-    not number fields, and rule 44 does not cover them.
+    own blank handling (rule 12); the profile name, the producer URL, the class-color fields and
+    the info lines inputs are not number fields, and rule 44 does not cover them (an info line
+    commits as rule 53 says).
 44b. **A commit is clamped or refused, never reset to a default, and the field then shows what is
     stored.** A committed number that the knob's normalization would **clamp** is stored clamped:
     the keep-on-canvas clamp for `x`/`y`/`w`/`h` (at least 16 px, inside the canvas), `[0, 30]` for
     exit grace (rule 36), the 320 px minimum for a canvas edge (rule 9), and a non-whole `pinTop`
     rounded down to a whole number (rule 12). A committed number that normalization would
     **replace with the default** — a lower-third dwell or a seconds per page not above `0`, an
-    `updates` dwell outside `[2, 60]` (rule 50), a `pinTop` below `0` — is refused like a blank: the stored value is kept. `z` and per-slot seconds keep the
+    `updates` or `info` dwell outside `[2, 60]` (rules 50, 52), a `pinTop` below `0` — is refused like a blank: the stored value is kept. `z` and per-slot seconds keep the
     number as entered. After every commit the field shows the value now stored, so an out-of-range
     entry visibly becomes its clamped value or reverts to the kept one. Committing a **blank**
     field — cleared, or holding text the browser cannot read as a number, which a number input
@@ -465,7 +522,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     qualifying/practice suppression of pit / tire-wear / fuel (`widgets.md` rule 8), and that the
     lower-thirds hide themselves between camera cuts (rules 13-19), and that a tower in `full`
     name style grows wider than its set width and can be cut off at the edge of the canvas or
-    the Browser Source (rule 43, `widgets.md` rule 48) — each otherwise looks like a broken
+    the Browser Source (rule 43, `widgets.md` rule 48), and that the info panel draws nothing
+    while it has no event and no lines to show (rule 53, `widgets.md` rule 78) — each otherwise looks like a broken
     overlay rather than a deliberate rule.
 
 ### Live reload
@@ -619,10 +677,11 @@ Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 `widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
-`qualifying`, `racecontrol`, `onboard`, `updates`. Each widget carries the full normalized knob set (geometry +
+`qualifying`, `racecontrol`, `onboard`, `updates`, `info`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
 `classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
-but only the widget noted in the rule-11 table actually reads each.
+but only the widget noted in the rule-11 table actually reads each. The `info` widget also
+carries `lines`, which no other widget has (rule 52).
 
 URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,
 `?hide=`, `?motion=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),

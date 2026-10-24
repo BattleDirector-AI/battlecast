@@ -196,6 +196,16 @@ config edit never reconnects the producer.
   The copy also carries a `race_events` list (taken from `race-events.json`'s entries) so the
   preview's race update box has cards to show (`what/overlay-config.md` rule 51); `AllView` is
   rendered with `preview`, which it passes to `RaceUpdateBox` so the box takes no baseline.
+  It also carries `event-info.json`'s `event`, and its `info_lines` only while the `info`
+  widget's `lines` is empty, so the preview's info panel has a header and lines and a
+  broadcaster's own line replaces the samples at once (`what/overlay-config.md` rule 53). The
+  preview snapshot is therefore derived from `config`, not a constant.
+- **The info lines list** (`what/overlay-config.md` rule 53) follows the Class Colors pattern: the
+  new-line input is local UI state, not config, until Add; each stored line's input holds a local
+  draft that is written through a `configEditor.js` helper only on commit (Enter or `change`),
+  then re-shows the stored line, as the typed number fields do. The add/edit/remove helpers apply
+  rule 52's trimming, 120-character cut, duplicate and 10-line limits, so the editor can never
+  hold a `lines` value normalization would change.
 - **Drag listeners live on `window`,** attached in `startDrag` and removed in `endDrag`, so a pointer
   that leaves the preview box still tracks and still releases. There are four — `pointermove` →
   `onDrag`, `pointerup` → `onPointerEnd`, `pointercancel` → `onPointerEnd`, `blur` → `endDrag` —
