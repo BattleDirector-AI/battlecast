@@ -1,4 +1,4 @@
-/* Live config reload (#115 / .ai/spec overlay-config rule 16).
+/* Live config reload (#115 / .ai/spec overlay-config rule 22).
  *
  * A render page re-reads its profile on a modest interval and applies a change without a
  * manual Browser Source refresh. Best-effort: a failed poll just delays the change; the

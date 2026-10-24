@@ -136,10 +136,13 @@ the debounce would have, with no timer of its own, against the current `feedUrl`
 stays accurate and a later edit still reopens. It is a control, so rule 16 applies: help copy is
 `FIELD_HELP.feedReconnect`, the ⓘ is `[data-testid="help-reconnect"]`.
 
-**Live reload (read path, rule 22).** `AllPage.svelte` calls `watchConfig(location.search, …,
-{ initial: resolved })` after its initial `loadConfig`. Each tick re-resolves the config through the
-same precedence chain and compares; on a difference it assigns the new config, re-applies motion, and
-re-fits the stage. The SSE feed is **not** touched — a config edit never reconnects the producer.
+**Live reload (read path, rule 22).** Every render page — `AllPage.svelte` and each standalone
+page (`TowerPage`, `BattlePage`, `DriverPage`, `QualifyingPage`, `GridPage`, `ResultsPage`,
+`LogosPage`, `UpdatesPage`) — calls `watchConfig(location.search, …, { initial: resolved })` after
+its initial `loadConfig`, and stops it on unmount. Each tick re-resolves the config through the same
+precedence chain and compares; on a difference the page applies the new config exactly as its initial
+load did (`AllPage` also re-applies motion and re-fits the stage). The SSE feed is **not** touched — a
+config edit never reconnects the producer.
 
 ## Key Abstractions
 
@@ -180,7 +183,7 @@ re-fits the stage. The SSE feed is **not** touched — a config edit never recon
 | `ConfigPage` | producer | `sseClient.connect(…, { onOpen, onError })` — status readout only, snapshots discarded. |
 | `ConfigPage` | `AllView` | Renders the real composite widget tree as the live preview. |
 | `ConfigPage` | `spec/v1/fixtures/race-close-battle.json` | Preview snapshot, **augmented on a copy** (see notes). |
-| `AllPage` (render path) | `configWatch.js` → `overlayConfig.loadConfig` | 5 s poll → swap layout without a refresh. |
+| `AllPage` + standalone render pages | `configWatch.js` → `overlayConfig.loadConfig` | 5 s poll → swap config without a refresh. |
 | Broadcaster → OBS | `buildObsUrl()` | `<origin>/all?profile=<name>&src=<producer>`, copied from the UI. |
 
 ## Implementation Notes

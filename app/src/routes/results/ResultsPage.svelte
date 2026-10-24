@@ -2,11 +2,12 @@
   import { onMount } from 'svelte'
   import ResultsSlide from './ResultsSlide.svelte'
   import { connect, resolveSrc } from '../../lib/sseClient.js'
+  import { watchConfig } from '../../lib/configWatch.js'
   import { loadConfig, DEFAULT_CONFIG, normalizeConfig } from '../../lib/overlayConfig.js'
 
   let snapshot = $state(null)
   // Class-color overrides (rule 32, ADR 0010) come from the same saved profile /all
-  // reads them from — resolved once at mount, like the tower/lower-third standalone
+  // reads them from — resolved at mount and live-reloaded, like the tower/lower-third standalone
   // routes. The producer feed URL keeps resolving from ?src= alone, unaffected.
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
 
@@ -20,8 +21,20 @@
 
   onMount(() => {
     let cancelled = false
+    let stopWatch = () => {}
     loadConfig(window.location.search).then((resolved) => {
-      if (!cancelled) config = resolved
+      if (cancelled) return
+      config = resolved
+      // Live-reload (#115, overlay-config rule 22): re-read the profile on an interval and
+      // apply a change without a manual refresh — immediately, no transition. The producer
+      // feed is left untouched (a config edit does not reconnect SSE).
+      stopWatch = watchConfig(
+        window.location.search,
+        (nextConfig) => {
+          config = nextConfig
+        },
+        { initial: resolved },
+      )
     })
 
     const url = resolveSrc(window.location.search)
@@ -30,6 +43,7 @@
     })
     return () => {
       cancelled = true
+      stopWatch()
       disconnect()
     }
   })

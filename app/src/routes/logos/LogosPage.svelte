@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import LogoRotation from './LogoRotation.svelte'
+  import { watchConfig } from '../../lib/configWatch.js'
   import { loadConfig, DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
 
   // Standalone logo-rotation Browser Source. Unlike the tower/battle routes this
@@ -10,11 +11,23 @@
 
   onMount(() => {
     let cancelled = false
+    let stopWatch = () => {}
     loadConfig(window.location.search).then((resolved) => {
-      if (!cancelled) config = resolved
+      if (cancelled) return
+      config = resolved
+      // Live-reload (#115, overlay-config rule 22): re-read the profile on an interval and
+      // apply a change without a manual refresh — immediately, no transition.
+      stopWatch = watchConfig(
+        window.location.search,
+        (nextConfig) => {
+          config = nextConfig
+        },
+        { initial: resolved },
+      )
     })
     return () => {
       cancelled = true
+      stopWatch()
     }
   })
 </script>
