@@ -76,6 +76,32 @@ function validate(payload) {
     }
   }
 
+  // Optional, additive `event` and `info_lines` (ADR 0024): `event` is null/absent or an object
+  // whose `name` / `track` are strings and whose `round` is an integer >= 1 (each nullable);
+  // `info_lines` is null/absent or an array of strings.
+  if (payload.event != null) {
+    const ev = payload.event;
+    check(typeof ev === "object" && !Array.isArray(ev), "event must be an object or null", errors);
+    if (ev && typeof ev === "object" && !Array.isArray(ev)) {
+      for (const field of ["name", "track"]) {
+        check(ev[field] == null || typeof ev[field] === "string", `event.${field} must be a string or null`, errors);
+      }
+      check(
+        ev.round == null || (Number.isInteger(ev.round) && ev.round >= 1),
+        "event.round must be an integer >= 1 or null",
+        errors
+      );
+    }
+  }
+  if (payload.info_lines != null) {
+    check(Array.isArray(payload.info_lines), "info_lines must be an array or null", errors);
+    if (Array.isArray(payload.info_lines)) {
+      payload.info_lines.forEach((line, idx) =>
+        check(typeof line === "string", `info_lines[${idx}] must be a string`, errors)
+      );
+    }
+  }
+
   return errors;
 }
 

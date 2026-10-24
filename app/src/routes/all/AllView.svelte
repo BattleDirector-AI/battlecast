@@ -7,6 +7,7 @@
   import RaceControlStatus from '../racecontrol/RaceControlStatus.svelte'
   import OnBoardHud, { resolveIdentity } from '../onboard/OnBoardHud.svelte'
   import RaceUpdateBox from '../updates/RaceUpdateBox.svelte'
+  import InfoPanel from '../info/InfoPanel.svelte'
   import { resolveSubject } from '../driver/DriverLowerThird.svelte'
   import {
     DEFAULT_CONFIG,
@@ -86,7 +87,7 @@
   $effect(() => () => battleGrace.destroy())
 
   const idleCtx = (key) => ({ snapshot: key === 'battle' ? battleSnapshot : snapshot, config: normalized })
-  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates'])
+  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates', 'info'])
   const widgets = $derived(
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
@@ -195,6 +196,8 @@
         />
       {:else if w.key === 'updates'}
         <RaceUpdateBox {snapshot} dwellSeconds={w.dwellSeconds} {preview} />
+      {:else if w.key === 'info'}
+        <InfoPanel {snapshot} dwellSeconds={w.dwellSeconds} lines={w.lines} />
       {/if}
     </div>
   {/each}

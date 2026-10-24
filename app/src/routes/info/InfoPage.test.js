@@ -149,4 +149,30 @@ describe('/info standalone route (rule 82)', () => {
     advance(1)
     expect(line()).toBe(L1)
   })
+
+  it('applies nothing and starts no reload poll when unmounted before the profile arrives', async () => {
+    const Page = await loadPage()
+    window.history.replaceState({}, '', '/info?profile=p')
+    let release
+    const gate = new Promise((resolve) => (release = resolve))
+    const profile = { widgets: { info: { lines: ['Follow us @battlecast'] } } }
+    const fetchMock = vi.fn(async () => {
+      await gate
+      return { ok: true, status: 200, json: async () => profile }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(Page)
+    await tick()
+    expect(fetchMock, 'the page must start loading the named profile').toHaveBeenCalled()
+
+    cleanup() // unmount while the profile load is still in flight
+    release()
+    for (let i = 0; i < 5; i++) await tick()
+    const loads = fetchMock.mock.calls.length
+
+    await vi.advanceTimersByTimeAsync(15000) // three reload intervals
+    for (let i = 0; i < 5; i++) await tick()
+    expect(fetchMock.mock.calls.length, 'a late profile must not start the reload poll').toBe(loads)
+    expect(document.querySelector('[data-testid="info-panel"]')).toBeNull()
+  })
 })
