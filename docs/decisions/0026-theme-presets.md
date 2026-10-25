@@ -120,16 +120,16 @@ keeps light text until the tower pass builds the reverse-video fill).
 | `--bc-font-mono` | `'Barlow Condensed'` (tabular figures) | `'VT323'` |
 | `--bc-font-style` (new; modern `normal`) | `italic` (the whole package leans) | `normal` |
 | `--bc-text` / `-2` / `-3` / `-4` | gold `#FFB61C` / warm white `#FFF1C9` / `#E9D49A` / faint warm white | yellow-green `#DCEB3F` / CG white `#F4F3E6` / tan `#CDB98A` / faint CG white |
-| `--bc-text-on-accent` | `#FFFFFF` (on the red bar) | `#0B0B06` (on the lime fill) |
+| `--bc-text-on-accent` | `#141414` (the token also sets text on class-colour chips, the amber FCY badge and the PIT-IN chip, so it stays dark; the on-camera bar's white name is `--bc-oncam-text`) | `#0B0B06` (on the lime fill) |
 | `--bc-accent` (+ `-soft`, `-glow`, `-line`) | ABC red `#E3241B` | Olivetti lime `#DCEB3F` |
 | `--bc-oncam-text`, `--bc-oncam-bg`, `--bc-oncam-shadow` | white name over a flat red bar, no glow | light name over a flat lime-tinted bar, no glow |
 | `--bc-plate-rgb`, `--bc-plate-dense-rgb`, `--bc-plate-solid` | black | black |
 | `--bc-header-rgb` | black | Scoreboard red `216, 20, 28` |
 | `--bc-plate`, `--bc-plate-dense`, `--bc-header` | re-declared from the inputs above (decision 5) | same |
 | `--bc-blur` | `none` | `none` |
-| `--bc-shadow-plate`, `--bc-shadow-soft` | `none` | hard `3px 3px 0 #000` / `none` |
+| `--bc-shadow-plate`, `--bc-shadow-soft` | `0 0 0 transparent` (no shadow; not `none`, which is invalid where a glow lists the token with another shadow) | hard `3px 3px 0 #000` / `0 0 0 transparent` |
 | `--bc-radius`, `--bc-radius-chip` | `0` | `0` |
-| `--bc-shadow-text` (new; modern `none`) | hard 4-step black extrusion plus a soft dark halo | 2px black outline plus a 1px drop and a soft halo |
+| `--bc-shadow-text` (new; modern `none`) | hard 3-step black extrusion plus a soft dark halo (the mock's small-text variant: the base reaches every label and chip, and the full 4-step extrusion smears small text) | 1px black outline plus a 1px drop and a soft halo (the mock's thin outline: the 2px outline closes up VT323 at label and chip sizes). A widget's pass may use the heavier form on large text in its own scope. |
 
 Plates stay (black, square, unblurred) in the foundation. The period look is text keyed
 straight over the picture; whether a given widget drops its plate for a feathered backing is that

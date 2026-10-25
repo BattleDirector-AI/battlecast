@@ -5,6 +5,7 @@
   import { watchConfig } from '../../lib/configWatch.js'
   import { loadConfig, DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
   import { applyMotion, resolveMotion } from '../../lib/motion.js'
+  import { resolveTheme, applyTheme } from '../../lib/theme.js'
 
   // Standalone weather box Browser Source (widgets.md rule 87). Connects like every render
   // page (`?src=`, then the default) and reads the `weather` widget's `tempUnit` from the
@@ -19,6 +20,7 @@
     // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=` URL
     // param still wins). App.svelte already set a URL/default baseline at boot.
     applyMotion(resolveMotion(window.location.search, { reducedMotion: config.reducedMotion }))
+    applyTheme(resolveTheme(window.location.search, { preset: config.theme.preset }))
   }
 
   onMount(() => {

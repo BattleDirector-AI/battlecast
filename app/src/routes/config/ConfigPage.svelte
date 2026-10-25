@@ -26,6 +26,7 @@
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
   import { CLASS_TAGS_VALUES } from '../../lib/classTags.js'
+  import { THEME_PRESETS } from '../../lib/theme.js'
   import {
     WIDGET_HELP,
     FIELD_HELP,
@@ -507,6 +508,9 @@
   const setClassColor = (name, hex) => (config = editor.setClassColor(config, name, hex))
   const removeClassColor = (name) => (config = editor.removeClassColor(config, name))
   const setClassTags = (value) => (config = editor.setClassTags(config, value))
+  const setThemePreset = (value) => (config = editor.setThemePreset(config, value))
+  // Labels for the overlay-wide look (overlay-config rule 62), in THEME_PRESETS order.
+  const THEME_LABELS = { modern: 'Modern', vintage70: 'Vintage 70s', vintage80: 'Vintage 80s' }
   function addClassColor() {
     if (!newClassColorName.trim()) return
     setClassColor(newClassColorName, newClassColorHex)
@@ -621,6 +625,7 @@
       <div
         class="preview__stage"
         data-testid="preview-stage"
+        data-theme={config.theme.preset}
         style="width: {canvas.w * previewScale}px; height: {canvas.h * previewScale}px;"
       >
         <div
@@ -1255,6 +1260,25 @@
       </section>
 
       <section class="panel__group">
+        <h2>Theme</h2>
+        <!-- Overlay-wide look (overlay-config rules 58-62, ADR 0026). Only the preview stage takes
+             it; this editor panel stays modern. -->
+        <label class="num">
+          theme
+          <HelpTip text={FIELD_HELP.themePreset} label="theme" testid="help-theme-preset" />
+          <select
+            data-testid="theme-preset"
+            value={config.theme.preset}
+            onchange={(e) => setThemePreset(e.currentTarget.value)}
+          >
+            {#each THEME_PRESETS as value (value)}
+              <option {value}>{THEME_LABELS[value]}</option>
+            {/each}
+          </select>
+        </label>
+      </section>
+
+      <section class="panel__group">
         <h2>Class Tags</h2>
         <!-- Overlay-wide, not per widget (overlay-config rules 47-48, ADR 0022). -->
         <label class="num">
@@ -1544,6 +1568,9 @@
     color: #06231b;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    /* Editor chrome inside the themed preview stage: keep the modern look (rule 62). */
+    text-shadow: none;
+    font-style: normal;
   }
   .handle__resize {
     position: absolute;

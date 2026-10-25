@@ -7,6 +7,7 @@ import {
   normalizeConfig,
   normalizeClassColors,
   normalizeClassTags,
+  normalizeThemePreset,
   MIN_CANVAS,
   finiteOrNull,
   TEXT_SCALES,
@@ -243,6 +244,13 @@ export function removeInfoLine(config, index) {
 export function setClassTags(config, value) {
   const next = normalizeConfig(config)
   next.theme = { ...next.theme, classTags: normalizeClassTags(value) }
+  return next
+}
+
+/** The overlay-wide look preset (overlay-config rules 58, 62); anything unknown is `modern`. */
+export function setThemePreset(config, value) {
+  const next = normalizeConfig(config)
+  next.theme = { ...next.theme, preset: normalizeThemePreset(value) }
   return next
 }
 

@@ -8,6 +8,10 @@
   --bc-shadow-plate: 0 12px 44px rgba(0, 0, 0, 0.55);
   --bc-shadow-soft: 0 10px 36px rgba(0, 0, 0, 0.40);
 
+  /* ---- Text shadow — inherited by all text in a theme scope; a preset sets a period
+   * outline or extrusion. Text that sets its own text-shadow keeps it. ---- */
+  --bc-shadow-text: none;
+
   /* ---- On-camera highlight (cyan, reserved for on-cam driver) ---- */
   --bc-oncam-bg: linear-gradient(90deg,
       rgba(31, 224, 196, 0.22) 0%,
@@ -51,4 +55,51 @@
   50% {
     box-shadow: var(--bc-shadow-plate), 0 0 26px rgba(255, 69, 54, 0.45);
   }
+}
+
+/* ---- Theme presets (overlay-config rules 58–60, ADR 0026) ---- */
+
+/* Every theme scope (a render page's root, the /config preview stage) passes the preset's text
+ * shadow and font style down to its text. Modern's values are none / normal: no change.
+ * `:root[data-theme]` outranks app.css's `:root { font: … }` shorthand, which resets font-style,
+ * whatever order the two stylesheets load in. */
+:root[data-theme],
+[data-theme] {
+  text-shadow: var(--bc-shadow-text);
+  font-style: var(--bc-font-style);
+}
+
+[data-theme="vintage70"] {
+  --bc-blur: none;
+  /* A transparent zero shadow, not `none`: the pulse glows list this token with another shadow,
+   * and `none` is invalid inside a shadow list (the whole glow would drop). */
+  --bc-shadow-plate: 0 0 0 transparent;
+  --bc-shadow-soft: 0 0 0 transparent;
+  /* Flat ABC red bar under the on-camera driver, fading out under the numerals; no glow. */
+  --bc-oncam-bg: linear-gradient(90deg, #E3241B 0%, #E3241B 58%, rgba(227, 36, 27, 0) 100%);
+  --bc-oncam-shadow: none;
+  /* Hard 3-step black extrusion plus a soft dark halo, so gold reads on bright video too. The
+   * base is the mock's small-text variant: it applies to every label and chip, and the full
+   * 4-step extrusion smears text that small. A widget's pass may use the heavier one on names. */
+  --bc-shadow-text:
+      1px 1px 0 #1a0b00, 2px 2px 0 #000, 3px 3px 0 #000,
+      0 0 8px rgba(0, 0, 0, 0.6), 0 0 1px #000, 0 0 2px rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="vintage80"] {
+  --bc-blur: none;
+  --bc-shadow-plate: 3px 3px 0 #000;
+  --bc-shadow-soft: 0 0 0 transparent;
+  /* Lime-tinted bar with a hard lime edge; the reverse-video fill comes with the tower pass. */
+  --bc-oncam-bg: linear-gradient(90deg,
+      rgba(220, 235, 63, 0.30) 0%,
+      rgba(220, 235, 63, 0.14) 60%,
+      rgba(220, 235, 63, 0) 100%);
+  --bc-oncam-shadow: inset 4px 0 0 #DCEB3F;
+  /* 1px black outline round the raster glyphs, a 1px drop and a soft halo. The base is the
+   * mock's thin outline: it applies to every label and chip, and the 2px outline closes up
+   * VT323 counters at those sizes. A widget's pass may use the 2px outline on large text. */
+  --bc-shadow-text:
+      -1px -1px 0 #000, 1px -1px 0 #000, 1px 1px 0 #000, -1px 1px 0 #000,
+      2px 2px 0 #000, 0 0 6px rgba(0, 0, 0, 0.6);
 }
