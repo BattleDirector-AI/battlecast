@@ -1,7 +1,7 @@
 /* The `?theme=` URL knob and the boot baseline (overlay-config.md rule 59, ADR 0026).
  *
- * `/racecontrol` and `/onboard` load no profile, so the URL is the only way to give them a
- * vintage look: App's boot writes `<html data-theme>` from `?theme=` (trimmed, case-insensitive,
+ * `/onboard` loads no profile, so the URL is the only way to give it a vintage look, and
+ * `/racecontrol` without `?profile=` is in the same position: App's boot writes `<html data-theme>` from `?theme=` (trimmed, case-insensitive,
  * ignored unless it names a preset) or `modern`. The `/config` editor is not a render page — its
  * own root never takes a vintage theme, whatever `?theme=` says (rule 62 themes only its preview).
  */
@@ -42,7 +42,7 @@ async function boot(url) {
   return document.documentElement.dataset.theme
 }
 
-describe('App boot — ?theme= on the routes that load no profile (rule 59)', () => {
+describe('App boot — ?theme= on a route rendering without a profile (rule 59)', () => {
   it.each([
     ['/racecontrol?theme=vintage80', 'vintage80'],
     ['/racecontrol?theme=vintage70', 'vintage70'],

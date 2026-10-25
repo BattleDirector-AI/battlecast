@@ -552,11 +552,11 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     preset is written to `<html data-theme="modern"|"vintage70"|"vintage80">`, always present on a
     render page, `modern` included. Every render page writes it: `/all`, and the standalone
     `/tower`, `/battle`, `/driver`, `/qualifying`, `/grid`, `/results`, `/logos`, `/updates`,
-    `/info` and `/weather`, each from the URL and its profile on the initial load and again on every live reload
+    `/info`, `/weather` and `/racecontrol`, each from the URL and its profile on the initial load and again on every live reload
     (rule 22), where a changed preset applies at once, with no transition. A preset chosen in the
     profile applies once the profile has loaded: until then a page without `?theme=` shows the
-    `modern` look, exactly as `data-motion` waits for the profile (rule 10). `/racecontrol` and
-    `/onboard` load no profile, so they render the `?theme=` value or `modern`. The `/config`
+    `modern` look, exactly as `data-motion` waits for the profile (rule 10). `/onboard` loads
+    no profile, so it renders the `?theme=` value or `modern`. The `/config`
     editor is not a render page: its document root never carries `vintage70` or `vintage80`,
     whatever the profile or a `?theme=` param says (rule 62 covers its preview).
 60. **A preset changes the look only.** Under every preset each widget shows the same content

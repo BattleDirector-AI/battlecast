@@ -20,6 +20,7 @@ import ResultsPage from './results/ResultsPage.svelte'
 import LogosPage from './logos/LogosPage.svelte'
 import UpdatesPage from './updates/UpdatesPage.svelte'
 import InfoPage from './info/InfoPage.svelte'
+import RaceControlPage from './racecontrol/RaceControlPage.svelte'
 
 vi.mock('../lib/sseClient.js', () => ({
   DEFAULT_SRC: 'http://localhost:8080/events',
@@ -81,6 +82,7 @@ const PAGES = [
   ['/logos', LogosPage],
   ['/updates', UpdatesPage],
   ['/info', InfoPage],
+  ['/racecontrol', RaceControlPage],
 ]
 
 describe("standalone pages apply the profile's reducedMotion (overlay-config rule 10)", () => {

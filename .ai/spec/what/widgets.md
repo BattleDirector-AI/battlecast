@@ -466,6 +466,8 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     render the timed/lap progress readout — that lives in the standings-tower header (rule 9).
     Renders whenever visible and there is flag/FCY/SC/sector-yellow content, in every mode. Not
     a lower-third and not class-aware — the trigger/`modes`/`classDisplay` knobs are inert for it.
+    The standalone `/racecontrol` route loads the profile named by `?profile=` only for its
+    motion mode and theme (`overlay-config.md` rules 10 and 59) and reloads it live.
 44. **Sector yellows.** Each `session.sector_flags` entry that is the string `yellow` (trimmed,
     case-insensitive) is a local yellow in sector *index + 1*. When at least one sector is yellow,
     Race Control shows one chip (`data-testid="racecontrol-sector-yellow"`) reading `YELLOW`
