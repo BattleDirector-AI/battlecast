@@ -34,7 +34,13 @@ Every control and every preview drag calls a `configEditor.*` function and **rea
 — `config = editor.moveWidget(config, key, x, y)` — so Svelte 5 reactivity is driven by whole-object
 replacement, not mutation. `saveProfile()` then `PUT`s that object to `/api/profiles/<name>`.
 
-**Preview.** The editor renders the real `AllView` against a fixture snapshot, scaled by
+**Preview.** The preview stage (`[data-testid="preview-stage"]`) carries
+`data-theme={config.theme.preset}`, so the token overrides keyed off `[data-theme=…]` restyle the
+preview subtree while the editor's own panel, whose root carries no vintage theme, stays modern
+(`what/overlay-config.md` rule 62). The theme select (`data-testid="theme-preset"`) sits beside the
+class-tags select, writes through `configEditor.setThemePreset`, and its help is
+`FIELD_HELP.themePreset`.
+The editor renders the real `AllView` against a fixture snapshot, scaled by
 `previewScale` (`fitPreview()` fits the canvas into the panel, capped at 0.6). Pointer deltas are
 divided by that scale before reaching `moveWidget`/`resizeWidget`, so a drag moves the widget by
 canvas pixels, not screen pixels. `startDrag` snapshots the widget as `drag.orig`; every
@@ -138,11 +144,13 @@ stays accurate and a later edit still reopens. It is a control, so rule 16 appli
 
 **Live reload (read path, rule 22).** Every render page — `AllPage.svelte` and each standalone
 page (`TowerPage`, `BattlePage`, `DriverPage`, `QualifyingPage`, `GridPage`, `ResultsPage`,
-`LogosPage`, `UpdatesPage`, `InfoPage`) — calls `watchConfig(location.search, …, { initial: resolved })`
+`LogosPage`, `UpdatesPage`, `InfoPage`, `WeatherPage`) — calls `watchConfig(location.search, …, { initial: resolved })`
 after its initial `loadConfig`, and stops it on unmount. Each tick re-resolves the config through the
 same precedence chain and compares; on a difference the page applies the new config exactly as its
 initial load did, including `applyMotion(resolveMotion(location.search, { reducedMotion }))` so the
 profile's `reducedMotion` refines `App.svelte`'s boot baseline (a `?motion=` param still wins;
+likewise `applyTheme(resolveTheme(location.search, { preset: theme.preset }))` for the theme,
+`what/overlay-config.md` rule 59;
 `AllPage` also re-fits the stage). The SSE feed is **not** touched — a config edit never reconnects
 the producer. The poll loads with `loadConfig(search, { strict: true })`, which **rejects** when the
 named profile cannot be fetched (network error, non-OK from both the API and the static path — a

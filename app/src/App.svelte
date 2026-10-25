@@ -19,6 +19,7 @@
   import InfoPage from './routes/info/InfoPage.svelte'
   import WeatherPage from './routes/weather/WeatherPage.svelte'
   import { resolveMotion, applyMotion } from './lib/motion.js'
+  import { resolveTheme, applyTheme } from './lib/theme.js'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
@@ -41,6 +42,13 @@
     // every transition into a hard cut. `?motion=reduced` opts a Browser Source out;
     // config-driven routes refine this from a saved profile's `reducedMotion`.
     applyMotion(resolveMotion(typeof window !== 'undefined' ? window.location.search : ''))
+
+    // The look preset (overlay-config rule 59): stamp the `?theme=`/default baseline on
+    // <html data-theme=…>; profile-loading pages refine it from the profile. The /config editor
+    // stays modern — only its preview stage is themed (rule 62) — so its root is never stamped.
+    if (path !== '/config') {
+      applyTheme(resolveTheme(typeof window !== 'undefined' ? window.location.search : ''))
+    }
 
     // The scaffold styles `#app` as a centered 1126px column with side borders and
     // `text-align: center`. That offsets and boxes-in a real route: on `/all` it

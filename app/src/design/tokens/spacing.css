@@ -30,3 +30,11 @@
   /* ---- Title-safe inset (broadcast safe area) ---- */
   --bc-inset-safe: 48px;
 }
+
+/* ---- Theme presets (ADR 0026) — radii only: they are paint, everything else here is geometry
+ * and no preset may override it (row heights drive the tower's row budget). ---- */
+[data-theme="vintage70"],
+[data-theme="vintage80"] {
+  --bc-radius: 0;
+  --bc-radius-chip: 0;
+}

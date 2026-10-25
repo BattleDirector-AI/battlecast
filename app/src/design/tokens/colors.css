@@ -57,3 +57,53 @@
   --bc-class-gt4: #B98CFF;    /* GT4 */
   --bc-class-tcr: #FF9A3C;    /* Touring / TCR */
 }
+
+/* ---- Theme presets (overlay-config rules 58–60, ADR 0026) ----
+ * Keyed off the BARE attribute so a block reaches both the document root of a render page and
+ * the /config preview stage. Look only: no spacing/geometry token is ever overridden here. */
+
+[data-theme="vintage70"] {
+  /* 1970s US network CG: gold keyed text, ABC red bar on the on-camera driver. */
+  --bc-plate-rgb: 0, 0, 0;
+  --bc-plate: rgba(var(--bc-plate-rgb), 0.82);
+  --bc-plate-dense-rgb: 0, 0, 0;
+  --bc-plate-dense: rgba(var(--bc-plate-dense-rgb), 0.84);
+  --bc-plate-solid: #000000;
+  --bc-header-rgb: 0, 0, 0;
+  --bc-header: rgba(var(--bc-header-rgb), 0.94);
+
+  --bc-text: #FFB61C;
+  --bc-text-2: #FFF1C9;
+  --bc-text-3: #E9D49A;
+  --bc-text-4: rgba(255, 241, 201, 0.24);
+  --bc-text-on-accent: #141414;   /* dark: chips, badges and fills other than the red bar use it */
+
+  --bc-accent: #E3241B;
+  --bc-accent-soft: rgba(227, 36, 27, 0.30);
+  --bc-accent-glow: rgba(227, 36, 27, 0.35);
+  --bc-accent-line: rgba(227, 36, 27, 0.80);
+  --bc-oncam-text: #FFFFFF;
+}
+
+[data-theme="vintage80"] {
+  /* 1980s F1 Olivetti timing page: yellow-green CG text, Scoreboard red header. */
+  --bc-plate-rgb: 0, 0, 0;
+  --bc-plate: rgba(var(--bc-plate-rgb), 0.82);
+  --bc-plate-dense-rgb: 0, 0, 0;
+  --bc-plate-dense: rgba(var(--bc-plate-dense-rgb), 0.84);
+  --bc-plate-solid: #000000;
+  --bc-header-rgb: 216, 20, 28;
+  --bc-header: rgba(var(--bc-header-rgb), 0.94);
+
+  --bc-text: #DCEB3F;
+  --bc-text-2: #F4F3E6;
+  --bc-text-3: #CDB98A;
+  --bc-text-4: rgba(244, 243, 230, 0.24);
+  --bc-text-on-accent: #0B0B06;
+
+  --bc-accent: #DCEB3F;
+  --bc-accent-soft: rgba(220, 235, 63, 0.22);
+  --bc-accent-glow: rgba(220, 235, 63, 0.30);
+  --bc-accent-line: rgba(220, 235, 63, 0.70);
+  --bc-oncam-text: #F4F3E6;      /* light until the tower pass builds the reverse-video row */
+}

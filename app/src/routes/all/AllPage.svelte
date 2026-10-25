@@ -5,6 +5,7 @@
   import { loadConfig, pickProducerSrc, DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
   import { watchConfig } from '../../lib/configWatch.js'
   import { resolveMotion, applyMotion } from '../../lib/motion.js'
+  import { resolveTheme, applyTheme } from '../../lib/theme.js'
 
   let config = $state(DEFAULT_CONFIG)
   let snapshot = $state(null)
@@ -35,6 +36,7 @@
       // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=`
       // URL param still wins). App.svelte already set a URL/default baseline at boot.
       applyMotion(resolveMotion(window.location.search, { reducedMotion: resolved.reducedMotion }))
+      applyTheme(resolveTheme(window.location.search, { preset: resolved.theme.preset }))
       fitStage() // re-fit: the resolved profile may set a different canvas size
       const src = pickProducerSrc(window.location.search, resolved)
       disconnect = connect(src, (next) => {
@@ -51,6 +53,7 @@
           applyMotion(
             resolveMotion(window.location.search, { reducedMotion: nextConfig.reducedMotion }),
           )
+          applyTheme(resolveTheme(window.location.search, { preset: nextConfig.theme.preset }))
           fitStage()
         },
         { initial: resolved },

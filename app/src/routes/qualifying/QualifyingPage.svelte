@@ -4,6 +4,7 @@
   import { connect } from '../../lib/sseClient.js'
   import { watchConfig } from '../../lib/configWatch.js'
   import { resolveMotion, applyMotion } from '../../lib/motion.js'
+  import { resolveTheme, applyTheme } from '../../lib/theme.js'
   import { loadConfig, pickProducerSrc, DEFAULT_CONFIG, normalizeConfig } from '../../lib/overlayConfig.js'
 
   // Standalone qualifying/sector lower-third Browser Source. Like /driver it is
@@ -26,6 +27,7 @@
       // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=`
       // URL param still wins). App.svelte already set a URL/default baseline at boot.
       applyMotion(resolveMotion(window.location.search, { reducedMotion: resolved.reducedMotion }))
+      applyTheme(resolveTheme(window.location.search, { preset: resolved.theme.preset }))
       const src = pickProducerSrc(window.location.search, resolved)
       disconnect = connect(src, (next) => {
         snapshot = next
@@ -40,6 +42,7 @@
           applyMotion(
             resolveMotion(window.location.search, { reducedMotion: nextConfig.reducedMotion }),
           )
+          applyTheme(resolveTheme(window.location.search, { preset: nextConfig.theme.preset }))
         },
         { initial: resolved },
       )

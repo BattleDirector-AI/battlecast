@@ -20,6 +20,7 @@
 
 import { DEFAULT_SRC } from './sseClient.js'
 import { CLASS_TAGS_VALUES } from './classTags.js'
+import { THEME_PRESETS, THEME_MODERN } from './theme.js'
 
 /** Config contract version, numbered independently of the app release and the
  *  spec `schemaVersion`. */
@@ -229,7 +230,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   // (normalized like `vehicle_class` elsewhere) -> 6-digit hex. Empty by default — no override,
   // no seeded/curated entries. `classTags` (overlay-config rule 47, ADR 0022): `auto` follows
   // the producer's `session.multiclass`; `show` / `hide` override it.
-  theme: { classColors: {}, classTags: 'auto' },
+  // `preset` (rule 58, ADR 0026): the overlay-wide look — `modern`, `vintage70` or `vintage80`.
+  theme: { preset: 'modern', classColors: {}, classTags: 'auto' },
   // Overlay-wide motion opt-out. The overlay animates by default (see lib/motion.js —
   // OBS/CEF reports reduced-motion, which must NOT silently kill the reveals); set true
   // to turn transitions down. A `?motion=` URL param overrides this per Browser Source.
@@ -594,6 +596,12 @@ export function normalizeClassTags(raw) {
   return CLASS_TAGS_VALUES.includes(raw) ? raw : 'auto'
 }
 
+/** `theme.preset` (overlay-config rule 58): exactly one of the curated presets, else `modern`.
+ *  Exact match, like `classTags`; only the `?theme=` URL knob is case-insensitive. */
+export function normalizeThemePreset(raw) {
+  return THEME_PRESETS.includes(raw) ? raw : THEME_MODERN
+}
+
 /** Split a comma list (`?hide=battle,logos`) into trimmed non-empty tokens. */
 function splitList(raw) {
   return String(raw || '')
@@ -626,6 +634,7 @@ export function normalizeConfig(raw) {
       ...src.theme,
       classColors: normalizeClassColors(src.theme.classColors),
       classTags: normalizeClassTags(src.theme.classTags),
+      preset: normalizeThemePreset(src.theme.preset),
     }
   }
   // Overlay-wide motion opt-out (see lib/motion.js). Defaults false (animate).

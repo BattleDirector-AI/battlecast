@@ -245,6 +245,14 @@ export const FIELD_HELP = Object.freeze({
     'session and shows them when the producer does not say. "show" and "hide" override the ' +
     'producer either way. The class color bars stay in every case. The editor preview’s sample ' +
     'feed does not say, so at "auto" the preview shows the tags.',
+  themePreset:
+    'The look of the whole overlay. "Modern" is the standard battlecast look. "Vintage 70s" is a ' +
+    '1970s US network look: gold italic lettering with a hard black drop shadow and a red bar on ' +
+    'the on-camera driver. "Vintage 80s" is a 1980s F1 timing-screen look: yellow-green ' +
+    'computer lettering with a black outline and a red header. Only the look changes; what each ' +
+    'widget shows, when and where stays the same, and class colors are the same in every look. ' +
+    'Add ?theme=vintage70 (or vintage80, or modern) to a Browser Source URL to override this for ' +
+    'that one source. The preview shows the chosen look; this editor panel always stays modern.',
 })
 
 /** Per-metric help for the tower's "tower metrics shown" group. Called out

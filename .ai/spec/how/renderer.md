@@ -15,6 +15,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/configHelp.js` | `WIDGET_HELP`, `FIELD_HELP`, `TOWER_METRIC_HELP`, `DRIVER_INFO_HELP` | Broadcaster-facing help copy for every `/config` control. Data, not markup — `configHelp.test.js` asserts it covers the config surface exactly. |
 | `src/lib/HelpTip.svelte` | — | The ⓘ affordance: click to reveal, Escape/outside-click to dismiss, flips to stay in the viewport, and cancels its own click so it never toggles the control it sits beside. |
 | `src/lib/motion.js` | `resolveMotion`, `applyMotion`, `prefersReducedMotion` | Motion policy → `<html data-motion>`. |
+| `src/lib/theme.js` | `resolveTheme`, `applyTheme`, `THEME_PRESETS` | Theme preset → `<html data-theme>` (`what/overlay-config.md` rules 58–59). Mirrors `motion.js`: `resolveTheme(search, { preset })` reads `?theme=` (trimmed, lowercased, ignored unless a known preset), then the normalized profile `theme.preset`, then `modern`; `applyTheme` writes the root attribute. `THEME_PRESETS` is the one list (`modern`, `vintage70`, `vintage80`) that `normalizeConfig` and the `/config` select also read. |
 | `src/lib/widgetIdle.js` | `IDLE_PREDICATES`, `isWidgetIdle`, `widgetSupportsAutoHide` | Per-widget idle predicates for `hideWhenIdle`. |
 | `src/lib/lowerThirdTrigger.js` | — | Edge-triggered camera-cut / dwell state machine for lower-thirds. |
 | `src/routes/tower/towerCycle.js` | `computeRowBudget`, `clampPerPageSeconds`, `selectPins`, `selectRows`, `createTowerCycle` | Tower overflow selection + cycling-window stability (see `what/tower-overflow.md`). |
@@ -30,13 +31,16 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/routes/weather/WeatherPage.svelte` | — | Standalone `/weather` route: `sseClient.connect` + `loadConfig(location.search)` + `watchConfig` for the `weather` widget's `tempUnit`. |
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
-| `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. |
+| `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. Each token file holds the `modern` values on `:root` and, after them, one `[data-theme="vintage70"]` and one `[data-theme="vintage80"]` block overriding them (ADR 0026). |
+| `public/fonts/<family>/` | `*.woff2`, `OFL.txt` | Self-hosted typefaces for the vintage presets (Barlow, Barlow Condensed, VT323, Oswald), each family's licence beside its files. Declared by `@font-face` in `src/design/tokens/fonts.css` with absolute `/fonts/…` URLs; `public/` is copied verbatim into `dist`, so the licences ship too. |
 
 ## Data Flow
 
 1. `App.svelte` reads `location.pathname`, picks a `<Name>Page.svelte`, and (on mount) resolves
    motion via `motion.js` and stamps `<html data-motion>`, sets transparent background for overlay
-   routes and full-bleed for real routes.
+   routes and full-bleed for real routes. On every route except `/config` it also stamps the
+   `?theme=`/default baseline on `<html data-theme>` via `theme.js`; profile-loading pages refine
+   both from the profile.
 2. A route shell resolves its producer URL (`resolveSrc` / `pickProducerSrc`) and — for `/all` —
    loads config via `loadConfig(location.search)`.
 3. `sseClient.connect(url, onState)` opens the `EventSource`, listens for `state`, `parseState`
@@ -84,6 +88,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `/all`, render pages | Companion server *or* static host | `fetch` config/logos over HTTP (read-only). |
 | `/config` UI | Companion server | `fetch` write API (`/api/profiles`, `/api/logos`). |
 | CSS + JS motion gating | Boot resolution | `<html data-motion>` attribute. |
+| CSS theme tokens | Boot + profile resolution | `<html data-theme>` attribute (render pages); `data-theme` on the `/config` preview stage. |
 
 ## Implementation Notes
 
@@ -253,6 +258,40 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `GridPage`, and `ResultsPage` each read `?class=` from `location.search`. Class-rank badges are
   computed from the *full* field (in `StandingsTower.svelte`) so a filtered view keeps correct
   `n/total` ranks.
+- **Theme presets** (behavior in `what/overlay-config.md` rules 58–62; rationale in
+  `docs/decisions/0026-theme-presets.md`). Each page applies the theme exactly where it applies
+  motion: `App.svelte` at boot (URL baseline), then each profile-loading page in its `loadConfig`
+  callback and its `watchConfig` `onChange`, as
+  `applyTheme(resolveTheme(location.search, { preset: config.theme.preset }))`. `ConfigPage` never
+  calls `applyTheme`; it binds `data-theme={config.theme.preset}` on the preview stage instead.
+  Conventions every theme stylesheet follows:
+  - **Select on the bare attribute.** Token overrides and widget styling key off
+    `[data-theme="…"]` on an ancestor (in a widget's `<style>`: `:global([data-theme='vintage80'])
+    .row { … }`), never `:root[data-theme=…]` alone, which would miss the `/config` preview.
+  - **Re-declare derived tokens.** A custom property resolves its `var()` where it is declared, so
+    a preset block that overrides an input (`--bc-plate-rgb`) re-declares every token built from
+    it (`--bc-plate`), or the preview keeps the `:root` value.
+  - **Only existing token names.** A preset block overrides tokens that `:root` defines (new
+    tokens get a `modern` value on `:root` first: `--bc-shadow-text: none`, `--bc-font-style:
+    normal`). This keeps one vocabulary for a later custom theme.
+  - **No geometry tokens.** Preset blocks never override `spacing.css` tokens other than the radii:
+    row heights feed the tower's row budget (`towerCycle.js`).
+  - **Base look on the scope.** One rule on the theme scope sets the inherited `text-shadow:
+    var(--bc-shadow-text)` and `font-style: var(--bc-font-style)`, so text in every widget picks up
+    the preset's outline/shadow and lean without a per-widget change. An element that sets its own
+    `text-shadow` overrides the inherited one: today `BattleBox.svelte`, `DriverLowerThird.svelte`
+    and `QualifyingLowerThird.svelte` give the on-camera name `text-shadow: 0 0 12px
+    var(--bc-accent-glow)`, so each of those widget passes sets the preset's treatment on that name
+    itself (e.g. `:global([data-theme='vintage70']) .name { text-shadow: var(--bc-shadow-text) }`).
+  - **Per-widget passes** add structural styling in the widget's own `<style>` under the theme
+    selector, re-tune type only through `--bc-size-*` tokens in that scope (the tower measures
+    names from them), and never fork markup per theme. The tower pass also makes a live preset
+    switch re-measure full-form names (a name-font load under `what/widgets.md` rule 48).
+  - **Fonts are Google Fonts' pre-built `woff2` files, unmodified** (no re-subsetting or
+    conversion), each family folder with its `OFL.txt` from `google/fonts`. None of the four
+    families declares a Reserved Font Name.
+  - `themeTokens.test.js` and `themeFonts.test.js` (in `src/design/`) read the token CSS from disk
+    (a `?raw` CSS import is empty under vitest) and enforce these conventions and the bundled fonts.
 - **Class tags** (behavior in `what/widgets.md` rules 60–64, `what/overlay-config.md` rules
   47–48; rationale in `docs/decisions/0022-single-class-tags.md`): `theme.classTags` is
   normalized in `normalizeConfig` like `theme.classColors` and threaded the same way, from
