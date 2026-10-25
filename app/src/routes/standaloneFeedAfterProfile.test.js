@@ -21,15 +21,18 @@ import InfoPage from './info/InfoPage.svelte'
 import WeatherPage from './weather/WeatherPage.svelte'
 import AllPage from './all/AllPage.svelte'
 
-/** The root `data-motion` value at each feed open, in order. */
+/** The root `data-motion` value at each feed open, in order, and each open's disconnect. */
 const opened = []
+const disconnects = []
 
 vi.mock('../lib/sseClient.js', () => ({
   DEFAULT_SRC: 'http://localhost:8080/events',
   resolveSrc: () => 'http://producer.test/events',
   connect: () => {
     opened.push(document.documentElement.dataset.motion)
-    return () => {}
+    const disconnect = vi.fn()
+    disconnects.push(disconnect)
+    return disconnect
   },
 }))
 
@@ -65,6 +68,7 @@ async function mountHeld(Page, route) {
 
 beforeEach(() => {
   opened.length = 0
+  disconnects.length = 0
 })
 afterEach(() => {
   cleanup()
@@ -100,6 +104,15 @@ describe('render pages open the feed only after the profile resolves (#354)', ()
       view.unmount()
       await serve()
       expect(opened).toEqual([])
+    })
+
+    it(`${route}: unmounted after the profile arrives, it closes the feed it opened`, async () => {
+      const { view, serve } = await mountHeld(Page, route)
+      await serve()
+      expect(disconnects).toHaveLength(1)
+      expect(disconnects[0]).not.toHaveBeenCalled()
+      view.unmount()
+      expect(disconnects[0]).toHaveBeenCalledTimes(1)
     })
   }
 })

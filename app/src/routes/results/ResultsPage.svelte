@@ -30,6 +30,11 @@
       // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=`
       // URL param still wins). App.svelte already set a URL/default baseline at boot.
       applyMotion(resolveMotion(window.location.search, { reducedMotion: resolved.reducedMotion }))
+      // The feed opens only once the profile has resolved and the motion mode is final, so a
+      // reducedMotion profile's first entrance is already reduced (overlay-config rule 10).
+      disconnect = connect(resolveSrc(window.location.search), (next) => {
+        snapshot = next
+      })
       // Live-reload (#115, overlay-config rule 22): re-read the profile on an interval and
       // apply a change without a manual refresh — immediately, no transition. The producer
       // feed is left untouched (a config edit does not reconnect SSE).
@@ -43,11 +48,6 @@
         },
         { initial: resolved },
       )
-      // The feed opens only once the profile has resolved and the motion mode is final, so a
-      // reducedMotion profile's first entrance is already reduced (overlay-config rule 10).
-      disconnect = connect(resolveSrc(window.location.search), (next) => {
-        snapshot = next
-      })
     })
     return () => {
       cancelled = true
