@@ -15,19 +15,32 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/configHelp.js` | `WIDGET_HELP`, `FIELD_HELP`, `TOWER_METRIC_HELP`, `DRIVER_INFO_HELP` | Broadcaster-facing help copy for every `/config` control. Data, not markup — `configHelp.test.js` asserts it covers the config surface exactly. |
 | `src/lib/HelpTip.svelte` | — | The ⓘ affordance: click to reveal, Escape/outside-click to dismiss, flips to stay in the viewport, and cancels its own click so it never toggles the control it sits beside. |
 | `src/lib/motion.js` | `resolveMotion`, `applyMotion`, `prefersReducedMotion` | Motion policy → `<html data-motion>`. |
+| `src/lib/theme.js` | `resolveTheme`, `applyTheme`, `THEME_PRESETS` | Theme preset → `<html data-theme>` (`what/overlay-config.md` rules 58–59). Mirrors `motion.js`: `resolveTheme(search, { preset })` reads `?theme=` (trimmed, lowercased, ignored unless a known preset), then the normalized profile `theme.preset`, then `modern`; `applyTheme` writes the root attribute. `THEME_PRESETS` is the one list (`modern`, `vintage70`, `vintage80`) that `normalizeConfig` and the `/config` select also read. |
 | `src/lib/widgetIdle.js` | `IDLE_PREDICATES`, `isWidgetIdle`, `widgetSupportsAutoHide` | Per-widget idle predicates for `hideWhenIdle`. |
 | `src/lib/lowerThirdTrigger.js` | — | Edge-triggered camera-cut / dwell state machine for lower-thirds. |
 | `src/routes/tower/towerCycle.js` | `computeRowBudget`, `clampPerPageSeconds`, `selectPins`, `selectRows`, `createTowerCycle` | Tower overflow selection + cycling-window stability (see `what/tower-overflow.md`). |
 | `src/lib/LowerThirdShell.svelte` | — | Shared reveal/dwell/wipe shell for lower-third widgets. |
+| `src/lib/raceEvents.js` | `raceEventCard`, `createRaceUpdateFeed` | Race update box logic, pure and DOM-free (`what/widgets.md` rules 69–73). `raceEventCard(entry)` validates one `race_events` entry and returns `{ id, type, label, name, value, detail }` with the card's exact strings (`value`/`detail` `null` when the card has none), or `null` for an entry rule 69 skips. `createRaceUpdateFeed` owns the seen ids, the baseline, the waiting queue and its cap of 5. |
+| `src/routes/updates/RaceUpdateBox.svelte` | props `snapshot`, `dwellSeconds`, `preview` | The race update box: feeds each snapshot to its feed, times the card on screen, renders it inside `LowerThirdShell`, keyed on the event id (`{#key}`) inside a stable `.lt3-anchor`, as `DriverLowerThird` keys its shell on the slot, so a replacement remounts the plate: the old one plays its exit while the new one enters (rule 74). |
+| `src/routes/updates/UpdatesPage.svelte` | — | Standalone `/updates` route: `sseClient.connect` + `loadConfig(location.search)` for the `updates` widget's `dwellSeconds`. |
+| `src/lib/infoPanel.js` | `eventHeader`, `infoLines`, `createInfoRotation` | Info panel logic, pure and DOM-free (`what/widgets.md` rules 76–80, 88). `eventHeader(event)` returns the header string exactly as rendered (`ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`), or `null` when no part holds. `infoLines(infoLinesField, configLines)` returns the text lines: the producer's valid lines, trimmed, then the configured lines, duplicates dropped. `createInfoRotation()` holds the line on screen and its place; it compares list entries by identity (a text line is its text, the weather card one fixed entry whatever its text), so a weather value change is not a changed list (rule 80). |
+| `src/routes/info/InfoPanel.svelte` | props `snapshot`, `dwellSeconds`, `lines`, `weatherCard`, `tempUnit` | The info panel: builds the header and line list from the snapshot, `lines` and (while `weatherCard` is on) the weather card at the end, runs the rotation timer, renders inside `LowerThirdShell` only while it has something to show (rule 81's wipe on enter/leave), and keys the line element on the entry's identity, not its text, with a 300 ms fade in/out, duration 0 under reduced motion (`prefersReducedMotion()`): a change of line crossfades, and the weather card's text changing re-renders the same element (rule 88). |
+| `src/routes/info/InfoPage.svelte` | — | Standalone `/info` route: `sseClient.connect` + `loadConfig(location.search)` for the `info` widget's `dwellSeconds`, `lines`, `weatherCard` and `tempUnit`. |
+| `src/lib/weather.js` | `weatherParts`, `formatTemp`, `weatherCardText` | Weather logic, pure and DOM-free (`what/widgets.md` rules 83–84, 88). `weatherParts(weather)` returns `{ air, track, conditions }` (`air`/`track` the °C number or `null`, `conditions` the trimmed string or `null`). `formatTemp(celsius, unit)` returns the shown value (`22°C`, `88°F`). `weatherCardText(weather, unit)` returns the info panel card's text (`AIR 22°C · TRACK 31°C · LIGHT RAIN`), or `null` when no part holds. |
+| `src/routes/weather/WeatherBox.svelte` | props `snapshot`, `tempUnit` | The weather box: one row of the parts that hold, drawn only while one does, no transition (rule 86). |
+| `src/routes/weather/WeatherPage.svelte` | — | Standalone `/weather` route: `sseClient.connect` + `loadConfig(location.search)` + `watchConfig` for the `weather` widget's `tempUnit`. |
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
-| `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. |
+| `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. Each token file holds the `modern` values on `:root` and, after them, one `[data-theme="vintage70"]` and one `[data-theme="vintage80"]` block overriding them (ADR 0026). |
+| `public/fonts/<family>/` | `*.woff2`, `OFL.txt` | Self-hosted typefaces for the vintage presets (Barlow, Barlow Condensed, VT323, Oswald), each family's licence beside its files. Declared by `@font-face` in `src/design/tokens/fonts.css` with absolute `/fonts/…` URLs; `public/` is copied verbatim into `dist`, so the licences ship too. |
 
 ## Data Flow
 
 1. `App.svelte` reads `location.pathname`, picks a `<Name>Page.svelte`, and (on mount) resolves
    motion via `motion.js` and stamps `<html data-motion>`, sets transparent background for overlay
-   routes and full-bleed for real routes.
+   routes and full-bleed for real routes. On every route except `/config` it also stamps the
+   `?theme=`/default baseline on `<html data-theme>` via `theme.js`; profile-loading pages refine
+   both from the profile.
 2. A route shell resolves its producer URL (`resolveSrc` / `pickProducerSrc`) and — for `/all` —
    loads config via `loadConfig(location.search)`.
 3. `sseClient.connect(url, onState)` opens the `EventSource`, listens for `state`, `parseState`
@@ -75,6 +88,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `/all`, render pages | Companion server *or* static host | `fetch` config/logos over HTTP (read-only). |
 | `/config` UI | Companion server | `fetch` write API (`/api/profiles`, `/api/logos`). |
 | CSS + JS motion gating | Boot resolution | `<html data-motion>` attribute. |
+| CSS theme tokens | Boot + profile resolution | `<html data-theme>` attribute (render pages); `data-theme` on the `/config` preview stage. |
 
 ## Implementation Notes
 
@@ -163,6 +177,36 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   back to the widget literal first, and `/onboard` reads `DEFAULT_CONFIG.widgets.onboard`
   directly, without normalizing. The field list is `DRIVER_INFO_FIELDS`; the `/config` checkboxes
   and the `DRIVER_INFO_HELP` coverage test both iterate it.
+- **Race update box** (`what/widgets.md` rules 69–75, `what/overlay-config.md` rules 50–51):
+  `/updates` joins `OVERLAY_ROUTES` in `App.svelte` (transparent, full-bleed), and `updates`
+  joins `DEFAULT_CONFIG.widgets` (so `WIDGET_KEYS`, and with it the `configHelp.js` coverage
+  tests), `RENDERABLE` in `AllView.svelte`, `PLATE_WIDGET_KEYS` and `TEXT_WIDGET_KEYS`. It is not a
+  `LOWER_THIRD_KEYS` member (no trigger knobs) and has no `IDLE_PREDICATES` entry. Its default
+  `dwellSeconds: 8` is the widget literal in `DEFAULT_CONFIG`; `normalizeConfig` applies rule 50's
+  `[2, 60]` range to the `updates` key only, every other widget keeping rule 46's `> 0`. The
+  editor's dwell input reuses the lower-third dwell field's commit path with rule 50's range.
+  The card's strings come from existing formatters, not new ones: the name from `fmtName` after
+  `presentName` (rule 14b), the lap time from `fmtLapTime`, the same call the tower's lap flash
+  makes. The box's one timer is the card on screen; it reads `dwellSeconds` when a card starts.
+- **Info panel** (`what/widgets.md` rules 76–82, `what/overlay-config.md` rules 52–53): `/info`
+  joins `OVERLAY_ROUTES` in `App.svelte`, and `info` joins `DEFAULT_CONFIG.widgets` (so
+  `WIDGET_KEYS` and the `configHelp.js` coverage tests), `RENDERABLE` in `AllView.svelte`,
+  `PLATE_WIDGET_KEYS` and `TEXT_WIDGET_KEYS`. It is not a `LOWER_THIRD_KEYS` member and has no
+  `IDLE_PREDICATES` entry. `normalizeDwell` applies rule 50's `[2, 60]` range to `info` as to
+  `updates`. `lines` is the one knob that is not normalized onto every widget: `normalizeConfig`
+  adds it to the `info` entry only (as `textScaleOrigin` is added only where rule 41b keeps it),
+  so the `DEFAULT_CONFIG.widgets.info` literal carries `lines: []` and no other literal has the
+  key. The panel's one timer is the line on screen; it reads `dwellSeconds` when a line starts.
+- **Weather** (`what/widgets.md` rules 83–88, `what/overlay-config.md` rules 54–57): `/weather`
+  joins `OVERLAY_ROUTES`, and `weather` joins `DEFAULT_CONFIG.widgets`, `RENDERABLE`,
+  `PLATE_WIDGET_KEYS` and `TEXT_WIDGET_KEYS`, with no `IDLE_PREDICATES` entry. `tempUnit` is
+  normalized onto every widget like `speedUnit`; `weatherCard` is added to the `info` entry only,
+  as `lines` is. The info panel takes props `weatherCard` and `tempUnit` and puts the card at the
+  end of the line list as an entry with a fixed identity (not its text), so `createInfoRotation`
+  compares entries by identity and a changed card text re-renders the line element in place: the
+  line element is keyed on the entry's identity, not on its text, so the card's text changing
+  never crossfades. `infoLines(infoLinesField, configLines)` keeps returning the text lines
+  only.
 - **Lower-third dwell default** (`what/overlay-config.md` rule 46): the default `6` lives in three
   places that must agree: the per-widget `dwellSeconds` literals in `DEFAULT_CONFIG`,
   `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).
@@ -214,6 +258,40 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `GridPage`, and `ResultsPage` each read `?class=` from `location.search`. Class-rank badges are
   computed from the *full* field (in `StandingsTower.svelte`) so a filtered view keeps correct
   `n/total` ranks.
+- **Theme presets** (behavior in `what/overlay-config.md` rules 58–62; rationale in
+  `docs/decisions/0026-theme-presets.md`). Each page applies the theme exactly where it applies
+  motion: `App.svelte` at boot (URL baseline), then each profile-loading page in its `loadConfig`
+  callback and its `watchConfig` `onChange`, as
+  `applyTheme(resolveTheme(location.search, { preset: config.theme.preset }))`. `ConfigPage` never
+  calls `applyTheme`; it binds `data-theme={config.theme.preset}` on the preview stage instead.
+  Conventions every theme stylesheet follows:
+  - **Select on the bare attribute.** Token overrides and widget styling key off
+    `[data-theme="…"]` on an ancestor (in a widget's `<style>`: `:global([data-theme='vintage80'])
+    .row { … }`), never `:root[data-theme=…]` alone, which would miss the `/config` preview.
+  - **Re-declare derived tokens.** A custom property resolves its `var()` where it is declared, so
+    a preset block that overrides an input (`--bc-plate-rgb`) re-declares every token built from
+    it (`--bc-plate`), or the preview keeps the `:root` value.
+  - **Only existing token names.** A preset block overrides tokens that `:root` defines (new
+    tokens get a `modern` value on `:root` first: `--bc-shadow-text: none`, `--bc-font-style:
+    normal`). This keeps one vocabulary for a later custom theme.
+  - **No geometry tokens.** Preset blocks never override `spacing.css` tokens other than the radii:
+    row heights feed the tower's row budget (`towerCycle.js`).
+  - **Base look on the scope.** One rule on the theme scope sets the inherited `text-shadow:
+    var(--bc-shadow-text)` and `font-style: var(--bc-font-style)`, so text in every widget picks up
+    the preset's outline/shadow and lean without a per-widget change. An element that sets its own
+    `text-shadow` overrides the inherited one: today `BattleBox.svelte`, `DriverLowerThird.svelte`
+    and `QualifyingLowerThird.svelte` give the on-camera name `text-shadow: 0 0 12px
+    var(--bc-accent-glow)`, so each of those widget passes sets the preset's treatment on that name
+    itself (e.g. `:global([data-theme='vintage70']) .name { text-shadow: var(--bc-shadow-text) }`).
+  - **Per-widget passes** add structural styling in the widget's own `<style>` under the theme
+    selector, re-tune type only through `--bc-size-*` tokens in that scope (the tower measures
+    names from them), and never fork markup per theme. The tower pass also makes a live preset
+    switch re-measure full-form names (a name-font load under `what/widgets.md` rule 48).
+  - **Fonts are Google Fonts' pre-built `woff2` files, unmodified** (no re-subsetting or
+    conversion), each family folder with its `OFL.txt` from `google/fonts`. None of the four
+    families declares a Reserved Font Name.
+  - `themeTokens.test.js` and `themeFonts.test.js` (in `src/design/`) read the token CSS from disk
+    (a `?raw` CSS import is empty under vitest) and enforce these conventions and the bundled fonts.
 - **Class tags** (behavior in `what/widgets.md` rules 60–64, `what/overlay-config.md` rules
   47–48; rationale in `docs/decisions/0022-single-class-tags.md`): `theme.classTags` is
   normalized in `normalizeConfig` like `theme.classColors` and threaded the same way, from

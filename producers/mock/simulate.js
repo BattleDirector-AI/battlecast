@@ -82,6 +82,21 @@ const SECTOR_COUNT = 3;
 const FINISH = { running: 0, finished: 1, dnf: 2 };
 const RETIREE_DRIVER = "Tsunoda";
 const RETIRE_FRAC = 0.45;
+// Race events (spec/v1 `race_events`, ADR 0023): the producer's rolling list of recent events.
+// Each event stays listed for RACE_EVENT_KEEP_SECONDS (the SPEC asks for at least 30 s) and the
+// list holds at most RACE_EVENT_MAX (the SPEC's 20), oldest dropped first. The race stages one
+// penalty at PENALTY_FRAC of the leg, on the car then running P3. Fastest laps are announced
+// from each car's second completed lap on: the standing-start opening lap is not news. A class
+// fastest lap is announced only when it beats a class best set after the opening lap, so the
+// first flying laps (which beat every class's lap-1 time at once) don't burst out (#346); an
+// overall fastest lap is still announced from a car's second lap, by design (one event, and #346
+// named class laps only). A new
+// leader is announced only after the opening lap and once it has led for LEADER_HOLD_SECONDS,
+// so the start-order shuffle and a pass that is taken straight back are not news (#346).
+const RACE_EVENT_KEEP_SECONDS = 45;
+const LEADER_HOLD_SECONDS = 10;
+const RACE_EVENT_MAX = 20;
+const PENALTY_FRAC = 0.3;
 const CHECKERED_FRAC = 0.7;
 // Starting-grid spread, as a fraction of a lap across the whole field. A real grid is
 // ~8 m a slot, so 14 cars fill ~100 m of a ~5 km lap: about 0.02 laps, ~2.1 s from
@@ -125,6 +140,55 @@ const SUBJECT_STATIC_DWELL_SECONDS = 10;
 // board.
 const PHASES = ["qualifying", "grid", "race", "results"];
 
+// Event metadata and info lines (spec/v1 `event` / `info_lines`, ADR 0024). The event is fixed
+// for a run except its round, which counts the broadcast cycles (each loop back to qualifying
+// is the next round), so the info panel's header changes live. The lines follow the phase, so
+// the panel's rotation sees its list change; the last line is the same in every phase.
+const MOCK_EVENT = { name: "battlecast Demo Endurance", track: "Mock Raceway" };
+const INFO_LINES_BY_PHASE = {
+  qualifying: ["Qualifying is underway: one flying lap at a time"],
+  grid: ["The field forms up on the grid", "Lights out in under a minute"],
+  race: ["The race is underway", "Watch the gaps in the tower to the left"],
+  results: ["Provisional results: subject to stewards' review"],
+};
+const INFO_LINE_ALWAYS = "This is the battlecast mock producer's demo feed";
+
+// Live weather (spec/v1 `session.weather`, ADR 0025). The air temperature random-walks slowly in
+// a plausible band and the track runs warmer than the air by a drifting margin (less in the
+// wet); now and then the conditions step to a neighbouring state. The weather draws from its
+// OWN generator (`config.weatherRng`), never the simulator's `rng`, so adding weather does not
+// shift the race simulation's random sequence: a seeded run's race and race_events are the
+// same with or without it. A seeded run without a `weatherRng` gets a fixed-seed generator, so
+// it stays reproducible; the live mock uses Math.random for both.
+const WEATHER_CONDITIONS = ["Clear", "Partly cloudy", "Overcast", "Light rain"];
+const WEATHER_AIR_RANGE = [12, 32]; // °C
+const WEATHER_TRACK_MARGIN_RANGE = [4, 16]; // °C above the air temperature
+const WEATHER_WET_MARGIN_MAX = 6; // the track cools toward the air in the rain
+const WEATHER_CHANGE_PER_SECOND = 0.0015; // chance per sim-second that the conditions step
+const WEATHER_FALLBACK_SEED = 0x5eed; // a seeded run's weather when no weatherRng is given
+
+function createWeather(rng) {
+  return { air: 21 + rng() * 4, margin: 8 + rng() * 4, conditionIndex: 0 };
+}
+
+/** Advance the weather by `dtSeconds` (mutates `w`). */
+function advanceWeather(w, dtSeconds, rng) {
+  w.air = clamp(w.air + (rng() - 0.5) * 0.04 * dtSeconds, WEATHER_AIR_RANGE[0], WEATHER_AIR_RANGE[1]);
+  const wet = WEATHER_CONDITIONS[w.conditionIndex] === "Light rain";
+  const marginMax = wet ? WEATHER_WET_MARGIN_MAX : WEATHER_TRACK_MARGIN_RANGE[1];
+  w.margin = clamp(w.margin + (rng() - 0.5) * 0.06 * dtSeconds, WEATHER_TRACK_MARGIN_RANGE[0], marginMax);
+  if (rng() < WEATHER_CHANGE_PER_SECOND * dtSeconds) {
+    const step = w.conditionIndex === 0 ? 1 : w.conditionIndex === WEATHER_CONDITIONS.length - 1 ? -1 : rng() < 0.5 ? -1 : 1;
+    w.conditionIndex += step;
+  }
+}
+
+/** The `session.weather` object for the current weather, to one decimal place. */
+function weatherPayload(w) {
+  const r1 = (n) => Math.round(n * 10) / 10;
+  return { air_temp: r1(w.air), track_temp: r1(w.air + w.margin), conditions: WEATHER_CONDITIONS[w.conditionIndex] };
+}
+
 // Default phase durations in SIM seconds (race-time), overridable via env so a
 // tester can cycle faster or slower. Qualifying and race are long enough for
 // cars to complete several flying/racing laps (a lap is ~92–107 sim-seconds at
@@ -145,14 +209,28 @@ function classPace(classKey) {
   return CLASSES.find((c) => c.key === classKey).basePace;
 }
 
+/** A small seeded PRNG (mulberry32): returns a () => [0, 1) function, like Math.random. The
+ *  live mock uses Math.random; validate-simulator.js passes `config.rng` from this so its run
+ *  is the same every time. */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
 /** Split a lap time into 3 sectors that sum back to it exactly. */
-function splitSectors(lapTime) {
-  const r1 = 0.32 + (Math.random() - 0.5) * 0.02;
-  const r2 = 0.34 + (Math.random() - 0.5) * 0.02;
+function splitSectors(lapTime, rng) {
+  const r1 = 0.32 + (rng() - 0.5) * 0.02;
+  const r2 = 0.34 + (rng() - 0.5) * 0.02;
   const s1 = lapTime * r1;
   const s2 = lapTime * r2;
   const s3 = lapTime - s1 - s2;
@@ -466,14 +544,14 @@ function resetStint(car) {
 /** Advance one car's distance and, on a completed lap, its lap/sector timing. When
  *  `evolveStint` is true (the RACE phase only) it also drains fuel, wears tires, and runs
  *  the pit cycle — a race concept, so qualifying laps never accrue stops. */
-function advanceCar(car, dtSeconds, clock, evolveStint) {
+function advanceCar(car, dtSeconds, clock, evolveStint, rng) {
   // Slow random-walk pace fluctuation so gaps ebb and flow organically instead of
   // separating (or converging) monotonically. It is a fraction of the car's OWN
   // base speed (a ±4% band), not an absolute term: an absolute term is a huge
   // fraction of the slower classes' speed and produced implausible lap times and
   // cross-class pace inversion (a GT3 out-lapping a GTP). ±4% keeps lap times within
   // a realistic band of the car's pace while still shuffling intra-class order.
-  car.noiseFactor = clamp(car.noiseFactor + (Math.random() - 0.5) * 0.01, -0.04, 0.04);
+  car.noiseFactor = clamp(car.noiseFactor + (rng() - 0.5) * 0.01, -0.04, 0.04);
   const baseSpeed = 1 / car.pace;
   const distanceStep = baseSpeed * (1 + car.noiseFactor) * dtSeconds;
   car.distance += distanceStep;
@@ -488,7 +566,7 @@ function advanceCar(car, dtSeconds, clock, evolveStint) {
       car.best_lap = car.last_lap;
       car.improvedBestThisStep = true;
     }
-    car.sector_times = splitSectors(car.last_lap);
+    car.sector_times = splitSectors(car.last_lap, rng);
   }
 
   // Strategy synthesis (slice 3 of #20) — RACE ONLY: drain fuel and wear tires with the
@@ -630,6 +708,8 @@ function analyseBattle(order, phase) {
 }
 
 function createSimulator(config = {}) {
+  // Every random draw goes through `rng`: Math.random live, a seeded PRNG in validation.
+  const rng = typeof config.rng === "function" ? config.rng : Math.random;
   const phaseSeconds = { ...DEFAULT_PHASE_SECONDS, ...(config.phaseSeconds || {}) };
   const onPhaseChange = typeof config.onPhaseChange === "function" ? config.onPhaseChange : null;
   // Optional single-phase lock (e.g. { lockPhase: "race" }) for eye-testing one session
@@ -643,6 +723,16 @@ function createSimulator(config = {}) {
 
   let phase = PHASES[0]; // "qualifying"
   let phaseElapsed = 0;
+  // The event round (ADR 0024): 1 for the first cycle, +1 on each loop back to qualifying.
+  let eventRound = 1;
+  // Live weather (ADR 0025): carried across phases, as real weather is, on its own generator.
+  const weatherRng =
+    typeof config.weatherRng === "function"
+      ? config.weatherRng
+      : typeof config.rng === "function"
+        ? mulberry32(WEATHER_FALLBACK_SEED)
+        : Math.random;
+  const weather = createWeather(weatherRng);
   let announced = false;
   // Alternates the race phase between a timed leg and a lap-limited leg on
   // successive cycles, so a long enough run exercises both session progress
@@ -656,6 +746,25 @@ function createSimulator(config = {}) {
 
   let subjectSlotId = null;
   let subjectSinceClock = 0;
+
+  // Race events. Ids are `<runKey>-<n>`: the run key keeps them unique across mock restarts
+  // (an overlay that stayed connected remembers the ids it has shown), the counter within one.
+  const runKey =
+    typeof config.runKey === "string" && config.runKey ? config.runKey : `run${Date.now().toString(36)}`;
+  let raceEventSeq = 0;
+  let raceEvents = []; // { clock, event }, oldest first
+  // This leg's fastest lap overall and per class, the current race leader, and whether the
+  // staged penalty has been issued; reset at each race start.
+  let raceBest = { overall: null, byClass: new Map() };
+  let raceLeaderSlot = null;
+  // A car that has taken the lead from `raceLeaderSlot` but not yet held it LEADER_HOLD_SECONDS.
+  let leaderCandidate = null; // { slot, since }
+  let penaltyIssued = false;
+
+  function addRaceEvent(event) {
+    raceEventSeq += 1;
+    raceEvents.push({ clock, event: { id: `${runKey}-${raceEventSeq}`, ...event } });
+  }
 
   function announce(p) {
     if (onPhaseChange) onPhaseChange(p, Math.round(clock));
@@ -697,6 +806,10 @@ function createSimulator(config = {}) {
       resetStint(car);
     });
     checkeredTaken = false;
+    raceBest = { overall: null, byClass: new Map() };
+    raceLeaderSlot = null;
+    leaderCandidate = null;
+    penaltyIssued = false;
   }
 
   function enterPhase(p) {
@@ -711,6 +824,7 @@ function createSimulator(config = {}) {
       // against clock 0 (which would report the whole prior session as one lap).
       cars = makeCars(clock);
       frozenOrder = null;
+      eventRound += 1;
     } else if (p === "grid") {
       // Grid = the qualifying result, frozen as the starting order.
       freezeOrder(byBestLap);
@@ -788,6 +902,7 @@ function createSimulator(config = {}) {
       announced = true;
       announce(phase);
     }
+    advanceWeather(weather, dtSeconds, weatherRng);
 
     clock += dtSeconds;
     phaseElapsed += dtSeconds;
@@ -813,13 +928,22 @@ function createSimulator(config = {}) {
         car.pace = car.basePace + BACKMARKER_PENALTY;
       }
       if (isRace && car.driver_name === RETIREE_DRIVER && raceFrac >= RETIRE_FRAC) {
+        if (car.finish_status !== FINISH.dnf) {
+          addRaceEvent({
+            type: "retirement",
+            driver_name: car.driver_name,
+            slot_id: car.slot_id,
+            finish_status: FINISH.dnf,
+            detail: `Lap ${lapsDone(car) + 1}`,
+          });
+        }
         car.finish_status = FINISH.dnf;
         car.in_pit = false;
       }
       // A retired car stops where it is: no more distance, laps, or pit cycle.
       if (running && !(isRace && car.finish_status === FINISH.dnf)) {
         const lapStartBefore = car.lapStartDistance;
-        advanceCar(car, dtSeconds, clock, isRace);
+        advanceCar(car, dtSeconds, clock, isRace, rng);
         if (isRace && car.lapStartDistance !== lapStartBefore && car.finish_status === FINISH.running) {
           crossers.push(car);
         }
@@ -836,6 +960,32 @@ function createSimulator(config = {}) {
         // The car covered that distance at its noisy speed this step, not its base pace.
         car.finishClock = clock - ((car.distance - car.lapStartDistance) * car.pace) / (1 + car.noiseFactor);
         car.finishLaps = lapsDone(car);
+      }
+    }
+
+    // Fastest-lap events (race only): a lap that beats this leg's overall best is announced once,
+    // as the overall event, even though it is also its class's best; a lap that beats only its
+    // class's best is a class event. Class bests remember whether they were set on the opening
+    // lap; beating one of those is not announced (it becomes the class's first real reference).
+    if (isRace) {
+      for (const car of cars) {
+        if (!car.improvedBestThisStep || car.best_lap == null) continue;
+        const lap = car.best_lap;
+        const overall = raceBest.overall == null || lap < raceBest.overall;
+        const classPrev = raceBest.byClass.get(car.vehicle_class);
+        const classRecord = classPrev == null || lap < classPrev.lap;
+        if (overall) raceBest.overall = lap;
+        if (classRecord) raceBest.byClass.set(car.vehicle_class, { lap, opening: lapsDone(car) < 2 });
+        if (lapsDone(car) < 2) continue;
+        if (!overall && !(classRecord && classPrev != null && !classPrev.opening)) continue;
+        addRaceEvent({
+          type: "fastest_lap",
+          driver_name: car.driver_name,
+          slot_id: car.slot_id,
+          vehicle_class: overall ? null : car.vehicle_class,
+          lap_time: lap,
+          detail: `Lap ${lapsDone(car)}`,
+        });
       }
     }
 
@@ -870,6 +1020,46 @@ function createSimulator(config = {}) {
       car.position = i + 1;
     });
 
+    // Leader change and the staged penalty (race only). Under the chequered flag the order is
+    // the finish, not a pass, so no leader change is announced then.
+    if (isRace) {
+      const leader = order[0];
+      const settling = raceLeaderSlot == null || lapsDone(leader) < 1 || checkeredTaken;
+      if (settling || leader.slot_id === raceLeaderSlot) {
+        // The opening-lap shuffle, the leader holding on (or retaking the lead within the hold),
+        // or the finish order under the flag: nothing to announce.
+        if (settling) raceLeaderSlot = leader.slot_id;
+        leaderCandidate = null;
+      } else {
+        if (leaderCandidate?.slot !== leader.slot_id) leaderCandidate = { slot: leader.slot_id, since: clock };
+        if (clock - leaderCandidate.since >= LEADER_HOLD_SECONDS) {
+          addRaceEvent({
+            type: "leader_change",
+            driver_name: leader.driver_name,
+            slot_id: leader.slot_id,
+            detail: `Lap ${lapsDone(leader) + 1}`,
+          });
+          raceLeaderSlot = leader.slot_id;
+          leaderCandidate = null;
+        }
+      }
+      if (!penaltyIssued && raceFrac >= PENALTY_FRAC) {
+        penaltyIssued = true;
+        const offender = order.find((car) => car.position === 3 && car.finish_status === FINISH.running);
+        if (offender) {
+          addRaceEvent({
+            type: "penalty",
+            driver_name: offender.driver_name,
+            slot_id: offender.slot_id,
+            penalty: "+5s",
+            detail: "Track limits",
+          });
+        }
+      }
+    }
+    // The rolling list: drop events older than the keep window, then all but the newest MAX.
+    raceEvents = raceEvents.filter((e) => clock - e.clock < RACE_EVENT_KEEP_SECONDS).slice(-RACE_EVENT_MAX);
+
     // Gap to the overall leader for each car — lap-delta in the lap-classified
     // phases, on-track time gap in the distance-classified ones.
     const byLap = phase === "qualifying" || phase === "grid";
@@ -885,6 +1075,8 @@ function createSimulator(config = {}) {
     // Single-class flag (protocol-contract rule 20, ADR 0022): the producer states its own class
     // mix, so the overlay never has to work it out from vehicles[].
     session.multiclass = new Set(order.map((car) => car.vehicle_class)).size > 1;
+    // Live weather (protocol-contract rule 24, ADR 0025), in every phase.
+    session.weather = weatherPayload(weather);
 
     // Local yellow around the backmarker (race only). The sector comes from how far round its
     // current lap the car is: lap distance is in LAP_UNITs, so the fractional part is the lap
@@ -968,6 +1160,9 @@ function createSimulator(config = {}) {
       },
       relationship,
       session,
+      race_events: raceEvents.map((e) => ({ ...e.event })),
+      event: { ...MOCK_EVENT, round: eventRound },
+      info_lines: [...INFO_LINES_BY_PHASE[phase], INFO_LINE_ALWAYS],
     };
   }
 
@@ -984,4 +1179,4 @@ function createSimulator(config = {}) {
   return { step };
 }
 
-module.exports = { analyseBattle, createSimulator, PHASES, classPace };
+module.exports = { analyseBattle, createSimulator, mulberry32, PHASES, classPace };

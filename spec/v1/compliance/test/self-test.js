@@ -460,6 +460,172 @@ function testMulticlassFieldValidatesAgainstSchema() {
   );
 }
 
+// `race_events` (protocol-contract.md rule 22, ADR 0023) is an optional top-level array. The
+// race-events fixture carries one entry of each type and must validate, as must null and a
+// payload without it; and the schema must REJECT an entry without an id, and an entry missing
+// the field its type requires, so a producer's malformed event fails the harness.
+function testRaceEventsValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const events = load("race-events.json");
+  const types = (events.race_events ?? []).map((e) => e.type);
+  assert(
+    ["fastest_lap", "leader_change", "retirement", "penalty"].every((t) => types.includes(t)),
+    "race-events.json must carry at least one event of each type"
+  );
+  let result = validator.validate(events);
+  assert(result.valid, `expected race-events.json to validate, got: ${result.errors.join("; ")}`);
+
+  const nulled = JSON.parse(JSON.stringify(events));
+  nulled.race_events = null;
+  result = validator.validate(nulled);
+  assert(result.valid, `expected race_events: null to validate, got: ${result.errors.join("; ")}`);
+
+  const none = load("race-finish.json");
+  assert(!("race_events" in none), "race-finish.json must NOT carry race_events");
+  result = validator.validate(none);
+  assert(result.valid, `expected a payload with NO race_events to still validate, got: ${result.errors.join("; ")}`);
+
+  const unknownType = JSON.parse(JSON.stringify(events));
+  unknownType.race_events.push({ id: "ev-x", type: "overtake", driver_name: "Kevin Estre" });
+  result = validator.validate(unknownType);
+  assert(result.valid, `expected an event of a type this revision does not define to validate, got: ${result.errors.join("; ")}`);
+
+  const rejects = (mutate, where, label) => {
+    const payload = JSON.parse(JSON.stringify(events));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes(where)),
+      `expected the ${label} error to name ${where}, got: ${r.errors.join("; ")}`
+    );
+  };
+  rejects((p) => (p.race_events = { id: "ev-1" }), "/race_events", "race_events: {…}");
+  rejects((p) => delete p.race_events[0].id, "/race_events/0", "an event without an id");
+  rejects((p) => (p.race_events[0].id = ""), "/race_events/0/id", 'an event with id ""');
+  rejects((p) => delete p.race_events[0].lap_time, "/race_events/0", "a fastest_lap without lap_time");
+  rejects((p) => (p.race_events[3].finish_status = 1), "/race_events/3/finish_status", "a retirement with finish_status 1");
+  rejects((p) => delete p.race_events[4].penalty, "/race_events/4", "a penalty without penalty");
+
+  console.log(
+    "PASS: race_events validates against schema.json, null and a payload without it still validate, an unknown type is allowed, and an event missing its id or its type's field is rejected (ADR 0023)"
+  );
+}
+
+// `event` and `info_lines` (protocol-contract.md rule 23, ADR 0024) are optional top-level
+// fields. The event-info fixture carries both and must validate, as must null, a partial
+// `event`, and a payload without either; and the schema must REJECT a `round` that is not an
+// integer of at least 1, an `event` that is not an object, and a non-string line, so a
+// producer's malformed event metadata fails the harness.
+function testEventAndInfoLinesValidateAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const info = load("event-info.json");
+  assert(
+    info.event && typeof info.event.name === "string" && Number.isInteger(info.event.round) && typeof info.event.track === "string",
+    "event-info.json must carry an event with a name, an integer round and a track"
+  );
+  assert(
+    Array.isArray(info.info_lines) && info.info_lines.length >= 2,
+    "event-info.json must carry at least two info_lines"
+  );
+  let result = validator.validate(info);
+  assert(result.valid, `expected event-info.json to validate, got: ${result.errors.join("; ")}`);
+
+  const accepts = (mutate, label) => {
+    const payload = JSON.parse(JSON.stringify(info));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(r.valid, `expected ${label} to validate, got: ${r.errors.join("; ")}`);
+  };
+  accepts((p) => (p.event = null), "event: null");
+  accepts((p) => (p.info_lines = null), "info_lines: null");
+  accepts((p) => (p.event = { track: "Monza" }), "an event with only a track");
+  accepts((p) => (p.event = { name: "Spa 6 Hours", round: null, track: null }), "an event with null fields");
+  accepts((p) => (p.info_lines = []), "an empty info_lines");
+
+  const none = load("race-finish.json");
+  assert(!("event" in none) && !("info_lines" in none), "race-finish.json must NOT carry event or info_lines");
+  result = validator.validate(none);
+  assert(result.valid, `expected a payload with NO event or info_lines to still validate, got: ${result.errors.join("; ")}`);
+
+  const rejects = (mutate, where, label) => {
+    const payload = JSON.parse(JSON.stringify(info));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes(where)),
+      `expected the ${label} error to name ${where}, got: ${r.errors.join("; ")}`
+    );
+  };
+  rejects((p) => (p.event.round = 0), "/event/round", "round 0");
+  rejects((p) => (p.event.round = 2.5), "/event/round", "round 2.5");
+  rejects((p) => (p.event.round = "3"), "/event/round", 'round "3"');
+  rejects((p) => (p.event = "Spa 6 Hours"), "/event", 'event: "Spa 6 Hours"');
+  rejects((p) => (p.event.name = 6), "/event/name", "a numeric event name");
+  rejects((p) => (p.info_lines = "Live from the Ardennes"), "/info_lines", "info_lines: a string");
+  rejects((p) => p.info_lines.push(42), "/info_lines/3", "a numeric info line");
+
+  console.log(
+    "PASS: event and info_lines validate against schema.json, null, partial and absent forms still validate, and a bad round, a non-object event and a non-string line are rejected (ADR 0024)"
+  );
+}
+
+// `session.weather` (protocol-contract.md rule 24, ADR 0025) is an optional object inside
+// `session`. The race-weather fixture carries air and track temperature and conditions and must
+// validate, as must null, a partial weather, a payload whose session has no weather, and a
+// payload with no session at all; and the schema must REJECT a temperature that is not a number,
+// a non-string conditions, and a weather that is not an object.
+function testSessionWeatherValidatesAgainstSchema() {
+  const validator = new StatePayloadValidator();
+  const load = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"));
+
+  const weather = load("race-weather.json");
+  const w = weather.session && weather.session.weather;
+  assert(
+    w && typeof w.air_temp === "number" && typeof w.track_temp === "number" && typeof w.conditions === "string",
+    "race-weather.json must carry session.weather with air_temp, track_temp and conditions"
+  );
+  let result = validator.validate(weather);
+  assert(result.valid, `expected race-weather.json to validate, got: ${result.errors.join("; ")}`);
+
+  const accepts = (mutate, label) => {
+    const payload = JSON.parse(JSON.stringify(weather));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(r.valid, `expected ${label} to validate, got: ${r.errors.join("; ")}`);
+  };
+  accepts((p) => (p.session.weather = null), "session.weather: null");
+  accepts((p) => (p.session.weather = { track_temp: -2.5 }), "a weather with only a (negative) track_temp");
+  accepts((p) => (p.session.weather = { air_temp: null, track_temp: null, conditions: null }), "a weather with null fields");
+  accepts((p) => (p.session.weather.track_wetness = 0.3), "a weather with a field this revision does not define");
+  accepts((p) => delete p.session.weather, "a session without weather");
+  accepts((p) => delete p.session, "a payload without session");
+
+  const rejects = (mutate, where, label) => {
+    const payload = JSON.parse(JSON.stringify(weather));
+    mutate(payload);
+    const r = validator.validate(payload);
+    assert(!r.valid, `expected ${label} to FAIL schema validation, but it validated`);
+    assert(
+      r.errors.some((e) => e.includes(where)),
+      `expected the ${label} error to name ${where}, got: ${r.errors.join("; ")}`
+    );
+  };
+  rejects((p) => (p.session.weather.air_temp = "22"), "/session/weather/air_temp", 'air_temp "22"');
+  rejects((p) => (p.session.weather.track_temp = true), "/session/weather/track_temp", "track_temp true");
+  rejects((p) => (p.session.weather.conditions = 3), "/session/weather/conditions", "a numeric conditions");
+  rejects((p) => (p.session.weather = "Clear"), "/session/weather", 'weather: "Clear"');
+
+  console.log(
+    "PASS: session.weather validates against schema.json, null, partial and absent forms still validate, and a non-numeric temperature, a non-string conditions and a non-object weather are rejected (ADR 0025)"
+  );
+}
+
 async function main() {
   testSessionFixturesValidateAgainstSchema();
   testTelemetryFixturesValidateAgainstSchema();
@@ -469,6 +635,9 @@ async function main() {
   testLocalYellowFieldsValidateAgainstSchema();
   testFinishStatusFieldValidatesAgainstSchema();
   testMulticlassFieldValidatesAgainstSchema();
+  testRaceEventsValidateAgainstSchema();
+  testEventAndInfoLinesValidateAgainstSchema();
+  testSessionWeatherValidatesAgainstSchema();
   await testMockProducerPasses();
   await testBadMode("missing-field", {}, "must have required property 'relationship'");
   await testBadMode("bad-type", {}, "/vehicles/0/position");

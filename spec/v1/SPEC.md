@@ -318,6 +318,23 @@ required-ness.
     All null or absent in a timed session.
   - **`basis`** (string) — an optional explicit `"time"` \| `"laps"` override of the
     progress mode.
+  - **`weather`** (object or null, **ADDITIVE**) — the session's live weather. Null or
+    absent means the producer does not say. Every field is optional and nullable:
+    - **`air_temp`** (number, **°C**) — the air temperature.
+    - **`track_temp`** (number, **°C**) — the track surface temperature.
+    - **`conditions`** (string) — a short description of the conditions in the
+      producer's own words (`Clear`, `Overcast`, `Light rain`), shown **verbatim** apart
+      from trimming (battlecast's info panel card uppercases it).
+
+    Temperatures are canonical °C, like `subject.telemetry.speed` is canonical km/h:
+    battlecast converts to °F when the broadcaster chooses it and shows whole degrees. The
+    values are the **producer's** readings: a consumer **MUST NOT** derive weather from
+    anything else. A consumer treats a field that is absent, null, of the wrong type, or
+    (for `conditions`) blank as absent, and renders the others. battlecast shows it in a
+    compact weather box and as a weather card in the info panel's rotation. A worked
+    example is [`fixtures/race-weather.json`](fixtures/race-weather.json). Added in a
+    minor revision of v1; `schemaVersion` stays `"1"`. Later revisions may add fields
+    (track wetness, wind).
 
   **Timed vs lap-limited — automatic selection.** The consumer infers which progress
   readout to draw; the producer only disambiguates the endurance case via `basis`:
@@ -340,6 +357,83 @@ required-ness.
   `session` today and an older consumer that has never heard of it simply ignores it,
   while a newer consumer tolerates its absence from an older producer. See *Versioning
   policy* above.
+
+- **`race_events`** (array, **OPTIONAL, ADDITIVE**) — the producer's **recent** race
+  events, **oldest first**: fastest laps, leader changes, retirements, penalties. It is
+  not an SSE event type and not a delta. It rides in every `state` snapshot as a short
+  **rolling list**: the producer adds an event when it happens, keeps listing it for a
+  while (it **SHOULD** keep each event for at least 30 seconds, so a consumer that misses
+  a few snapshots still sees it), then drops it, and it **SHOULD** keep at most the 20
+  most recent. Null or absent means no recent events. The events are the **producer's**
+  judgment (dumb overlay, smart producer): a consumer **MUST NOT** derive an event from
+  `vehicles[]` or from changes between snapshots. Each entry carries:
+  - **`id`** (string, required) — unique and stable: the same event carries the same id
+    in every snapshot that lists it, and the producer never reuses an id for a different
+    event while it runs. Because the list repeats, the id is how a consumer shows each
+    event **once**. A consumer that stays connected remembers the ids it has shown, so a
+    producer **SHOULD** keep ids unique across its own restarts too (for example by
+    prefixing a run or session key).
+  - **`type`** (string, required) — `fastest_lap`, `leader_change`, `retirement`, or
+    `penalty` in this revision. Later revisions may add types; a consumer skips a type it
+    does not know.
+  - **`driver_name`** (string, required) — the driver the event is about.
+  - **`slot_id`** (string, optional) — the event's vehicle, matching a `vehicles` entry
+    while the car is in the field.
+  - **`vehicle_class`** (string or null, optional) — a string makes this a **class**
+    event (the fastest lap or new leader *of that class*); null or absent makes it an
+    overall event. An event that is both overall and a class's (the overall fastest lap
+    is also its class's fastest lap; an overall leader change is also the top class's)
+    **SHOULD** be sent once, as the overall event: a consumer cannot tell the two entries
+    are the same event without deriving it.
+  - **`lap_time`** (number, seconds) — required for `fastest_lap`.
+  - **`finish_status`** (integer) — required for `retirement`: `2` DNF (retired) or `3`
+    DQ (disqualified), the same codes as the per-vehicle `finish_status`.
+  - **`penalty`** (string) — required for `penalty`: short producer text, rendered
+    verbatim (`Drive-through`, `+5s`, `Stop-go 10s`).
+  - **`detail`** (string, optional) — a free-text second line for any type (`Lap 14`,
+    `Gearbox`), rendered verbatim.
+
+  A consumer skips an entry it cannot read — not an object, no `id`, an unknown `type`,
+  or a missing field its type requires — and renders the rest. battlecast's race update
+  box shows each new event once, one at a time, and treats every event already listed
+  when it starts as already shown, so reloading a Browser Source never replays old
+  events. A worked example with one event of each type is
+  [`fixtures/race-events.json`](fixtures/race-events.json). Added in a minor revision of
+  v1; `schemaVersion` stays `"1"`.
+
+- **`event`** (object, **OPTIONAL, ADDITIVE**) — the **event** this session belongs to:
+  the weekend or race meeting, not the live session (that is `session`). It changes
+  rarely, typically once per event. Null or absent means the producer does not say. All
+  of its fields are optional and nullable:
+  - **`name`** (string) — the event's name (`Spa 6 Hours`).
+  - **`round`** (integer, at least 1) — the event's round number in its championship. A
+    consumer shows it as a round number (battlecast renders `ROUND 3`), so a producer
+    with an event whose round has a name rather than a number (a finale, a
+    non-championship race) puts that in `name` and leaves `round` out.
+  - **`track`** (string) — the circuit's name (`Spa-Francorchamps`).
+
+  The fields are the **producer's** text; a consumer **MUST NOT** derive any of them from
+  other fields. battlecast trims `name` and `track` and shows them in an uppercased header
+  (`ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`), and changes nothing else. A consumer treats a field that is absent, null, of the
+  wrong type, blank, or (for `round`) not an integer of at least 1 as absent, and renders
+  the others.
+
+- **`info_lines`** (array of strings, **OPTIONAL, ADDITIVE**) — free-text lines the
+  producer wants on screen: commentary, a note about the session, a reminder of what is
+  next (`Live from the Ardennes`, `Race 2 starts at 15:00 CET`). Each line is shown
+  **verbatim**: battlecast trims surrounding whitespace and keeps the case and everything
+  else. battlecast's info panel shows one line at a time, cycling through them on a dwell,
+  followed by the broadcaster's own lines from the overlay profile; a line that repeats an
+  earlier one (in the list or among the broadcaster's lines) is shown once, and when the list
+  changes, the line on screen stays if it is still listed. A producer **SHOULD** keep each line
+  short enough to fit on one line of a lower-screen strip (roughly 80 characters) and the
+  list short; it **SHOULD** send the same list, in the same order, while the lines are
+  unchanged. Null or absent means no lines. A consumer skips an entry that is not a
+  string, or is blank, and renders the rest.
+
+  A worked example carrying both is
+  [`fixtures/event-info.json`](fixtures/event-info.json). Both were added in a minor
+  revision of v1; `schemaVersion` stays `"1"`.
 
 ## Fixtures and compliance
 

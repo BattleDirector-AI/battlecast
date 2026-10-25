@@ -15,13 +15,17 @@
   import ConfigPage from './routes/config/ConfigPage.svelte'
   import RaceControlPage from './routes/racecontrol/RaceControlPage.svelte'
   import OnBoardHudPage from './routes/onboard/OnBoardHudPage.svelte'
+  import UpdatesPage from './routes/updates/UpdatesPage.svelte'
+  import InfoPage from './routes/info/InfoPage.svelte'
+  import WeatherPage from './routes/weather/WeatherPage.svelte'
   import { resolveMotion, applyMotion } from './lib/motion.js'
+  import { resolveTheme, applyTheme } from './lib/theme.js'
 
   // OBS Browser Sources are launched by URL, so widgets are selected by
   // pathname rather than an in-app navigation flow.
   const rawPath = typeof window !== 'undefined' ? window.location.pathname : '/'
   const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
-  const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos', '/driver', '/qualifying', '/racecontrol', '/onboard']
+  const OVERLAY_ROUTES = ['/tower', '/battle', '/all', '/logos', '/driver', '/qualifying', '/racecontrol', '/onboard', '/updates', '/info', '/weather']
   // Real app routes are full-bleed; only the Vite scaffold landing (the `{:else}`
   // branch) keeps the constrained column. `/results` is a full-screen takeover
   // slide with an opaque board background, so it is full-bleed but NOT an overlay
@@ -38,6 +42,13 @@
     // every transition into a hard cut. `?motion=reduced` opts a Browser Source out;
     // config-driven routes refine this from a saved profile's `reducedMotion`.
     applyMotion(resolveMotion(typeof window !== 'undefined' ? window.location.search : ''))
+
+    // The look preset (overlay-config rule 59): stamp the `?theme=`/default baseline on
+    // <html data-theme=…>; profile-loading pages refine it from the profile. The /config editor
+    // stays modern — only its preview stage is themed (rule 62) — so its root is never stamped.
+    if (path !== '/config') {
+      applyTheme(resolveTheme(typeof window !== 'undefined' ? window.location.search : ''))
+    }
 
     // The scaffold styles `#app` as a centered 1126px column with side borders and
     // `text-align: center`. That offsets and boxes-in a real route: on `/all` it
@@ -85,6 +96,12 @@
   <RaceControlPage />
 {:else if path === '/onboard'}
   <OnBoardHudPage />
+{:else if path === '/updates'}
+  <UpdatesPage />
+{:else if path === '/info'}
+  <InfoPage />
+{:else if path === '/weather'}
+  <WeatherPage />
 {:else if path === '/results'}
   <ResultsPage />
 {:else if path === '/grid'}

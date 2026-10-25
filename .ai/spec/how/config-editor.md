@@ -34,7 +34,13 @@ Every control and every preview drag calls a `configEditor.*` function and **rea
 — `config = editor.moveWidget(config, key, x, y)` — so Svelte 5 reactivity is driven by whole-object
 replacement, not mutation. `saveProfile()` then `PUT`s that object to `/api/profiles/<name>`.
 
-**Preview.** The editor renders the real `AllView` against a fixture snapshot, scaled by
+**Preview.** The preview stage (`[data-testid="preview-stage"]`) carries
+`data-theme={config.theme.preset}`, so the token overrides keyed off `[data-theme=…]` restyle the
+preview subtree while the editor's own panel, whose root carries no vintage theme, stays modern
+(`what/overlay-config.md` rule 62). The theme select (`data-testid="theme-preset"`) sits beside the
+class-tags select, writes through `configEditor.setThemePreset`, and its help is
+`FIELD_HELP.themePreset`.
+The editor renders the real `AllView` against a fixture snapshot, scaled by
 `previewScale` (`fitPreview()` fits the canvas into the panel, capped at 0.6). Pointer deltas are
 divided by that scale before reaching `moveWidget`/`resizeWidget`, so a drag moves the widget by
 canvas pixels, not screen pixels. `startDrag` snapshots the widget as `drag.orig`; every
@@ -136,10 +142,22 @@ the debounce would have, with no timer of its own, against the current `feedUrl`
 stays accurate and a later edit still reopens. It is a control, so rule 16 applies: help copy is
 `FIELD_HELP.feedReconnect`, the ⓘ is `[data-testid="help-reconnect"]`.
 
-**Live reload (read path, rule 22).** `AllPage.svelte` calls `watchConfig(location.search, …,
-{ initial: resolved })` after its initial `loadConfig`. Each tick re-resolves the config through the
-same precedence chain and compares; on a difference it assigns the new config, re-applies motion, and
-re-fits the stage. The SSE feed is **not** touched — a config edit never reconnects the producer.
+**Live reload (read path, rule 22).** Every render page — `AllPage.svelte` and each standalone
+page (`TowerPage`, `BattlePage`, `DriverPage`, `QualifyingPage`, `GridPage`, `ResultsPage`,
+`LogosPage`, `UpdatesPage`, `InfoPage`, `WeatherPage`) — calls `watchConfig(location.search, …, { initial: resolved })`
+after its initial `loadConfig`, and stops it on unmount. Each tick re-resolves the config through the
+same precedence chain and compares; on a difference the page applies the new config exactly as its
+initial load did, including `applyMotion(resolveMotion(location.search, { reducedMotion }))` so the
+profile's `reducedMotion` refines `App.svelte`'s boot baseline (a `?motion=` param still wins;
+likewise `applyTheme(resolveTheme(location.search, { preset: theme.preset }))` for the theme,
+`what/overlay-config.md` rule 59;
+`AllPage` also re-fits the stage). The SSE feed is **not** touched — a config edit never reconnects
+the producer. The poll loads with `loadConfig(search, { strict: true })`, which **rejects** when the
+named profile cannot be fetched (network error, non-OK from both the API and the static path — a
+deleted profile's 404 included — or unparseable JSON) where the initial load falls back to the
+default; the watcher skips a rejected tick, so a companion-server blip keeps the last good config
+instead of snapping to the default layout (#353). The first failed tick after a good one logs one
+`console.warn`; further failures stay quiet until a tick succeeds.
 
 ## Key Abstractions
 
@@ -180,7 +198,7 @@ re-fits the stage. The SSE feed is **not** touched — a config edit never recon
 | `ConfigPage` | producer | `sseClient.connect(…, { onOpen, onError })` — status readout only, snapshots discarded. |
 | `ConfigPage` | `AllView` | Renders the real composite widget tree as the live preview. |
 | `ConfigPage` | `spec/v1/fixtures/race-close-battle.json` | Preview snapshot, **augmented on a copy** (see notes). |
-| `AllPage` (render path) | `configWatch.js` → `overlayConfig.loadConfig` | 5 s poll → swap layout without a refresh. |
+| `AllPage` + standalone render pages | `configWatch.js` → `overlayConfig.loadConfig` | 5 s poll → swap config without a refresh. |
 | Broadcaster → OBS | `buildObsUrl()` | `<origin>/all?profile=<name>&src=<producer>`, copied from the UI. |
 
 ## Implementation Notes
@@ -190,6 +208,23 @@ re-fits the stage. The SSE feed is **not** touched — a config edit never recon
   `subject.telemetry`. The editor spreads a **copy** and adds telemetry plus richer-tower fields so
   the HUD and the metric toggles show representative data. Never push those fields into the shared
   fixture.
+  The copy also carries a `race_events` list (taken from `race-events.json`'s entries) so the
+  preview's race update box has cards to show (`what/overlay-config.md` rule 51); `AllView` is
+  rendered with `preview`, which it passes to `RaceUpdateBox` so the box takes no baseline.
+  It also always carries `race-weather.json`'s `session.weather` (unlike the sample `info_lines`,
+  it does not leave when the `info` widget gains lines), so the preview's weather box always has
+  values and, with the card on, the info panel shows a weather card (`what/overlay-config.md`
+  rules 53, 56–57). Both preview snapshots (with and without the sample lines) carry it.
+  It also carries `event-info.json`'s `event`, and its `info_lines` only while the `info`
+  widget's `lines` is empty, so the preview's info panel has a header and lines and a
+  broadcaster's own line replaces the samples at once (`what/overlay-config.md` rule 53). The
+  preview snapshot is therefore derived from `config`, not a constant.
+- **The info lines list** (`what/overlay-config.md` rule 53) follows the Class Colors pattern: the
+  new-line input is local UI state, not config, until Add; each stored line's input holds a local
+  draft that is written through a `configEditor.js` helper only on commit (Enter or `change`),
+  then re-shows the stored line, as the typed number fields do. The add/edit/remove helpers apply
+  rule 52's trimming, 120-character cut, duplicate and 10-line limits, so the editor can never
+  hold a `lines` value normalization would change.
 - **Drag listeners live on `window`,** attached in `startDrag` and removed in `endDrag`, so a pointer
   that leaves the preview box still tracks and still releases. There are four — `pointermove` →
   `onDrag`, `pointerup` → `onPointerEnd`, `pointercancel` → `onPointerEnd`, `blur` → `endDrag` —

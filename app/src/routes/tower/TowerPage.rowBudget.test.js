@@ -77,9 +77,9 @@ async function mountTower(innerHeight, snapshot, { search = '', profile = null }
     ),
   )
   const result = render(TowerPage)
-  await tick()
-  await tick()
-  expect(sse.emit, 'the page should have opened its state feed on mount').toBeTypeOf('function')
+  // The feed opens once the profile resolves (#354); let the profile fetch settle first.
+  for (let i = 0; i < 5; i++) await tick()
+  expect(sse.emit, 'the page should have opened its state feed once the profile resolved').toBeTypeOf('function')
   sse.emit(snapshot)
   flushSync()
   await tick()

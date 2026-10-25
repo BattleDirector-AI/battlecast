@@ -17,10 +17,16 @@
     rendersText,
     TEXT_SCALE_PRESETS,
     normalizeGraceSeconds,
+    RANGED_DWELL_MIN,
+    RANGED_DWELL_MAX,
+    normalizeInfoLine,
+    INFO_LINES_MAX,
+    INFO_LINE_MAX_LENGTH,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
   import { CLASS_TAGS_VALUES } from '../../lib/classTags.js'
+  import { THEME_PRESETS } from '../../lib/theme.js'
   import {
     WIDGET_HELP,
     FIELD_HELP,
@@ -31,6 +37,9 @@
   import * as api from '../../lib/configApi.js'
   import { connect as connectFeed, DEFAULT_SRC } from '../../lib/sseClient.js'
   import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
+  import raceEventsFixture from '../../../../spec/v1/fixtures/race-events.json'
+  import eventInfoFixture from '../../../../spec/v1/fixtures/event-info.json'
+  import weatherFixture from '../../../../spec/v1/fixtures/race-weather.json'
 
   // Preview snapshot. `race-close-battle.json` is the canonical NO-telemetry fixture (so
   // it must NOT gain a `subject.telemetry` block — the compliance harness and an AllLayout
@@ -64,7 +73,22 @@
       ...baseSnapshot.subject,
       telemetry: { throttle: 0.82, brake: 0, speed: 247, gear: 6 },
     },
+    // Sample race events so the preview's race update box has cards to play through
+    // (overlay-config rule 51); the preview AllView takes no baseline for them.
+    race_events: raceEventsFixture.race_events,
+    // A sample event so the preview's info panel has a header (overlay-config rule 53).
+    event: eventInfoFixture.event,
+    // Sample weather, always present whatever the info widget's lines, so the preview's
+    // weather box is filled and the info panel's card has values when it is on (rule 56).
+    session: { ...baseSnapshot.session, weather: weatherFixture.session.weather },
   }
+  // Sample producer lines join the preview only while the info widget has no lines of its
+  // own, so a broadcaster's first line shows in the preview at once (rule 53). Both snapshots
+  // are built once; the preview switches only when `lines` flips between empty and not, not on
+  // every config edit (a drag's pointer steps included).
+  const sampleWithInfoLines = { ...sampleSnapshot, info_lines: eventInfoFixture.info_lines }
+  const hasOwnInfoLines = $derived((config.widgets.info?.lines?.length ?? 0) > 0)
+  const previewSnapshot = $derived(hasOwnInfoLines ? sampleSnapshot : sampleWithInfoLines)
 
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
   let profileName = $state('default')
@@ -332,6 +356,45 @@
     }
   }
 
+  // ---- info panel lines (overlay-config rules 52-53) ---------------------------
+  // The new-line input is local UI state until Add (as the Class Colors fields are). A stored
+  // line's input commits like a typed number field: Enter (not mid-IME) or `change`, never per
+  // keystroke; a refused commit, or Escape, shows the stored line again. The editor helpers
+  // refuse a blank or duplicate line and an 11th.
+  let newInfoLine = $state('')
+  const infoLines = () => config.widgets.info?.lines ?? []
+  function addInfoLine() {
+    const before = infoLines().length
+    config = editor.addInfoLine(config, newInfoLine)
+    if (infoLines().length > before) newInfoLine = ''
+  }
+  const removeInfoLine = (index) => (config = editor.removeInfoLine(config, index))
+  function infoLineField(index) {
+    return (el) => {
+      const shown = () => infoLines()[index] ?? ''
+      const commit = () => {
+        // A change that normalizes to the stored line (whitespace only) writes nothing, so it
+        // does not mark the profile edited.
+        if (normalizeInfoLine(el.value) === shown()) {
+          el.value = shown()
+          return
+        }
+        config = editor.setInfoLine(config, index, el.value)
+        el.value = shown()
+      }
+      const onkeydown = (e) => {
+        if (e.key === 'Enter' && !e.isComposing) commit()
+        else if (e.key === 'Escape') el.value = shown()
+      }
+      el.addEventListener('change', commit)
+      el.addEventListener('keydown', onkeydown)
+      return () => {
+        el.removeEventListener('change', commit)
+        el.removeEventListener('keydown', onkeydown)
+      }
+    }
+  }
+
   // ---- canvas ---------------------------------------------------------------
   const setCanvas = (patch) => (config = editor.setCanvas(config, patch))
 
@@ -397,6 +460,10 @@
   // canonical km/h; checking the box displays mph (the widget converts). Unchecked = km/h.
   const setSpeedUnit = (key, useMph) =>
     (config = editor.setWidgetField(config, key, 'speedUnit', useMph ? 'mph' : 'kmh'))
+  // #208: the temperature unit (weather box, info panel; overlay-config rule 54) and the info
+  // panel's weather card (rule 57).
+  const setTempUnit = (key, useF) => (config = editor.setWidgetField(config, key, 'tempUnit', useF ? 'f' : 'c'))
+  const setWeatherCard = (on) => (config = editor.setWidgetField(config, 'info', 'weatherCard', on))
   // #26 on-board HUD-only: which driver/vehicle identity fields the HUD shows, and
   // whether it holds off while the driver lower-third plays its "now on camera" card.
   const setDriverInfo = (key, field, checked) => {
@@ -441,6 +508,9 @@
   const setClassColor = (name, hex) => (config = editor.setClassColor(config, name, hex))
   const removeClassColor = (name) => (config = editor.removeClassColor(config, name))
   const setClassTags = (value) => (config = editor.setClassTags(config, value))
+  const setThemePreset = (value) => (config = editor.setThemePreset(config, value))
+  // Labels for the overlay-wide look (overlay-config rule 62), in THEME_PRESETS order.
+  const THEME_LABELS = { modern: 'Modern', vintage70: 'Vintage 70s', vintage80: 'Vintage 80s' }
   function addClassColor() {
     if (!newClassColorName.trim()) return
     setClassColor(newClassColorName, newClassColorHex)
@@ -555,13 +625,14 @@
       <div
         class="preview__stage"
         data-testid="preview-stage"
+        data-theme={config.theme.preset}
         style="width: {canvas.w * previewScale}px; height: {canvas.h * previewScale}px;"
       >
         <div
           class="preview__canvas"
           style="width: {canvas.w}px; height: {canvas.h}px; transform: scale({previewScale});"
         >
-          <AllView snapshot={sampleSnapshot} {config} preview />
+          <AllView snapshot={previewSnapshot} {config} preview />
 
           {#each WIDGET_KEYS as key (key)}
             {#if config.widgets[key]?.visible}
@@ -859,6 +930,100 @@
                 </label>
               </div>
             {/if}
+            {#if key === 'updates' || key === 'info'}
+              <!-- #27 / #62: how long each race update card (rule 50) or info line (rule 52)
+                   stays up, 2-60 s. A value outside the range is refused and the stored one
+                   kept (rule 44b). -->
+              <label class="num">
+                dwell secs
+                <HelpTip
+                  text={key === 'info' ? FIELD_HELP.infoDwellSeconds : FIELD_HELP.updatesDwellSeconds}
+                  label="dwell seconds"
+                  testid="help-dwell-{key}"
+                />
+                <input
+                  type="number"
+                  min={RANGED_DWELL_MIN}
+                  max={RANGED_DWELL_MAX}
+                  step="0.5"
+                  data-testid="dwell-{key}"
+                  value={w.dwellSeconds}
+                  {@attach numberField(
+                    (n) => n >= RANGED_DWELL_MIN && n <= RANGED_DWELL_MAX && setDwellSeconds(key, n),
+                    () => config.widgets[key].dwellSeconds,
+                  )}
+                />
+              </label>
+            {/if}
+            {#if key === 'weather' || key === 'info'}
+              <!-- #208: the temperature display unit; the producer sends °C (rules 54, 56-57). -->
+              <label class="checkline">
+                <input
+                  type="checkbox"
+                  data-testid="temp-f-{key}"
+                  checked={w.tempUnit === 'f'}
+                  onchange={(e) => setTempUnit(key, e.currentTarget.checked)}
+                />
+                Temperature in °F
+                <HelpTip text={FIELD_HELP.tempUnit} label="temperature in °F" testid="help-temp-f-{key}" />
+              </label>
+            {/if}
+            {#if key === 'info'}
+              <!-- #208: whether the weather joins the rotation as one more line (rule 57). -->
+              <label class="checkline">
+                <input
+                  type="checkbox"
+                  data-testid="weather-card-info"
+                  checked={w.weatherCard === true}
+                  onchange={(e) => setWeatherCard(e.currentTarget.checked)}
+                />
+                Weather card
+                <HelpTip text={FIELD_HELP.weatherCard} label="weather card" testid="help-weather-card-info" />
+              </label>
+              <!-- #62: the broadcaster's own info lines (rule 53). -->
+              <div class="info-lines">
+                <span class="info-lines__title">
+                  info lines
+                  <HelpTip text={FIELD_HELP.infoLines} label="info lines" testid="help-info-lines" />
+                </span>
+                <ul class="logo-list">
+                  {#each w.lines as line, i (i)}
+                    <li>
+                      <input
+                        type="text"
+                        maxlength={INFO_LINE_MAX_LENGTH}
+                        aria-label="info line {i + 1}"
+                        data-testid="info-line-{i}"
+                        value={line}
+                        {@attach infoLineField(i)}
+                      />
+                      <button
+                        type="button"
+                        aria-label="remove info line {i + 1}"
+                        data-testid="info-line-remove-{i}"
+                        onclick={() => removeInfoLine(i)}
+                      >✕</button>
+                    </li>
+                  {/each}
+                </ul>
+                <div class="info-lines__add">
+                  <input
+                    type="text"
+                    maxlength={INFO_LINE_MAX_LENGTH}
+                    placeholder="New line (e.g. a sponsor)"
+                    aria-label="new info line"
+                    data-testid="info-line-new"
+                    bind:value={newInfoLine}
+                  />
+                  <button
+                    type="button"
+                    data-testid="info-line-add"
+                    disabled={w.lines.length >= INFO_LINES_MAX}
+                    onclick={addInfoLine}
+                  >Add</button>
+                </div>
+              </div>
+            {/if}
             {#if key === 'qualifying'}
               <!-- #22-only: which session modes the timing bar dwells on every
                    camera cut, and whether the producer-flagged class-best lap fires
@@ -1092,6 +1257,25 @@
             {/if}
           </fieldset>
         {/each}
+      </section>
+
+      <section class="panel__group">
+        <h2>Theme</h2>
+        <!-- Overlay-wide look (overlay-config rules 58-62, ADR 0026). Only the preview stage takes
+             it; this editor panel stays modern. -->
+        <label class="num">
+          theme
+          <HelpTip text={FIELD_HELP.themePreset} label="theme" testid="help-theme-preset" />
+          <select
+            data-testid="theme-preset"
+            value={config.theme.preset}
+            onchange={(e) => setThemePreset(e.currentTarget.value)}
+          >
+            {#each THEME_PRESETS as value (value)}
+              <option {value}>{THEME_LABELS[value]}</option>
+            {/each}
+          </select>
+        </label>
       </section>
 
       <section class="panel__group">
@@ -1384,6 +1568,9 @@
     color: #06231b;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    /* Editor chrome inside the themed preview stage: keep the modern look (rule 62). */
+    text-shadow: none;
+    font-style: normal;
   }
   .handle__resize {
     position: absolute;
@@ -1572,6 +1759,22 @@
   }
   .class-color-add input[type='text'] {
     flex: 1;
+  }
+  .info-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 100%;
+  }
+  .info-lines .logo-list li input[type='text'],
+  .info-lines__add input[type='text'] {
+    flex: 1;
+    min-width: 0;
+  }
+  .info-lines__add {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
   }
   .class-color-swatch {
     flex: 0 0 auto;

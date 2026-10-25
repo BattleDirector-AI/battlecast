@@ -6,6 +6,7 @@
   --bc-font-display: 'Saira Condensed', 'Arial Narrow', sans-serif;
   --bc-font-ui: 'Saira', 'Helvetica Neue', Arial, sans-serif;
   --bc-font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+  --bc-font-style: normal;       /* inherited by all text in a theme scope; a preset may lean it */
 
   /* ---- Sizes (px @ 1920x1080) ---- */
   --bc-size-name: 22px;          /* driver name (standard) */
@@ -32,4 +33,22 @@
   --bc-track-label: 0.18em;      /* UI labels */
   --bc-track-title: 0.20em;      /* widget titles */
   --bc-track-chip: 0.06em;       /* class chips */
+}
+
+/* ---- Theme presets (overlay-config rules 58–60, ADR 0026) ----
+ * Keyed off the BARE attribute so a block reaches both the document root of a render page and
+ * the /config preview stage. Look only: no spacing/geometry token is ever overridden here. */
+
+[data-theme="vintage70"] {
+  --bc-font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --bc-font-ui: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+  --bc-font-mono: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --bc-font-style: italic;       /* the whole 1979 package leans */
+}
+
+[data-theme="vintage80"] {
+  --bc-font-display: 'Oswald', 'Arial Narrow', sans-serif;
+  --bc-font-ui: 'VT323', 'Lucida Console', monospace;
+  --bc-font-mono: 'VT323', 'Lucida Console', monospace;
+  --bc-font-style: normal;
 }

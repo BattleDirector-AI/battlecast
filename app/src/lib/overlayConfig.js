@@ -20,6 +20,7 @@
 
 import { DEFAULT_SRC } from './sseClient.js'
 import { CLASS_TAGS_VALUES } from './classTags.js'
+import { THEME_PRESETS, THEME_MODERN } from './theme.js'
 
 /** Config contract version, numbered independently of the app release and the
  *  spec `schemaVersion`. */
@@ -81,7 +82,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 24, y: 24, w: 400, h: 900, z: 1, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -92,7 +93,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 448, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -103,7 +104,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -117,7 +118,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 900, w: 620, h: 96, z: 4, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -133,7 +134,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 788, w: 840, h: 100, z: 5, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -150,7 +151,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 900, y: 24, w: 360, h: 44, z: 6, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -171,7 +172,52 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 760, y: 960, w: 400, h: 96, z: 7, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
+      waitForLowerThird: true,
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
+    },
+    // Race update box (#27, overlay-config rule 50): one producer race event at a time,
+    // top-right clear of Race Control. Reads only `dwellSeconds` (its own default 8 and
+    // [2, 60] range, applied in normalizeConfig), plate opacity and text size; the other
+    // knobs are inert, carried for a uniform widget shape. Draws nothing with no card up.
+    updates: {
+      visible: true, x: 1376, y: 24, w: 520, h: 120, z: 8, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
+      waitForLowerThird: true,
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
+    },
+    // Info panel (#62, overlay-config rule 52): the event header and one rotating line,
+    // bottom right above the logo slot. Reads `dwellSeconds` (rule 50's range, applied in
+    // normalizeConfig), `lines` (its own, carried by this widget only), plate opacity and
+    // text size; the other knobs are inert. Draws nothing with nothing to show.
+    info: {
+      visible: true, x: 1200, y: 816, w: 696, h: 72, z: 9, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
+      waitForLowerThird: true,
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      lines: [], weatherCard: false,
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
+    },
+    // Weather box (#208, overlay-config rule 55): the producer's air/track temperature and
+    // conditions, top centre under Race Control. Reads `tempUnit`, plate opacity and text
+    // size; the other knobs are inert. Draws nothing without weather.
+    weather: {
+      visible: true, x: 900, y: 80, w: 360, h: 44, z: 10, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -184,7 +230,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   // (normalized like `vehicle_class` elsewhere) -> 6-digit hex. Empty by default — no override,
   // no seeded/curated entries. `classTags` (overlay-config rule 47, ADR 0022): `auto` follows
   // the producer's `session.multiclass`; `show` / `hide` override it.
-  theme: { classColors: {}, classTags: 'auto' },
+  // `preset` (rule 58, ADR 0026): the overlay-wide look — `modern`, `vintage70` or `vintage80`.
+  theme: { preset: 'modern', classColors: {}, classTags: 'auto' },
   // Overlay-wide motion opt-out. The overlay animates by default (see lib/motion.js —
   // OBS/CEF reports reduced-motion, which must NOT silently kill the reveals); set true
   // to turn transitions down. A `?motion=` URL param overrides this per Browser Source.
@@ -348,6 +395,9 @@ function normalizeDriverInfo(value, fallback) {
   return out
 }
 
+/** Valid `tempUnit` display values (overlay-config rule 54): °C (default) or °F. Exact match. */
+export const TEMP_UNITS = Object.freeze(['c', 'f'])
+
 /** Valid `speedUnit` display values. */
 export const SPEED_UNITS = Object.freeze(['kmh', 'mph'])
 
@@ -387,6 +437,9 @@ export const PLATE_WIDGET_KEYS = Object.freeze([
   'qualifying',
   'racecontrol',
   'onboard',
+  'updates',
+  'info',
+  'weather',
 ])
 
 /** Per-widget text size presets (overlay-config.md rules 39-41, ADR 0015): the factor
@@ -402,6 +455,9 @@ export const TEXT_WIDGET_KEYS = Object.freeze([
   'qualifying',
   'racecontrol',
   'onboard',
+  'updates',
+  'info',
+  'weather',
 ])
 
 /** Whether the config UI offers a text-size control for this widget. Withholding it is a
@@ -466,6 +522,45 @@ function normalizeModes(value, fallback) {
   return cleaned.length ? cleaned : [...fallback]
 }
 
+/** Update card / info line dwell range (rules 50, 52): the `updates` and `info` widgets only. */
+export const RANGED_DWELL_MIN = 2
+export const RANGED_DWELL_MAX = 60
+const RANGED_DWELL_KEYS = new Set(['updates', 'info'])
+
+/** A widget's `dwellSeconds`: for `updates` and `info` a valid number in [2, 60] (rules 50,
+ *  52), for every other widget any valid number above 0 (rule 46); else the fallback. */
+function normalizeDwell(key, value, fallback) {
+  const n = finiteOrNull(value)
+  if (RANGED_DWELL_KEYS.has(key)) return n !== null && n >= RANGED_DWELL_MIN && n <= RANGED_DWELL_MAX ? n : fallback
+  return n > 0 ? n : fallback
+}
+
+/** The info panel's own lines (rule 52): at most 10, each at most 120 characters. */
+export const INFO_LINES_MAX = 10
+export const INFO_LINE_MAX_LENGTH = 120
+
+/** One broadcaster line as rule 52 stores it: trimmed, cut to 120 characters, trimmed again;
+ *  null for a non-string or a line that is then blank. */
+export function normalizeInfoLine(value) {
+  if (typeof value !== 'string') return null
+  const line = value.trim().slice(0, INFO_LINE_MAX_LENGTH).trim()
+  return line || null
+}
+
+/** The `info` widget's `lines` (rule 52): a non-array gives []; each entry goes through
+ *  `normalizeInfoLine`, blanks and duplicates are dropped, and the first 10 kept lines stay. */
+export function normalizeInfoLines(value) {
+  const out = []
+  if (!Array.isArray(value)) return out
+  for (const entry of value) {
+    const line = normalizeInfoLine(entry)
+    if (line === null || out.includes(line)) continue
+    out.push(line)
+    if (out.length === INFO_LINES_MAX) break
+  }
+  return out
+}
+
 // Prototype-polluting keys, same set `normalizeConfig` already drops from `widgets` —
 // a JSON-parsed profile can carry these as OWN keys.
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
@@ -501,6 +596,12 @@ export function normalizeClassTags(raw) {
   return CLASS_TAGS_VALUES.includes(raw) ? raw : 'auto'
 }
 
+/** `theme.preset` (overlay-config rule 58): exactly one of the curated presets, else `modern`.
+ *  Exact match, like `classTags`; only the `?theme=` URL knob is case-insensitive. */
+export function normalizeThemePreset(raw) {
+  return THEME_PRESETS.includes(raw) ? raw : THEME_MODERN
+}
+
 /** Split a comma list (`?hide=battle,logos`) into trimmed non-empty tokens. */
 function splitList(raw) {
   return String(raw || '')
@@ -533,6 +634,7 @@ export function normalizeConfig(raw) {
       ...src.theme,
       classColors: normalizeClassColors(src.theme.classColors),
       classTags: normalizeClassTags(src.theme.classTags),
+      preset: normalizeThemePreset(src.theme.preset),
     }
   }
   // Overlay-wide motion opt-out (see lib/motion.js). Defaults false (animate).
@@ -576,10 +678,7 @@ export function normalizeConfig(raw) {
         w.trigger === 'dwell' || w.trigger === 'persistent'
           ? w.trigger
           : d.trigger ?? LOWER_THIRD_DEFAULTS.trigger,
-      dwellSeconds:
-        finiteOrNull(w.dwellSeconds) > 0
-          ? finiteOrNull(w.dwellSeconds)
-          : d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds,
+      dwellSeconds: normalizeDwell(key, w.dwellSeconds, d.dwellSeconds ?? LOWER_THIRD_DEFAULTS.dwellSeconds),
       showOnConnect:
         typeof w.showOnConnect === 'boolean'
           ? w.showOnConnect
@@ -610,6 +709,9 @@ export function normalizeConfig(raw) {
       // normalized onto every widget (like classDisplay) for a uniform shape. An
       // unknown value falls back to the default so a stale/typo'd profile still
       // renders a valid unit.
+      // #208 temperature display unit (rule 54) — read by the weather box and the info panel's
+      // weather card; normalized onto every widget (like speedUnit) for a uniform shape.
+      tempUnit: TEMP_UNITS.includes(w.tempUnit) ? w.tempUnit : d.tempUnit ?? 'c',
       speedUnit:
         w.speedUnit === 'kmh' || w.speedUnit === 'mph'
           ? w.speedUnit
@@ -650,6 +752,12 @@ export function normalizeConfig(raw) {
           ? w.textScale
           : d.textScale ?? 'normal',
     }
+    // #62 the info panel's own lines (rule 52) — carried by the `info` widget only, unlike
+    // every other knob, so no other widget gains a `lines` key.
+    if (key === 'info') normalizedWidgets[key].lines = normalizeInfoLines(w.lines)
+    // #208 whether the weather card joins the info panel's rotation (rule 57) — the info
+    // widget only, like `lines`; a boolean, else off.
+    if (key === 'info') normalizedWidgets[key].weatherCard = typeof w.weatherCard === 'boolean' ? w.weatherCard : false
     // #215 editor bookkeeping (overlay-config.md rule 41b): the widget's `normal` x/w while it
     // sits at a bigger preset. Kept only on a text widget off `normal`, with both parts finite
     // numbers or non-blank numeric strings (stored as numbers); never rendered.
@@ -684,20 +792,35 @@ function applyUrlOverrides(config, params) {
   return out
 }
 
+/** How long one profile candidate may take before it counts as unreachable. Render pages open
+ *  the producer feed only once the profile resolves (#354), so a request that hangs instead of
+ *  failing must not hold the overlay blank. */
+export const PROFILE_FETCH_TIMEOUT_MS = 3000
+
 /** Fetch a named profile, trying server mode (`/api/profiles/<name>`) first and
  *  falling back to static mode (`/config/<name>.json`). Returns the parsed JSON, or
- *  null if neither is reachable/ok. */
+ *  null if neither is reachable/ok within the timeout. */
 async function fetchProfile(name, fetchImpl) {
   const candidates = [
     `/api/profiles/${encodeURIComponent(name)}`,
     `/config/${encodeURIComponent(name)}.json`,
   ]
   for (const url of candidates) {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null
+    let timer
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller?.abort()
+        reject(new Error(`profile request timed out: ${url}`))
+      }, PROFILE_FETCH_TIMEOUT_MS)
+    })
     try {
-      const res = await fetchImpl(url)
-      if (res && res.ok) return await res.json()
+      const res = await Promise.race([fetchImpl(url, { signal: controller?.signal }), timeout])
+      if (res && res.ok) return await Promise.race([res.json(), timeout])
     } catch {
-      // try the next candidate (server not running, offline, etc.)
+      // try the next candidate (server not running, offline, timed out, etc.)
+    } finally {
+      clearTimeout(timer)
     }
   }
   return null
@@ -710,11 +833,17 @@ async function fetchProfile(name, fetchImpl) {
  * built-in default. `?profile=<name>` selects a saved profile; if it cannot be
  * loaded we warn and keep the default (best-effort, never blank).
  *
+ * `strict` is for the live-reload poll (overlay-config rule 22): there a profile that cannot be
+ * loaded (network error, non-OK status from both candidates — a deleted profile's 404 included —
+ * or unparseable JSON) rejects instead of resolving to the default, so the watcher skips that
+ * poll and the page keeps its last good config rather than snapping to the default layout.
+ *
  * @param {string} search - a `location.search` string (e.g. `?profile=race`).
- * @param {{ fetchImpl?: typeof fetch }} [opts] - injectable fetch for testing.
+ * @param {{ fetchImpl?: typeof fetch, strict?: boolean }} [opts] - injectable fetch for
+ *   testing; `strict` rejects when the named profile cannot be loaded.
  * @returns {Promise<object>} the normalized config.
  */
-export async function loadConfig(search, { fetchImpl } = {}) {
+export async function loadConfig(search, { fetchImpl, strict = false } = {}) {
   const params = new URLSearchParams(search || '')
   const doFetch = fetchImpl || (typeof globalThis !== 'undefined' ? globalThis.fetch : undefined)
 
@@ -722,6 +851,9 @@ export async function loadConfig(search, { fetchImpl } = {}) {
   const profileName = params.get('profile')
   if (profileName && profileName.trim()) {
     raw = doFetch ? await fetchProfile(profileName.trim(), doFetch) : null
+    if (!raw && strict) {
+      throw new Error(`profile "${profileName.trim()}" could not be loaded`)
+    }
     if (!raw) {
       console.warn(
         `[battlecast] profile "${profileName.trim()}" could not be loaded; using default layout.`,

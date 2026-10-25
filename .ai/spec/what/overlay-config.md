@@ -1,6 +1,6 @@
 # Overlay Configuration
 
-The layout/visibility/rotation/motion contract that render pages read and the `/config` UI writes.
+The layout/visibility/rotation/motion/theme contract that render pages read and the `/config` UI writes.
 Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; implementation in
 `how/renderer.md`.
 
@@ -87,6 +87,10 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `hideWhenIdle` | supporting widgets (battle, logos, driver, qualifying) | auto-hide when idle |
     | `idleGraceSeconds` | battle | exit grace before an ended battle goes idle (rule 36) |
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
+    | `dwellSeconds` | updates | how long each race update card stays up (rule 50) |
+    | `dwellSeconds`, `lines` | info | how long each info line stays up, and the broadcaster's own lines (rule 52; `lines` is carried by the `info` widget only) |
+    | `weatherCard` | info | whether the weather card joins the info panel's rotation (rule 57; carried by the `info` widget only) |
+    | `tempUnit` | weather, info | `c` (default) / `f` temperature display unit (rule 54) |
     | `modes`, `fireOnClassBest` | qualifying | mode-gating + class-best flash |
     | `classDisplay` | tower | inline vs grouped multi-class layout |
     | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
@@ -98,7 +102,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     once it fires (widgets rule 16). It is read as a valid number (rule 6). A valid number greater
     than 0 is stored as that number (`'7.5'` becomes 7.5); anything else — not a valid number, 0,
     or negative — takes the default. So a blank, `null`, `true` or `[5]` is not a dwell of 0, 1 or
-    5 seconds.
+    5 seconds. The race update box's and the info panel's `dwellSeconds` have their own default
+    and range (rules 50, 52).
 
 12. **Tower overflow config** (`maxRows`, `cycle`; only the tower reads them). `maxRows`: `"auto"`
     (fit the configured height) or an integer cap. `cycle`: `enabled` (default true), `perPageSeconds`
@@ -132,11 +137,11 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     plate-opacity control in the widget row — rule 14's control surface — for each widget that
     renders a background plate, so rule 15's broadcaster judgement call ("a more see-through plate
     over busy footage") never requires hand-editing a profile JSON or a round-trip through
-    Export/Import. The **plate-rendering widgets** are the six that paint one of the plate tokens:
-    `tower` and `battle` (panel + header bar), `driver` and `qualifying` (the shared lower-third
-    card), `racecontrol` and `onboard` (header-bar plate). `logos` composites its images straight
+    Export/Import. The **plate-rendering widgets** are the nine that paint one of the plate tokens:
+    `tower` and `battle` (panel + header bar), `driver`, `qualifying`, `updates` and `info` (the
+    shared lower-third card), `racecontrol`, `onboard` and `weather` (header-bar plate). `logos` composites its images straight
     over the video with no panel behind them, so it gets **no** control — gated the same way
-    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all seven. The
+    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all ten. The
     control spans the full `[0,1]` range in steps of `0.01`, starts at the `0.82` default, and
     renders its current value as text beside it — two decimals, matching the step — so the setting is
     readable at a glance instead of inferred from a slider position. Per rule 16 it carries its own
@@ -159,6 +164,132 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     (`0`–`30`, step `1`) showing the current value, offered for `battle` only. Per rule 16 it carries
     its own help copy, and per rule 19 the coverage tests then require it. Like `plateAlpha`
     (rule 24), withholding the control from the other widgets never rewrites a stored value.
+
+### Race update box
+
+50. **Race update box defaults.** The `updates` widget (`widgets.md` rules 69–75) defaults to
+    `visible: true` at `x: 1376`, `y: 24`, `w: 520`, `h: 120`, `z: 8`, clear of every other default
+    widget (Race Control ends at `x` 1260). Its `dwellSeconds` is how long each update card stays
+    up, default `8`. It is read as a valid number (rule 6): a valid number from `2` to `60`
+    inclusive is stored as that number (`'7.5'` becomes 7.5), and anything else — not a valid
+    number, or a number below 2 or above 60 — takes `8`. So a blank, `null`, `true`, `0`, `1` or
+    `90` gives 8. The `info` widget's `dwellSeconds` follows the same default and range
+    (rule 52); rule 46's default and range apply to every other widget's `dwellSeconds`. Both
+    `/all` and the standalone `/updates` route read it from the loaded profile. A profile saved
+    before the widget existed has no `updates` entry and gets these defaults, and
+    `configVersion` stays `"1"` (rule 2).
+51. **The editor's `updates` row** is part of rule 14's control surface. The row shows the
+    widget's title and summary (rule 17) and offers geometry, visibility, plate opacity
+    (rule 23), text size (rule 40), and a **dwell secs** number input
+    (`data-testid="dwell-updates"`, min `2`, max `60`, step `0.5`, so the spinner reaches
+    half-second values such as 7.5 that rule 50 keeps) showing the stored value. The
+    dwell input carries its own help copy behind an ⓘ (`data-testid="help-dwell-updates"`) that
+    describes update cards, not camera cuts (rules 16, 19). It is a typed number field
+    (rule 44): a committed value outside `[2, 60]` is refused and the stored value is kept
+    (rule 44b). The row offers no trigger, show-on-connect, or hide-when-idle control. The
+    editor's preview sample snapshot carries race events and the preview box takes no baseline
+    (`widgets.md` rule 71), so the preview shows update cards while the broadcaster places the
+    widget. The sample cards play through once, each for the dwell, and then the box stays
+    empty for the rest of the editing session, as the lower-thirds already do in the preview;
+    the widget's slot and drag box stay in place.
+
+### Info panel
+
+52. **Info panel defaults and lines.** The `info` widget (`widgets.md` rules 76–82) defaults to
+    `visible: true` at `x: 1200`, `y: 816`, `w: 696`, `h: 72`, `z: 9`: bottom right, above the
+    logo slot (which starts at `y` 900) and right of the on-board HUD (which ends at `x` 1160),
+    so it overlaps no other default widget, hidden ones included. Its `dwellSeconds` is how long
+    each line stays up, with rule 50's default and range: a valid number from `2` to `60`
+    inclusive is stored as that number, and anything else takes `8`. Its **`lines`** is the
+    broadcaster's own list of lines (default `[]`), normalized in this order:
+    - a `lines` that is not an array gives `[]`;
+    - each entry, in array order, that is not a string is dropped; a string is trimmed, then cut
+      to its first 120 characters (JavaScript string length) and trimmed again;
+    - an entry that is then blank is dropped, and so is one equal to a line already kept;
+    - once 10 lines are kept, the remaining entries are dropped.
+
+    So `[' Follow us @battlecast ', '', 42, 'Follow us @battlecast']` gives
+    `['Follow us @battlecast']`. Unlike every other knob, `lines` (like `weatherCard`, rule 57)
+    is carried by the `info` widget only: no other widget, including an unknown widget key
+    (rule 6), has a `lines` key after normalization. Both `/all` and the standalone `/info` route read `dwellSeconds` and `lines`
+    from the loaded profile. A profile saved before the widget existed has no `info` entry and
+    gets these defaults, and `configVersion` stays `"1"` (rule 2).
+53. **The editor's `info` row** is part of rule 14's control surface. The row shows the
+    widget's title and summary (rule 17); the summary says that the panel hides itself when it
+    has nothing to show (rule 21: an empty panel would otherwise look broken). The row offers
+    geometry, visibility, plate opacity (rule 23), text size (rule 40), a **dwell secs** number
+    input (`data-testid="dwell-info"`, min `2`, max `60`, step `0.5`) showing the stored value,
+    with its own help copy behind an ⓘ (`data-testid="help-dwell-info"`) that describes info
+    lines, not camera cuts or update cards, and an **info lines** list with its own help copy
+    behind an ⓘ (`data-testid="help-info-lines"`; rules 16, 19). The dwell input is a typed
+    number field (rule 44): a committed value outside `[2, 60]` is refused and the stored value
+    is kept (rule 44b). The info lines list holds:
+    - one text input per stored line, in stored order (`data-testid="info-line-<i>"`, `<i>`
+      counting from 0, `maxlength` 120), showing the line, each with a remove button
+      (`data-testid="info-line-remove-<i>"`);
+    - a new-line text input (`data-testid="info-line-new"`, `maxlength` 120) and an **Add**
+      button (`data-testid="info-line-add"`).
+
+    **Add** appends the new-line input's text, trimmed, to the end of `lines` and clears the
+    input. When the trimmed text is blank or equal to a stored line, Add writes nothing and the
+    input keeps its text. While 10 lines are stored, the Add button is disabled. **Editing a
+    stored line** commits as rule 44's typed fields do, on Enter or when focus leaves the input,
+    and keystrokes before the commit change nothing. The committed text is trimmed and replaces
+    that line in place. A committed text that is blank, or equal to another stored line, is
+    refused: the stored line is kept and the input shows it again. **Remove** deletes that line,
+    and the lines after it move up one place. Every change to `lines` reaches the live preview
+    at once and is what Save writes. The row offers no trigger, show-on-connect, or
+    hide-when-idle control. The editor's preview sample snapshot carries an `event`, so the
+    preview shows the header while the broadcaster places the widget. It carries sample
+    `info_lines` only while the `info` widget's `lines` is empty: as soon as the broadcaster has
+    a line of their own, the sample lines leave the preview snapshot, so the preview rotates the
+    broadcaster's lines alone and a first added line shows in the preview at once (as a changed
+    line list, `widgets.md` rule 80), unless the weather card (`widgets.md` rule 88, rule 57) is
+    the entry on screen: the preview's sample `session.weather` (rule 56) stays in the snapshot
+    whatever the `lines`, so the card is still in the new list, keeps the rest of its dwell, and
+    the new line follows it (`widgets.md` rules 80, 88). Removing the last line brings the sample
+    lines back.
+
+### Weather
+
+54. **`tempUnit`** (default `c`) is the temperature display unit: `c` for °C, `f` for °F
+    (`widgets.md` rule 84). Normalization keeps exactly the string `c` or `f` and replaces
+    anything else with `c`: absent, null, another case such as `F`, a padded string, `celsius`,
+    or a value of another type. It is normalized onto every widget for a uniform shape, as
+    `speedUnit` is, and the `weather` and `info` widgets read it, each its own. `/all`, the
+    standalone `/weather` route and the standalone `/info` route read it from the loaded
+    profile; with no profile, or a profile without the key, it is `c`. There is no URL knob for
+    it, and `configVersion` stays `"1"` (rule 2).
+55. **Weather box defaults.** The `weather` widget (`widgets.md` rules 83–87) defaults to
+    `visible: true` at `x: 900`, `y: 80`, `w: 360`, `h: 44`, `z: 10`: top centre, directly under
+    Race Control (which ends at `y` 68) and right of the battle box (which ends at `x` 888), so
+    it overlaps no other default widget, hidden ones included. A profile saved before the widget
+    existed has no `weather` entry and gets these defaults, and `configVersion` stays `"1"`.
+56. **The editor's `weather` row** is part of rule 14's control surface. The row shows the
+    widget's title and summary (rule 17); the summary says that the box shows only what the
+    producer sends and draws nothing without weather (rule 21). The row offers geometry,
+    visibility, plate opacity (rule 23), text size (rule 40), and a **Temperature in °F**
+    checkbox (`data-testid="temp-f-weather"`), checked exactly when the stored `tempUnit` is
+    `f`, which writes `f` when checked and `c` when cleared, with its own help copy behind an ⓘ
+    (`data-testid="help-temp-f-weather"`; rules 16, 19). The row offers no trigger,
+    show-on-connect, or hide-when-idle control. The editor's preview sample snapshot always
+    carries a `session.weather`, whatever the `info` widget's `lines` (rule 53), so the preview
+    shows the box while the broadcaster places it.
+57. **The info panel's weather card setting.** The `info` widget's **`weatherCard`** (default
+    `false`) turns the weather card (`widgets.md` rule 88) on or off. Off by default because the
+    weather box (rule 55) is visible by default: with both on, `/all` would show the weather
+    twice, and an info panel with no event and no lines would become a weather-only strip.
+    Normalization keeps a boolean and replaces anything else with `false`. Like `lines`, it is carried by the `info`
+    widget only: no other widget, including an unknown widget key, has a `weatherCard` key after
+    normalization. Both `/all` and the standalone `/info` route read it from the loaded profile.
+    The editor's `info` row (rule 53) adds a **Weather card** checkbox
+    (`data-testid="weather-card-info"`, checked exactly when `weatherCard` is true, so
+    unchecked by default) and a
+    **Temperature in °F** checkbox (`data-testid="temp-f-info"`, as in rule 56), each with its
+    own help copy behind an ⓘ (`data-testid="help-weather-card-info"`,
+    `data-testid="help-temp-f-info"`). The card help says that the card shows only while the
+    producer sends weather. Every change reaches the live preview at once and is what Save
+    writes.
 
 ### Tower lap-time flash toggle
 
@@ -197,7 +328,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     render at `normal` size.
 40. **The editor exposes it in the widget row** — rule 14's control surface — as a select of the
     three presets, for each text-rendering widget: `tower`, `battle`, `driver`, `qualifying`,
-    `racecontrol`, `onboard`. `logos` renders no text and gets no control. Per rule 16 it carries
+    `racecontrol`, `onboard`, `updates`, `info`, `weather`. `logos` renders no text and gets no control. Per rule 16 it carries
     help copy, per rule 19 the coverage tests require it, and like `plateAlpha` (rule 24)
     withholding the control never rewrites a stored value.
 41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
@@ -282,7 +413,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 
 44. **A typed number applies when it is committed, not on each keystroke.** The editor's typed
     number fields are: each widget's `x`, `y`, `w`, `h` and `z`; the battle row's exit grace secs
-    (`idleGraceSeconds`); a lower-third row's dwell secs (`dwellSeconds`); the tower row's seconds
+    (`idleGraceSeconds`); a lower-third row's, the `updates` row's and the `info` row's dwell secs (`dwellSeconds`); the tower row's seconds
     per page and pin top N (`cycle.perPageSeconds`, `cycle.pinTop`); the canvas width and height;
     and the logo rotation's per-slot seconds (`logoRotation.perSlotSeconds`). A value typed into one
     of them is committed in two ways, and is applied then, once. **Enter** commits on its own
@@ -302,15 +433,16 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     editor runs in — whether or not that browser fires `change` for a keyboard step. Typing after a
     step is ordinary typing again. The plate-opacity slider (rule 23) is not a typed field: it
     applies continuously while it moves. `maxRows` is a text field that applies on commit with its
-    own blank handling (rule 12); the profile name, the producer URL and the class-color fields are
-    not number fields, and rule 44 does not cover them.
+    own blank handling (rule 12); the profile name, the producer URL, the class-color fields and
+    the info lines inputs are not number fields, and rule 44 does not cover them (an info line
+    commits as rule 53 says).
 44b. **A commit is clamped or refused, never reset to a default, and the field then shows what is
     stored.** A committed number that the knob's normalization would **clamp** is stored clamped:
     the keep-on-canvas clamp for `x`/`y`/`w`/`h` (at least 16 px, inside the canvas), `[0, 30]` for
     exit grace (rule 36), the 320 px minimum for a canvas edge (rule 9), and a non-whole `pinTop`
     rounded down to a whole number (rule 12). A committed number that normalization would
-    **replace with the default** — a dwell or a seconds per page not above `0`, a `pinTop` below
-    `0` — is refused like a blank: the stored value is kept. `z` and per-slot seconds keep the
+    **replace with the default** — a lower-third dwell or a seconds per page not above `0`, an
+    `updates` or `info` dwell outside `[2, 60]` (rules 50, 52), a `pinTop` below `0` — is refused like a blank: the stored value is kept. `z` and per-slot seconds keep the
     number as entered. After every commit the field shows the value now stored, so an out-of-range
     entry visibly becomes its clamped value or reverts to the kept one. Committing a **blank**
     field — cleared, or holding text the browser cannot read as a number, which a number input
@@ -401,6 +533,69 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     editor preview's sample feed does not say, so at `auto` the preview shows the tags (rule
     21: a preview that keeps its tags at `auto` would otherwise look like a broken setting).
 
+### Theme preset
+
+58. **`theme.preset`** (default `modern`) is one overlay-wide setting, not a per-widget knob,
+    that picks the overlay's look: `modern` (the look described by the design tokens),
+    `vintage70` (1970s US network television) or `vintage80` (1980s F1 timing page).
+    Normalization keeps exactly the string `modern`, `vintage70` or `vintage80` and replaces
+    anything else with `modern`: absent, null, another case such as `Vintage70`, a padded string
+    such as `' vintage80 '`, any other string such as `vintage` or `retro`, or a value of another
+    type. A profile with no `theme`, a `theme` that is not an object, or a `theme` without the key
+    renders `modern`. Normalizing `theme.preset` never changes `theme.classColors` (rule 32) or
+    `theme.classTags` (rule 47), and it is not normalized onto widgets. `configVersion` stays
+    `"1"` (rule 2). Decision record: `docs/decisions/0026-theme-presets.md`.
+59. **Resolution and the root attribute.** A render page resolves the theme with the precedence
+    `?theme=` URL param → the profile's `theme.preset` → `modern`. A `?theme=` value is read
+    trimmed and case-insensitively (`?theme=Vintage80` is `vintage80`); a value that is not one of
+    the three names after that is ignored, and the profile (or the default) decides. The resolved
+    preset is written to `<html data-theme="modern"|"vintage70"|"vintage80">`, always present on a
+    render page, `modern` included. Every render page writes it: `/all`, and the standalone
+    `/tower`, `/battle`, `/driver`, `/qualifying`, `/grid`, `/results`, `/logos`, `/updates`,
+    `/info`, `/weather` and `/racecontrol`, each from the URL and its profile on the initial load and again on every live reload
+    (rule 22), where a changed preset applies at once, with no transition. A preset chosen in the
+    profile applies once the profile has loaded: until then a page without `?theme=` shows the
+    `modern` look, exactly as `data-motion` waits for the profile (rule 10). `/onboard` loads
+    no profile, so it renders the `?theme=` value or `modern`. The `/config`
+    editor is not a render page: its document root never carries `vintage70` or `vintage80`,
+    whatever the profile or a `?theme=` param says (rule 62 covers its preview).
+60. **A preset changes the look only.** Under every preset each widget shows the same content
+    (rows, fields, text, values, order) at the same times (triggers, dwell, cycling, hide-when-idle,
+    exit grace) at the same geometry (position, size, row heights, widget dimensions) as under
+    `modern`; switching preset on a live page changes none of these, with one exception: a
+    `full`-name-style tower's fit width (`widgets.md` rule 48) is measured in the row-name font,
+    which is the preset's typeface, so a full-name tower may be a different width under each
+    preset, and switching preset counts as a name-font load under rule 48 (the tower re-measures
+    the names). A preset changes paint only:
+    colours, typefaces, font style, text shadow or outline, and plate colour and treatment. Class
+    colours (rule 32, `widgets.md` rule 32) and the colours that carry meaning (battle intensity,
+    lap-time flash, position change, live) are the same in every preset. Transitions are the same
+    in every preset unless a widget's own `widgets.md` rule gives a preset a different transition,
+    and `data-motion` (rule 10) applies under every preset: reduced motion is reduced in each. Under
+    `vintage70` and `vintage80` every widget renders at least the preset's base look, carried by the
+    shared design tokens: the preset's palette and typefaces, its text shadow or outline on all
+    text that does not set its own shadow, and square, unblurred plates. Text that sets its own
+    glow (the on-camera name in the battle box and both lower-thirds) keeps that glow until its
+    widget's own rule gives it the preset's treatment. The base-look values are listed in the decision record.
+61. **Every typeface a preset uses is bundled.** The faces `vintage70` (Barlow, Barlow Condensed)
+    and `vintage80` (VT323, Oswald) name are served by battlecast itself, from the same origin as
+    the overlay, so an OBS machine with no internet connection renders the period typeface, not a
+    fallback. Each bundled family ships with its licence file beside its font files, in the source
+    tree and in the built app. A `modern` overlay does not download them.
+62. **The editor exposes it once for the whole overlay**, as part of rule 14's control surface: a
+    select labelled **theme** (`data-testid="theme-preset"`), in no widget row, with exactly three
+    options in this order, shown to the broadcaster as **Modern**, **Vintage 70s** and **Vintage
+    80s** (values `modern`, `vintage70`, `vintage80`), showing the current value. Choosing an
+    option writes that value to `theme.preset`, the live preview re-renders in that preset (the
+    preview stage, `data-testid="preview-stage"`, carries `data-theme` set to the chosen value), and
+    Save writes it into the profile. It changes no geometry and no other setting, `theme.classColors`
+    and `theme.classTags` included. The editor's own panel stays in the `modern` look whatever is
+    chosen; only the preview changes. Per rule 16 it carries help copy behind an ⓘ
+    (`data-testid="help-theme-preset"`) saying what each look is, that it changes how the overlay
+    looks and not what it shows, and that a `?theme=` parameter overrides it per Browser Source; per
+    rule 21 it says that the editor panel itself stays in the modern look and that class colours
+    are the same in every look (either would otherwise read as a setting that did not take).
+
 ### Editor help content
 
 16. **Every control the editor renders MUST be explained in the UI itself.** A broadcaster reaches
@@ -437,7 +632,9 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     qualifying/practice suppression of pit / tire-wear / fuel (`widgets.md` rule 8), and that the
     lower-thirds hide themselves between camera cuts (rules 13-19), and that a tower in `full`
     name style grows wider than its set width and can be cut off at the edge of the canvas or
-    the Browser Source (rule 43, `widgets.md` rule 48) — each otherwise looks like a broken
+    the Browser Source (rule 43, `widgets.md` rule 48), and that the info panel draws nothing
+    while it has no event and no lines to show (rule 53, `widgets.md` rule 78), and that the
+    weather box draws nothing while the producer sends no weather (rule 56, `widgets.md` rule 85) — each otherwise looks like a broken
     overlay rather than a deliberate rule.
 
 ### Live reload
@@ -588,16 +785,17 @@ Decision record: `docs/decisions/0011-feed-status-accessibility.md`.
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
-`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags}`,
+`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags,preset}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
-`qualifying`, `racecontrol`, `onboard`. Each widget carries the full normalized knob set (geometry +
+`qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
-`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird`),
-but only the widget noted in the rule-11 table actually reads each.
+`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird` +
+`tempUnit`), but only the widget noted in the rule-11 table actually reads each. The `info`
+widget also carries `lines` and `weatherCard`, which no other widget has (rules 52, 57).
 
 URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,
-`?hide=`, `?motion=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),
+`?hide=`, `?motion=`, `?theme=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),
 `?metrics=` (standalone `/tower`).
 
 ## Constraints
