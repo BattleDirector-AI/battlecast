@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>battlecast · vintage-70s-us</title>
+<meta name="viewport" content="width=1920, height=1080">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,600;1,700;1,800;1,900&family=Barlow:ital,wght@1,800;1,900&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+ * THEME TOKENS — "vintage-70s-us"
+ * ABC Indy 500 1979 / CBS Daytona 500 1979 character-generator look.
+ * Same token names/roles as app/src/design/tokens/*.css, re-valued.
+ * ===================================================================== */
+:root {
+  /* ---- Type ---- */
+  --bc-font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;   /* names: Chyron bold oblique */
+  --bc-font-ui: 'Barlow', 'Helvetica Neue', Arial, sans-serif;         /* titles: wider black oblique */
+  --bc-font-mono: 'Barlow Condensed', 'Arial Narrow', sans-serif;      /* numerals: tnum figures */
+  --bc-num-features: "tnum" 1, "lnum" 1;
+  --bc-style-name: italic;           /* the whole package leans */
+  --bc-weight-name: 800;
+  --bc-weight-num: 700;
+  --bc-weight-title: 900;
+  --bc-size-name: 29px;
+  --bc-size-pos: 24px;
+  --bc-size-gap: 24px;
+  --bc-size-carnum: 20px;
+  --bc-size-label: 20px;
+  --bc-size-title: 40px;
+  --bc-track-label: 0.06em;
+  --bc-track-title: 0.02em;
+
+  /* ---- Colour: keyed text, saturated, no gradients ---- */
+  --bc-text: #FFB61C;                /* CG gold-orange (CBS/ABC '79) */
+  --bc-text-2: #FFF1C9;              /* warm white, secondary lines */
+  --bc-text-3: #E9D49A;              /* muted numerals */
+  --bc-teal: #35D4C8;                /* ABC "CURRENT STANDINGS" subhead */
+  --bc-rule: #E3241B;                /* ABC red underline bar */
+  --bc-rule-gold: #E6A11A;           /* CBS thin gold rule */
+  --bc-accent: #FFFFFF;              /* on-camera driver: name goes white over the red bar */
+  --bc-flag-green: #3BE05A;
+  --bc-flag-yellow: #FFE53B;
+  --bc-up: #3BE05A;
+  --bc-down: #FF5A4A;
+
+  /* Multi-class: flat number tiles in period CG primaries */
+  --bc-class-gtp: #E3241B;           /* red tile */
+  --bc-class-lmp2: #2E62E8;          /* blue tile */
+  --bc-class-gt3: #F4D21F;           /* yellow tile (dark numerals) */
+  --bc-class-gt4: #EDEDE6;           /* white tile (dark numerals) */
+  --bc-class-tcr: #7F8790;           /* grey tile */
+
+  /* ---- Legibility treatment ----
+   * Period: hard black drop shadow with a short extrusion, no plate.
+   * Support: a 0-blur extrusion + a soft dark halo (invisible on dark video,
+   * carries the letterform on white), and a feathered vignette behind blocks. */
+  --bc-shadow-text:
+     1px 1px 0 #2a1200, 2px 2px 0 #1a0b00, 3px 3px 0 #000, 4px 4px 0 #000,
+     0 0 10px rgba(0,0,0,.55), 0 0 2px rgba(0,0,0,.9);
+  --bc-shadow-text-sm:
+     1px 1px 0 #1a0b00, 2px 2px 0 #000, 3px 3px 0 #000,
+     0 0 8px rgba(0,0,0,.6), 0 0 1px #000, 0 0 2px rgba(0,0,0,.9);
+  --bc-vignette-rgb: 0, 0, 0;
+  --bc-vignette-a: 0.46;             /* peak alpha of the feathered backing */
+  --bc-vignette: rgba(var(--bc-vignette-rgb), var(--bc-vignette-a));
+  --bc-feather: 64px;                /* soft edge width of the backing */
+  --bc-raster: repeating-linear-gradient(180deg,
+      #2FB34A 0 7px, #9BCB2C 7px 14px, #E9B21C 14px 21px, #DE6A24 21px 28px,
+      #B53C9A 28px 35px, #5A4FCF 35px 42px, #2C8FD8 42px 49px);  /* ABC '79 rainbow raster */
+  --bc-raster-dim: rgba(0,0,0,.30);  /* knocks stripes back so text reads */
+
+  /* ---- Layout ---- */
+  --bc-inset-safe: 48px;
+  --bc-tower-width: 520px;
+  --bc-battle-width: 470px;
+  --bc-row-standard: 39px;
+  --bc-radius: 0;                    /* no rounded corners in 1979 */
+  --bc-tile-w: 46px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+body { position: relative; font-family: var(--bc-font-display); color: var(--bc-text); }
+
+/* =================== Fake race video (CSS only) =================== */
+.scene { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+.scene__inner { position: absolute; inset: -40px; filter: blur(5px) saturate(.9); }
+.sky { position: absolute; left: 0; right: 0; top: 0; height: 40%;
+  background: linear-gradient(180deg, #6f93b8 0%, #a9c1d4 70%, #d7dfe2 100%); }
+.glare { position: absolute; left: 47%; top: 4%; width: 620px; height: 420px; border-radius: 50%;
+  background: radial-gradient(circle, #fffef6 0%, rgba(255,252,235,.85) 30%, rgba(255,250,230,0) 70%); }
+.stands { position: absolute; left: 0; right: 0; top: 30%; height: 15%;
+  background: repeating-linear-gradient(90deg, #5b5148 0 14px, #8c7d6c 14px 22px, #3f3a35 22px 30px, #b6a58e 30px 34px),
+              #6b6158; }
+.wall { position: absolute; left: 0; right: 0; top: 44%; height: 3.4%; background: #e9e7df; }
+.grass { position: absolute; left: 0; right: 0; top: 47%; bottom: 0;
+  background: linear-gradient(180deg, #4f7a32 0%, #3d6a26 60%, #2f5a1d 100%); }
+.track { position: absolute; left: -10%; right: -10%; top: 50%; bottom: -5%;
+  background: linear-gradient(180deg, #7b7d7f 0%, #5d5f61 100%);
+  clip-path: polygon(30% 0, 62% 0, 100% 100%, 0 100%); }
+.track::after { content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 48%, rgba(255,255,255,.75) 48% 49%, transparent 49% 100%); opacity:.35; }
+.car { position: absolute; width: 120px; height: 46px; border-radius: 10px; background: #f3f3f3; box-shadow: 0 10px 0 #222; }
+.car--a { left: 52%; top: 64%; background: #d8261c; }
+.car--b { left: 44%; top: 74%; width: 170px; height: 64px; background: #f2f2ee; }
+.car--c { left: 57%; top: 56%; width: 80px; height: 30px; background: #1c4fc4; }
+/* bright stress-test scene */
+body.bright .sky { background: linear-gradient(180deg, #f4f7fa 0%, #ffffff 100%); }
+body.bright .glare { left: 0; top: 0; width: 100%; height: 100%; border-radius: 0;
+  background: radial-gradient(ellipse at 40% 40%, #fff 0%, rgba(255,255,255,.7) 60%, rgba(255,255,255,.4) 100%); }
+body.bright .stands { background: repeating-linear-gradient(90deg, #e9e6e0 0 14px, #ffffff 14px 22px, #d9d4cc 22px 30px), #eee; }
+body.bright .wall { background: #fff; }
+body.bright .grass { background: linear-gradient(180deg, #e3ebd9 0%, #d3dfc5 100%); }
+body.bright .track { background: linear-gradient(180deg, #f2f2f0 0%, #dcdcd8 100%); }
+body.bright .car--a { background: #ffd9d6; } body.bright .car--b { background: #fff; } body.bright .car--c { background: #cdd8f5; }
+
+/* Optional scanlines (off by default) */
+.scanlines { position: absolute; inset: 0; z-index: 50; pointer-events: none; display: none;
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; }
+body.scan .scanlines { display: block; }
+
+/* =================== Overlay =================== */
+.overlay { position: absolute; inset: 0; z-index: 10; }
+.keyed { text-shadow: var(--bc-shadow-text); }
+.backing { position: absolute; inset: -46px -70px; background: var(--bc-vignette); z-index: -1; pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--bc-feather), #000 calc(100% - var(--bc-feather)), transparent),
+                      linear-gradient(180deg, transparent, #000 var(--bc-feather), #000 calc(100% - var(--bc-feather)), transparent);
+  -webkit-mask-composite: source-in; mask-composite: intersect; }
+
+/* ---------- Standings tower ---------- */
+.tower { position: absolute; left: var(--bc-inset-safe); top: var(--bc-inset-safe); width: var(--bc-tower-width); isolation: isolate; }
+.tower__title { font-family: var(--bc-font-ui); font-style: italic; font-weight: var(--bc-weight-title);
+  font-size: var(--bc-size-title); letter-spacing: var(--bc-track-title); line-height: 1; text-transform: uppercase;
+  color: var(--bc-text); text-shadow: var(--bc-shadow-text); }
+.tower__sub { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;
+  font-style: italic; font-weight: 800; font-size: 26px; letter-spacing: var(--bc-track-label);
+  color: var(--bc-teal); text-shadow: var(--bc-shadow-text-sm); }
+.tower__sub b { color: var(--bc-text-2); font-weight: 700; font-feature-settings: var(--bc-num-features); }
+.rule { height: 6px; background: var(--bc-rule); margin: 8px 0 8px; box-shadow: 3px 3px 0 #000; }
+.rows { list-style: none; }
+.row { position: relative; display: grid; grid-template-columns: 34px var(--bc-tile-w) minmax(0,1fr) 96px 66px; align-items: center;
+  column-gap: 10px; height: var(--bc-row-standard); }
+.row__pos { text-align: right; font-style: italic; font-weight: var(--bc-weight-num); font-size: var(--bc-size-pos);
+  color: var(--bc-text-2); font-feature-settings: var(--bc-num-features); text-shadow: var(--bc-shadow-text-sm); }
+.tile { height: 30px; display: grid; place-items: center; background: var(--cls); color: #fff;
+  font-weight: 800; font-style: italic; font-size: var(--bc-size-carnum); font-feature-settings: var(--bc-num-features);
+  box-shadow: 3px 3px 0 #000; text-shadow: 1px 1px 0 rgba(0,0,0,.65); transform: skewX(-8deg); }
+.tile > span { transform: skewX(8deg); }
+.tile--dark { color: #141414; text-shadow: none; }
+.row__name { font-style: var(--bc-style-name); font-weight: var(--bc-weight-name); font-size: var(--bc-size-name);
+  text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px 6px 0; margin-bottom: -6px; letter-spacing: .01em; text-shadow: var(--bc-shadow-text); }
+.row__gap, .row__int { text-align: right; font-style: italic; font-weight: var(--bc-weight-num); font-feature-settings: var(--bc-num-features);
+  text-shadow: var(--bc-shadow-text-sm); }
+.row__gap { font-size: var(--bc-size-gap); color: var(--bc-text-2); }
+.row__int { font-size: 20px; color: var(--bc-text-3); }
+.row--leader .row__gap { color: var(--bc-teal); font-size: 21px; letter-spacing: .04em; }
+.row--oncam .row__name { color: var(--bc-accent); }
+.row--oncam::after { content: ""; position: absolute; left: 90px; right: 0; bottom: 0; height: 5px; background: var(--bc-rule); box-shadow: 3px 3px 0 #000; }
+.row--pit .row__int { color: var(--bc-flag-yellow); }
+
+/* ---------- Session status ---------- */
+.status { position: absolute; top: var(--bc-inset-safe); left: 50%; transform: translateX(-50%); text-align: center; isolation: isolate; }
+.status .backing { inset: -30px -90px; }
+.status__lap { font-family: var(--bc-font-ui); font-style: italic; font-weight: 900; font-size: 44px; line-height: 1;
+  letter-spacing: .03em; text-shadow: var(--bc-shadow-text); font-feature-settings: var(--bc-num-features); white-space: nowrap; }
+.status__bar { height: 6px; background: var(--bc-rule); margin: 8px -14px 8px; box-shadow: 3px 3px 0 #000; }
+.status__flag { display: inline-flex; gap: 14px; align-items: baseline; font-style: italic; font-weight: 800; font-size: 28px;
+  letter-spacing: .08em; text-shadow: var(--bc-shadow-text-sm); }
+.status__flag .flag { color: var(--bc-flag-green); }
+.status__flag .sep { color: var(--bc-text-2); }
+.status__flag .note { color: var(--bc-text-2); }
+
+/* ---------- Battle box ---------- */
+.battle { position: absolute; right: var(--bc-inset-safe); top: var(--bc-inset-safe); width: var(--bc-battle-width); isolation: isolate; }
+.battle__title { font-family: var(--bc-font-ui); font-style: italic; font-weight: 900; font-size: 36px; line-height: 1;
+  text-align: right; text-shadow: var(--bc-shadow-text); text-transform: uppercase; }
+.battle__sub { text-align: right; margin-top: 4px; font-style: italic; font-weight: 800; font-size: 24px; color: var(--bc-teal);
+  letter-spacing: .06em; text-shadow: var(--bc-shadow-text-sm); }
+.battle .rule { margin: 8px 0 10px; }
+.slot { display: grid; grid-template-columns: 88px var(--bc-tile-w) 1fr auto; column-gap: 10px; align-items: center; height: 44px; }
+.slot__label { font-style: italic; font-weight: 700; font-size: 18px; letter-spacing: .1em; color: var(--bc-text-3); text-shadow: var(--bc-shadow-text-sm); }
+.slot__name { font-style: italic; font-weight: 800; font-size: 29px; text-transform: uppercase; white-space: nowrap; text-shadow: var(--bc-shadow-text); }
+.slot__gap { font-style: italic; font-weight: 700; font-size: 26px; color: var(--bc-text-2); font-feature-settings: var(--bc-num-features); text-shadow: var(--bc-shadow-text-sm); }
+.slot--focus { height: 58px; margin: 4px 0; position: relative; }
+.slot--focus::before { content: ""; position: absolute; inset: 2px -12px; background: var(--bc-raster); z-index: -1; box-shadow: 4px 4px 0 #000; }
+.slot--focus::after { content: ""; position: absolute; inset: 2px -12px; background: var(--bc-raster-dim); z-index: -1; }
+.slot--focus .slot__name { font-size: 34px; color: #fff; }
+.slot--focus .slot__label { color: #fff; }
+.meter { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.meter__label { font-style: italic; font-weight: 800; font-size: 20px; letter-spacing: .1em; color: var(--bc-text-2); text-shadow: var(--bc-shadow-text-sm); }
+.meter__track { flex: 1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; height: 16px; transform: skewX(-14deg); }
+.meter__track i { background: rgba(0,0,0,.45); box-shadow: 2px 2px 0 #000; }
+.meter__track i.on { background: var(--bc-text); }
+.meter__track i.on.hot { background: var(--bc-rule); }
+
+/* ---------- Driver lower-third ---------- */
+.lt { position: absolute; left: var(--bc-inset-safe); bottom: 96px; width: 620px; isolation: isolate; }
+.lt .backing { inset: -40px -80px -30px -60px; }
+.lt__line1 { display: flex; align-items: baseline; gap: 4px; font-style: italic; font-weight: 900; font-size: 54px; line-height: 1;
+  text-transform: uppercase; text-shadow: var(--bc-shadow-text); white-space: nowrap; }
+.lt__line1 .num { font-feature-settings: var(--bc-num-features); }
+.lt__bar { height: 7px; width: 600px; background: var(--bc-rule); margin: 8px 0 10px; box-shadow: 3px 3px 0 #000; }
+.lt__raster { position: relative; width: 600px; padding: 6px 16px 8px; }
+.lt__raster::before { content: ""; position: absolute; inset: 0; background: var(--bc-raster); box-shadow: 4px 4px 0 #000; z-index: -1; }
+.lt__raster::after { content: ""; position: absolute; inset: 0; background: var(--bc-raster-dim); z-index: -1; }
+.lt__meta { font-style: italic; font-weight: 800; font-size: 30px; line-height: 1.12; color: #fff; text-transform: uppercase;
+  letter-spacing: .03em; text-shadow: var(--bc-shadow-text-sm); }
+.lt__meta .lbl { color: #FFF1C9; }
+
+/* ---------- Mock controls (not part of the theme) ---------- */
+.controls { position: absolute; right: 20px; bottom: 16px; z-index: 100; display: flex; gap: 8px;
+  font: 600 13px/1 system-ui, sans-serif; }
+.controls button { font: inherit; padding: 8px 12px; border: 1px solid #555; background: rgba(20,20,20,.8); color: #eee; cursor: pointer; }
+.controls button[aria-pressed="true"] { background: #FFB61C; color: #111; border-color: #FFB61C; }
+body.clean .controls { display: none; }
+</style>
+</head>
+<body>
+<div class="scene" aria-hidden="true"><div class="scene__inner">
+  <div class="sky"></div><div class="glare"></div><div class="stands"></div><div class="wall"></div>
+  <div class="grass"></div><div class="track"></div>
+  <div class="car car--c"></div><div class="car car--a"></div><div class="car car--b"></div>
+</div></div>
+
+<main class="overlay">
+  <!-- Standings tower -->
+  <section class="tower" aria-label="Standings">
+    <div class="backing"></div>
+    <h1 class="tower__title">Battlecast 500</h1>
+    <div class="tower__sub"><span>CURRENT STANDINGS</span><b>LAP 38 OF 200</b></div>
+    <div class="rule"></div>
+    <ol class="rows" id="rows"></ol>
+  </section>
+
+  <!-- Session status -->
+  <section class="status" aria-label="Session status">
+    <div class="backing"></div>
+    <div class="status__lap">LAP 38 OF 200</div>
+    <div class="status__bar"></div>
+    <div class="status__flag"><span class="flag">GREEN FLAG</span><span class="sep">·</span><span class="note">162 TO GO</span></div>
+  </section>
+
+  <!-- Battle box -->
+  <section class="battle" aria-label="Battle for position">
+    <div class="backing"></div>
+    <div class="battle__title">Battle for 5th</div>
+    <div class="battle__sub">CLOSING</div>
+    <div class="rule"></div>
+    <div class="slot"><span class="slot__label">AHEAD</span><span class="tile" style="--cls:var(--bc-class-gtp)"><span>9</span></span><span class="slot__name">R. Malloy</span><span class="slot__gap">+0.412</span></div>
+    <div class="slot slot--focus"><span class="slot__label">FOCUS</span><span class="tile" style="--cls:var(--bc-class-gtp)"><span>25</span></span><span class="slot__name">D. Okada</span><span class="slot__gap"></span></div>
+    <div class="slot"><span class="slot__label">BEHIND</span><span class="tile tile--dark" style="--cls:var(--bc-class-gt3)"><span>14</span></span><span class="slot__name">A.J. Fenwick</span><span class="slot__gap">−0.885</span></div>
+    <div class="meter"><span class="meter__label">INTENSITY</span><div class="meter__track" id="meter"></div></div>
+  </section>
+
+  <!-- Driver lower-third -->
+  <section class="lt" aria-label="On camera">
+    <div class="backing"></div>
+    <div class="lt__line1"><span class="num">25</span><span>-Danny Okada</span></div>
+    <div class="lt__bar"></div>
+    <div class="lt__raster"><div class="lt__meta"><span class="lbl">ON CAMERA</span> &nbsp;·&nbsp; CURRENTLY 5th<br>STARTED 27th &nbsp;·&nbsp; GTP</div></div>
+  </section>
+</main>
+
+<div class="scanlines" aria-hidden="true"></div>
+
+<div class="controls">
+  <button id="bBright" aria-pressed="false" title="B">Bright scene (B)</button>
+  <button id="bScan" aria-pressed="false" title="S">Scanlines (S)</button>
+</div>
+
+<script>
+const C = { GTP: 'gtp', LMP2: 'lmp2', GT3: 'gt3', GT4: 'gt4', TCR: 'tcr' };
+const dark = new Set(['gt3', 'gt4']);
+const field = [
+  { num: 12, name: 'Buddy Ashcroft',   cls: 'gtp',  gap: 'LEADER', int: '' },
+  { num: 9,  name: 'Rex Malloy',    cls: 'gtp',  gap: '+1.284', int: '1.284' },
+  { num: 2,  name: 'Johnny Ridgeway', cls: 'gtp', gap: '+3.907', int: '2.623' },
+  { num: 4,  name: 'Gordon Hatchell', cls: 'gtp', gap: '+6.552', int: '2.645' },
+  { num: 25, name: 'Danny Okada',  cls: 'gtp',  gap: '+9.118', int: '2.566', oncam: true },
+  { num: 14, name: 'A.J. Fenwick',     cls: 'gt3',  gap: '+10.003', int: '0.885' },
+  { num: 1,  name: 'Tom Selden',     cls: 'lmp2', gap: '+14.71', int: '4.707' },
+  { num: 40, name: 'Wally Dresner', cls: 'lmp2', gap: '+19.36', int: '4.650' },
+  { num: 70, name: 'Al Ashcroft',      cls: 'gt3',  gap: '+27.90', int: 'PIT', pit: true },
+  { num: 46, name: 'Howdy Haskins',  cls: 'gt4',  gap: '+1 LAP', int: '' },
+  { num: 80, name: 'Larry Rowe',    cls: 'tcr',  gap: '+1 LAP', int: '3.122' },
+  { num: 31, name: 'Steve Kowalczyk', cls: 'tcr', gap: '+2 LAPS', int: '' },
+];
+document.getElementById('rows').innerHTML = field.map((d, i) => `
+  <li class="row${i === 0 ? ' row--leader' : ''}${d.oncam ? ' row--oncam' : ''}${d.pit ? ' row--pit' : ''}">
+    <span class="row__pos">${i + 1}</span>
+    <span class="tile${dark.has(d.cls) ? ' tile--dark' : ''}" style="--cls:var(--bc-class-${d.cls})"><span>${d.num}</span></span>
+    <span class="row__name">${d.name}</span>
+    <span class="row__gap">${d.gap}</span>
+    <span class="row__int">${d.int}</span>
+  </li>`).join('');
+const intensity = 0.8;
+document.getElementById('meter').innerHTML = Array.from({ length: 10 }, (_, i) =>
+  `<i class="${i < Math.round(intensity * 10) ? 'on' : ''}${i >= 7 ? ' hot' : ''}"></i>`).join('');
+
+const q = new URLSearchParams(location.search);
+function setFlag(cls, btn, on) { document.body.classList.toggle(cls, on); btn.setAttribute('aria-pressed', on); }
+const bB = document.getElementById('bBright'), bS = document.getElementById('bScan');
+setFlag('bright', bB, q.get('bg') === 'bright');
+setFlag('scan', bS, q.has('scan'));
+if (q.has('clean')) document.body.classList.add('clean');
+bB.onclick = () => setFlag('bright', bB, !document.body.classList.contains('bright'));
+bS.onclick = () => setFlag('scan', bS, !document.body.classList.contains('scan'));
+addEventListener('keydown', e => {
+  if (e.key === 'b' || e.key === 'B') bB.click();
+  if (e.key === 's' || e.key === 'S') bS.click();
+  if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('clean');
+});
+</script>
+</body>
+</html>

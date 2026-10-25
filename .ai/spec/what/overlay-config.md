@@ -1,6 +1,6 @@
 # Overlay Configuration
 
-The layout/visibility/rotation/motion contract that render pages read and the `/config` UI writes.
+The layout/visibility/rotation/motion/theme contract that render pages read and the `/config` UI writes.
 Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; implementation in
 `how/renderer.md`.
 
@@ -533,6 +533,69 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     editor preview's sample feed does not say, so at `auto` the preview shows the tags (rule
     21: a preview that keeps its tags at `auto` would otherwise look like a broken setting).
 
+### Theme preset
+
+58. **`theme.preset`** (default `modern`) is one overlay-wide setting, not a per-widget knob,
+    that picks the overlay's look: `modern` (the look described by the design tokens),
+    `vintage70` (1970s US network television) or `vintage80` (1980s F1 timing page).
+    Normalization keeps exactly the string `modern`, `vintage70` or `vintage80` and replaces
+    anything else with `modern`: absent, null, another case such as `Vintage70`, a padded string
+    such as `' vintage80 '`, any other string such as `vintage` or `retro`, or a value of another
+    type. A profile with no `theme`, a `theme` that is not an object, or a `theme` without the key
+    renders `modern`. Normalizing `theme.preset` never changes `theme.classColors` (rule 32) or
+    `theme.classTags` (rule 47), and it is not normalized onto widgets. `configVersion` stays
+    `"1"` (rule 2). Decision record: `docs/decisions/0026-theme-presets.md`.
+59. **Resolution and the root attribute.** A render page resolves the theme with the precedence
+    `?theme=` URL param → the profile's `theme.preset` → `modern`. A `?theme=` value is read
+    trimmed and case-insensitively (`?theme=Vintage80` is `vintage80`); a value that is not one of
+    the three names after that is ignored, and the profile (or the default) decides. The resolved
+    preset is written to `<html data-theme="modern"|"vintage70"|"vintage80">`, always present on a
+    render page, `modern` included. Every render page writes it: `/all`, and the standalone
+    `/tower`, `/battle`, `/driver`, `/qualifying`, `/grid`, `/results`, `/logos`, `/updates`,
+    `/info` and `/weather`, each from the URL and its profile on the initial load and again on every live reload
+    (rule 22), where a changed preset applies at once, with no transition. A preset chosen in the
+    profile applies once the profile has loaded: until then a page without `?theme=` shows the
+    `modern` look, exactly as `data-motion` waits for the profile (rule 10). `/racecontrol` and
+    `/onboard` load no profile, so they render the `?theme=` value or `modern`. The `/config`
+    editor is not a render page: its document root never carries `vintage70` or `vintage80`,
+    whatever the profile or a `?theme=` param says (rule 62 covers its preview).
+60. **A preset changes the look only.** Under every preset each widget shows the same content
+    (rows, fields, text, values, order) at the same times (triggers, dwell, cycling, hide-when-idle,
+    exit grace) at the same geometry (position, size, row heights, widget dimensions) as under
+    `modern`; switching preset on a live page changes none of these, with one exception: a
+    `full`-name-style tower's fit width (`widgets.md` rule 48) is measured in the row-name font,
+    which is the preset's typeface, so a full-name tower may be a different width under each
+    preset, and switching preset counts as a name-font load under rule 48 (the tower re-measures
+    the names). A preset changes paint only:
+    colours, typefaces, font style, text shadow or outline, and plate colour and treatment. Class
+    colours (rule 32, `widgets.md` rule 32) and the colours that carry meaning (battle intensity,
+    lap-time flash, position change, live) are the same in every preset. Transitions are the same
+    in every preset unless a widget's own `widgets.md` rule gives a preset a different transition,
+    and `data-motion` (rule 10) applies under every preset: reduced motion is reduced in each. Under
+    `vintage70` and `vintage80` every widget renders at least the preset's base look, carried by the
+    shared design tokens: the preset's palette and typefaces, its text shadow or outline on all
+    text that does not set its own shadow, and square, unblurred plates. Text that sets its own
+    glow (the on-camera name in the battle box and both lower-thirds) keeps that glow until its
+    widget's own rule gives it the preset's treatment. The base-look values are listed in the decision record.
+61. **Every typeface a preset uses is bundled.** The faces `vintage70` (Barlow, Barlow Condensed)
+    and `vintage80` (VT323, Oswald) name are served by battlecast itself, from the same origin as
+    the overlay, so an OBS machine with no internet connection renders the period typeface, not a
+    fallback. Each bundled family ships with its licence file beside its font files, in the source
+    tree and in the built app. A `modern` overlay does not download them.
+62. **The editor exposes it once for the whole overlay**, as part of rule 14's control surface: a
+    select labelled **theme** (`data-testid="theme-preset"`), in no widget row, with exactly three
+    options in this order, shown to the broadcaster as **Modern**, **Vintage 70s** and **Vintage
+    80s** (values `modern`, `vintage70`, `vintage80`), showing the current value. Choosing an
+    option writes that value to `theme.preset`, the live preview re-renders in that preset (the
+    preview stage, `data-testid="preview-stage"`, carries `data-theme` set to the chosen value), and
+    Save writes it into the profile. It changes no geometry and no other setting, `theme.classColors`
+    and `theme.classTags` included. The editor's own panel stays in the `modern` look whatever is
+    chosen; only the preview changes. Per rule 16 it carries help copy behind an ⓘ
+    (`data-testid="help-theme-preset"`) saying what each look is, that it changes how the overlay
+    looks and not what it shows, and that a `?theme=` parameter overrides it per Browser Source; per
+    rule 21 it says that the editor panel itself stays in the modern look and that class colours
+    are the same in every look (either would otherwise read as a setting that did not take).
+
 ### Editor help content
 
 16. **Every control the editor renders MUST be explained in the UI itself.** A broadcaster reaches
@@ -722,7 +785,7 @@ Decision record: `docs/decisions/0011-feed-status-accessibility.md`.
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
-`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags}`,
+`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags,preset}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`. Each widget carries the full normalized knob set (geometry +
@@ -732,7 +795,7 @@ Widget keys: `tower`, `battle`, `logos`, `driver`,
 widget also carries `lines` and `weatherCard`, which no other widget has (rules 52, 57).
 
 URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,
-`?hide=`, `?motion=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),
+`?hide=`, `?motion=`, `?theme=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),
 `?metrics=` (standalone `/tower`).
 
 ## Constraints
