@@ -74,6 +74,13 @@ export const WIDGET_HELP = Object.freeze({
       'producer sends, never replays what was already happening when the overlay loaded, and ' +
       'stays empty between updates.',
   },
+  weather: {
+    title: 'Weather box',
+    summary:
+      'A small strip with the air temperature, the track temperature and the conditions, exactly ' +
+      'as your producer reports them, updated live. It shows only what the producer sends and ' +
+      'draws nothing while no weather is sent, so an empty box is not a fault.',
+  },
   info: {
     title: 'Info panel',
     summary:
@@ -123,6 +130,15 @@ export const FIELD_HELP = Object.freeze({
   dwellSeconds:
     'How long the card stays up after a camera cut, in dwell mode. If the camera cuts again while ' +
     'it is showing, the timer restarts in place rather than flickering off and back on.',
+
+  // --- weather box and info panel ---
+  tempUnit:
+    'Show temperatures in degrees Fahrenheit instead of Celsius. Temperatures are always shown ' +
+    'in whole degrees.',
+  weatherCard:
+    'Adds the weather (air and track temperature and the conditions) to the info panel as one ' +
+    'more line, after your own lines. It shows only while your producer sends weather. Off by ' +
+    'default, because the weather box already shows it.',
 
   // --- info panel only ---
   infoDwellSeconds:

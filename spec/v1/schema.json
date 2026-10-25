@@ -50,6 +50,25 @@
     }
   },
   "$defs": {
+    "weather": {
+      "type": ["object", "null"],
+      "description": "The session's live weather, or null. Every field is optional and nullable. Open (additionalProperties: true) so later revisions can add fields such as track wetness or wind.",
+      "additionalProperties": true,
+      "properties": {
+        "air_temp": {
+          "type": ["number", "null"],
+          "description": "Air temperature in degrees Celsius (canonical; consumers convert for display)."
+        },
+        "track_temp": {
+          "type": ["number", "null"],
+          "description": "Track surface temperature in degrees Celsius (canonical; consumers convert for display)."
+        },
+        "conditions": {
+          "type": ["string", "null"],
+          "description": "Short description of the conditions in the producer's own words, e.g. `Clear`, `Overcast`, `Light rain`; shown verbatim apart from trimming."
+        }
+      }
+    },
     "event": {
       "type": ["object", "null"],
       "description": "The event (weekend / race meeting) the session belongs to, or null. Every field is optional and nullable.",
@@ -330,6 +349,10 @@
           "type": ["array", "null"],
           "items": { "type": "string" },
           "description": "Optional per-sector LOCAL flag state, one entry per track sector in lap order: index 0 is sector 1 whatever the sim's own indexing (the producer remaps and translates). `yellow` (trimmed, case-insensitive) marks a sector under a local yellow; any other value (`green`, `none`, a sim-specific string) means no local yellow there. Free-form like `flag`: consumers tolerate unknown values. Null or absent = no sector information, not all-clear: a producer whose sim has no per-sector flag SHOULD omit it rather than send all-green, and a producer that has sector flags SHOULD send every sector. Producer-owned; the number of sectors is the producer's (commonly 3). Distinct from `full_course_yellow`, the session-wide caution."
+        },
+        "weather": {
+          "$ref": "#/$defs/weather",
+          "description": "Optional live weather for the session: air and track temperature (canonical °C) and a short conditions string. Null or absent = the producer does not say. Producer-owned (dumb overlay, smart producer): consumers render what they are handed, MUST NOT derive weather from other fields, and treat a field that is absent, null, blank or of the wrong type as absent."
         },
         "multiclass": {
           "type": ["boolean", "null"],

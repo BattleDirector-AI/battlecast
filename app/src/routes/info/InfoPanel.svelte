@@ -3,17 +3,27 @@
   import { fade } from 'svelte/transition'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
   import { prefersReducedMotion } from '../../lib/motion.js'
-  import { eventHeader, infoLines, createInfoRotation } from '../../lib/infoPanel.js'
+  import { eventHeader, infoLines, createInfoRotation, WEATHER_CARD } from '../../lib/infoPanel.js'
+  import { weatherCardText } from '../../lib/weather.js'
   import { DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
 
   // Info panel (#62; widgets.md rules 76-82, ADR 0024). The rotation (lib/infoPanel.js)
   // decides which line is up when the list changes; this component only times the line on
-  // screen. The broadcaster's `lines` come from the profile and need no snapshot.
+  // screen. The broadcaster's `lines` come from the profile and need no snapshot. The
+  // weather card (#208, rule 88) is one fixed entry at the end of the list, so a weather
+  // change redraws its text in place and never moves the rotation.
   const DEFAULT_DWELL = DEFAULT_CONFIG.widgets.info.dwellSeconds
-  let { snapshot = null, dwellSeconds = DEFAULT_DWELL, lines = [] } = $props()
+  let {
+    snapshot = null,
+    dwellSeconds = DEFAULT_DWELL,
+    lines = [],
+    weatherCard = DEFAULT_CONFIG.widgets.info.weatherCard,
+    tempUnit = DEFAULT_CONFIG.widgets.info.tempUnit,
+  } = $props()
 
   const header = $derived(eventHeader(snapshot?.event))
-  const list = $derived(infoLines(snapshot?.info_lines, lines))
+  const cardText = $derived(weatherCard ? weatherCardText(snapshot?.session?.weather, tempUnit) : null)
+  const list = $derived([...infoLines(snapshot?.info_lines, lines), ...(cardText !== null ? [WEATHER_CARD] : [])])
 
   const rotation = createInfoRotation()
   let current = $state(null)
@@ -63,8 +73,12 @@
         {/if}
         {#if current !== null}
           <div class="bc-info__row">
+            <!-- Keyed on the entry's identity, not its text: the weather card's text changing
+                 re-renders this element in place, with no crossfade (rule 81). -->
             {#key current}
-              <span class="bc-info__line" data-testid="info-line" in:lineFade out:lineFade>{current}</span>
+              <span class="bc-info__line" data-testid="info-line" in:lineFade out:lineFade
+                >{current === WEATHER_CARD ? (cardText ?? '') : current}</span
+              >
             {/key}
           </div>
         {/if}

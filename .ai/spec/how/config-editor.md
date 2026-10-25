@@ -203,6 +203,10 @@ instead of snapping to the default layout (#353). The first failed tick after a 
   The copy also carries a `race_events` list (taken from `race-events.json`'s entries) so the
   preview's race update box has cards to show (`what/overlay-config.md` rule 51); `AllView` is
   rendered with `preview`, which it passes to `RaceUpdateBox` so the box takes no baseline.
+  It also always carries `race-weather.json`'s `session.weather` (unlike the sample `info_lines`,
+  it does not leave when the `info` widget gains lines), so the preview's weather box always has
+  values and, with the card on, the info panel shows a weather card (`what/overlay-config.md`
+  rules 53, 56–57). Both preview snapshots (with and without the sample lines) carry it.
   It also carries `event-info.json`'s `event`, and its `info_lines` only while the `info`
   widget's `lines` is empty, so the preview's info panel has a header and lines and a
   broadcaster's own line replaces the samples at once (`what/overlay-config.md` rule 53). The

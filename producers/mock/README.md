@@ -100,7 +100,10 @@ Tsunoda's retirement, and a staged
 with ids prefixed by a per-run key. Every tick also carries an `event` (ADR 0024:
 `battlecast Demo Endurance` at `Mock Raceway`, whose `round` counts the broadcast cycles, so it
 goes up on each loop back to qualifying) and a short `info_lines` list that follows the phase,
-ending with the same demo-feed line in every phase. Each transition is logged to stdout, e.g.
+ending with the same demo-feed line in every phase, and a `session.weather` (ADR 0025): an air
+temperature drifting slowly between 12 and 32 °C, a track temperature some degrees warmer (less
+in the rain), and conditions that now and then step between `Clear`, `Partly cloudy`, `Overcast`
+and `Light rain`. Each transition is logged to stdout, e.g.
 `[mock] phase → grid (sim-clock 312s)`. Phase durations are configurable — see
 [Configuration](#configuration).
 
@@ -168,6 +171,8 @@ The original behavior: each connection independently cycles through the fixtures
   class fastest lap, a leader change, a class retirement and a penalty (ADR 0023).
 - `event-info.json` — an `event` (name, round, track) and three `info_lines`, the info
   panel's header and rotating lines (ADR 0024).
+- `race-weather.json` — `event-info.json` plus a `session.weather` (air and track temperature,
+  conditions), the weather box and the info panel's weather card (ADR 0025).
 
 Fixtures are the **source of truth** for the app's fixture-based behavioral tests (see
 `CONTRIBUTING.md`) — use this mode when you want a known, reproducible scenario rather

@@ -7,17 +7,22 @@
   import { resolveMotion, applyMotion } from '../../lib/motion.js'
 
   // Standalone info panel Browser Source (widgets.md rule 82). Connects like every render
-  // page (`?src=`, then the default) and reads the `info` widget's dwell and lines from the
-  // profile named by `?profile=`; no profile, or one that fails to load, keeps the defaults.
+  // page (`?src=`, then the default) and reads the `info` widget's dwell, lines, weather card
+  // and unit from the profile named by `?profile=`; no profile, or one that fails to load,
+  // keeps the defaults.
   // The lines are broadcaster config, so the profile is re-read live as `/all` does
   // (overlay-config rule 22).
   let snapshot = $state(null)
   let dwellSeconds = $state(DEFAULT_CONFIG.widgets.info.dwellSeconds)
   let lines = $state.raw([])
+  let weatherCard = $state(DEFAULT_CONFIG.widgets.info.weatherCard)
+  let tempUnit = $state(DEFAULT_CONFIG.widgets.info.tempUnit)
 
   function applyConfig(config) {
     dwellSeconds = config.widgets.info.dwellSeconds
     lines = config.widgets.info.lines
+    weatherCard = config.widgets.info.weatherCard
+    tempUnit = config.widgets.info.tempUnit
     // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=` URL
     // param still wins). App.svelte already set a URL/default baseline at boot.
     applyMotion(resolveMotion(window.location.search, { reducedMotion: config.reducedMotion }))
@@ -44,7 +49,7 @@
 </script>
 
 <div class="info-page">
-  <InfoPanel {snapshot} {dwellSeconds} {lines} />
+  <InfoPanel {snapshot} {dwellSeconds} {lines} {weatherCard} {tempUnit} />
 </div>
 
 <style>

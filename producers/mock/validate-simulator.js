@@ -38,6 +38,8 @@ const DT_SECONDS = Number(process.env.SIM_DT_SECONDS) || 2;
 const simulator = createSimulator({
   phaseSeconds: { qualifying: 400, grid: 40, race: 400, results: 40 },
   rng: mulberry32(SEED),
+  // The weather has its own generator (ADR 0025), so it never shifts the race's sequence.
+  weatherRng: mulberry32(SEED ^ 0x5eed),
   runKey: `seed${SEED}`,
 });
 
@@ -149,6 +151,13 @@ let lastEventRound = null;
 let eventRoundAdvanced = false;
 const infoLineListsSeen = new Set();
 const nonBlankString = (v) => typeof v === "string" && v.trim() !== "";
+// Weather (ADR 0025), the mock's own output policy: every tick carries a session.weather with
+// finite air and track temperatures in a plausible band (track at least as warm as the air) and
+// non-blank conditions; across the run the temperatures drift and the conditions change at
+// least once, so the weather box and card are exercised live.
+const weatherViolations = [];
+const weatherAirSeen = new Set();
+const weatherConditionsSeen = new Set();
 
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
@@ -170,6 +179,25 @@ for (let i = 0; i < TICKS; i++) {
     }
     if (problems.length > 0 && eventInfoViolations.length < 10) {
       eventInfoViolations.push(`tick ${i} (${payload.mode}): ${problems.join(", ")}`);
+    }
+  }
+  {
+    const w = payload.session && payload.session.weather;
+    const finite = (n) => typeof n === "number" && Number.isFinite(n);
+    if (
+      !w ||
+      !finite(w.air_temp) ||
+      !finite(w.track_temp) ||
+      w.air_temp < -10 ||
+      w.air_temp > 45 ||
+      w.track_temp < w.air_temp ||
+      w.track_temp > 70 ||
+      !nonBlankString(w.conditions)
+    ) {
+      if (weatherViolations.length < 10) weatherViolations.push(`tick ${i} (${payload.mode}): weather=${JSON.stringify(w)}`);
+    } else {
+      weatherAirSeen.add(w.air_temp);
+      weatherConditionsSeen.add(w.conditions);
     }
   }
   ticksByMode.set(payload.mode, (ticksByMode.get(payload.mode) || 0) + 1);
@@ -624,6 +652,19 @@ if (!eventRoundAdvanced || infoLineListsSeen.size < 2) {
   process.exit(1);
 }
 
+if (weatherViolations.length > 0) {
+  console.error("\nsession.weather missing or implausible (ADR 0025):");
+  for (const v of weatherViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+if (weatherAirSeen.size < 2 || weatherConditionsSeen.size < 2) {
+  console.error(
+    `\nThe weather never changed (${weatherAirSeen.size} air temperature(s), ${weatherConditionsSeen.size} condition(s)) — the weather box's live updates are not exercised.`
+  );
+  process.exit(1);
+}
+
 if (!lappedSeen) {
   console.error("\nThe race phase never lapped a car (no laps_behind_leader >= 1) — the lapped-car case is not exercised.");
   process.exit(1);
@@ -640,4 +681,5 @@ console.log("Race phase took the chequered flag progressively, retired a car, an
 console.log("Every tick carried a boolean session.multiclass matching the class mix (ADR 0022).");
 console.log("Every tick carried a valid rolling race_events list, and the race announced all four types (ADR 0023).");
 console.log(`Every tick carried an event and info_lines; the round advanced and ${infoLineListsSeen.size} line lists were sent (ADR 0024).`);
+console.log(`Every tick carried a plausible session.weather; ${weatherAirSeen.size} air temperatures and ${weatherConditionsSeen.size} conditions were sent (ADR 0025).`);
 console.log("Race director never put a retired car, or a finished car while others raced, on camera (#237).");

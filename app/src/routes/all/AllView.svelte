@@ -8,6 +8,7 @@
   import OnBoardHud, { resolveIdentity } from '../onboard/OnBoardHud.svelte'
   import RaceUpdateBox from '../updates/RaceUpdateBox.svelte'
   import InfoPanel from '../info/InfoPanel.svelte'
+  import WeatherBox from '../weather/WeatherBox.svelte'
   import { resolveSubject } from '../driver/DriverLowerThird.svelte'
   import {
     DEFAULT_CONFIG,
@@ -87,7 +88,7 @@
   $effect(() => () => battleGrace.destroy())
 
   const idleCtx = (key) => ({ snapshot: key === 'battle' ? battleSnapshot : snapshot, config: normalized })
-  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates', 'info'])
+  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates', 'info', 'weather'])
   const widgets = $derived(
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
@@ -197,7 +198,15 @@
       {:else if w.key === 'updates'}
         <RaceUpdateBox {snapshot} dwellSeconds={w.dwellSeconds} {preview} />
       {:else if w.key === 'info'}
-        <InfoPanel {snapshot} dwellSeconds={w.dwellSeconds} lines={w.lines} />
+        <InfoPanel
+          {snapshot}
+          dwellSeconds={w.dwellSeconds}
+          lines={w.lines}
+          weatherCard={w.weatherCard}
+          tempUnit={w.tempUnit}
+        />
+      {:else if w.key === 'weather'}
+        <WeatherBox {snapshot} tempUnit={w.tempUnit} />
       {/if}
     </div>
   {/each}

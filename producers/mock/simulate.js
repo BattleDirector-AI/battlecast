@@ -153,6 +153,42 @@ const INFO_LINES_BY_PHASE = {
 };
 const INFO_LINE_ALWAYS = "This is the battlecast mock producer's demo feed";
 
+// Live weather (spec/v1 `session.weather`, ADR 0025). The air temperature random-walks slowly in
+// a plausible band and the track runs warmer than the air by a drifting margin (less in the
+// wet); now and then the conditions step to a neighbouring state. The weather draws from its
+// OWN generator (`config.weatherRng`), never the simulator's `rng`, so adding weather does not
+// shift the race simulation's random sequence: a seeded run's race and race_events are the
+// same with or without it. A seeded run without a `weatherRng` gets a fixed-seed generator, so
+// it stays reproducible; the live mock uses Math.random for both.
+const WEATHER_CONDITIONS = ["Clear", "Partly cloudy", "Overcast", "Light rain"];
+const WEATHER_AIR_RANGE = [12, 32]; // °C
+const WEATHER_TRACK_MARGIN_RANGE = [4, 16]; // °C above the air temperature
+const WEATHER_WET_MARGIN_MAX = 6; // the track cools toward the air in the rain
+const WEATHER_CHANGE_PER_SECOND = 0.0015; // chance per sim-second that the conditions step
+const WEATHER_FALLBACK_SEED = 0x5eed; // a seeded run's weather when no weatherRng is given
+
+function createWeather(rng) {
+  return { air: 21 + rng() * 4, margin: 8 + rng() * 4, conditionIndex: 0 };
+}
+
+/** Advance the weather by `dtSeconds` (mutates `w`). */
+function advanceWeather(w, dtSeconds, rng) {
+  w.air = clamp(w.air + (rng() - 0.5) * 0.04 * dtSeconds, WEATHER_AIR_RANGE[0], WEATHER_AIR_RANGE[1]);
+  const wet = WEATHER_CONDITIONS[w.conditionIndex] === "Light rain";
+  const marginMax = wet ? WEATHER_WET_MARGIN_MAX : WEATHER_TRACK_MARGIN_RANGE[1];
+  w.margin = clamp(w.margin + (rng() - 0.5) * 0.06 * dtSeconds, WEATHER_TRACK_MARGIN_RANGE[0], marginMax);
+  if (rng() < WEATHER_CHANGE_PER_SECOND * dtSeconds) {
+    const step = w.conditionIndex === 0 ? 1 : w.conditionIndex === WEATHER_CONDITIONS.length - 1 ? -1 : rng() < 0.5 ? -1 : 1;
+    w.conditionIndex += step;
+  }
+}
+
+/** The `session.weather` object for the current weather, to one decimal place. */
+function weatherPayload(w) {
+  const r1 = (n) => Math.round(n * 10) / 10;
+  return { air_temp: r1(w.air), track_temp: r1(w.air + w.margin), conditions: WEATHER_CONDITIONS[w.conditionIndex] };
+}
+
 // Default phase durations in SIM seconds (race-time), overridable via env so a
 // tester can cycle faster or slower. Qualifying and race are long enough for
 // cars to complete several flying/racing laps (a lap is ~92–107 sim-seconds at
@@ -689,6 +725,14 @@ function createSimulator(config = {}) {
   let phaseElapsed = 0;
   // The event round (ADR 0024): 1 for the first cycle, +1 on each loop back to qualifying.
   let eventRound = 1;
+  // Live weather (ADR 0025): carried across phases, as real weather is, on its own generator.
+  const weatherRng =
+    typeof config.weatherRng === "function"
+      ? config.weatherRng
+      : typeof config.rng === "function"
+        ? mulberry32(WEATHER_FALLBACK_SEED)
+        : Math.random;
+  const weather = createWeather(weatherRng);
   let announced = false;
   // Alternates the race phase between a timed leg and a lap-limited leg on
   // successive cycles, so a long enough run exercises both session progress
@@ -858,6 +902,7 @@ function createSimulator(config = {}) {
       announced = true;
       announce(phase);
     }
+    advanceWeather(weather, dtSeconds, weatherRng);
 
     clock += dtSeconds;
     phaseElapsed += dtSeconds;
@@ -1030,6 +1075,8 @@ function createSimulator(config = {}) {
     // Single-class flag (protocol-contract rule 20, ADR 0022): the producer states its own class
     // mix, so the overlay never has to work it out from vehicles[].
     session.multiclass = new Set(order.map((car) => car.vehicle_class)).size > 1;
+    // Live weather (protocol-contract rule 24, ADR 0025), in every phase.
+    session.weather = weatherPayload(weather);
 
     // Local yellow around the backmarker (race only). The sector comes from how far round its
     // current lap the car is: lap distance is in LAP_UNITs, so the fractional part is the lap
