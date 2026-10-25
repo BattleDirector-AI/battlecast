@@ -81,7 +81,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 24, y: 24, w: 400, h: 900, z: 1, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -92,7 +92,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 448, y: 24, w: 440, h: 220, z: 2, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -103,7 +103,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: false, x: 1560, y: 900, w: 320, h: 140, z: 3, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -117,7 +117,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 900, w: 620, h: 96, z: 4, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -133,7 +133,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 48, y: 788, w: 840, h: 100, z: 5, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -150,7 +150,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 900, y: 24, w: 360, h: 44, z: 6, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -171,7 +171,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 760, y: 960, w: 400, h: 96, z: 7, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 6, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -186,7 +186,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 1376, y: 24, w: 520, h: 120, z: 8, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
@@ -201,12 +201,26 @@ export const DEFAULT_CONFIG = Object.freeze({
       visible: true, x: 1200, y: 816, w: 696, h: 72, z: 9, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
-      classDisplay: 'inline', speedUnit: 'kmh',
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
-      lines: [],
+      lines: [], weatherCard: false,
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
+    },
+    // Weather box (#208, overlay-config rule 55): the producer's air/track temperature and
+    // conditions, top centre under Race Control. Reads `tempUnit`, plate opacity and text
+    // size; the other knobs are inert. Draws nothing without weather.
+    weather: {
+      visible: true, x: 900, y: 80, w: 360, h: 44, z: 10, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
+      waitForLowerThird: true,
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
   },
@@ -379,6 +393,9 @@ function normalizeDriverInfo(value, fallback) {
   return out
 }
 
+/** Valid `tempUnit` display values (overlay-config rule 54): °C (default) or °F. Exact match. */
+export const TEMP_UNITS = Object.freeze(['c', 'f'])
+
 /** Valid `speedUnit` display values. */
 export const SPEED_UNITS = Object.freeze(['kmh', 'mph'])
 
@@ -420,6 +437,7 @@ export const PLATE_WIDGET_KEYS = Object.freeze([
   'onboard',
   'updates',
   'info',
+  'weather',
 ])
 
 /** Per-widget text size presets (overlay-config.md rules 39-41, ADR 0015): the factor
@@ -437,6 +455,7 @@ export const TEXT_WIDGET_KEYS = Object.freeze([
   'onboard',
   'updates',
   'info',
+  'weather',
 ])
 
 /** Whether the config UI offers a text-size control for this widget. Withholding it is a
@@ -681,6 +700,9 @@ export function normalizeConfig(raw) {
       // normalized onto every widget (like classDisplay) for a uniform shape. An
       // unknown value falls back to the default so a stale/typo'd profile still
       // renders a valid unit.
+      // #208 temperature display unit (rule 54) — read by the weather box and the info panel's
+      // weather card; normalized onto every widget (like speedUnit) for a uniform shape.
+      tempUnit: TEMP_UNITS.includes(w.tempUnit) ? w.tempUnit : d.tempUnit ?? 'c',
       speedUnit:
         w.speedUnit === 'kmh' || w.speedUnit === 'mph'
           ? w.speedUnit
@@ -724,6 +746,9 @@ export function normalizeConfig(raw) {
     // #62 the info panel's own lines (rule 52) — carried by the `info` widget only, unlike
     // every other knob, so no other widget gains a `lines` key.
     if (key === 'info') normalizedWidgets[key].lines = normalizeInfoLines(w.lines)
+    // #208 whether the weather card joins the info panel's rotation (rule 57) — the info
+    // widget only, like `lines`; a boolean, else off.
+    if (key === 'info') normalizedWidgets[key].weatherCard = typeof w.weatherCard === 'boolean' ? w.weatherCard : false
     // #215 editor bookkeeping (overlay-config.md rule 41b): the widget's `normal` x/w while it
     // sits at a bigger preset. Kept only on a text widget off `normal`, with both parts finite
     // numbers or non-blank numeric strings (stored as numbers); never rendered.

@@ -38,6 +38,7 @@
   import baseSnapshot from '../../../../spec/v1/fixtures/race-close-battle.json'
   import raceEventsFixture from '../../../../spec/v1/fixtures/race-events.json'
   import eventInfoFixture from '../../../../spec/v1/fixtures/event-info.json'
+  import weatherFixture from '../../../../spec/v1/fixtures/race-weather.json'
 
   // Preview snapshot. `race-close-battle.json` is the canonical NO-telemetry fixture (so
   // it must NOT gain a `subject.telemetry` block — the compliance harness and an AllLayout
@@ -76,6 +77,9 @@
     race_events: raceEventsFixture.race_events,
     // A sample event so the preview's info panel has a header (overlay-config rule 53).
     event: eventInfoFixture.event,
+    // Sample weather, always present whatever the info widget's lines, so the preview's
+    // weather box is filled and the info panel's card has values when it is on (rule 56).
+    session: { ...baseSnapshot.session, weather: weatherFixture.session.weather },
   }
   // Sample producer lines join the preview only while the info widget has no lines of its
   // own, so a broadcaster's first line shows in the preview at once (rule 53). Both snapshots
@@ -455,6 +459,10 @@
   // canonical km/h; checking the box displays mph (the widget converts). Unchecked = km/h.
   const setSpeedUnit = (key, useMph) =>
     (config = editor.setWidgetField(config, key, 'speedUnit', useMph ? 'mph' : 'kmh'))
+  // #208: the temperature unit (weather box, info panel; overlay-config rule 54) and the info
+  // panel's weather card (rule 57).
+  const setTempUnit = (key, useF) => (config = editor.setWidgetField(config, key, 'tempUnit', useF ? 'f' : 'c'))
+  const setWeatherCard = (on) => (config = editor.setWidgetField(config, 'info', 'weatherCard', on))
   // #26 on-board HUD-only: which driver/vehicle identity fields the HUD shows, and
   // whether it holds off while the driver lower-third plays its "now on camera" card.
   const setDriverInfo = (key, field, checked) => {
@@ -942,7 +950,31 @@
                 />
               </label>
             {/if}
+            {#if key === 'weather' || key === 'info'}
+              <!-- #208: the temperature display unit; the producer sends °C (rules 54, 56-57). -->
+              <label class="checkline">
+                <input
+                  type="checkbox"
+                  data-testid="temp-f-{key}"
+                  checked={w.tempUnit === 'f'}
+                  onchange={(e) => setTempUnit(key, e.currentTarget.checked)}
+                />
+                Temperature in °F
+                <HelpTip text={FIELD_HELP.tempUnit} label="temperature in °F" testid="help-temp-f-{key}" />
+              </label>
+            {/if}
             {#if key === 'info'}
+              <!-- #208: whether the weather joins the rotation as one more line (rule 57). -->
+              <label class="checkline">
+                <input
+                  type="checkbox"
+                  data-testid="weather-card-info"
+                  checked={w.weatherCard === true}
+                  onchange={(e) => setWeatherCard(e.currentTarget.checked)}
+                />
+                Weather card
+                <HelpTip text={FIELD_HELP.weatherCard} label="weather card" testid="help-weather-card-info" />
+              </label>
               <!-- #62: the broadcaster's own info lines (rule 53). -->
               <div class="info-lines">
                 <span class="info-lines__title">

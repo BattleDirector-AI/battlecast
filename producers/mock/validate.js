@@ -93,6 +93,23 @@ function validate(payload) {
       );
     }
   }
+  // Optional, additive `session.weather` (ADR 0025): null/absent, or an object whose
+  // `air_temp` / `track_temp` are finite numbers and whose `conditions` is a string (each
+  // nullable).
+  if (payload.session && payload.session.weather != null) {
+    const w = payload.session.weather;
+    check(typeof w === "object" && !Array.isArray(w), "session.weather must be an object or null", errors);
+    if (w && typeof w === "object" && !Array.isArray(w)) {
+      for (const field of ["air_temp", "track_temp"]) {
+        check(
+          w[field] == null || (typeof w[field] === "number" && Number.isFinite(w[field])),
+          `session.weather.${field} must be a finite number or null`,
+          errors
+        );
+      }
+      check(w.conditions == null || typeof w.conditions === "string", "session.weather.conditions must be a string or null", errors);
+    }
+  }
   if (payload.info_lines != null) {
     check(Array.isArray(payload.info_lines), "info_lines must be an array or null", errors);
     if (Array.isArray(payload.info_lines)) {

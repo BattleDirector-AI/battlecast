@@ -1,4 +1,4 @@
-/* Info panel logic — pure and DOM-free (widgets.md rules 76-80, ADR 0024).
+/* Info panel logic — pure and DOM-free (widgets.md rules 76-80, 88; ADRs 0024, 0025).
  *
  * `eventHeader(event)` builds the header string from the producer's `event`; `infoLines`
  * builds the line list from `info_lines` and the profile's `lines`; `createInfoRotation` owns
@@ -6,6 +6,11 @@
  * only times the line on screen. Everything here is the producer's or the broadcaster's text:
  * nothing looks at `vehicles[]` or `session`.
  */
+
+/** The weather card's entry in the line list (rule 88). Its identity never depends on its
+ *  text, so the rotation compares it as one fixed entry: new weather values change what the
+ *  panel draws for it, never the list. */
+export const WEATHER_CARD = Symbol('weather card')
 
 /** A string with a non-whitespace character, trimmed; else null. */
 const text = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null)
