@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Three looks for the whole overlay: Modern, Vintage 70s and Vintage 80s (#356, ADR 0026).**
+  A new Theme setting in `/config` restyles every widget at once, with the same content in
+  each look. `?theme=vintage70` or `?theme=vintage80` on a Browser Source URL overrides the
+  profile for that source. The vintage fonts ship with battlecast, so they load offline. This
+  release changes colours, fonts, plates and shadows only; each widget's own vintage pass
+  comes later.
+- **A race update box (`/updates`, #27, ADR 0023).** It shows the producer's fastest laps,
+  leader changes, retirements and penalties one card at a time. Spec v1 gains an optional
+  `race_events` list (`schemaVersion` stays `"1"`), and the mock producer emits it.
+- **A commentary / info panel (`/info`, #62, ADR 0024).** A compact strip whose header names
+  the event (round, name, track) and whose second row rotates free-text lines. The lines come
+  from the producer's new optional `info_lines` and from the broadcaster's own lines in
+  `/config`. Spec v1 gains optional `event` and `info_lines` fields.
+- **A compact weather box (`/weather`, #208, ADR 0025).** It shows air temperature, track
+  temperature and conditions from the new optional `session.weather`, in °C or °F. The info
+  panel can show the same readout as a card in its rotation.
+
+### Changed
+
+- **Every standalone page now follows its profile live (#348, #350, #366).** A profile edited
+  in `/config` reaches `/tower`, `/battle`, `/driver`, `/qualifying`, `/grid`, `/results`,
+  `/logos`, `/updates`, `/info`, `/weather` and `/racecontrol` without a refresh, and the
+  profile's Reduced motion setting now applies on all of them. `/racecontrol` now loads
+  `?profile=` at all, so its motion and theme follow it.
+
+### Fixed
+
+- **A Reduced motion profile no longer plays its first entrance at full motion (#354).** Pages
+  wait for the profile before showing anything. A profile request that hangs gives up after
+  3 seconds and the page renders with the default settings.
+- **A failed live-reload check keeps the current settings (#353)** instead of dropping the
+  page back to the defaults while the companion server is briefly unreachable.
+- **The mock producer no longer floods race updates at the race start (#346).**
+
+### Internal
+
+- Tests no longer try to reach a real server on `localhost:3000` (#340).
+- Dependabot updates now merge automatically once CI passes (#331), and the last two
+  Dependabot alerts are cleared (#343).
+
 ## [0.14.0] - 2026-10-22
 
 ### Added
