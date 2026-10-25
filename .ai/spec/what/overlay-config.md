@@ -565,8 +565,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     `modern`; switching preset on a live page changes none of these, with one exception: a
     `full`-name-style tower's fit width (`widgets.md` rule 48) is measured in the row-name font,
     which is the preset's typeface, so a full-name tower may be a different width under each
-    preset, and switching preset counts as a name-font load under rule 48 (the tower re-measures
-    the names). A preset changes paint only:
+    preset, and switching preset is a reset of the fit width under rule 48 (the tower measures
+    again in the new preset). A preset changes paint only:
     colours, typefaces, font style, text shadow or outline, and plate colour and treatment. Class
     colours (rule 32, `widgets.md` rule 32) and the colours that carry meaning (battle intensity,
     lap-time flash, position change, live) are the same in every preset. Transitions are the same

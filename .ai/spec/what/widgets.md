@@ -199,8 +199,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
       width*. The configured width is the widget's `w` inside `/all` and the `--bc-tower-width`
       token on the standalone route. The fit width is the widest full-form name in the
       **class-filtered field**, every car that passes `?class=` (rule 10), rendered or not,
-      measured in the row-name font at the on-camera row's weight and including the letter
-      spacing the name cell renders with, plus the widest non-name content (position, class
+      measured in the row-name font at the on-camera row's weight, in the font style the name
+      cell renders with (italic under `vintage70`), and including the letter spacing the name
+      cell renders with, plus the widest non-name content (position, class
       bar and badge, gap, interval, metric cells, finish chip, and the row's own padding and
       gaps) of any row rendered since the last reset, plus the tower's own left and right
       border. The configured width already includes the border, so it is not added there.
@@ -238,7 +239,18 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
         `maxRows`, `cycle`, `nameStyle`, the configured width, or (inside `/all`) the tower's
         `textScale`;
       - whether class tags show (rule 60) changes, from the setting or from a snapshot's
-        `session.multiclass`.
+        `session.multiclass`;
+      - the theme preset the tower renders in changes (`overlay-config.md` rule 59): the
+        `data-theme` value of the tower's nearest ancestor that carries one, which is the
+        document root on a render page and the preview stage in `/config`
+        (`overlay-config.md` rule 62). When no ancestor carries one at mount (a render page
+        writes the root attribute after the tower mounts), the tower watches the document
+        root. The value is compared as written, and an absent attribute counts as `modern`:
+        the root attribute appearing as `modern`, or the same value written again, is not a
+        change; appearing as `vintage70` or `vintage80` is. The names are then measured in the new preset's row-name font,
+        under the font-loading rules above: if that face has not loaded, the tower requests it
+        and measures once it loads. Switching back to a face that loaded earlier measures at
+        once.
 
       A new session in the same mode (one race, then the next) is **not** a reset: the
       protocol carries no session identity, so the tower cannot tell it apart from the same
@@ -315,6 +327,43 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     minimum: in short style it is as narrow as the widest short code in the field, not a
     fixed width, so short names leave their room to the other columns. This holds with or
     without a finish slot reserved.
+89. **The tower under `vintage70`.** On top of the base look (`overlay-config.md` rule 60) the
+    tower takes the 1970s network look. Everything this rule does not name renders the base
+    look. Decision record: `docs/decisions/0027-tower-vintage-pass.md`.
+    - **Header.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the header, inside it: the header is no taller.
+    - **Position numerals.** Every row's position numeral is warm white (`--bc-text-2`), the
+      on-camera row's included; driver names stay gold.
+    - **Class chip.** Each row's class chip leans with the type: its box is skewed 8° (top edge
+      to the right), with a hard 2px black drop shadow, and its label is upright type, so the
+      skew alone gives it its lean. Its colours and text are unchanged.
+    - **On-camera row.** The row has no fill. Its driver name is white (`--bc-oncam-text`) at
+      the on-camera weight, and a solid red bar 4px high in the accent colour runs along the
+      row's bottom edge, inside the row. Every other cell, the class bar and class chip
+      included, renders as it does on any other row.
+    - **Re-cut.** When the highlight moves to a new driver it appears at once: there is no
+      shine sweep, at either motion setting.
+90. **The tower under `vintage80`.** On top of the base look the tower takes the 1980s timing
+    page look. Everything this rule does not name renders the base look. Decision record:
+    `docs/decisions/0027-tower-vintage-pass.md`.
+    - **On-camera row in reverse video.** The row is filled solid in the preset's accent colour
+      (lime), with no shadow. All of its text (position, class position, name, gap or lap time,
+      interval, the pit-stop count and its `STOP` label, the tire compound and the fuel cell)
+      renders in the dark on-accent colour (`--bc-text-on-accent`) with no text shadow or
+      outline. The class chip and the `DNF` and `DQ` chips each sit on a solid black block that
+      extends 2px past their cell on every side, so they read exactly as on any other row,
+      outline included. The chequered flag keeps its own white-and-black squares and edge, with
+      a 2px black ring around it. The `PIT` chip keeps its own red fill and dark text. The class
+      bar keeps its colour.
+    - **Lap-time flash in reverse video.** While a lap time flashes (rule 41), its cell is a
+      solid block of the flash colour with the time in the dark on-accent colour and no text
+      shadow: purple for a session or class best, green for a personal best, and for a plain
+      lap the preset's white (`--bc-text-2`), not its yellow-green, so a plain lap and a
+      personal best cannot be confused. The block extends 2px past the cell on every side, and a
+      1px black ring surrounds it, so it stands out on the plate and on the lime on-camera row
+      alike; neither changes the cell's size, so no column moves.
+    - **Re-cut.** When the highlight moves to a new driver it appears at once: there is no
+      shine sweep, at either motion setting.
 
 ### Battle box (`/battle`)
 

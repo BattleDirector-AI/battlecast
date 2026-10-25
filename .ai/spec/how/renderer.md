@@ -285,8 +285,36 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     itself (e.g. `:global([data-theme='vintage70']) .name { text-shadow: var(--bc-shadow-text) }`).
   - **Per-widget passes** add structural styling in the widget's own `<style>` under the theme
     selector, re-tune type only through `--bc-size-*` tokens in that scope (the tower measures
-    names from them), and never fork markup per theme. The tower pass also makes a live preset
-    switch re-measure full-form names (a name-font load under `what/widgets.md` rule 48).
+    names from them), and never fork markup per theme.
+  - **Tower** (`what/widgets.md` rules 89–90, `docs/decisions/0027-tower-vintage-pass.md`), in
+    `StandingsTower.svelte`'s `<style>`, all paint and none of it changing a box size:
+    - `vintage70`: `.tower__header` and `.row--oncam` draw their 4px red rule as `box-shadow:
+      inset 0 -4px 0 var(--bc-accent)` (an inset shadow takes no layout space);
+      `.row--oncam` has `background: none`; `.row__pos` and `.row--oncam .row__pos` are
+      `var(--bc-text-2)` (the second because the base on-camera rule outranks the first);
+      `.row__class` is `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0 #000)` and
+      `font-style: normal`.
+    - `vintage80`: `.row--oncam` is `background: var(--bc-accent)` with `box-shadow: none`.
+      `.row--oncam > :not(.row__pit--in):not(.row__finish):not(.row__class)` and the nested
+      cells that set their own colour, `.row--oncam .row__pit-label` and `.row--oncam
+      .row__tire-compound`, are `color: var(--bc-text-on-accent)` and `text-shadow: none`.
+      `.row--oncam .row__class`, `.row--oncam .row__finish--dnf` and `.row--oncam
+      .row__finish--dq` are `background: #000` with `box-shadow: 0 0 0 2px #000`.
+      `.row--oncam .row__finish--flag` sets only `box-shadow: inset 0 0 0 1px rgba(0, 0, 0,
+      0.35), 0 0 0 2px #000` (its own edge plus the ring); a `background` there would wipe the
+      flag's gradient squares. `.row__gap--flash` is `background:
+      var(--bc-text-2)`, `box-shadow: 0 0 0 2px var(--bc-text-2), 0 0 0 3px #000`, `color:
+      var(--bc-text-on-accent)` and `text-shadow: none`; the compound selectors
+      `.row__gap--flash.row__gap--flash-session-best`, `…-class-best` and `…-personal-best`
+      swap the background and the 2px spread colour to `var(--bc-lap-best)` and
+      `var(--bc-lap-pb)`. They are compound so they outrank the base flash rule whatever the
+      source order.
+    - Both presets: `.row__oncam-flash` is `display: none`, so no shine element renders. No
+      themed rule sets a property that sizes or positions a box (widths, heights, padding,
+      margin, border widths, font size, family or weight, letter spacing, line height, text
+      transform, white space, flex, grid, position or offsets).
+    `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
+    `happy-dom` applies no CSS; `StandingsTower.themeSwitch.test.js` covers the re-measure.
   - **Fonts are Google Fonts' pre-built `woff2` files, unmodified** (no re-subsetting or
     conversion), each family folder with its `OFL.txt` from `google/fonts`. None of the four
     families declares a Reserved Font Name.
@@ -341,7 +369,21 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `` `${--bc-weight-leader} ${--bc-size-name} ${--bc-font-display}` ``. Each token that does
     not resolve (empty, as in `happy-dom`) takes its default from `tokens/typography.css`, so
     the fully unresolved string is exactly **`700 22px 'Saira Condensed', 'Arial Narrow',
-    sans-serif`**. Every name is measured in this string, the on-camera weight.
+    sans-serif`**. Every name is measured in this string, the on-camera weight. When the
+    first rendered name cell's (or, with no row rendered, the tower root's) computed
+    `fontStyle` is anything but `normal` or empty, it leads the string:
+    `italic 700 22px 'Barlow Condensed', …` under `vintage70`. A `normal` style is left out, so
+    the modern string is unchanged.
+  - **Theme switch.** The tower watches the `data-theme` attribute of
+    `towerEl.closest('[data-theme]') ?? document.documentElement`, looked up on mount, with a
+    `MutationObserver` (`attributeFilter: ['data-theme']`), disconnected on destroy. The
+    fallback matters: Svelte runs a child's mount before its parent's, so on a render page the
+    tower mounts before `App.svelte` writes the root attribute, and `closest()` finds nothing.
+    The last value seen starts as the attribute's value at mount, an absent one read as
+    `modern`. A value that differs bumps a reset counter that the measuring `$effect` reads, so
+    the effect runs the reset (names, `widestRest`, `namesMeasured`) and measures again at
+    once, rows included, without waiting for a snapshot. The same value written again changes
+    nothing.
   - **Measuring names.** With a 2D canvas context from
     `document.createElement('canvas').getContext('2d')`: set `ctx.font` to the measuring font,
     then a name's width is `ctx.measureText(fullName).width + [...fullName].length ×
