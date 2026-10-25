@@ -783,20 +783,35 @@ function applyUrlOverrides(config, params) {
   return out
 }
 
+/** How long one profile candidate may take before it counts as unreachable. Render pages open
+ *  the producer feed only once the profile resolves (#354), so a request that hangs instead of
+ *  failing must not hold the overlay blank. */
+export const PROFILE_FETCH_TIMEOUT_MS = 3000
+
 /** Fetch a named profile, trying server mode (`/api/profiles/<name>`) first and
  *  falling back to static mode (`/config/<name>.json`). Returns the parsed JSON, or
- *  null if neither is reachable/ok. */
+ *  null if neither is reachable/ok within the timeout. */
 async function fetchProfile(name, fetchImpl) {
   const candidates = [
     `/api/profiles/${encodeURIComponent(name)}`,
     `/config/${encodeURIComponent(name)}.json`,
   ]
   for (const url of candidates) {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null
+    let timer
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller?.abort()
+        reject(new Error(`profile request timed out: ${url}`))
+      }, PROFILE_FETCH_TIMEOUT_MS)
+    })
     try {
-      const res = await fetchImpl(url)
-      if (res && res.ok) return await res.json()
+      const res = await Promise.race([fetchImpl(url, { signal: controller?.signal }), timeout])
+      if (res && res.ok) return await Promise.race([res.json(), timeout])
     } catch {
-      // try the next candidate (server not running, offline, etc.)
+      // try the next candidate (server not running, offline, timed out, etc.)
+    } finally {
+      clearTimeout(timer)
     }
   }
   return null

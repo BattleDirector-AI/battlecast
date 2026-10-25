@@ -52,7 +52,7 @@ async function mountTower(url, profile) {
   )
   render(TowerPage)
   for (let i = 0; i < 5; i++) await tick()
-  expect(sse.emit, 'the page should have opened its state feed on mount').toBeTypeOf('function')
+  expect(sse.emit, 'the page should have opened its state feed once the profile resolved').toBeTypeOf('function')
   sse.emit(towerMetrics)
   flushSync()
   await tick()
@@ -167,7 +167,9 @@ describe('standalone /tower — ?metrics= leaving lapFlash out (overlay-config r
 })
 
 describe('standalone /tower — before the profile loads (overlay-config rule 49)', () => {
-  it('shows the default metrics until the profile resolves, then the profile metrics replace them', async () => {
+  // The feed opens only once the profile resolves (#354), so the default metrics never show
+  // for a profiled source: the first snapshot already renders with the profile's metrics.
+  it('opens no feed until the profile resolves, then renders with the profile metrics', async () => {
     window.history.replaceState({}, '', '/tower?profile=p')
     let resolveProfile
     vi.stubGlobal(
@@ -181,13 +183,12 @@ describe('standalone /tower — before the profile loads (overlay-config rule 49
     )
     render(TowerPage)
     for (let i = 0; i < 5; i++) await tick()
+    expect(sse.emit, 'no feed may open before the profile resolves').toBeNull()
+    resolveProfile()
+    for (let i = 0; i < 5; i++) await tick()
     sse.emit(towerMetrics)
     flushSync()
     await tick()
-    expect(columns()).toEqual(['interval'])
-    resolveProfile()
-    for (let i = 0; i < 5; i++) await tick()
-    flushSync()
     expect(columns()).toEqual(['pit', 'tire'])
   })
 })
