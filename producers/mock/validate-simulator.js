@@ -11,7 +11,7 @@
 // `notable.class_best_lap` flag, so the class-best edge the #22 widget relies on
 // is exercised. Exits non-zero on any failure.
 
-const { createSimulator, PHASES, classPace } = require("./simulate.js");
+const { createSimulator, mulberry32, PHASES, classPace } = require("./simulate.js");
 const { validate } = require("./validate.js");
 
 // Lap-time realism band, as a fraction of a class's base pace. A completed lap far
@@ -19,14 +19,16 @@ const { validate } = require("./validate.js");
 // bug: slower classes posting sub-pace laps); far above means an inflated multi-lap
 // "out lap". Per-car skill offset (±0.5s) plus the ±4% pace noise keep real laps
 // comfortably inside [0.9x, 1.5x]; the pre-fix code produced laps down to ~0.55x.
-// The band is probabilistic (unseeded Math.random) but the 0.9x floor keeps a
-// deliberate ~0.05 margin over the observed worst legitimate lap (~0.95x), so the
-// check is stable in practice; tightening the band or widening the noise clamp
-// would erode that margin.
+// The run is seeded (VALIDATE_SEED below), but the 0.9x floor keeps a deliberate ~0.05
+// margin over the observed worst legitimate lap (~0.95x), so the check also holds for other
+// seeds; tightening the band or widening the noise clamp would erode that margin.
 const LAP_MIN_FACTOR = 0.9;
 const LAP_MAX_FACTOR = 1.5;
 
 const TICKS = Number(process.env.VALIDATE_TICKS) || 3000;
+// Every random draw in the simulator goes through a PRNG seeded here, and the run key is fixed,
+// so the run is identical every time (#346). VALIDATE_SEED tries another seed.
+const SEED = Number(process.env.VALIDATE_SEED) || 346;
 const DT_SECONDS = Number(process.env.SIM_DT_SECONDS) || 2;
 
 // Drive the phase machine with short, explicit durations (independent of any
@@ -35,6 +37,10 @@ const DT_SECONDS = Number(process.env.SIM_DT_SECONDS) || 2;
 // to complete flying laps and set class bests.
 const simulator = createSimulator({
   phaseSeconds: { qualifying: 400, grid: 40, race: 400, results: 40 },
+  rng: mulberry32(SEED),
+  // The weather has its own generator (ADR 0025), so it never shifts the race's sequence.
+  weatherRng: mulberry32(SEED ^ 0x5eed),
+  runKey: `seed${SEED}`,
 });
 
 let failed = 0;
@@ -107,9 +113,93 @@ let anyFinished = false;
 let lastRaceTick = null;
 let resultsClassifiedSeen = false;
 const isFinishCode = (n) => Number.isInteger(n) && n >= 0 && n <= 3;
+// Race events (ADR 0023), the mock producer's own output policy (each entry's shape is checked by
+// validate.js): every tick carries a `race_events` array of at most 20; every id shares one run key
+// prefix; an id's entry never changes while listed; an id that leaves the list was listed for at
+// least 30 s and never comes back; an overall fastest lap is not also sent as a class event; and
+// the run announces all four types.
+// No bursts at the race start (#346): nothing is announced in a race leg's first
+// RACE_START_QUIET_SECONDS (the opening-lap shuffle and the standing-start lap are not news), two
+// leader changes are never announced within LEADER_CHANGE_MIN_GAP_SECONDS of each other (simulate.js
+// LEADER_HOLD_SECONDS) in one race leg, and a class fastest lap is announced only once its class
+// has a best set after the opening lap: some other lap in the class, completed on a car's second
+// lap or later, beat the class best before it and is slower than the announced lap. Laps are
+// counted per car from the `last_lap` changes in the leg. Overall fastest laps from a car's
+// second lap on are not part of this guard, by design (#346 named class laps only).
+const RACE_EVENT_MIN_LISTED_SECONDS = 30;
+const RACE_START_QUIET_SECONDS = 60;
+const LEADER_CHANGE_MIN_GAP_SECONDS = 10;
+let lastLeaderChangeTick = null;
+let legLapCount = new Map(); // slot_id -> laps completed this leg
+let legLastLap = new Map(); // slot_id -> last_lap last seen
+let legClassMin = new Map(); // vehicle_class -> fastest lap completed this leg
+let legClassRecords = new Map(); // vehicle_class -> [{ slot_id, lap }] post-opening laps that beat the class best
+const raceEventViolations = [];
+const raceEventFirstTick = new Map(); // id -> tick first listed
+const raceEventBody = new Map(); // id -> JSON of its entry
+const raceEventGone = new Set();
+const raceEventTypesSeen = new Set();
+let raceEventRunKey = null;
+let raceEventPrevIds = new Set();
+// Event metadata and info lines (ADR 0024), the mock's own output policy (shape is checked by
+// validate.js): every tick carries an `event` with a non-blank name and track and an integer
+// round >= 1 that never goes down, and a non-empty `info_lines` of distinct non-blank strings;
+// across the run the round advances (a loop back to qualifying) and the line list changes, so
+// the info panel's header and its changed-list path are both exercised live.
+const eventInfoViolations = [];
+let lastEventRound = null;
+let eventRoundAdvanced = false;
+const infoLineListsSeen = new Set();
+const nonBlankString = (v) => typeof v === "string" && v.trim() !== "";
+// Weather (ADR 0025), the mock's own output policy: every tick carries a session.weather with
+// finite air and track temperatures in a plausible band (track at least as warm as the air) and
+// non-blank conditions; across the run the temperatures drift and the conditions change at
+// least once, so the weather box and card are exercised live.
+const weatherViolations = [];
+const weatherAirSeen = new Set();
+const weatherConditionsSeen = new Set();
 
 for (let i = 0; i < TICKS; i++) {
   const payload = simulator.step(DT_SECONDS);
+  {
+    const ev = payload.event;
+    const lines = payload.info_lines;
+    const problems = [];
+    if (!ev || !nonBlankString(ev.name) || !nonBlankString(ev.track) || !(Number.isInteger(ev.round) && ev.round >= 1)) {
+      problems.push(`event=${JSON.stringify(ev)}`);
+    } else {
+      if (lastEventRound != null && ev.round < lastEventRound) problems.push(`round went back ${lastEventRound} -> ${ev.round}`);
+      if (lastEventRound != null && ev.round > lastEventRound) eventRoundAdvanced = true;
+      lastEventRound = ev.round;
+    }
+    if (!Array.isArray(lines) || lines.length === 0 || !lines.every(nonBlankString) || new Set(lines).size !== lines.length) {
+      problems.push(`info_lines=${JSON.stringify(lines)}`);
+    } else {
+      infoLineListsSeen.add(JSON.stringify(lines));
+    }
+    if (problems.length > 0 && eventInfoViolations.length < 10) {
+      eventInfoViolations.push(`tick ${i} (${payload.mode}): ${problems.join(", ")}`);
+    }
+  }
+  {
+    const w = payload.session && payload.session.weather;
+    const finite = (n) => typeof n === "number" && Number.isFinite(n);
+    if (
+      !w ||
+      !finite(w.air_temp) ||
+      !finite(w.track_temp) ||
+      w.air_temp < -10 ||
+      w.air_temp > 45 ||
+      w.track_temp < w.air_temp ||
+      w.track_temp > 70 ||
+      !nonBlankString(w.conditions)
+    ) {
+      if (weatherViolations.length < 10) weatherViolations.push(`tick ${i} (${payload.mode}): weather=${JSON.stringify(w)}`);
+    } else {
+      weatherAirSeen.add(w.air_temp);
+      weatherConditionsSeen.add(w.conditions);
+    }
+  }
   ticksByMode.set(payload.mode, (ticksByMode.get(payload.mode) || 0) + 1);
   // Single-class flag (protocol-contract rule 20, ADR 0022): every tick, in every phase, carries
   // a boolean `session.multiclass` that matches the class mix the mock is actually running:
@@ -303,6 +393,82 @@ for (let i = 0; i < TICKS; i++) {
   }
   lastRaceTick = payload.mode === "race" ? payload : payload.mode === "results" ? lastRaceTick : null;
 
+  if (payload.mode === "race") {
+    if (raceTicks === 0) {
+      lastLeaderChangeTick = null;
+      legLapCount = new Map();
+      legLastLap = new Map();
+      legClassMin = new Map();
+      legClassRecords = new Map();
+    }
+    const before = new Map(legClassMin);
+    for (const v of payload.vehicles) {
+      if (v.last_lap == null || v.last_lap === legLastLap.get(v.slot_id)) continue;
+      legLastLap.set(v.slot_id, v.last_lap);
+      const laps = (legLapCount.get(v.slot_id) || 0) + 1;
+      legLapCount.set(v.slot_id, laps);
+      const best = before.get(v.vehicle_class);
+      if (laps >= 2 && (best == null || v.last_lap < best)) {
+        if (!legClassRecords.has(v.vehicle_class)) legClassRecords.set(v.vehicle_class, []);
+        legClassRecords.get(v.vehicle_class).push({ slot_id: v.slot_id, lap: v.last_lap });
+      }
+      const min = legClassMin.get(v.vehicle_class);
+      if (min == null || v.last_lap < min) legClassMin.set(v.vehicle_class, v.last_lap);
+    }
+  }
+
+  {
+    const list = payload.race_events;
+    const problems = [];
+    if (!Array.isArray(list)) problems.push(`race_events=${JSON.stringify(list)}`);
+    else {
+      if (list.length > 20) problems.push(`${list.length} events listed`);
+      const ids = new Set();
+      for (const e of list) {
+        if (!e || typeof e.id !== "string") continue;
+        ids.add(e.id);
+        raceEventTypesSeen.add(e.type);
+        const key = e.id.slice(0, e.id.lastIndexOf("-"));
+        if (raceEventRunKey == null) raceEventRunKey = key;
+        else if (key !== raceEventRunKey) problems.push(`id ${e.id} lacks run key ${raceEventRunKey}`);
+        if (raceEventGone.has(e.id)) problems.push(`id ${e.id} came back after leaving the list`);
+        const body = JSON.stringify(e);
+        if (!raceEventFirstTick.has(e.id)) {
+          raceEventFirstTick.set(e.id, i);
+          raceEventBody.set(e.id, body);
+          if (payload.mode === "race" && raceTicks * DT_SECONDS < RACE_START_QUIET_SECONDS) {
+            problems.push(`${e.type} ${e.id} announced ${raceTicks * DT_SECONDS}s into the race`);
+          }
+          if (e.type === "leader_change") {
+            const gap = lastLeaderChangeTick == null ? Infinity : (i - lastLeaderChangeTick) * DT_SECONDS;
+            if (gap < LEADER_CHANGE_MIN_GAP_SECONDS) problems.push(`leader_change ${e.id} ${gap}s after the previous one`);
+            lastLeaderChangeTick = i;
+          }
+          if (payload.mode === "race" && e.type === "fastest_lap" && e.vehicle_class != null) {
+            const beaten = (legClassRecords.get(e.vehicle_class) ?? []).some((r) => r.lap > e.lap_time);
+            if (!beaten) problems.push(`class fastest lap ${e.id} before ${e.vehicle_class} had a best from after the opening lap`);
+          }
+        } else if (raceEventBody.get(e.id) !== body) problems.push(`id ${e.id} changed while listed`);
+        if (e.type === "fastest_lap" && e.vehicle_class == null) {
+          const dup = list.find(
+            (o) => o !== e && o.type === "fastest_lap" && o.vehicle_class != null && o.slot_id === e.slot_id && o.lap_time === e.lap_time,
+          );
+          if (dup) problems.push(`overall fastest lap ${e.id} also sent as class event ${dup.id}`);
+        }
+      }
+      for (const id of raceEventPrevIds) {
+        if (ids.has(id)) continue;
+        raceEventGone.add(id);
+        const listed = (i - raceEventFirstTick.get(id)) * DT_SECONDS;
+        if (listed < RACE_EVENT_MIN_LISTED_SECONDS) problems.push(`id ${id} dropped after ${listed}s`);
+      }
+      raceEventPrevIds = ids;
+    }
+    if (problems.length > 0 && raceEventViolations.length < 10) {
+      raceEventViolations.push(`tick ${i} (${payload.mode}): ${problems.join(", ")}`);
+    }
+  }
+
   const errors = validate(payload);
   if (errors.length > 0) {
     failed += 1;
@@ -365,7 +531,11 @@ if (yellowViolations.length > 0) {
 // a car in the pit lane is never `yellow_involved` (SPEC.md; #234).
 {
   const LONG_RACE_SECONDS = 2000;
-  const longRace = createSimulator({ lockPhase: "race", phaseSeconds: { race: LONG_RACE_SECONDS } });
+  const longRace = createSimulator({
+    lockPhase: "race",
+    phaseSeconds: { race: LONG_RACE_SECONDS },
+    rng: mulberry32(SEED + 1),
+  });
   // The window fractions mirror simulate.js LOCAL_YELLOW_START / LOCAL_YELLOW_END.
   const involvedSlots = new Set();
   let pitDuringWindow = false;
@@ -455,6 +625,46 @@ if (!dnfSeen) {
   process.exit(1);
 }
 
+if (raceEventViolations.length > 0) {
+  console.error("\nrace_events missing or breaking the mock's rolling-list policy (ADR 0023):");
+  for (const v of raceEventViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+{
+  const missingTypes = ["fastest_lap", "leader_change", "retirement", "penalty"].filter((t) => !raceEventTypesSeen.has(t));
+  if (missingTypes.length > 0) {
+    console.error(`\nThe race never announced these race_events types: ${missingTypes.join(", ")} — the race update box is not exercised.`);
+    process.exit(1);
+  }
+}
+
+if (eventInfoViolations.length > 0) {
+  console.error("\nevent / info_lines missing or malformed (ADR 0024):");
+  for (const v of eventInfoViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+if (!eventRoundAdvanced || infoLineListsSeen.size < 2) {
+  console.error(
+    `\nThe event round never advanced (${eventRoundAdvanced}) or info_lines never changed (${infoLineListsSeen.size} list(s)) — the info panel's live changes are not exercised.`
+  );
+  process.exit(1);
+}
+
+if (weatherViolations.length > 0) {
+  console.error("\nsession.weather missing or implausible (ADR 0025):");
+  for (const v of weatherViolations) console.error(`  - ${v}`);
+  process.exit(1);
+}
+
+if (weatherAirSeen.size < 2 || weatherConditionsSeen.size < 2) {
+  console.error(
+    `\nThe weather never changed (${weatherAirSeen.size} air temperature(s), ${weatherConditionsSeen.size} condition(s)) — the weather box's live updates are not exercised.`
+  );
+  process.exit(1);
+}
+
 if (!lappedSeen) {
   console.error("\nThe race phase never lapped a car (no laps_behind_leader >= 1) — the lapped-car case is not exercised.");
   process.exit(1);
@@ -469,4 +679,7 @@ console.log("Race phase lapped a backmarker and carried valid laps_behind_* fiel
 console.log("Race phase staged a local yellow with valid sector_flags / yellow_involved fields (ADR 0016).");
 console.log("Race phase took the chequered flag progressively, retired a car, and results classified every car (ADR 0017).");
 console.log("Every tick carried a boolean session.multiclass matching the class mix (ADR 0022).");
+console.log("Every tick carried a valid rolling race_events list, and the race announced all four types (ADR 0023).");
+console.log(`Every tick carried an event and info_lines; the round advanced and ${infoLineListsSeen.size} line lists were sent (ADR 0024).`);
+console.log(`Every tick carried a plausible session.weather; ${weatherAirSeen.size} air temperatures and ${weatherConditionsSeen.size} conditions were sent (ADR 0025).`);
 console.log("Race director never put a retired car, or a finished car while others raced, on camera (#237).");

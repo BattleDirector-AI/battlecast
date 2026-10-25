@@ -466,6 +466,8 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     render the timed/lap progress readout — that lives in the standings-tower header (rule 9).
     Renders whenever visible and there is flag/FCY/SC/sector-yellow content, in every mode. Not
     a lower-third and not class-aware — the trigger/`modes`/`classDisplay` knobs are inert for it.
+    The standalone `/racecontrol` route loads the profile named by `?profile=` only for its
+    motion mode and theme (`overlay-config.md` rules 10 and 59) and reloads it live.
 44. **Sector yellows.** Each `session.sector_flags` entry that is the string `yellow` (trimmed,
     case-insensitive) is a local yellow in sector *index + 1*. When at least one sector is yellow,
     Race Control shows one chip (`data-testid="racecontrol-sector-yellow"`) reading `YELLOW`
@@ -572,6 +574,274 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     on it changes nothing. In `/all`, its slot is placed whenever the widget is `visible`, even
     while the HUD is idle or held off, and the strip reads that widget's saved `driverInfo`. The
     standalone `/onboard` route uses the default `driverInfo` (name, number, position).
+
+### Race update box (`/updates`, #27)
+
+The race update box shows the producer's race events (fastest laps, leader changes, retirements,
+penalties) one card at a time. It reads only the snapshot's `race_events`
+(`protocol-contract.md` rule 22) and never derives an event from `vehicles[]` or from changes
+between snapshots. Decision record: `docs/decisions/0023-race-update-box.md`.
+
+69. **Which entries are events.** An absent, null, or non-array `race_events` holds no events.
+    An entry of the array is an **event** only when all of these hold:
+    - it is an object, and not an array;
+    - its `id` is a string with at least one non-whitespace character;
+    - its `type` is exactly one of `fastest_lap`, `leader_change`, `retirement`, `penalty`
+      (compared as sent: case-sensitive, untrimmed);
+    - its `driver_name` is present by the test of rule 14b;
+    - for `fastest_lap`, `lap_time` is a finite number greater than 0; for `retirement`,
+      `finish_status` is exactly the integer `2` or `3`; for `penalty`, `penalty` is a string
+      with at least one non-whitespace character.
+
+    Any other entry is skipped: it is never shown or queued, and it does not stop the box
+    reading the entries around it. Optional fields never disqualify an entry: a
+    `vehicle_class` or `detail` that is not a string with a non-whitespace character counts as
+    absent, and the box does not read `slot_id`. Ids are compared as exact strings. Only an
+    event's id is ever marked seen (rules 71–72): a skipped entry marks nothing, so the same id
+    sent later as a valid event is a new event.
+70. **The card.** The box shows one event at a time as a card (`data-testid="race-update"`)
+    carrying `data-event-id` (the event's `id`) and `data-event-type` (its `type`). The card
+    holds, in order:
+    - **Label** (`data-testid="update-label"`): `FASTEST LAP` for `fastest_lap`, `NEW LEADER`
+      for `leader_change`, `RETIRED` for a `retirement` whose `finish_status` is `2`,
+      `DISQUALIFIED` for one whose `finish_status` is `3`, and `PENALTY` for `penalty`. A
+      **class event**, one whose `vehicle_class` is a string with a non-whitespace character,
+      puts that class first, trimmed and uppercased (locale-independent `toUpperCase`), then
+      one space: `GT3 FASTEST LAP`, `LMGT3 PRO-AM NEW LEADER`, `GT3 RETIRED`. Any other event is
+      overall and its label has no prefix. The prefix is part of the label, not a class tag:
+      hiding class tags (rule 60) does not remove it.
+    - **Name** (`data-testid="update-name"`): the event's `driver_name` in the full form of
+      rule 48: `Kevin Estre` → `K. Estre`, `Estre` → `Estre`, `E.Jacobs` → `E.Jacobs`.
+    - **Value** (`data-testid="update-value"`): for `fastest_lap`, `lap_time` formatted exactly
+      as the tower's lap-time flash formats a lap (rule 40): `208.977` → `3:28.977`, `58.204`
+      → `58.204`. For `penalty`, the `penalty` string trimmed and otherwise verbatim
+      (`Drive-through`, `+5s`). A `leader_change` or `retirement` card has no value element.
+    - **Detail** (`data-testid="update-detail"`): the `detail` string, trimmed and otherwise
+      verbatim, when it has a non-whitespace character; otherwise the card has no detail
+      element.
+
+    The card shows nothing else from the event. While no card is up the box draws nothing: no
+    plate, no placeholder.
+71. **Events already listed when the box starts are never shown.** The first non-null snapshot
+    the box receives after it mounts is its **baseline**: every event in it is marked seen and
+    none is shown. That holds whatever the snapshot carries: with no `race_events` the baseline
+    is empty, and every event in a later snapshot is new. So an OBS reload, a page refresh, or
+    the widget being switched on in `/all` never replays an event the producer is still
+    listing. The seen ids last as long as the box stays mounted: a feed that drops and resumes
+    takes no new baseline, and an event first listed after it resumes is new. In the `/config`
+    preview (`overlay-config.md` rule 51) there is no baseline: the first snapshot's events
+    are new.
+72. **Each event shows once.** After the baseline, the events in a snapshot whose id has not
+    been seen are **new**. The box marks each one seen and takes them in array order: a new
+    event shows at once when no card is up, and otherwise joins the end of the **waiting
+    queue**. An id that has been seen never shows again: not when the producer re-sends it, not
+    when it leaves `race_events` and comes back, and not when a second entry in the same
+    snapshot repeats it.
+73. **Dwell, queue, and hiding.** A card stays up for the box's dwell (`dwellSeconds`, default
+    8; `overlay-config.md` rule 50), counted from when it appeared, whatever snapshots arrive in
+    the meantime and whether or not its event is still listed. When the dwell ends, the first
+    waiting event replaces it at once (rule 74), and its own full dwell counts from that swap;
+    with nothing waiting, the box hides. At most **5** events wait behind the card that is up: when a sixth would join, the
+    oldest waiting event is dropped. A dropped event is never shown and stays seen. A change of
+    `dwellSeconds` applies from the next card; the card that is up keeps the dwell it started
+    with. The box shows events in every `mode`; it has no mode gate, no trigger, and no
+    show-on-connect.
+74. **Reveal.** Each card enters and leaves with the lower-thirds' skewed bar-wipe (the shared
+    lower-third shell). When a waiting card replaces the one on screen, the swap is two plates,
+    not new text in the old one: at the same moment, the outgoing card's plate plays its
+    wipe-out and the incoming card's plate plays its wipe-in, as a camera cut does on the
+    driver lower-third. The incoming card is up, and its dwell is counting, from that moment.
+    Under reduced motion (`overlay-config.md` rule 10) cards appear and disappear without the
+    wipe.
+75. **Routes and composition.** The standalone `/updates` route is a transparent overlay route.
+    It connects to the producer the way every render page does (`?src=`, then the default), loads
+    the profile named by `?profile=` and reads its `updates` widget's `dwellSeconds`, and uses
+    8 when there is no profile or the profile fails to load. Inside `/all` the box is the
+    `updates` widget: while `visible` it is mounted at its configured geometry and reads its own
+    `dwellSeconds`; while not `visible` it is not mounted. The box has no idle predicate: with no
+    card up it already draws nothing, so `/config` offers no "Hide when idle" for it and a saved
+    `hideWhenIdle: true` on it changes nothing (as for the HUD, rule 58).
+
+### Info panel (`/info`, #62)
+
+The info panel is a compact strip: a header naming the event and a row of free text that
+rotates one line at a time. It reads only the snapshot's `event`, `info_lines` and
+`session.weather` (`protocol-contract.md` rules 23–24) and the broadcaster's own lines from its
+profile entry (`overlay-config.md` rule 52). It derives nothing from `vehicles[]` or from any
+other `session` field. It changes producer text only as rules 76–77 and 88 say: it trims every
+part and line, uppercases the header and the weather card, and shows a repeated line once. Decision record: `docs/decisions/0024-info-panel.md`.
+
+76. **The header.** An absent, null, or non-object `event` (an array is not an object) has no
+    event fields. Of an object `event`, each field is a **part** only when it holds:
+    - `round`: a number that is an integer of at least 1 (`3`, not `0`, `-1`, `2.5`, `"3"` or
+      `true`). The part reads `ROUND ` followed by the number: `ROUND 3`.
+    - `name`: a string with at least one non-whitespace character. The part is the string
+      trimmed.
+    - `track`: a string with at least one non-whitespace character. The part is the string
+      trimmed.
+
+    Any other value counts as absent and does not stop the other fields being read. The header
+    (`data-testid="info-header"`) joins the parts that hold, in the order round, name, track,
+    with ` · ` (a space, U+00B7 MIDDLE DOT, a space) between two parts and nowhere else, and
+    uppercases the result with locale-independent `toUpperCase`: `{ round: 3, name: "Spa 6
+    Hours", track: "Spa-Francorchamps" }` gives `ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`;
+    with only `name` and `track`, `SPA 6 HOURS · SPA-FRANCORCHAMPS`; with only `round`,
+    `ROUND 3`. Whitespace inside a part is kept as sent. With no part, the panel has no header
+    element.
+77. **The line list.** The panel's **line list** is built in this order:
+    1. the producer's lines: each entry of `info_lines` that is a string with at least one
+       non-whitespace character, trimmed and otherwise verbatim (case kept), in array order.
+       An absent, null, or non-array `info_lines` gives none, and any other entry (blank, a
+       number, null, an object) is skipped without stopping the entries around it;
+    2. then the broadcaster's lines: the `info` widget's `lines` (`overlay-config.md` rule
+       52), in their stored order;
+    3. then, last, the **weather card** (rule 88), when the `info` widget's `weatherCard` is on
+       and the snapshot's weather has a part.
+
+    A text line (a producer's or a broadcaster's) equal (exact string comparison, after
+    trimming) to a text line earlier in the list is dropped, so a line the producer and the profile both carry, or that either repeats, appears
+    once, at its first place. The broadcaster's lines do not depend on the producer: they are in
+    the list while no snapshot has arrived, and while the snapshot carries no lines.
+78. **Layout and hiding.** The panel (`data-testid="info-panel"`) holds, in order, the header
+    (rule 76) and the line row, whose line element (`data-testid="info-line"`) shows the current
+    line of the rotation (rule 79). With no header part it has the line row only; with an empty
+    line list it has the header only and no line element; with neither it draws nothing at all:
+    no panel element, no plate, no placeholder. The line row is one line high: a line too long
+    for the panel's width is cut off with an ellipsis and never wraps or grows the panel. The
+    panel shows in every `mode`; it has no mode gate, no trigger, and no class awareness.
+79. **Rotation.** The line row shows one line of the line list at a time. When the list first
+    has a line (at mount, or after it was empty), its first line shows. A line stays up for the
+    panel's dwell (`dwellSeconds`, default 8; `overlay-config.md` rule 52), counted from when it
+    appeared, and when the dwell ends the next line in the list replaces it, wrapping from the
+    last line to the first. While the list holds exactly one line, that line stays up and no
+    dwell runs, however long it has already been up; when the list grows from one line to more,
+    the shown line's dwell starts at that moment, from zero. So a line alone from mount (0 s) that
+    a second line joins at 3 s stays up until 11 s, and with `[A, B]` and `A` up
+    from 0 s, a list that shrinks to `[A]` at 5 s and grows back to `[A, B]` at 6 s shows `B`
+    at 14 s, not at 8 s. A change of `dwellSeconds` applies from the next line: the line that is up keeps the
+    dwell it started with. A snapshot that gives the same line list, in the same order, changes
+    nothing.
+80. **A changed line list.** Whenever a snapshot or a config change gives a line list that
+    differs from the current one (a line added, removed, edited, or moved):
+    - if the line on screen is still in the new list, it stays up and its running dwell is not
+      restarted; the rotation continues from its place in the new list, so the line after it in
+      the new list comes next;
+    - otherwise the line at the same place (index) in the new list replaces it at once and gets
+      a full dwell (unless it is the only line, rule 79), and when the new list is too short to
+      have that place, the new list's first line does. The place is the index, not the next line
+      of the old list that survives: whatever line the new list holds at that index shows;
+    - when the new list is empty, the line element goes (rule 78);
+    - while the new list holds one line, no dwell runs (rule 79).
+
+    Lines are compared by identity: a text line is its text, and the weather card is the card,
+    whatever its text says (rule 88). So a snapshot whose only change is the weather's values
+    gives the same line list, and the card entering or leaving the list is a change like any
+    line's.
+
+    So, with `[A, B, C]` and `B` up, a new list `[X, A, B, C]` keeps `B` up and `C` comes next;
+    a new list `[A, C]` replaces `B` with `C` at once; and with `C` up, a new list `[A, B]`
+    replaces it with `A` at once. With `[A, B, C, D]` and `B` up, a new list `[X, A, C, D]`
+    replaces `B` with `A` (index 1), not with `C`.
+81. **Motion.** The panel enters and leaves with the lower-thirds' skewed bar-wipe (the shared
+    lower-third shell): it plays the wipe-in when it goes from drawing nothing to drawing
+    something, and the wipe-out when it goes back to drawing nothing. A header or line change
+    while it is up does not replay the wipe. When a line replaces another, the line row
+    crossfades: the outgoing line fades out while the incoming line fades in, over 300 ms, so
+    for that time the row holds both line elements. A weather card whose text changes while it
+    is up (rule 88) is not a replacement: the line element shows the new text at once, with no
+    crossfade. There is no crossfade, and no fade at all,
+    when the line list goes from empty to a line or from a line to empty: the first line after
+    an empty list appears at once, and the last line before one goes at once (when the panel
+    itself appears or goes with it, the wipe covers it). Under reduced motion (`overlay-config.md`
+    rule 10) the panel appears and disappears without the wipe, and a line replaces another at
+    once, with no crossfade.
+82. **Routes and composition.** The standalone `/info` route is a transparent overlay route. It
+    connects to the producer the way every render page does (`?src=`, then the default), loads
+    the profile named by `?profile=` and reads its `info` widget's `dwellSeconds`, `lines`,
+    `weatherCard` and `tempUnit`, and uses a dwell of 8, no broadcaster lines, the weather card
+    off and °C when there is no profile or the profile fails to load. It reloads that profile live as `/all` does (`overlay-config.md` rule 22): an edit
+    saved in `/config` to the `info` widget's `lines` or `dwellSeconds` reaches a running `/info`
+    Browser Source without a refresh, as a changed line list (rule 80) or a dwell change (rule
+    79). A live `lines` edit, on `/info` or in `/all`, changes the line on screen with rule 81's
+    crossfade: `overlay-config.md` rule 22's "without transition" covers the layout and geometry,
+    not the panel's line. Inside `/all` the panel is the `info` widget: while `visible` it is mounted at its
+    configured geometry and reads its own `dwellSeconds`, `lines`, `weatherCard` and `tempUnit`;
+    while not `visible` it is not mounted. The panel has no idle predicate: with nothing to show it already draws nothing,
+    so `/config` offers no "Hide when idle" for it and a saved `hideWhenIdle: true` on it
+    changes nothing (as for the HUD, rule 58, and the race update box, rule 75).
+88. **The weather card.** While the `info` widget's `weatherCard` is on (`overlay-config.md` rule
+    57, default off) and the snapshot's weather has at least one part (rule 83), the line list
+    holds one **weather card**, at the place rule 77 gives it. Its text joins, in this order,
+    `AIR ` and the air temperature, `TRACK ` and the track temperature (each as rule 84 formats
+    it, in the `info` widget's `tempUnit`), and the conditions, leaving out the parts that do not
+    hold, with ` · ` between two parts and nowhere else, and uppercases the result
+    (locale-independent `toUpperCase`): `{ air_temp: 22.4, track_temp: 31.2, conditions: "Light
+    rain" }` gives `AIR 22°C · TRACK 31°C · LIGHT RAIN`, and with only `track_temp` in `f`,
+    `TRACK 88°F`. The card is one entry whose identity does not depend on its text:
+    - new weather values, or a new `tempUnit`, change the card's text and nothing else: the
+      line list is the same list (rules 79–80), so the rotation keeps its place and its running
+      dwell, and while the card is up its line element shows the new text at once, with no
+      crossfade (rule 81);
+    - the card is never dropped as a duplicate of a text line, and no text line is dropped as a
+      duplicate of the card, even when their texts are equal;
+    - the card entering the list (weather arriving, `weatherCard` switched on) or leaving it
+      (the weather losing its last part, `weatherCard` switched off) is a changed line list
+      (rule 80).
+
+    While `weatherCard` is off, or the weather has no part, there is no card and the line list
+    is exactly rule 77's text lines.
+
+### Weather box (`/weather`, #208)
+
+The weather box is a compact one-row readout of the producer's weather: air temperature, track
+temperature and conditions. It reads only the snapshot's `session.weather`
+(`protocol-contract.md` rule 24) and its own `tempUnit` (`overlay-config.md` rule 54), and
+derives nothing from `vehicles[]` or any other field. Decision record:
+`docs/decisions/0025-weather-box.md`.
+
+83. **Which weather fields hold.** An absent, null, or non-object `session`, or an absent, null,
+    or non-object `session.weather` (an array is not an object), has no weather. Of an object
+    `session.weather`, each field is a **part** only when it holds:
+    - `air_temp`: a number that is finite (`22.4`, `-3`, `0`; not `"22"`, `NaN`, `true` or
+      `null`);
+    - `track_temp`: the same test;
+    - `conditions`: a string with at least one non-whitespace character; the part is the string
+      trimmed and otherwise verbatim (case kept).
+
+    Any other value counts as absent and does not stop the other fields being read. Fields this
+    revision does not define are ignored.
+84. **Temperatures.** A temperature part is shown in the widget's `tempUnit`: `c` shows the °C
+    value as sent; `f` shows it converted, °C × 9 / 5 + 32. The shown number is then rounded to
+    a whole degree, a half rounding up (JavaScript `Math.round`: `22.5` → `23`, `-2.5` → `-2`),
+    and a result of negative zero shows as `0`. It is written as the number, then `°C` or `°F`
+    (U+00B0 DEGREE SIGN, then the letter), with no space: `22.4` → `22°C`; in `f`, `31.2` →
+    `88°F` and `-17.8` → `0°F`; a negative value keeps its hyphen-minus: `-3.4` → `-3°C`.
+85. **The box.** The box (`data-testid="weather-box"`) holds one item per part, in the order air,
+    track, conditions, and nothing for a part that does not hold:
+    - air: `data-testid="weather-air"`, holding a label reading `AIR` and the value
+      (`data-testid="weather-air-value"`, rule 84);
+    - track: `data-testid="weather-track"`, holding a label reading `TRACK` and the value
+      (`data-testid="weather-track-value"`);
+    - conditions: `data-testid="weather-conditions"`, reading the conditions part.
+
+    With no part the box draws nothing at all: no box element, no plate, no placeholder. The
+    box is one row: conditions too long for the width are cut off with an ellipsis and never
+    wrap or grow the box. It shows in every `mode`; it has no mode gate, no trigger, and no
+    class awareness.
+86. **Updates and motion.** Each snapshot's weather applies at once: a changed value, a part
+    appearing or going, or a `tempUnit` change shows in place on the next render. The box
+    appears and disappears at once, with no transition, in both motion modes
+    (`overlay-config.md` rule 10), as Race Control does.
+87. **Routes and composition.** The standalone `/weather` route is a transparent overlay route.
+    It connects to the producer the way every render page does (`?src=`, then the default), loads
+    the profile named by `?profile=` and reads its `weather` widget's `tempUnit`, and uses `c`
+    when there is no profile or the profile fails to load. It reloads that profile live
+    (`overlay-config.md` rule 22), so a unit changed in `/config` reaches a running `/weather`
+    Browser Source without a refresh. Inside `/all` the box is the `weather` widget: while
+    `visible` it is mounted at its configured geometry and reads its own `tempUnit`; while not
+    `visible` it is not mounted. The box has no idle predicate: with no weather it already draws
+    nothing, so `/config` offers no "Hide when idle" for it and a saved `hideWhenIdle: true` on
+    it changes nothing.
 
 ### Composite & takeover routes
 

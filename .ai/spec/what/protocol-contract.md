@@ -34,8 +34,9 @@ on a field name/type, `schema.json` wins.
 ### Required payload shape
 
 8. Top-level required fields: `schemaVersion`, `mode`, `vehicles`, `subject`, `relationship`.
-   Optional additive top-level object: `session`. Optional additive object under subject:
-   `subject.telemetry`.
+   Optional additive top-level objects: `session`, `event` (rule 23); optional additive
+   top-level arrays: `race_events` (rule 22), `info_lines` (rule 23). Optional additive object
+   under subject: `subject.telemetry`.
 9. **`mode`** (string) — broadcast intent (`race`, `qualifying`, `practice`, `replay`, …). Consumers
    MUST tolerate unknown values.
 10. **`vehicles`** (array, no guaranteed order) — each entry has the **required** identity fields
@@ -128,11 +129,54 @@ on a field name/type, `schema.json` wins.
     broadcaster's `theme.classTags` at `auto`, exactly `false` hides every class tag
     (`widgets.md` rules 60–64); every other value leaves them showing. Decision record:
     `docs/decisions/0022-single-class-tags.md`.
+22. **Race events** (additive): top-level **`race_events`**, the producer's recent race events
+    as a short rolling list, oldest first, or null. It is not an SSE event type: it rides in
+    every `state` snapshot, and the producer keeps each event listed for a while, then drops
+    it. Each entry carries a required `id` (a string, unique and stable: the same event has the
+    same id in every snapshot that lists it, and no two events share one), a `type`
+    (`fastest_lap`, `leader_change`, `retirement`, or `penalty` in this revision), the required
+    `driver_name`, an optional `slot_id`, an optional `vehicle_class` (a string makes it a
+    class event; absent or null, an overall one; an event that is both overall and a class's,
+    such as an overall fastest lap that is also its class's, is sent once, as the overall
+    event), the field its type requires — `lap_time`
+    (seconds) for `fastest_lap`, `finish_status` (`2` DNF or `3` DQ, rule 19's codes) for
+    `retirement`, `penalty` (short text) for `penalty` — and an optional free-text `detail`.
+    Events are producer judgments: the overlay never derives one from `vehicles[]` or from the
+    difference between snapshots. The race update box consumes it (`widgets.md` rules 69–75).
+    An entry that is not an object, has an unknown `type`, or lacks its `id` or a field its
+    type requires is skipped, never an error, and a `race_events` that is not an array holds
+    no events. Decision record: `docs/decisions/0023-race-update-box.md`.
+23. **Event and info lines** (additive): top-level **`event`**, an open object describing the
+    event the session belongs to (the weekend, not the live session), or null, with three
+    optional fields: **`name`** (string, the event's name), **`round`** (integer, at least 1,
+    the round of a championship), and **`track`** (string, the circuit's name). Top-level
+    **`info_lines`**, an array of strings or null: free-text lines the producer wants on screen,
+    shown verbatim apart from trimming (the panel uppercases only the event header and shows a
+    repeated line once). Both are producer-authored text: the overlay never builds an event name, a
+    round, a track or a line from `vehicles[]`, `session` or anything else. The info panel
+    consumes them (`widgets.md` rules 76–82). A field of `event` that is absent, null, or of the
+    wrong type (a non-integer or a `round` below 1, a blank `name` or `track`) counts as absent
+    and the other fields still render; an `event` that is not an object has no fields. An
+    `info_lines` entry that is not a string, or is blank, is skipped, and an `info_lines` that is
+    not an array holds no lines. Neither is ever an error. Decision record:
+    `docs/decisions/0024-info-panel.md`.
+24. **Weather** (additive): **`session.weather`**, an open object with the session's live
+    weather, or null, with three optional fields: **`air_temp`** and **`track_temp`** (numbers,
+    canonical **°C**; consumers convert for display, as they do `subject.telemetry.speed`), and
+    **`conditions`** (a short producer string such as `Clear` or `Light rain`, shown verbatim
+    apart from trimming; the info panel's weather card uppercases it). All are producer
+    readings: the overlay never derives weather from `vehicles[]` or anything else. The weather
+    box and the info panel's weather card consume it (`widgets.md` rules 83–88). A field that is
+    absent, null or of the wrong type (a temperature that is not a finite number, a blank
+    `conditions`) counts as absent and the others still render; a `session.weather` that is not
+    an object has no fields. Neither is ever an error. Decision record:
+    `docs/decisions/0025-weather-box.md`.
 15. **`session`** (open object) — session status: **`flag`** (free-form string;
     `green`/`yellow`/`red`/`checkered`/`white`/`none` common), **`full_course_yellow`** /
     **`safety_car`** (booleans, independent), timed fields **`time_remaining`** / **`session_length`**
     (seconds), lap fields **`laps_remaining`** / **`total_laps`** / **`current_lap`** (integers), and
-    optional **`basis`** (`"time"` | `"laps"`), and **`multiclass`** (boolean or null; rule 20).
+    optional **`basis`** (`"time"` | `"laps"`), **`multiclass`** (boolean or null; rule 20), and
+    **`weather`** (object or null; rule 24).
 16. **Timed-vs-lap progress selection** (consumer-inferred): honor `basis` if set; else if
     `time_remaining` non-null → session clock; else if a lap field non-null → lap counter; else hide
     the progress readout. The widget MUST render `current_lap`/`total_laps` verbatim (`"LAP X OF Y"`)

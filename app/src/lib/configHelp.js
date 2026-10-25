@@ -12,7 +12,7 @@
  * ship undocumented.
  */
 
-/** The seven widgets, keyed exactly as `config.widgets`. `title` is the human name
+/** The eight widgets, keyed exactly as `config.widgets`. `title` is the human name
  *  (the editor's own labels are the terse config keys); `summary` says what the
  *  broadcaster will actually see on stream. */
 export const WIDGET_HELP = Object.freeze({
@@ -66,6 +66,29 @@ export const WIDGET_HELP = Object.freeze({
       'underneath. The tag shows even when the car sends no telemetry; the telemetry row ' +
       'appears only while it does.',
   },
+  updates: {
+    title: 'Race updates',
+    summary:
+      'A card that announces what just happened in the race — a fastest lap, a new leader, a ' +
+      'retirement or a penalty — one at a time, each for a few seconds. It only shows news your ' +
+      'producer sends, never replays what was already happening when the overlay loaded, and ' +
+      'stays empty between updates.',
+  },
+  weather: {
+    title: 'Weather box',
+    summary:
+      'A small strip with the air temperature, the track temperature and the conditions, exactly ' +
+      'as your producer reports them, updated live. It shows only what the producer sends and ' +
+      'draws nothing while no weather is sent, so an empty box is not a fault.',
+  },
+  info: {
+    title: 'Info panel',
+    summary:
+      'A strip naming the event — round, event name and track — with one line of text below it ' +
+      'at a time: lines your producer sends first, then the lines you add here, each for a few ' +
+      'seconds. It hides itself completely while there is no event and no line to show, so an ' +
+      'empty panel is not a fault.',
+  },
 })
 
 /** Per-control help. Keys are logical field names, not `data-testid`s, so one entry
@@ -107,6 +130,29 @@ export const FIELD_HELP = Object.freeze({
   dwellSeconds:
     'How long the card stays up after a camera cut, in dwell mode. If the camera cuts again while ' +
     'it is showing, the timer restarts in place rather than flickering off and back on.',
+
+  // --- weather box and info panel ---
+  tempUnit:
+    'Show temperatures in degrees Fahrenheit instead of Celsius. Temperatures are always shown ' +
+    'in whole degrees.',
+  weatherCard:
+    'Adds the weather (air and track temperature and the conditions) to the info panel as one ' +
+    'more line, after your own lines. It shows only while your producer sends weather. Off by ' +
+    'default, because the weather box already shows it.',
+
+  // --- info panel only ---
+  infoDwellSeconds:
+    'How long each info line stays on screen before the next one replaces it, from 2 to 60 ' +
+    'seconds. A single line stays up for as long as it is the only one.',
+  infoLines:
+    'Your own lines for the info panel, such as sponsors or where to follow the broadcast. ' +
+    'They show after any lines your producer sends, one at a time. Up to 10 lines of up to 120 ' +
+    'characters; a line you already have is not added twice.',
+
+  // --- race updates only ---
+  updatesDwellSeconds:
+    'How long each race update card stays on screen, from 2 to 60 seconds. Updates that arrive ' +
+    'together wait their turn and show one after another, each for this long.',
 
   // --- qualifying timing bar only ---
   modes:
@@ -199,6 +245,14 @@ export const FIELD_HELP = Object.freeze({
     'session and shows them when the producer does not say. "show" and "hide" override the ' +
     'producer either way. The class color bars stay in every case. The editor preview’s sample ' +
     'feed does not say, so at "auto" the preview shows the tags.',
+  themePreset:
+    'The look of the whole overlay. "Modern" is the standard battlecast look. "Vintage 70s" is a ' +
+    '1970s US network look: gold italic lettering with a hard black drop shadow and a red bar on ' +
+    'the on-camera driver. "Vintage 80s" is a 1980s F1 timing-screen look: yellow-green ' +
+    'computer lettering with a black outline and a red header. Only the look changes; what each ' +
+    'widget shows, when and where stays the same, and class colors are the same in every look. ' +
+    'Add ?theme=vintage70 (or vintage80, or modern) to a Browser Source URL to override this for ' +
+    'that one source. The preview shows the chosen look; this editor panel always stays modern.',
 })
 
 /** Per-metric help for the tower's "tower metrics shown" group. Called out

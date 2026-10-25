@@ -30,6 +30,9 @@ const FIXTURE_FILES = [
   "race-local-yellow.json",
   "race-finish.json",
   "race-single-class.json",
+  "race-events.json",
+  "event-info.json",
+  "race-weather.json",
 ];
 
 let failed = 0;

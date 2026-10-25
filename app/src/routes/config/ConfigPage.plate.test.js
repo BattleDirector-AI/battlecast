@@ -25,10 +25,10 @@ import { FakeEventSource } from '../../lib/testing/fakeEventSource.js'
 import * as api from '../../lib/configApi.js'
 import { WIDGET_KEYS, normalizeConfig } from '../../lib/overlayConfig.js'
 
-/** Rule 23's plate-rendering widgets: the six that paint one of the plate tokens
+/** Rule 23's plate-rendering widgets: the nine that paint one of the plate tokens
  *  (`--bc-plate` / `--bc-plate-dense` / `--bc-header`). `logos` composites its
  *  images straight over the video with no panel behind them. */
-const PLATED = ['tower', 'battle', 'driver', 'qualifying', 'racecontrol', 'onboard']
+const PLATED = ['tower', 'battle', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates', 'info', 'weather']
 const UNPLATED = WIDGET_KEYS.filter((key) => !PLATED.includes(key))
 
 // The editor holds a producer feed connection open for its status readout (#158);

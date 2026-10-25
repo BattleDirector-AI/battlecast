@@ -91,7 +91,19 @@ so a single live mock exercises the whole overlay set. It loops forever:
 
 Positions are always the **overall** running order (multi-class independent), as in a
 real multi-class session. Every tick also carries `session.multiclass`, set from the
-field's actual class mix (always `true` for the simulator's four-class field). Each transition is logged to stdout, e.g.
+field's actual class mix (always `true` for the simulator's four-class field), and a rolling
+`race_events` list (ADR 0023): in the race, fastest laps from each car's second lap (overall, or
+per class when only the class best falls, and only once the class has a best from after the
+opening lap; an overall fastest lap can still come on a car's second lap), leader changes (after the opening lap, once the new leader has held it 10 s),
+Tsunoda's retirement, and a staged
+`+5s` penalty to the car running P3 at 30%; each event stays listed 45 sim-seconds, at most 20,
+with ids prefixed by a per-run key. Every tick also carries an `event` (ADR 0024:
+`battlecast Demo Endurance` at `Mock Raceway`, whose `round` counts the broadcast cycles, so it
+goes up on each loop back to qualifying) and a short `info_lines` list that follows the phase,
+ending with the same demo-feed line in every phase, and a `session.weather` (ADR 0025): an air
+temperature drifting slowly between 12 and 32 °C, a track temperature some degrees warmer (less
+in the rain), and conditions that now and then step between `Clear`, `Partly cloudy`, `Overcast`
+and `Light rain`. Each transition is logged to stdout, e.g.
 `[mock] phase → grid (sim-clock 312s)`. Phase durations are configurable — see
 [Configuration](#configuration).
 
@@ -155,6 +167,12 @@ The original behavior: each connection independently cycles through the fixtures
 - `race-single-class.json` — a four-car field of one class (`"Default"`) with
   `session.multiclass: false`, so the overlay hides its class tags at `theme.classTags: auto`
   (ADR 0022).
+- `race-events.json` — a `race_events` list with one event of each type: an overall and a
+  class fastest lap, a leader change, a class retirement and a penalty (ADR 0023).
+- `event-info.json` — an `event` (name, round, track) and three `info_lines`, the info
+  panel's header and rotating lines (ADR 0024).
+- `race-weather.json` — `event-info.json` plus a `session.weather` (air and track temperature,
+  conditions), the weather box and the info panel's weather card (ADR 0025).
 
 Fixtures are the **source of truth** for the app's fixture-based behavioral tests (see
 `CONTRIBUTING.md`) — use this mode when you want a known, reproducible scenario rather
@@ -173,6 +191,8 @@ Both check against the same required-field contract in
 visits **every** phase, and asserts that each of qualifying / grid / race / results was
 observed and validated (not just the race), and that qualifying surfaced a
 `notable.class_best_lap` flag so the class-best edge is exercised.
+The run is seeded (every random draw goes through a PRNG passed as `config.rng`; the live
+mock uses `Math.random`), so it is identical every time; `VALIDATE_SEED=<n>` tries another seed.
 
 ## Requirements
 

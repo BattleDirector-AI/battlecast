@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "1",
+  "mode": "race",
+  "vehicles": [
+    {
+      "slot_id": "car-7",
+      "driver_name": "Mike Conway",
+      "vehicle_class": "GTP",
+      "position": 1,
+      "last_lap": 209.304,
+      "best_lap": 209.304,
+      "gap_to_leader": 0,
+      "interval_ahead": null
+    },
+    {
+      "slot_id": "car-6",
+      "driver_name": "Kevin Estre",
+      "vehicle_class": "GTP",
+      "position": 2,
+      "last_lap": 210.412,
+      "best_lap": 208.977,
+      "gap_to_leader": 1.204,
+      "interval_ahead": 1.204
+    },
+    {
+      "slot_id": "car-92",
+      "driver_name": "Richard Lietz",
+      "vehicle_class": "GT3",
+      "position": 3,
+      "last_lap": 227.64,
+      "best_lap": 227.64,
+      "gap_to_leader": 24.871,
+      "interval_ahead": 23.667
+    },
+    {
+      "slot_id": "car-77",
+      "driver_name": "Klaus Bachler",
+      "vehicle_class": "GT3",
+      "position": 4,
+      "last_lap": 229.604,
+      "best_lap": 228.012,
+      "gap_to_leader": 27.305,
+      "interval_ahead": 2.434
+    },
+    {
+      "slot_id": "car-18",
+      "driver_name": "Ben Barker",
+      "vehicle_class": "GT3",
+      "position": 5,
+      "last_lap": null,
+      "best_lap": 231.88,
+      "gap_to_leader": null,
+      "interval_ahead": null,
+      "finish_status": 2
+    }
+  ],
+  "subject": {
+    "slot_id": "car-77",
+    "driver_name": "Klaus Bachler"
+  },
+  "relationship": {
+    "gap_ahead": 2.434,
+    "gap_behind": null,
+    "battle_intensity": 0.42
+  },
+  "session": {
+    "flag": "green",
+    "full_course_yellow": false,
+    "safety_car": false,
+    "multiclass": true
+  },
+  "race_events": [
+    {
+      "id": "ev-101",
+      "type": "fastest_lap",
+      "driver_name": "Kevin Estre",
+      "slot_id": "car-6",
+      "vehicle_class": null,
+      "lap_time": 208.977
+    },
+    {
+      "id": "ev-102",
+      "type": "fastest_lap",
+      "driver_name": "Richard Lietz",
+      "slot_id": "car-92",
+      "vehicle_class": "GT3",
+      "lap_time": 227.64,
+      "detail": "Lap 14"
+    },
+    {
+      "id": "ev-103",
+      "type": "leader_change",
+      "driver_name": "Mike Conway",
+      "slot_id": "car-7",
+      "detail": "Passes K. Estre into the first chicane"
+    },
+    {
+      "id": "ev-104",
+      "type": "retirement",
+      "driver_name": "Ben Barker",
+      "slot_id": "car-18",
+      "vehicle_class": "GT3",
+      "finish_status": 2,
+      "detail": "Gearbox"
+    },
+    {
+      "id": "ev-105",
+      "type": "penalty",
+      "driver_name": "Klaus Bachler",
+      "slot_id": "car-77",
+      "penalty": "Drive-through",
+      "detail": "Speeding in the pit lane"
+    }
+  ]
+}

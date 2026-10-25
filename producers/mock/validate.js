@@ -59,7 +59,90 @@ function validate(payload) {
     );
   }
 
+  // Optional, additive `race_events` (ADR 0023): null/absent, or an array of events, each with
+  // a non-blank string id (unique in the list), a known type, a driver_name, and the field its
+  // type requires.
+  if (payload.race_events != null) {
+    check(Array.isArray(payload.race_events), "race_events must be an array or null", errors);
+    if (Array.isArray(payload.race_events)) {
+      const ids = new Set();
+      payload.race_events.forEach((e, idx) => {
+        for (const problem of raceEventProblems(e)) errors.push(`race_events[${idx}]: ${problem}`);
+        if (e && typeof e.id === "string") {
+          check(!ids.has(e.id), `race_events[${idx}].id "${e.id}" is not unique`, errors);
+          ids.add(e.id);
+        }
+      });
+    }
+  }
+
+  // Optional, additive `event` and `info_lines` (ADR 0024): `event` is null/absent or an object
+  // whose `name` / `track` are strings and whose `round` is an integer >= 1 (each nullable);
+  // `info_lines` is null/absent or an array of strings.
+  if (payload.event != null) {
+    const ev = payload.event;
+    check(typeof ev === "object" && !Array.isArray(ev), "event must be an object or null", errors);
+    if (ev && typeof ev === "object" && !Array.isArray(ev)) {
+      for (const field of ["name", "track"]) {
+        check(ev[field] == null || typeof ev[field] === "string", `event.${field} must be a string or null`, errors);
+      }
+      check(
+        ev.round == null || (Number.isInteger(ev.round) && ev.round >= 1),
+        "event.round must be an integer >= 1 or null",
+        errors
+      );
+    }
+  }
+  // Optional, additive `session.weather` (ADR 0025): null/absent, or an object whose
+  // `air_temp` / `track_temp` are finite numbers and whose `conditions` is a string (each
+  // nullable).
+  if (payload.session && payload.session.weather != null) {
+    const w = payload.session.weather;
+    check(typeof w === "object" && !Array.isArray(w), "session.weather must be an object or null", errors);
+    if (w && typeof w === "object" && !Array.isArray(w)) {
+      for (const field of ["air_temp", "track_temp"]) {
+        check(
+          w[field] == null || (typeof w[field] === "number" && Number.isFinite(w[field])),
+          `session.weather.${field} must be a finite number or null`,
+          errors
+        );
+      }
+      check(w.conditions == null || typeof w.conditions === "string", "session.weather.conditions must be a string or null", errors);
+    }
+  }
+  if (payload.info_lines != null) {
+    check(Array.isArray(payload.info_lines), "info_lines must be an array or null", errors);
+    if (Array.isArray(payload.info_lines)) {
+      payload.info_lines.forEach((line, idx) =>
+        check(typeof line === "string", `info_lines[${idx}] must be a string`, errors)
+      );
+    }
+  }
+
   return errors;
 }
 
-module.exports = { validate };
+const RACE_EVENT_TYPES = ["fastest_lap", "leader_change", "retirement", "penalty"];
+const nonBlank = (v) => typeof v === "string" && v.trim() !== "";
+
+/** What is wrong with one `race_events` entry (empty when it is a valid event). */
+function raceEventProblems(e) {
+  if (!e || typeof e !== "object" || Array.isArray(e)) return ["must be an object"];
+  const problems = [];
+  if (!nonBlank(e.id)) problems.push("id must be a non-blank string");
+  if (!RACE_EVENT_TYPES.includes(e.type)) problems.push(`type ${JSON.stringify(e.type)} is not a known type`);
+  if (!nonBlank(e.driver_name)) problems.push("driver_name must be a non-blank string");
+  if (e.slot_id != null && typeof e.slot_id !== "string") problems.push("slot_id must be a string");
+  if (e.vehicle_class != null && typeof e.vehicle_class !== "string") problems.push("vehicle_class must be a string or null");
+  if (e.detail != null && typeof e.detail !== "string") problems.push("detail must be a string");
+  if (e.type === "fastest_lap" && !(typeof e.lap_time === "number" && Number.isFinite(e.lap_time) && e.lap_time > 0)) {
+    problems.push("fastest_lap needs a lap_time > 0");
+  }
+  if (e.type === "retirement" && e.finish_status !== 2 && e.finish_status !== 3) {
+    problems.push("retirement needs finish_status 2 or 3");
+  }
+  if (e.type === "penalty" && !nonBlank(e.penalty)) problems.push("penalty needs penalty text");
+  return problems;
+}
+
+module.exports = { validate, raceEventProblems };

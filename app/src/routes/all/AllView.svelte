@@ -6,6 +6,9 @@
   import QualifyingLowerThird from '../qualifying/QualifyingLowerThird.svelte'
   import RaceControlStatus from '../racecontrol/RaceControlStatus.svelte'
   import OnBoardHud, { resolveIdentity } from '../onboard/OnBoardHud.svelte'
+  import RaceUpdateBox from '../updates/RaceUpdateBox.svelte'
+  import InfoPanel from '../info/InfoPanel.svelte'
+  import WeatherBox from '../weather/WeatherBox.svelte'
   import { resolveSubject } from '../driver/DriverLowerThird.svelte'
   import {
     DEFAULT_CONFIG,
@@ -22,7 +25,8 @@
 
   // `preview` (the /config editor) disables the on-board HUD's lower-third hand-off so
   // the HUD is always visible for positioning/configuring — the hand-off is a runtime
-  // timing behavior that a static single-frame preview can't meaningfully show.
+  // timing behavior that a static single-frame preview can't meaningfully show. It also
+  // tells the race update box to take no baseline, so the sample events show.
   let { snapshot = null, config = DEFAULT_CONFIG, preview = false } = $props()
 
   // Class filter is a per-Browser-Source knob, read from the URL like ?src= / ?show=
@@ -84,7 +88,7 @@
   $effect(() => () => battleGrace.destroy())
 
   const idleCtx = (key) => ({ snapshot: key === 'battle' ? battleSnapshot : snapshot, config: normalized })
-  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard'])
+  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates', 'info', 'weather'])
   const widgets = $derived(
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
@@ -191,6 +195,18 @@
           waitForLowerThird={onboardCfg?.waitForLowerThird}
           {classColors}
         />
+      {:else if w.key === 'updates'}
+        <RaceUpdateBox {snapshot} dwellSeconds={w.dwellSeconds} {preview} />
+      {:else if w.key === 'info'}
+        <InfoPanel
+          {snapshot}
+          dwellSeconds={w.dwellSeconds}
+          lines={w.lines}
+          weatherCard={w.weatherCard}
+          tempUnit={w.tempUnit}
+        />
+      {:else if w.key === 'weather'}
+        <WeatherBox {snapshot} tempUnit={w.tempUnit} />
       {/if}
     </div>
   {/each}

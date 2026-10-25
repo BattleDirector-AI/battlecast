@@ -13,7 +13,7 @@
 // OBS/CEF host (which reports `reduce`) still plays the reveals. Tests that exercise
 // the animated path set `document.documentElement.dataset.motion = 'full'` (or remove
 // the attribute) themselves; `beforeEach` resets the default so that never leaks.
-import { beforeEach } from 'vitest'
+import { beforeEach, vi } from 'vitest'
 
 const MOTION_DEFAULT = 'reduced'
 
@@ -25,6 +25,20 @@ function resetMotion() {
 
 resetMotion()
 beforeEach(resetMotion)
+
+// Default every test to "companion server not running". Pages such as /config probe
+// `/api/profiles` on mount; unstubbed, happy-dom sends that to its default origin
+// (localhost:3000), so the result depended on whatever was listening there and each
+// refused connection printed an AggregateError. Tests that need a server stub `fetch`
+// themselves, which overrides this.
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      throw new TypeError('fetch failed: no companion server in tests')
+    }),
+  )
+})
 
 // Legacy `matchMedia` stub — the app no longer reads it (motion goes through
 // lib/motion.js / `data-motion`), but keep a benign stub so any incidental caller in

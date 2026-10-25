@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>battlecast · vintage-80s-f1</title>
+<meta name="viewport" content="width=1920, height=1080">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+ * THEME TOKENS — "vintage-80s-f1"
+ * FOCA world feed / Olivetti timing page (BBC 1985 British GP) with
+ * Channel 7 Bathurst 1987 colour accents (red header bar, yellow
+ * condensed captions, red car numbers) and RAI 1989's arrow gap plate.
+ * Same token names/roles as app/src/design/tokens/*.css, re-valued.
+ * ===================================================================== */
+:root {
+  /* ---- Type ---- */
+  --bc-font-mono: 'VT323', 'Lucida Console', monospace;            /* Olivetti raster CG: timing + numerals */
+  --bc-font-display: 'Oswald', 'Arial Narrow', sans-serif;         /* Channel 7 condensed caption capitals */
+  --bc-font-ui: 'VT323', 'Lucida Console', monospace;              /* labels share the CG raster face */
+  --bc-num-features: "tnum" 1;
+  --bc-weight-name: 600;
+  --bc-weight-num: 600;
+  --bc-size-name: 36px;
+  --bc-size-pos: 36px;
+  --bc-size-gap: 34px;
+  --bc-size-carnum: 28px;
+  --bc-size-label: 20px;
+  --bc-size-title: 40px;
+  --bc-track-label: 0.08em;
+  --bc-track-title: 0.12em;          /* CG pages were set wide */
+
+  /* ---- Colour ---- */
+  --bc-text: #DCEB3F;                /* Olivetti yellow-green */
+  --bc-text-2: #F4F3E6;              /* CG white */
+  --bc-text-3: #CDB98A;              /* tan, nationality codes (Fuji/FOCA '89) */
+  --bc-caption: #FFD21E;             /* Channel 7 caption yellow */
+  --bc-carnum: #FF4B23;              /* Channel 7 red-orange car number */
+  --bc-header: #D8141C;              /* "Scoreboard" red header bar */
+  --bc-header-hi: #FF3A35;
+  --bc-plate-gap: #FFD21E;           /* RAI '89 yellow arrow gap plate */
+  --bc-accent: #DCEB3F;              /* on-camera: reverse-video row (lime fill, black type) */
+  --bc-accent-text: #0B0B06;
+  --bc-flag-green: #2FD14A;
+  --bc-flag-yellow: #FFD21E;
+  --bc-led-on: #DCEB3F;
+  --bc-led-hot: #FF3A1E;
+  --bc-led-off: rgba(20, 22, 10, .55);
+
+  /* Multi-class: flat tiles, CG primaries */
+  --bc-class-gtp: #E8231C;
+  --bc-class-lmp2: #2F6BFF;
+  --bc-class-gt3: #2FD14A;
+  --bc-class-gt4: #F4F3E6;
+  --bc-class-tcr: #FF9A1E;
+
+  /* ---- Legibility treatment ----
+   * Period: 1-2 px hard black outline round bitmap glyphs, no plate.
+   * Support: an extra 1 px drop + soft halo, and a faint feathered backing. */
+  --bc-outline:
+     -2px -2px 0 #000, 0 -2px 0 #000, 2px -2px 0 #000, 2px 0 0 #000,
+      2px 2px 0 #000, 0 2px 0 #000, -2px 2px 0 #000, -2px 0 0 #000,
+      3px 3px 0 #000, 0 0 9px rgba(0,0,0,.6);
+  --bc-outline-thin:
+     -1px -1px 0 #000, 1px -1px 0 #000, 1px 1px 0 #000, -1px 1px 0 #000,
+      2px 2px 0 #000, 0 0 6px rgba(0,0,0,.6);
+  --bc-plate-shadow: 3px 3px 0 #000;
+  --bc-backing-rgb: 0, 0, 0;
+  --bc-backing-a: 0.40;
+  --bc-feather: 56px;
+
+  /* ---- Layout ---- */
+  --bc-inset-safe: 48px;
+  --bc-tower-width: 640px;
+  --bc-battle-width: 500px;
+  --bc-row-standard: 38px;
+  --bc-radius: 0;
+  --bc-tile-w: 46px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+body { position: relative; font-family: var(--bc-font-mono); color: var(--bc-text); }
+
+/* =================== Fake race video (CSS only) — overcast Silverstone =================== */
+.scene { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+.scene__inner { position: absolute; inset: -40px; filter: blur(5px); }
+.sky { position: absolute; left: 0; right: 0; top: 0; height: 34%;
+  background: linear-gradient(180deg, #b9c1c6 0%, #dfe3e3 100%); }
+.glare { position: absolute; left: 58%; top: -6%; width: 760px; height: 460px; border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0%, rgba(255,255,255,.85) 35%, rgba(255,255,255,0) 70%); }
+.trees { position: absolute; left: 0; right: 0; top: 24%; height: 12%;
+  background: radial-gradient(ellipse 80px 60px at 40px 70px, #2f4a2a 60%, transparent 62%) 0 0/120px 100% repeat-x, #3e5c36; }
+.boards { position: absolute; left: 0; right: 0; top: 35%; height: 4%;
+  background: repeating-linear-gradient(90deg, #f2f2f2 0 160px, #c8102e 160px 260px, #f5d000 260px 330px, #1d3f8f 330px 430px); }
+.grass { position: absolute; left: 0; right: 0; top: 39%; bottom: 0;
+  background: linear-gradient(180deg, #5d8a3a 0%, #4b7a2c 50%, #3c6a22 100%); }
+.track { position: absolute; left: -20%; right: -20%; top: 43%; bottom: -10%;
+  background: linear-gradient(180deg, #8a8c8d 0%, #646668 100%);
+  clip-path: polygon(48% 0, 70% 0, 62% 100%, 0 100%); }
+.kerb { position: absolute; left: 30%; top: 66%; width: 560px; height: 40px; transform: rotate(-24deg);
+  background: repeating-linear-gradient(90deg, #e9e9e9 0 40px, #c8102e 40px 80px); }
+.car { position: absolute; border-radius: 10px; box-shadow: 0 10px 0 #222; }
+.car--a { left: 46%; top: 60%; width: 150px; height: 50px; background: #f4f4f0; border-top: 12px solid #e2261c; }
+.car--b { left: 30%; top: 76%; width: 200px; height: 66px; background: #1a1a1a; border-top: 14px solid #f5d000; }
+body.bright .sky { background: #fff; }
+body.bright .glare { left: 0; top: 0; width: 100%; height: 100%; border-radius: 0; background: radial-gradient(ellipse at 50% 30%, #fff 0%, rgba(255,255,255,.6) 100%); }
+body.bright .trees { background: #e6ece2; }
+body.bright .boards { background: repeating-linear-gradient(90deg, #fff 0 160px, #f6dada 160px 260px, #fff6c8 260px 330px, #fff 330px 430px); }
+body.bright .grass { background: linear-gradient(180deg, #edf2e6 0%, #dfe8d4 100%); }
+body.bright .track { background: linear-gradient(180deg, #f7f7f5 0%, #e3e3e0 100%); }
+body.bright .kerb { background: repeating-linear-gradient(90deg, #fff 0 40px, #f7dcdc 40px 80px); }
+body.bright .car--a { background: #fff; border-top-color: #f6d0cd; } body.bright .car--b { background: #ececec; border-top-color: #fff3b8; }
+
+.scanlines { position: absolute; inset: 0; z-index: 50; pointer-events: none; display: none;
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,.2) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; }
+body.scan .scanlines { display: block; }
+
+/* =================== Overlay =================== */
+.overlay { position: absolute; inset: 0; z-index: 10; }
+.backing { position: absolute; inset: -40px -60px; z-index: -1; pointer-events: none;
+  background: rgba(var(--bc-backing-rgb), var(--bc-backing-a));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--bc-feather), #000 calc(100% - var(--bc-feather)), transparent),
+                      linear-gradient(180deg, transparent, #000 var(--bc-feather), #000 calc(100% - var(--bc-feather)), transparent);
+  -webkit-mask-composite: source-in; mask-composite: intersect; }
+.cg { text-shadow: var(--bc-outline); }
+/* VT323 is a single thin weight: a hairline same-colour stroke gives it CG chunkiness */
+.tower, .battle, .status__flag, .tile { -webkit-text-stroke: .6px currentColor; }
+.tile { height: 30px; display: grid; place-items: center; background: var(--cls); color: #0B0B06;
+  font-family: var(--bc-font-mono); font-weight: 700; font-size: var(--bc-size-carnum); font-feature-settings: var(--bc-num-features);
+  box-shadow: var(--bc-plate-shadow), inset 0 0 0 2px rgba(0,0,0,.35); }
+.tile--light { color: #fff; text-shadow: var(--bc-outline-thin); }
+.row > .tile:not(.tile--light), .slot > .tile:not(.tile--light) { text-shadow: none; } /* dark numerals on flat tiles: no outline */
+.row > .tile.tile--light, .slot > .tile.tile--light { text-shadow: var(--bc-outline-thin); }
+
+/* ---------- Standings tower (Olivetti "positions at N laps" page) ---------- */
+.tower { position: absolute; left: var(--bc-inset-safe); top: var(--bc-inset-safe); width: var(--bc-tower-width); isolation: isolate; }
+.tower__head { text-align: center; font-weight: 600; font-size: var(--bc-size-title); letter-spacing: var(--bc-track-title);
+  text-transform: uppercase; text-shadow: var(--bc-outline); line-height: 1.1; }
+.tower__mode { text-align: center; margin-top: 2px; font-weight: 500; font-size: 27px; letter-spacing: .24em; color: var(--bc-text-2); text-shadow: var(--bc-outline-thin); }
+.rows { list-style: none; margin-top: 14px; }
+.row { position: relative; display: grid; grid-template-columns: 34px var(--bc-tile-w) minmax(0,1fr) 48px 132px 88px; column-gap: 12px;
+  align-items: center; height: var(--bc-row-standard); padding: 0 6px; }
+.row > * { text-shadow: var(--bc-outline); white-space: nowrap; }
+.row__pos { text-align: right; font-weight: 600; font-size: var(--bc-size-pos); color: var(--bc-text-2); font-feature-settings: var(--bc-num-features); }
+.row__name { font-weight: var(--bc-weight-name); font-size: var(--bc-size-name); letter-spacing: var(--bc-track-label); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; padding: 3px 4px 4px 3px; margin: -3px -4px -4px -3px; }
+.row__nat { font-weight: 500; font-size: 30px; letter-spacing: .06em; color: var(--bc-text-3); }
+.row__gap { text-align: right; font-weight: 600; font-size: var(--bc-size-gap); font-feature-settings: var(--bc-num-features); }
+.row__int { text-align: right; font-weight: 500; font-size: 29px; color: var(--bc-text-2); font-feature-settings: var(--bc-num-features); }
+.row--oncam { background: var(--bc-accent); box-shadow: var(--bc-plate-shadow); }
+.row--oncam > * { color: var(--bc-accent-text); text-shadow: none; }
+.row--oncam .tile { box-shadow: inset 0 0 0 2px rgba(0,0,0,.35); }
+.row--oncam > .tile--light, .slot--focus > .tile--light { color: #fff; text-shadow: var(--bc-outline-thin); }
+.row--pit .row__int { color: var(--bc-flag-yellow); }
+.row__lap { color: var(--bc-text-2); }
+.tower__foot { margin-top: 14px; text-align: center; font-weight: 600; font-size: 30px; letter-spacing: .28em; color: var(--bc-text); text-shadow: var(--bc-outline); }
+
+/* ---------- Session status (Channel 7 red header bar) ---------- */
+.status { position: absolute; top: var(--bc-inset-safe); left: 50%; transform: translateX(-50%); display: flex; align-items: stretch; filter: drop-shadow(3px 3px 0 #000); }
+.status__bar { display: flex; align-items: center; gap: 18px; padding: 0 26px 0 22px; height: 60px;
+  background: linear-gradient(180deg, var(--bc-header-hi) 0 4px, var(--bc-header) 4px calc(100% - 4px), #8f0a10 calc(100% - 4px));
+  clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%); }
+.status__lbl { font-family: var(--bc-font-display); font-weight: 600; font-size: 22px; letter-spacing: .14em; color: #fff; transform: skewX(-10deg); }
+.status__lap { font-family: var(--bc-font-display); font-weight: 700; font-size: 38px; color: var(--bc-caption); transform: skewX(-10deg);
+  text-shadow: var(--bc-outline-thin); font-feature-settings: var(--bc-num-features); letter-spacing: .02em; white-space: nowrap; }
+.status__flag { display: flex; align-items: center; margin-left: -6px; padding: 0 22px 0 24px; height: 60px; background: var(--bc-flag-green); color: #06200b;
+  font-weight: 700; font-size: 32px; letter-spacing: .14em; clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%); }
+
+/* ---------- Battle box (RAI '89 arrow gap plates) ---------- */
+.battle { position: absolute; right: var(--bc-inset-safe); top: var(--bc-inset-safe); width: var(--bc-battle-width); isolation: isolate; }
+.battle__head { text-align: center; font-weight: 600; font-size: 40px; letter-spacing: var(--bc-track-title); text-shadow: var(--bc-outline); }
+.battle__sub { text-align: center; margin-top: 0; font-weight: 600; font-size: 27px; letter-spacing: .3em; color: var(--bc-led-hot); text-shadow: var(--bc-outline-thin); }
+.battle__list { margin-top: 12px; }
+.slot { display: grid; grid-template-columns: 96px var(--bc-tile-w) minmax(0,1fr); column-gap: 14px; align-items: center; height: 42px; padding: 0 8px; }
+.slot > * { text-shadow: var(--bc-outline); white-space: nowrap; }
+.slot__label { font-weight: 500; font-size: 26px; letter-spacing: .14em; color: var(--bc-text-2); }
+.slot__name { font-weight: 600; font-size: 38px; letter-spacing: var(--bc-track-label); }
+.slot--focus { background: var(--bc-accent); box-shadow: var(--bc-plate-shadow); height: 48px; }
+.slot--focus > * { color: var(--bc-accent-text); text-shadow: none; }
+.slot--focus .tile { box-shadow: inset 0 0 0 2px rgba(0,0,0,.35); }
+.gapplate { display: flex; justify-content: flex-end; height: 40px; margin: 4px 0; padding-right: 8px; }
+.gapplate span { display: flex; align-items: baseline; justify-content: center; padding-top: 2px; white-space: nowrap; min-width: 170px; padding: 0 22px 0 30px; background: var(--bc-plate-gap); color: #0B0B06;
+  font-weight: 700; font-size: 36px; line-height: 38px; font-feature-settings: var(--bc-num-features); letter-spacing: .04em;
+  clip-path: polygon(22px 0, 100% 0, 100% 100%, 22px 100%, 0 50%); filter: drop-shadow(3px 3px 0 #000); }
+.gapplate { filter: drop-shadow(3px 3px 0 #000); }
+.gapplate small { font-size: 22px; letter-spacing: .1em; margin-left: 8px; }
+.meter { display: flex; align-items: center; gap: 14px; margin-top: 14px; padding: 0 8px; }
+.meter__label { font-weight: 500; font-size: 26px; letter-spacing: .14em; color: var(--bc-text-2); text-shadow: var(--bc-outline); }
+.meter__track { flex: 1; display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; height: 18px; }
+.meter__track i { background: var(--bc-led-off); box-shadow: 2px 2px 0 #000, inset 0 0 0 1px rgba(0,0,0,.6); }
+.meter__track i.on { background: var(--bc-led-on); }
+.meter__track i.on.hot { background: var(--bc-led-hot); }
+
+/* ---------- Driver lower-third (Channel 7 caption + PIT REPORT-style chevron tag) ---------- */
+.lt { position: absolute; left: var(--bc-inset-safe); bottom: 92px; isolation: isolate; }
+.lt .backing { inset: -44px -70px -34px -60px; }
+.lt__tag { display: inline-flex; align-items: stretch; height: 40px; filter: drop-shadow(3px 3px 0 #000); }
+.lt__tag .chev { width: 40px; background: var(--bc-header); clip-path: polygon(0 0, 50% 45%, 100% 0, 100% 55%, 50% 100%, 0 55%); margin-right: -6px; align-self: center; height: 36px; }
+.lt__tag .a { display: grid; place-items: center; padding: 0 16px; background: var(--bc-header); color: #fff; font-family: var(--bc-font-display); font-weight: 700; font-size: 22px; letter-spacing: .12em; }
+.lt__tag .b { display: grid; place-items: center; padding: 0 16px; background: #F4F3E6; color: #111; font-family: var(--bc-font-display); font-weight: 600; font-size: 22px; letter-spacing: .12em; }
+.lt__line1 { display: flex; align-items: baseline; gap: 18px; margin-top: 10px; font-family: var(--bc-font-display); font-weight: 700; font-size: 62px; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+.lt__num { color: var(--bc-carnum); text-shadow: var(--bc-outline); font-feature-settings: var(--bc-num-features); }
+.lt__name { color: var(--bc-caption); text-shadow: var(--bc-outline); letter-spacing: .01em; }
+.lt__line2 { margin-top: 8px; padding-left: 4px; font-family: var(--bc-font-display); font-weight: 600; font-size: 28px; letter-spacing: .1em; color: var(--bc-text-2); text-transform: uppercase; text-shadow: var(--bc-outline); white-space: nowrap; }
+.lt__line2 b { color: var(--bc-caption); font-weight: 700; }
+
+.controls { position: absolute; right: 20px; bottom: 16px; z-index: 100; display: flex; gap: 8px; font: 600 13px/1 system-ui, sans-serif; }
+.controls button { font: inherit; padding: 8px 12px; border: 1px solid #555; background: rgba(20,20,20,.8); color: #eee; cursor: pointer; }
+.controls button[aria-pressed="true"] { background: #DCEB3F; color: #111; border-color: #DCEB3F; }
+body.clean .controls { display: none; }
+</style>
+</head>
+<body>
+<div class="scene" aria-hidden="true"><div class="scene__inner">
+  <div class="sky"></div><div class="glare"></div><div class="trees"></div><div class="boards"></div>
+  <div class="grass"></div><div class="track"></div><div class="kerb"></div>
+  <div class="car car--a"></div><div class="car car--b"></div>
+</div></div>
+
+<main class="overlay">
+  <section class="tower" aria-label="Standings">
+    <div class="backing"></div>
+    <div class="tower__head">POSITIONS AT 38 LAPS</div>
+    <div class="tower__mode">RACE &nbsp;·&nbsp; LAP 38 OF 200</div>
+    <ol class="rows" id="rows"></ol>
+    <div class="tower__foot">COMPUTER &nbsp;BATTLECAST</div>
+  </section>
+
+  <section class="status" aria-label="Session status">
+    <div class="status__bar"><span class="status__lbl">SCOREBOARD</span><span class="status__lap">LAP 38 OF 200</span></div>
+    <div class="status__flag">GREEN FLAG</div>
+  </section>
+
+  <section class="battle" aria-label="Battle for position">
+    <div class="backing"></div>
+    <div class="battle__head">BATTLE FOR 5TH</div>
+    <div class="battle__sub">CLOSING</div>
+    <div class="battle__list">
+      <div class="slot"><span class="slot__label">AHEAD</span><span class="tile tile--light" style="--cls:var(--bc-class-gtp)">27</span><span class="slot__name">ALBARELLI</span></div>
+      <div class="gapplate"><span>0.412<small>SEC</small></span></div>
+      <div class="slot slot--focus"><span class="slot__label">FOCUS</span><span class="tile tile--light" style="--cls:var(--bc-class-gtp)">7</span><span class="slot__name">PACHECO</span></div>
+      <div class="gapplate"><span>0.885<small>SEC</small></span></div>
+      <div class="slot"><span class="slot__label">BEHIND</span><span class="tile tile--light" style="--cls:var(--bc-class-lmp2)">6</span><span class="slot__name">RASMUSSEN</span></div>
+    </div>
+    <div class="meter"><span class="meter__label">INTENSITY</span><div class="meter__track" id="meter"></div></div>
+  </section>
+
+  <section class="lt" aria-label="On camera">
+    <div class="backing"></div>
+    <div class="lt__tag"><span class="chev"></span><span class="a">ON CAMERA</span><span class="b">P5</span></div>
+    <div class="lt__line1"><span class="lt__num">7</span><span class="lt__name">Nelson Pacheco</span></div>
+    <div class="lt__line2"><b>GTP</b> &nbsp;·&nbsp; BRA &nbsp;·&nbsp; MERIDIAN M54</div>
+  </section>
+</main>
+
+<div class="scanlines" aria-hidden="true"></div>
+
+<div class="controls">
+  <button id="bBright" aria-pressed="false">Bright scene (B)</button>
+  <button id="bScan" aria-pressed="false">Scanlines (S)</button>
+</div>
+
+<script>
+const light = new Set(['gtp', 'lmp2']);
+const field = [
+  { num: 12, name: 'Sorrento',     nat: 'BRA', cls: 'gtp',  gap: "58'12.274", int: '' },
+  { num: 2,  name: 'Provost',     nat: 'FRA', cls: 'gtp',  gap: '5.148',  int: '5.148' },
+  { num: 1,  name: 'Lindner',     nat: 'AUT', cls: 'gtp',  gap: '24.075', int: '18.927' },
+  { num: 27, name: 'Albarelli',  nat: 'ITA', cls: 'gtp',  gap: '30.233', int: '6.158' },
+  { num: 7,  name: 'Pacheco',    nat: 'BRA', cls: 'gtp',  gap: '30.645', int: '0.412', oncam: true },
+  { num: 6,  name: 'Rasmussen',   nat: 'FIN', cls: 'lmp2', gap: '31.530', int: '0.885' },
+  { num: 25, name: 'De Castro', nat: 'ITA', cls: 'lmp2', gap: '47.089', int: '15.559' },
+  { num: 5,  name: 'Mansfield',   nat: 'GBR', cls: 'lmp2', gap: '51.153', int: 'PIT', pit: true },
+  { num: 28, name: 'Halvorsen', nat: 'SWE', cls: 'gt3',  gap: '1 LAP',  int: '', lap: true },
+  { num: 11, name: 'De Amicis', nat: 'ITA', cls: 'gt3', gap: '1 LAP',  int: '4.022', lap: true },
+  { num: 3,  name: 'Bramwell',   nat: 'GBR', cls: 'gt4',  gap: '1 LAP',  int: '9.871', lap: true },
+  { num: 19, name: 'Fabbri',      nat: 'ITA', cls: 'tcr',  gap: '2 LAPS', int: '', lap: true },
+];
+document.getElementById('rows').innerHTML = field.map((d, i) => `
+  <li class="row${d.oncam ? ' row--oncam' : ''}${d.pit ? ' row--pit' : ''}">
+    <span class="row__pos">${i + 1}</span>
+    <span class="tile${light.has(d.cls) ? ' tile--light' : ''}" style="--cls:var(--bc-class-${d.cls})">${d.num}</span>
+    <span class="row__name">${d.name}</span>
+    <span class="row__nat">${d.nat}</span>
+    <span class="row__gap${d.lap ? ' row__lap' : ''}">${d.gap}</span>
+    <span class="row__int">${d.int}</span>
+  </li>`).join('');
+const intensity = 0.8, n = 12;
+document.getElementById('meter').innerHTML = Array.from({ length: n }, (_, i) =>
+  `<i class="${i < Math.round(intensity * n) ? 'on' : ''}${i >= 8 ? ' hot' : ''}"></i>`).join('');
+
+const q = new URLSearchParams(location.search);
+function setFlag(cls, btn, on) { document.body.classList.toggle(cls, on); btn.setAttribute('aria-pressed', on); }
+const bB = document.getElementById('bBright'), bS = document.getElementById('bScan');
+setFlag('bright', bB, q.get('bg') === 'bright');
+setFlag('scan', bS, q.has('scan'));
+if (q.has('clean')) document.body.classList.add('clean');
+bB.onclick = () => setFlag('bright', bB, !document.body.classList.contains('bright'));
+bS.onclick = () => setFlag('scan', bS, !document.body.classList.contains('scan'));
+addEventListener('keydown', e => {
+  if (e.key === 'b' || e.key === 'B') bB.click();
+  if (e.key === 's' || e.key === 'S') bS.click();
+  if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('clean');
+});
+</script>
+</body>
+</html>

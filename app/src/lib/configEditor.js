@@ -7,11 +7,14 @@ import {
   normalizeConfig,
   normalizeClassColors,
   normalizeClassTags,
+  normalizeThemePreset,
   MIN_CANVAS,
   finiteOrNull,
   TEXT_SCALES,
   textScaleFactor,
   rendersText,
+  normalizeInfoLine,
+  INFO_LINES_MAX,
 } from './overlayConfig.js'
 
 /** Clamp a widget's geometry so it stays a sane box within the given canvas. */
@@ -198,11 +201,56 @@ export function removeClassColor(config, className) {
   return next
 }
 
+/** The info panel's own lines (overlay-config.md rules 52-53). Each helper applies rule 52's
+ *  trimming and 120-character cut, and refuses (returns the config with `lines` unchanged) a
+ *  line that is blank or equal to another stored line, and an 11th line. */
+function withInfoLines(config, edit) {
+  const next = normalizeConfig(config)
+  const info = next.widgets.info
+  if (!info) return next
+  const lines = edit(info.lines)
+  if (lines) next.widgets.info = { ...info, lines }
+  return next
+}
+
+/** Append a line to the end of the info panel's `lines`. */
+export function addInfoLine(config, text) {
+  return withInfoLines(config, (lines) => {
+    const line = normalizeInfoLine(text)
+    if (line === null || lines.includes(line) || lines.length >= INFO_LINES_MAX) return null
+    return [...lines, line]
+  })
+}
+
+/** Replace the line at `index` in place. */
+export function setInfoLine(config, index, text) {
+  return withInfoLines(config, (lines) => {
+    const line = normalizeInfoLine(text)
+    if (index < 0 || index >= lines.length || line === null) return null
+    if (lines.some((other, i) => i !== index && other === line)) return null
+    return lines.map((other, i) => (i === index ? line : other))
+  })
+}
+
+/** Remove the line at `index`; the lines after it move up one place. */
+export function removeInfoLine(config, index) {
+  return withInfoLines(config, (lines) =>
+    index >= 0 && index < lines.length ? lines.filter((_, i) => i !== index) : null,
+  )
+}
+
 /** Set the overlay-wide class-tag setting (overlay-config rule 48); an unknown value
  *  normalizes to `auto`. Touches nothing else, `theme.classColors` included. */
 export function setClassTags(config, value) {
   const next = normalizeConfig(config)
   next.theme = { ...next.theme, classTags: normalizeClassTags(value) }
+  return next
+}
+
+/** The overlay-wide look preset (overlay-config rules 58, 62); anything unknown is `modern`. */
+export function setThemePreset(config, value) {
+  const next = normalizeConfig(config)
+  next.theme = { ...next.theme, preset: normalizeThemePreset(value) }
   return next
 }
 
