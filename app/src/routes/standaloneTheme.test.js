@@ -22,6 +22,7 @@ import LogosPage from './logos/LogosPage.svelte'
 import UpdatesPage from './updates/UpdatesPage.svelte'
 import InfoPage from './info/InfoPage.svelte'
 import WeatherPage from './weather/WeatherPage.svelte'
+import RaceControlPage from './racecontrol/RaceControlPage.svelte'
 
 vi.mock('../lib/sseClient.js', () => ({
   DEFAULT_SRC: 'http://localhost:8080/events',
@@ -85,6 +86,7 @@ const PAGES = [
   ['/updates', UpdatesPage],
   ['/info', InfoPage],
   ['/weather', WeatherPage],
+  ['/racecontrol', RaceControlPage],
 ]
 
 describe("render pages apply the profile's theme.preset (overlay-config rule 59)", () => {

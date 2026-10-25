@@ -19,6 +19,7 @@ import ResultsPage from './results/ResultsPage.svelte'
 import UpdatesPage from './updates/UpdatesPage.svelte'
 import InfoPage from './info/InfoPage.svelte'
 import WeatherPage from './weather/WeatherPage.svelte'
+import RaceControlPage from './racecontrol/RaceControlPage.svelte'
 import AllPage from './all/AllPage.svelte'
 
 /** The root `data-motion` value at each feed open, in order, and each open's disconnect. */
@@ -87,6 +88,7 @@ const PAGES = [
   ['/updates', UpdatesPage],
   ['/info', InfoPage],
   ['/weather', WeatherPage],
+  ['/racecontrol', RaceControlPage],
   ['/all', AllPage],
 ]
 
