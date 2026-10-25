@@ -15,6 +15,7 @@
   onMount(() => {
     let cancelled = false
     let stopWatch = () => {}
+    let disconnect = () => {}
     loadConfig(window.location.search).then((config) => {
       if (cancelled) return
       dwellSeconds = config.widgets.updates.dwellSeconds
@@ -34,9 +35,11 @@
         },
         { initial: config },
       )
-    })
-    const disconnect = connect(resolveSrc(), (next) => {
-      snapshot = next
+      // The feed opens only once the profile has resolved and the motion mode is final, so a
+      // reducedMotion profile's first entrance is already reduced (overlay-config rule 10).
+      disconnect = connect(resolveSrc(), (next) => {
+        snapshot = next
+      })
     })
     return () => {
       cancelled = true
