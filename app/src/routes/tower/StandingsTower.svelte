@@ -431,9 +431,12 @@
       family: read('--bc-font-display', "'Saira Condensed', 'Arial Narrow', sans-serif"),
     }
   }
+  // The name cell's font style leads the string when it is not normal (italic under vintage70).
   const measuringFont = () => {
     const f = nameFontParts()
-    return `${f.weight} ${f.size} ${f.family}`
+    const cell = towerEl?.querySelector('[data-testid="driver-name"]') ?? towerEl
+    const style = computedStyle(cell)?.fontStyle?.trim()
+    return `${style && style !== 'normal' ? `${style} ` : ''}${f.weight} ${f.size} ${f.family}`
   }
   const familyKey = (family) =>
     String(family ?? '').trim().replace(/^['"]|['"]$/g, '').trim().toLowerCase()
@@ -452,6 +455,9 @@
   let destroyed = false
   let lastSettings = null
   let lastMode = null
+  // Bumped by a theme preset change; the measuring effect resets when it moves.
+  let themeResets = $state(0)
+  let lastThemeResets = 0
   let measureCtx // undefined until first use; null when there is no 2D context
 
   function textWidth(text, font) {
@@ -519,10 +525,12 @@
     const mode = modeKey(snapshot)
     const full = fullStyle
     const el = towerEl
+    const themeKey = themeResets
     void [renderRows, groups, pageEpoch] // re-read the rest when the rows re-render
     untrack(() => {
-      let reset = key !== lastSettings
+      let reset = key !== lastSettings || themeKey !== lastThemeResets
       lastSettings = key
+      lastThemeResets = themeKey
       if (mode !== null) {
         if (lastMode !== null && mode !== lastMode) reset = true
         lastMode = mode
@@ -611,6 +619,23 @@
       fonts.removeEventListener?.('loadingdone', onLoadingDone)
       fonts.removeEventListener?.('loadingerror', onLoadingError)
     }
+  })
+  // A theme preset change on the nearest data-theme ancestor is a reset. A render page writes
+  // the root attribute only after the tower mounts, so with no such ancestor the root is watched.
+  $effect(() => {
+    const el = towerEl
+    if (!el || typeof MutationObserver !== 'function') return
+    const target = el.closest('[data-theme]') ?? document.documentElement
+    const themeOf = () => target.getAttribute('data-theme') || 'modern'
+    let last = themeOf()
+    const observer = new MutationObserver(() => {
+      const theme = themeOf()
+      if (theme === last) return
+      last = theme
+      themeResets++
+    })
+    observer.observe(target, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => observer.disconnect()
   })
   onDestroy(() => {
     destroyed = true
@@ -1500,5 +1525,72 @@
     .row--sizer {
       display: none;
     }
+  }
+
+  /* The tower's own vintage look (widgets rules 89–90, ADR 0027). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60). */
+  :global([data-theme='vintage70']) .row__oncam-flash,
+  :global([data-theme='vintage80']) .row__oncam-flash {
+    display: none;
+  }
+
+  /* 70s: a red rule under the header, warm-white numerals, a skewed class chip, and an
+     underlined on-camera row in place of the fill. */
+  :global([data-theme='vintage70']) .tower__header {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .row__pos,
+  :global([data-theme='vintage70']) .row--oncam .row__pos {
+    color: var(--bc-text-2);
+  }
+  :global([data-theme='vintage70']) .row__class {
+    transform: skewX(-8deg);
+    filter: drop-shadow(2px 2px 0 #000);
+    font-style: normal;
+  }
+  :global([data-theme='vintage70']) .row--oncam {
+    background: none;
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+
+  /* 80s: reverse video. The on-camera row is a solid accent block with dark text; its chips
+     sit on black so they read as on any other row. */
+  :global([data-theme='vintage80']) .row--oncam {
+    background: var(--bc-accent);
+    box-shadow: none;
+  }
+  :global([data-theme='vintage80']) .row--oncam > :not(.row__pit--in):not(.row__finish):not(.row__class),
+  :global([data-theme='vintage80']) .row--oncam .row__pit-label,
+  :global([data-theme='vintage80']) .row--oncam .row__tire-compound {
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .row--oncam .row__class,
+  :global([data-theme='vintage80']) .row--oncam .row__finish--dnf,
+  :global([data-theme='vintage80']) .row--oncam .row__finish--dq {
+    background: #000;
+    box-shadow: 0 0 0 2px #000;
+  }
+  /* No background here: it would wipe the flag's squares. */
+  :global([data-theme='vintage80']) .row--oncam .row__finish--flag {
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 0 2px #000;
+  }
+  /* Lap-time flash as a solid block, ringed in black so it shows on the lime row too.
+     Compound tier selectors outrank the plain-lap rule whatever the source order. */
+  :global([data-theme='vintage80']) .row__gap--flash {
+    background: var(--bc-text-2);
+    box-shadow: 0 0 0 2px var(--bc-text-2), 0 0 0 3px #000;
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .row__gap--flash.row__gap--flash-personal-best {
+    background: var(--bc-lap-pb);
+    box-shadow: 0 0 0 2px var(--bc-lap-pb), 0 0 0 3px #000;
+  }
+  :global([data-theme='vintage80']) .row__gap--flash.row__gap--flash-session-best,
+  :global([data-theme='vintage80']) .row__gap--flash.row__gap--flash-class-best {
+    background: var(--bc-lap-best);
+    box-shadow: 0 0 0 2px var(--bc-lap-best), 0 0 0 3px #000;
   }
 </style>
