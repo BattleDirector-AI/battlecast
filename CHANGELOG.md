@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-25
+
 ### Added
 
 - **Three looks for the whole overlay: Modern, Vintage 70s and Vintage 80s (#356, ADR 0026).**
