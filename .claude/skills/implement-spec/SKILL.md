@@ -121,36 +121,83 @@ catch**:
 - Boundary values, lifecycle leaks, async gaps, silent desync between a hardcoded list and the
   reality it mirrors.
 
-Post the review on the PR with a clear verdict: **APPROVE** / **APPROVE WITH NITS** /
-**REQUEST CHANGES**. Be decisive — it gates a merge.
+Post the review as a **formal GitHub review** that opens with the header in
+`.claude/skills/_shared/review-header.md` (`gh pr review <pr> --comment --body-file <file>`),
+with a clear verdict: **APPROVE** / **APPROVE WITH NITS** / **REQUEST CHANGES**, and an ID on
+every finding. Be decisive — it gates a merge. Answer every finding with a disposition comment
+(`fixed`, `wrong`, `intentional` or `not-worth-it`, per that file), amend, and re-review. At most
+three rounds; a third round with findings still open stops the pass (`fail-escalated`, Phase 7).
 
 **Verify subagent work yourself.** Dispatched agents in this repo frequently finish the work
 correctly but return no report. Check `git log`, `git diff --stat`, and re-run the suite
 rather than trusting — or waiting on — a summary.
 
-## Phase 7 — Merge
+## Phase 7 — Arm auto-merge
 
-If CI on the PR is still red after three fix attempts, do not merge: swap `ai-code-review` for
-`fail-escalated` (`gh pr edit <pr> --remove-label ai-code-review --add-label fail-escalated`) and
-report it, because it needs a human. Otherwise, only with review passed
-and CI green:
+Arm only once the review has passed: its last round has no open blocking finding. The merge
+itself is GitHub's. The `next` ruleset (`.github/rulesets/next.json`) merges the PR once its
+five checks pass, and nobody can bypass it. Never merge it yourself: every `gh pr merge` here carries `--auto`.
+
+Arm at the commit the review saw, never at whatever the head is now. `REVIEWED` is the full SHA
+in the "Reviewed at" row of the clean review's header:
 
 ```bash
-gh pr checks <pr>                 # all jobs pass
-gh pr view <pr> --json labels --jq '[.labels[].name]'   # must include spec-approved
+set -e                                                    # any failed check stops the arm
+REVIEWED=<sha from the clean review's "Reviewed at" row>
+git fetch origin
+test "$(gh pr view <pr> --json headRefOid --jq .headRefOid)" = "$REVIEWED"   # else: re-review
+node scripts/check-pr-shape.mjs origin/next "$REVIEWED"   # "shape: spec-first" (or "plain" for a
+                                                          # spec + tests PR); BAD stops here
+gh pr view <pr> --json labels --jq '[.labels[].name] | index("spec-approved") != null' | grep -qx true
 gh pr edit <pr> --remove-label ai-code-review --add-label ready-to-merge
-gh pr ready <pr>
-gh pr merge <pr> --merge          # repo uses merge commits
+gh pr ready <pr>                                          # GitHub won't arm a draft
+gh pr merge <pr> --auto --merge --match-head-commit "$REVIEWED"
 ```
 
-Without `spec-approved` on the PR, stop: the spec was never approved. A spec + tests PR with no
-implementation commit comes here straight from `spec-first-pass` Phase 6, never carried
-`ai-code-review`, and its `--remove-label` is a no-op. If GitHub refuses the merge, take
-`ready-to-merge` back off (`gh pr edit <pr> --remove-label ready-to-merge --add-label
-ai-code-review`) before fixing whatever it named.
+Run these with the agent token (the `gh` alias, see `CONTRIBUTING.md`, "Agent identity").
+
+**A PR is armed only while it carries `spec-approved`.** Phase 6 of `spec-first-pass` says who
+set it: the owner for everything but a `how/`-only spec, and the coordinator after a clean AI
+review for that one. Without the label, stop: the spec was never approved. A spec + tests PR
+with no implementation commit comes here straight from `spec-first-pass` Phase 6. It never
+carried `ai-code-review`, so its `--remove-label` is a no-op.
+
+**Never push to an armed PR.** Disarm it first with `gh pr merge <pr> --disable-auto`, swap
+`ready-to-merge` back for `ai-code-review`, and arm again only after a new review of the new
+head. Whether GitHub itself refuses to merge a head other than `--match-head-commit` is not
+documented, so don't count on it.
+
+**A PR behind `next` waits**, because `next.json` is strict and GitHub never updates the branch
+itself. Bringing it up to date is a push too, so disarm first. The merge GitHub makes holds
+nothing but `next`'s work, so it needs no new review once both its parents check out (the shape
+check ignores merges, so this is the only check on its content):
+
+```bash
+set -e
+gh pr merge <pr> --disable-auto
+gh pr update-branch <pr>
+git fetch origin
+NEW=$(gh pr view <pr> --json headRefOid --jq .headRefOid)
+test "$(git rev-parse "$NEW^1")" = "$REVIEWED"            # the reviewed work, unchanged
+test "$(git rev-parse "$NEW^2")" = "$(git rev-parse origin/next)"   # next, and nothing else
+gh pr merge <pr> --auto --merge --match-head-commit "$NEW"
+gh pr view <pr> --json autoMergeRequest                   # confirm it is armed
+```
+
+Watch for the merge with `gh pr checks <pr> --watch` and `gh pr view <pr> --json state`.
+
+**When it can't merge:**
+- **CI on the armed head goes red:** disarm, swap `ready-to-merge` back for `ai-code-review`,
+  fix, and re-review the new head.
+- **Still red after three fix attempts, or a third review round with findings still open:** stop
+  and report it, because it needs a human:
+  `gh pr edit <pr> --remove-label ai-code-review --add-label fail-escalated`.
+- **GitHub refuses to arm or merge:** take `ready-to-merge` back off
+  (`gh pr edit <pr> --remove-label ready-to-merge --add-label ai-code-review`), then fix whatever
+  it named.
 
 Do **not** pass `--delete-branch` — it fails locally because `next` is checked out in a
-worktree. Then confirm the merge really landed rather than trusting the command:
+worktree. Once it has merged, confirm it really landed rather than trusting the command:
 
 ```bash
 git fetch origin && git log --oneline origin/next -3

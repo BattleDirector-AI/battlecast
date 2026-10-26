@@ -10,8 +10,8 @@ this pass writes the spec + failing tests as the first commit, and once that is 
 `implement-spec` skill adds the production code as the second commit to the *same* PR, which
 then merges once. There is no second PR, and the spec never merges unimplemented. (An issue
 whose *whole* deliverable is spec + tests — a rule the code already satisfies, tests it was
-simply missing — lands as one commit and merges once review passes and Phase 6 has given it
-`spec-approved`.) Where the tests are red,
+simply missing — lands as one commit and merges once review passes and it carries
+`spec-approved`, set as Phase 6 says.) Where the tests are red,
 they are the executable statement of the spec, and that they fail is the deliverable, not a
 problem to fix.
 
@@ -181,15 +181,18 @@ The PR body must state:
 
 Keep it a **draft** until the implementation commit lands — or, when no implementation commit is
 coming because the passing tests are the deliverable or there were no tests to write, until
-review passes and Phase 6 has given it `spec-approved`, then merge it with `implement-spec`'s
+review passes and it carries `spec-approved` (Phase 6 says who sets it), then arm its auto-merge with `implement-spec`'s
 **Phase 7**, which carries the merge steps
 and the `--delete-branch` footgun. While tests are red CI's `test` job will fail, and that is
 correct — say so in the body so nobody "fixes" it.
 
 ## Phase 6 — AI review, then hand off
 
-Dispatch a fresh reviewer (never review your own pass in the same context). Apply its findings
-by amending the one commit, and re-review until it approves. Then:
+Dispatch a fresh reviewer (never review your own pass in the same context). It posts a formal
+GitHub review that opens with the header in `.claude/skills/_shared/review-header.md`, an ID on
+every finding (`gh pr review <pr> --comment --body-file <file>`). Answer each finding with a disposition comment (`fixed`, `wrong`, `intentional`
+or `not-worth-it`, per that file), apply the fixes by amending the one commit, and re-review
+until it approves. Then:
 
 1. **The owner approves, by default.** Swap the label, `ai-spec-review` off and `spec-review`
    on, and stop. The owner approves by setting `spec-approved`. If they approve in chat instead,
