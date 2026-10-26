@@ -10,7 +10,8 @@ this pass writes the spec + failing tests as the first commit, and once that is 
 `implement-spec` skill adds the production code as the second commit to the *same* PR, which
 then merges once. There is no second PR, and the spec never merges unimplemented. (An issue
 whose *whole* deliverable is spec + tests — a rule the code already satisfies, tests it was
-simply missing — lands as one commit and merges once review passes.) Where the tests are red,
+simply missing — lands as one commit and merges once review passes and Phase 6 has given it
+`spec-approved`.) Where the tests are red,
 they are the executable statement of the spec, and that they fail is the deliverable, not a
 problem to fix.
 
@@ -143,7 +144,14 @@ git add <explicit paths>          # never -A, never .
 git commit
 git push -u origin spec/<issue>-<slug>
 gh pr create --draft --base next
+gh pr edit <pr> --add-label ai-spec-review
 ```
+
+The PR's lifecycle state is its highest-numbered lifecycle label in `.github/labels.yml`:
+`ai-spec-review` while AI reviewers judge the contract, `spec-review` once it is handed to the
+owner, `spec-approved` once the contract is approved. `spec-approved` then stays on through
+the code review, so a PR later carries it beside `ai-code-review` or `ready-to-merge`. A draft that starts on `spec-review` would tell the owner to look
+before the AI review has finished.
 
 **The pass lands as exactly one commit.** If it iterates — you apply review findings before the
 spec is approved — `git commit --amend` and `git push --force-with-lease` rather than appending
@@ -173,9 +181,33 @@ The PR body must state:
 
 Keep it a **draft** until the implementation commit lands — or, when no implementation commit is
 coming because the passing tests are the deliverable or there were no tests to write, until
-review passes, then merge it with `implement-spec`'s **Phase 7**, which carries the merge steps
+review passes and Phase 6 has given it `spec-approved`, then merge it with `implement-spec`'s
+**Phase 7**, which carries the merge steps
 and the `--delete-branch` footgun. While tests are red CI's `test` job will fail, and that is
 correct — say so in the body so nobody "fixes" it.
+
+## Phase 6 — AI review, then hand off
+
+Dispatch a fresh reviewer (never review your own pass in the same context). Apply its findings
+by amending the one commit, and re-review until it approves. Then:
+
+1. **The owner approves, by default.** Swap the label, `ai-spec-review` off and `spec-review`
+   on, and stop. The owner approves by setting `spec-approved`. If they approve in chat instead,
+   set the label for them and post a PR comment quoting their words, so the label event (which
+   shows the agent once agents act as the App) is traceable to the owner. Never set
+   `spec-approved` on such a PR on your own judgement.
+2. **A `how/`-only spec skips the owner.** When the PR changes at least one file under
+   `.ai/spec/how/` and nothing under `.ai/spec/what/`, `spec/v1/` (the protocol) or
+   `docs/decisions/` (an ADR), it changes mechanism and no behaviour or decision, and the clean
+   AI review is the approval: swap `ai-spec-review` for `spec-approved` and go straight on to
+   `implement-spec`. Anything else, including a PR that touches no spec file at all, is rule 1.
+
+```bash
+git diff --name-only origin/next...HEAD -- .ai/spec/how/                              # non-empty, and
+git diff --name-only origin/next...HEAD -- .ai/spec/what/ spec/v1/ docs/decisions/    # empty -> rule 2
+gh pr edit <pr> --remove-label ai-spec-review --add-label spec-review      # rule 1
+gh pr edit <pr> --remove-label ai-spec-review --add-label spec-approved    # rule 2
+```
 
 ## Gotchas
 

@@ -26,6 +26,10 @@ cd app && npx vitest run                      # record the baseline: N passing, 
 
 Note the baseline counts. You need them to prove you fixed exactly the right number.
 
+The PR must carry `spec-approved` (`gh pr view <pr> --json labels`). A PR still on
+`spec-review` is waiting for the owner, not for you; see `spec-first-pass` Phase 6 for who sets
+the label.
+
 ## Phase 1 — Read before writing
 
 - `gh issue view <n>` and `gh pr view <pr>` — but **verify the issue's claims against the
@@ -97,6 +101,9 @@ review findings before the PR is approved — `git commit --amend` and `git push
 rather than appending another commit. Before merging, `git log --oneline origin/next..HEAD` must
 show exactly two commits: spec + tests, then implementation.
 
+Label it for the code review: `gh pr edit <pr> --add-label ai-code-review`. Leave
+`spec-approved` on: it is the approval record Phase 7 checks before merging.
+
 Leave the PR a **draft** until Phase 7. Do not mark it ready, do not merge, do not rewrite its
 description.
 
@@ -123,13 +130,24 @@ rather than trusting — or waiting on — a summary.
 
 ## Phase 7 — Merge
 
-Only with review passed and CI green:
+If CI on the PR is still red after three fix attempts, do not merge: swap `ai-code-review` for
+`fail-escalated` (`gh pr edit <pr> --remove-label ai-code-review --add-label fail-escalated`) and
+report it, because it needs a human. Otherwise, only with review passed
+and CI green:
 
 ```bash
 gh pr checks <pr>                 # all jobs pass
+gh pr view <pr> --json labels --jq '[.labels[].name]'   # must include spec-approved
+gh pr edit <pr> --remove-label ai-code-review --add-label ready-to-merge
 gh pr ready <pr>
 gh pr merge <pr> --merge          # repo uses merge commits
 ```
+
+Without `spec-approved` on the PR, stop: the spec was never approved. A spec + tests PR with no
+implementation commit comes here straight from `spec-first-pass` Phase 6, never carried
+`ai-code-review`, and its `--remove-label` is a no-op. If GitHub refuses the merge, take
+`ready-to-merge` back off (`gh pr edit <pr> --remove-label ready-to-merge --add-label
+ai-code-review`) before fixing whatever it named.
 
 Do **not** pass `--delete-branch` — it fails locally because `next` is checked out in a
 worktree. Then confirm the merge really landed rather than trusting the command:
