@@ -63,6 +63,10 @@ jobs:
       # Zero runtime/dev dependencies — nothing to install; the built-in test
       # runner (`node --test`) drives the suite directly.
       - run: npm test
+      # The repo's own pipeline checks (labels, rulesets, PR shape): zero-dependency
+      # node:test files under scripts/test/, run here rather than as a sixth required job.
+      - run: node --test 'scripts/test/*.test.mjs'
+        working-directory: .
 
   mock:
     runs-on: ubuntu-latest
