@@ -13,14 +13,14 @@ feature branches ──PR──▶ next ──release──▶ prerelease ──
 
 | Branch       | Purpose                                                                 | Who pushes here |
 | ------------ | ------------------------------------------------------------------------ | --------------- |
-| `next`       | Integration branch. Every feature/fix PR targets `next` and lands here first. | Feature PR merges |
-| `prerelease` | Staging branch — **the GitHub default branch**. Holds what's about to ship; version bumps and tags are cut here. | Release-cut integration PRs, back-merges |
+| `next`       | Integration branch — **the GitHub default branch**. Every feature/fix PR targets `next` and lands here first. | Feature PR merges |
+| `prerelease` | Staging branch. Holds what's about to ship; version bumps and tags are cut here. | Release-cut integration PRs, back-merges |
 | `main`       | Released code only. Always matches the latest published tag. Hotfixes branch from here. | Release promotion PRs, hotfix PRs |
 
 ## Everyday work
 
 1. Branch off `next` (or an up-to-date fork of it) for your feature/fix.
-2. Open a PR with base `next`. CI (`lint`, `test`, `build`) must be green.
+2. Open a PR with base `next`. CI (`lint`, `test`, `compliance`, `server`, `mock`) must be green.
 3. Once merged, your change is in `next` but **not yet released** — it ships on the
    next release cut.
 
@@ -58,7 +58,7 @@ Two widgets rendered live on stream via OBS Browser Sources have a low tolerance
 for an in-progress `next` state leaking onto someone's broadcast. Splitting
 integration (`next`), staging (`prerelease`), and released (`main`) means:
 
-- `prerelease` (the default branch) is always what a new contributor or evaluator
-  should look at — the most recent complete, staged snapshot.
+- `prerelease` is always the most recent complete, staged snapshot — what an evaluator
+  should look at.
 - `main` never contains anything that hasn't been through a release cut, so a
   hotfix branched from it never accidentally carries unreleased `next` work.
