@@ -577,11 +577,16 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     text that does not set its own shadow, and square, unblurred plates. Text that sets its own
     glow (the on-camera name in the battle box and both lower-thirds) keeps that glow until its
     widget's own rule gives it the preset's treatment. The base-look values are listed in the decision record.
-61. **Every typeface a preset uses is bundled.** The faces `vintage70` (Barlow, Barlow Condensed)
-    and `vintage80` (VT323, Oswald) name are served by battlecast itself, from the same origin as
-    the overlay, so an OBS machine with no internet connection renders the period typeface, not a
-    fallback. Each bundled family ships with its licence file beside its font files, in the source
-    tree and in the built app. A `modern` overlay does not download them.
+61. **Every typeface a preset uses is bundled.** The faces `modern` (Saira Condensed, Saira,
+    JetBrains Mono), `vintage70` (Barlow, Barlow Condensed) and `vintage80` (VT323, Oswald) name
+    are served by battlecast itself, from the same origin as the overlay, so an OBS machine with
+    no internet connection renders each preset's own typeface, not a fallback. No page battlecast
+    serves, the `/config` editor included, loads a typeface or a font stylesheet from another
+    origin. Each bundled family ships with its licence file beside its font files, in the source
+    tree and in the built app. The `modern` faces render Latin, Latin Extended and Vietnamese
+    text in all three families, and Greek and Cyrillic (Cyrillic Extended included) in JetBrains
+    Mono. A `modern` overlay does not download the vintage faces. Decision record:
+    `docs/decisions/0028-self-hosted-modern-fonts.md`.
 62. **The editor exposes it once for the whole overlay**, as part of rule 14's control surface: a
     select labelled **theme** (`data-testid="theme-preset"`), in no widget row, with exactly three
     options in this order, shown to the broadcaster as **Modern**, **Vintage 70s** and **Vintage
