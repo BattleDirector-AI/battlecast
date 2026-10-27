@@ -507,6 +507,61 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     class-best flash even in a race (`fireOnClassBest`, default true) — firing on the transition to
     true, never by scanning lap times. Idle when subject invalid, no timing at all, or mode-gated
     out with no class-best fire.
+93. **The lower-thirds under `vintage70`.** On top of the base look (`overlay-config.md` rule 60)
+    both lower-thirds, #21 and #22, take the 1970s network look. Everything this rule does not
+    name renders the base look: every label and timing value keeps the preset's italic type and
+    its small-text extrusion at its `modern` size, and the class chip is the base chip. Decision
+    record: `docs/decisions/0030-lower-thirds-vintage-pass.md`.
+    - **Red rule.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the card, inside it: the card is no taller. #22 draws it on the class-best
+      flash too.
+    - **Accent bar.** The card's accent bar keeps its colour (the accent red; on a #22 class-best
+      flash, the flash colour) and is square-ended, with no glow: a hard 2px black drop shadow
+      (2px right, 2px down, no blur) sits under it instead.
+    - **Position.** The `P4` position is warm white (`--bc-text-2`), not the accent.
+    - **Name.** The driver's name is gold (`--bc-text`) on both cards. On #21 it carries the
+      mock's heavy extrusion in place of the accent glow: four hard black steps, 1px to 4px down
+      and right, with a soft dark halo. On #22 it keeps the base extrusion.
+    - **#22 best lap.** The `BEST` time has no glow: it takes the preset's base text shadow, in
+      its own colour.
+    - **#22 class-best label.** While the class-best flash is up, its `CLASS BEST` label is a
+      solid block of the flash colour (`--bc-intensity-hot`) with the label in the dark on-accent
+      colour (`--bc-text-on-accent`) and no text shadow. The block extends 3px past the label on
+      every side with a 1px black ring outside it, and changes no box size. A plain card's
+      `TIMING` label is plain text.
+    - **Plate and transitions.** The plate is the shared shell's base-look plate; its entrance and
+      exit are rule 107's.
+94. **The lower-thirds under `vintage80`.** On top of the base look both lower-thirds take the
+    1980s caption look. Everything this rule does not name renders the base look: the position
+    and every timing value stay in the preset's raster face (VT323) at their `modern` size, and
+    the class chip is the base chip. Decision record:
+    `docs/decisions/0030-lower-thirds-vintage-pass.md`.
+    - **Labels in the caption face.** Every label on both cards (`ON CAMERA`, `TIMING`,
+      `CLASS BEST`, and #22's `BEST`, `LAST`, `S1`–`S3`, `TARGET` and `Δ`) takes the preset's
+      display family (`--bc-font-display`: Oswald and its fallbacks) instead of the raster face,
+      at its `modern` size, weight and tracking. The bundled Oswald has no Greek, so `Δ` renders
+      in the family's next available face. Each label's box, and so #22's card height, takes the size the label takes in that
+      face (`overlay-config.md` rule 60).
+    - **#21 tag.** The `ON CAMERA` label is a tag: the label in CG white (`--bc-text-2`) with no
+      text shadow on a solid block of the preset's header red (`--bc-header`) that extends 3px
+      past the label on every side, with a hard black drop shadow of the same block 2px right and
+      2px down. It changes no box size.
+    - **Accent bar.** As under `vintage70` (rule 93): its colour kept, square-ended, no glow, a
+      hard 2px black drop shadow under it.
+    - **Name.** #21's name keeps its colour and carries the mock's heavy outline in place of the
+      accent glow: a 2px black outline on all eight sides, a 3px hard black drop and a soft dark
+      halo. #22's name keeps the base outline.
+    - **#22 best lap.** The `BEST` time has no glow: it takes the preset's base outline, in its
+      own colour.
+    - **#22 delta ahead in reverse video.** While the delta to target is ahead (zero or below),
+      its value is a solid block of the position-gain green (`--bc-up`) with the delta in the dark
+      on-accent colour and no text shadow, the block 2px past the value on every side with a 1px
+      black ring outside it, so it cannot be mistaken for the yellow-green of an ordinary value. A
+      delta behind target renders as any other value. Neither changes a box size.
+    - **#22 class-best label.** As under `vintage70` (rule 93): a solid block of the flash colour,
+      3px past the label, a 1px black ring, the label dark with no text shadow.
+    - **Plate and transitions.** The plate is the shared shell's base-look plate; its entrance and
+      exit are rule 107's.
 
 ### Race Control (`/racecontrol`, session status #25)
 
