@@ -904,6 +904,38 @@ derives nothing from `vehicles[]` or any other field. Decision record:
     grouped tower uses), order each group by `position`, and `/results` restarts class positions
     within each group (like the grouped tower). Both honor the `?class=` filter. `/grid` shows the
     overall position in a staggered two-column rake.
+105. **The takeover slides under `vintage70`.** On top of the base look (`overlay-config.md` rule
+    60) `/grid` and `/results` take the 1970s network look. Everything this rule does not name
+    renders the base look. Decision record: `docs/decisions/0036-takeover-slides-vintage-pass.md`.
+    - **Board.** The slide's board is solid black (`--bc-plate-solid`).
+    - **Header.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the header, inside it: the header is no taller. The title stays gold.
+    - **Subheads in teal.** Each class group's car count (`5 CARS`) and, on `/results`, each
+      group's column heads (`POS`, `DRIVER`, `BEST LAP`) are teal, `#35D4C8`.
+    - **Position numerals.** Every position numeral (each grid cell's and each results row's) is
+      warm white (`--bc-text-2`); driver names stay gold.
+    - **Class chips.** Every class chip on the slide (each group header's, and the header's
+      filter chip) leans as the tower's does (rule 89): its box is skewed 8° (top edge to the
+      right), with a hard 2px black drop shadow, and its label is upright type. Its colours and
+      text are unchanged.
+    - **The red marks nothing else.** The header rule is the only element on either slide in
+      the accent colour.
+    - **Type.** Every text keeps the base look's small-text extrusion; none takes the mock's
+      heavier one.
+106. **The takeover slides under `vintage80`.** On top of the base look `/grid` and `/results`
+    take the 1980s timing page look. Everything this rule does not name renders the base look.
+    Decision record: `docs/decisions/0036-takeover-slides-vintage-pass.md`.
+    - **Board.** The slide's board is solid black (`--bc-plate-solid`).
+    - **Title on a Scoreboard plate.** The header title sits on a block in the preset's header
+      red (`--bc-header`) that extends 6px past the title on every side, with no shadow. The
+      title is the preset's white (`--bc-text-2`) with the base outline. The block changes no
+      box size and does not reach the filter chip.
+    - **Subheads in white.** Each class group's car count and, on `/results`, each group's
+      column heads are the preset's white (`--bc-text-2`).
+    - **Position numerals.** Every position numeral is the preset's white (`--bc-text-2`);
+      driver names stay lime.
+    - **Class chips.** Unchanged from the base look.
+    - **Type.** Every text keeps the base look's 1px outline; none takes the mock's 2px one.
 
 ### Field filter & auto-hide
 
