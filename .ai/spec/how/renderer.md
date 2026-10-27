@@ -315,6 +315,32 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       transform, white space, flex, grid, position or offsets).
     `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
     `happy-dom` applies no CSS; `StandingsTower.themeSwitch.test.js` covers the re-measure.
+  - **Race update box** (`what/widgets.md` rules 99–100,
+    `docs/decisions/0033-race-update-box-vintage-pass.md`), in `RaceUpdateBox.svelte`'s
+    `<style>`, under exactly `:global([data-theme='vintage70'])` or
+    `:global([data-theme='vintage80'])` (quoted, one per selector). These are the box's only
+    themed declarations, a closed set; anything else is the base look:
+    - Both presets: `.bc-ru__accent` is `border-radius: 0` and `box-shadow: 2px 2px 0 #000`,
+      which replaces the base glow; its `background` stays the base rule's accent.
+    - `vintage70`: `.bc-ru__value` is `color: var(--bc-text-2)`.
+    - `vintage80`: `.bc-ru__label` is `align-self: flex-start` (a flex item of the column body
+      stretches to the card's width otherwise, and so would its block; the narrower label box is
+      `what/overlay-config.md` rule 60's text-sized-box exception), `font-family:
+      var(--bc-font-display)`, `color: var(--bc-text-2)`, `background: var(--bc-header)`,
+      `box-shadow: 0 0 0 2px var(--bc-header), 3px 3px 0 2px #000` and `text-shadow: none`.
+      `.bc-ru__detail` is `font-family: var(--bc-font-display)`.
+    - Nothing in the box touches the shell: `LowerThirdShell.svelte` owns the plate, the frame
+      and the bar-wipe for the box and both lower-thirds.
+    - **The face swap depends on an inherited line height.** Every line of the card takes the
+      line height set by `app/src/app.css`'s `:root { font: 18px/145% … }` shorthand (a
+      percentage, so it inherits as a fixed length: 26.1px, or 23.2px under the file's ≤1024px
+      `font-size: 16px`). Nothing between it and the card sets `line-height` or a `font`
+      shorthand (which would reset it to `normal`, whose height depends on the face). So the label
+      and detail can change face with no line box changing. Cleaning that boilerplate out of
+      `app.css` would make the 80s card change height; the test pins it.
+    `RaceUpdateBox.vintage.test.js` reads these rules from the component source, as the tower's
+    test does, asserts the closed set with `toEqual`, and pins the line height (`app.css` read from
+    disk).
   - **Fonts are shipped unmodified** (no re-subsetting, conversion or renaming), each family
     folder with its `OFL.txt` from `google/fonts`. Six families are Google Fonts' pre-built
     `woff2` files with Google's `unicode-range`: the vintage four (latin and latin-ext subsets)
