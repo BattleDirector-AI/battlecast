@@ -284,4 +284,43 @@
     color: var(--bc-text-2);
     font-variant-numeric: tabular-nums;
   }
+
+  /* The slide's own vintage look (widgets rules 105–106, ADR 0036). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60). */
+  :global([data-theme='vintage70']) .results,
+  :global([data-theme='vintage80']) .results {
+    background: var(--bc-plate-solid);
+  }
+  :global([data-theme='vintage70']) .row__pos,
+  :global([data-theme='vintage80']) .row__pos {
+    color: var(--bc-text-2);
+  }
+
+  /* 70s: a red rule under the header, teal subheads and the tower's leaning class chips. The
+     column heads' spans inherit the colour. */
+  :global([data-theme='vintage70']) .results__header {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .group__count,
+  :global([data-theme='vintage70']) .group__colhead {
+    color: #35d4c8;
+  }
+  :global([data-theme='vintage70']) .group__head :global(.bc-class-chip),
+  :global([data-theme='vintage70']) .results__filter :global(.bc-class-chip) {
+    transform: skewX(-8deg);
+    filter: drop-shadow(2px 2px 0 #000);
+    font-style: normal;
+  }
+
+  /* 80s: the title on a Scoreboard-red plate; the spread shadow takes no layout space. */
+  :global([data-theme='vintage80']) .results__title {
+    background: var(--bc-header);
+    box-shadow: 0 0 0 6px var(--bc-header);
+    color: var(--bc-text-2);
+  }
+  :global([data-theme='vintage80']) .group__count,
+  :global([data-theme='vintage80']) .group__colhead {
+    color: var(--bc-text-2);
+  }
 </style>
