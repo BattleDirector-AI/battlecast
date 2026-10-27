@@ -839,6 +839,33 @@ part and line, uppercases the header and the weather card, and shows a repeated 
 
     While `weatherCard` is off, or the weather has no part, there is no card and the line list
     is exactly rule 77's text lines.
+101. **The info panel under `vintage70`.** On top of the base look (`overlay-config.md` rule
+     60) the panel takes the 1970s network look. Everything this rule does not name renders the
+     base look: the line stays in the preset's gold primary text, the header and the line both
+     keep the base text shadow (the small-text extrusion, not the mock's heavier one), and the
+     panel enters, leaves and crossfades as rules 81 and 107 say. Decision record:
+     `docs/decisions/0034-info-panel-vintage-pass.md`.
+     - **Header.** The header is the mock's teal subhead colour, `#35D4C8`, at its base size,
+       weight and tracking.
+     - **Red rule.** A solid red rule, 4px high and in the preset's accent colour, runs along
+       the bottom edge of the panel, inside it and over its bottom padding: the panel is no
+       taller. It shows whenever the panel draws, with a header, a line or both, and wipes in
+       and out with the panel's content. The panel draws no live, position-change or
+       battle-intensity colour, so the rule is its only red.
+102. **The info panel under `vintage80`.** On top of the base look the panel takes the 1980s
+     timing page look. Everything this rule does not name renders the base look: the line stays
+     in the preset's UI face (VT323) and yellow-green primary text, the line keeps the base 1px
+     outline (not the mock's 2px one), and the panel enters, leaves and crossfades as rules 81
+     and 107 say. Decision record: `docs/decisions/0034-info-panel-vintage-pass.md`.
+     - **Header as a red Scoreboard tag.** The header is set in the preset's display face
+       (Oswald) instead of VT323, in the preset's white (`--bc-text-2`) with no text shadow or
+       outline, at its base size, weight and tracking, on a solid block of the preset's red
+       header colour (`--bc-header`). The block hugs the header text (`overlay-config.md` rule
+       60), never wider than the panel's content width, where a long header is cut off with an
+       ellipsis as rule 78's line is. It extends 2px past the text on every side, so it fills
+       the 2px gap above the line and covers none of the line's glyphs, and casts a hard black
+       shadow 3px down and to the right. The face changes no height: the header's line box is
+       its line height times its size in either face, so the panel is no taller.
 
 ### Weather box (`/weather`, #208)
 
