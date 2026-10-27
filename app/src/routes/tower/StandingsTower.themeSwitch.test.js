@@ -266,4 +266,27 @@ describe('the measuring font carries the name font style (rule 48, Width)', () =
     expect(measuredFonts.length).toBeGreaterThan(0)
     for (const font of measuredFonts) expect(font).toBe(`700 22px ${FAMILY.vintage80}`)
   })
+
+  it('keeps an oblique angle, and leaves out a style the canvas cannot parse', async () => {
+    const stubbed = window.getComputedStyle
+    for (const [style, lead] of [
+      ['oblique 10deg', 'oblique 10deg '],
+      ['oblique', 'oblique '],
+      ['bogus', ''],
+      ['oblique-x', ''],
+      ['italic 10deg', ''],
+      ['', ''],
+    ]) {
+      measuredFonts = []
+      window.getComputedStyle = (el, ...more) => {
+        const cs = stubbed(el, ...more)
+        return new Proxy(cs, { get: (t, p) => (p === 'fontStyle' ? style : Reflect.get(t, p)) })
+      }
+      const view = await mount({ theme: 'vintage80' })
+      expect(measuredFonts.length, style).toBeGreaterThan(0)
+      for (const font of measuredFonts) expect(font, style).toBe(`${lead}700 22px ${FAMILY.vintage80}`)
+      view.unmount()
+      window.getComputedStyle = stubbed
+    }
+  })
 })

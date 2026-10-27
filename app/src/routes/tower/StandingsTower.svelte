@@ -431,12 +431,18 @@
       family: read('--bc-font-display', "'Saira Condensed', 'Arial Narrow', sans-serif"),
     }
   }
-  // The name cell's font style leads the string when it is not normal (italic under vintage70).
+  // The first rendered name cell, whose font style and letter-spacing the measuring reads. The
+  // tower root stands in when no row is rendered: correct while the name cell inherits both, as
+  // it does today.
+  const nameCell = () => towerEl?.querySelector('[data-testid="driver-name"]') ?? towerEl
+  // The name cell's font style leads the string when it is italic or oblique (italic under
+  // vintage70). Anything else stays out: ctx.font ignores a value it cannot parse and keeps
+  // the previous font.
   const measuringFont = () => {
     const f = nameFontParts()
-    const cell = towerEl?.querySelector('[data-testid="driver-name"]') ?? towerEl
-    const style = computedStyle(cell)?.fontStyle?.trim()
-    return `${style && style !== 'normal' ? `${style} ` : ''}${f.weight} ${f.size} ${f.family}`
+    const style = computedStyle(nameCell())?.fontStyle?.trim()
+    const lead = /^(italic|oblique(\s+-?[\d.]+deg)?)$/.test(style ?? '') ? `${style} ` : ''
+    return `${lead}${f.weight} ${f.size} ${f.family}`
   }
   const familyKey = (family) =>
     String(family ?? '').trim().replace(/^['"]|['"]$/g, '').trim().toLowerCase()
@@ -483,12 +489,9 @@
       ? window.getComputedStyle(el)
       : null
 
-  // Canvas measureText ignores CSS letter-spacing, so it is added per code point, read off
-  // the first rendered name cell (the tower root when no row is rendered: correct while the
-  // name cell inherits its letter-spacing, as it does from :root today).
+  // Canvas measureText ignores CSS letter-spacing, so the name cell's is added per code point.
   function nameLetterSpacing() {
-    const cell = towerEl?.querySelector('[data-testid="driver-name"]') ?? towerEl
-    return cssPx(computedStyle(cell)?.letterSpacing)
+    return cssPx(computedStyle(nameCell())?.letterSpacing)
   }
   const nameWidth = (name, font, spacing) => textWidth(name, font) + [...name].length * spacing
 
