@@ -633,6 +633,54 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     on it changes nothing. In `/all`, its slot is placed whenever the widget is `visible`, even
     while the HUD is idle or held off, and the strip reads that widget's saved `driverInfo`. The
     standalone `/onboard` route uses the default `driverInfo` (name, number, position).
+97. **The HUD under `vintage70`.** On top of the base look (`overlay-config.md` rule 60) the HUD
+    takes the 1970s network look. Everything this rule does not name renders the base look, the
+    italic lean of every label included. Decision record:
+    `docs/decisions/0032-onboard-vintage-pass.md`.
+    - **Plate.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the HUD's plate, inside it, whichever of the HUD's parts show (rule 56): the
+      plate is no taller.
+    - **Car number.** The number tile keeps its accent-red fill and leans with the type: its
+      box is skewed 8° (top edge to the right), with a hard 2px black drop shadow, and its
+      numeral is upright type, so the skew alone gives it its lean. The numeral is white
+      (`--bc-oncam-text`), with no text shadow.
+    - **Class chip.** Its box is skewed 8° (top edge to the right) with a hard 2px black drop
+      shadow, and its label is upright type in the preset's display face (Barlow Condensed,
+      which is bundled with an upright cut), so the skew alone gives it its lean. Its colours,
+      text, type size and weight are unchanged.
+    - **Bar and readout labels.** `THROTTLE`, `BRAKE`, the speed unit and `GEAR` are set in the
+      preset's display face (Barlow Condensed), still italic, at the same size, weight and
+      tracking, so each bar label fits its column and clears its bar.
+    - **Gear.** The gear numeral is gold (`--bc-text`), like the speed, not the accent colour.
+    - **Bars.** The throttle and brake bars have square ends, and each track, its fill
+      included, is cut into segments 10px wide with 3px gaps (measured across the slant), the
+      gaps leaning 14° from upright, top edge to the right. The fill colours are unchanged.
+    - **Paint only.** The rule, tiles and segments add no size and move nothing, and the HUD
+      moves as it does under `modern`, the bars' per-tick smoothing included, at either motion
+      setting. Boxes sized to their text follow rule 60's second exception.
+98. **The HUD under `vintage80`.** On top of the base look the HUD takes the 1980s timing page
+    look. Everything this rule does not name renders the base look. Decision record:
+    `docs/decisions/0032-onboard-vintage-pass.md`.
+    - **Plate.** The HUD sits on the preset's black widget plate (`--bc-plate`), not the red
+      Scoreboard header colour, with the preset's hard plate shadow. The plate's opacity is the
+      widget's `plateAlpha` itself (0.82 by default), where `modern` and `vintage70` paint the
+      HUD at the header opacity (0.94 at the default).
+    - **ON BOARD label in reverse video.** The label is a solid block of the live colour
+      (`--bc-live`) that extends 4px past the label on every side, with the text in the dark
+      on-accent colour (`--bc-text-on-accent`) and no text shadow or outline.
+    - **Position in reverse video.** The position (`P4`) is a solid block of the preset's
+      white (`--bc-text-2`) that extends 4px past it on every side, with the text in the dark
+      on-accent colour and no text shadow or outline. When both show, the label's block and
+      the position's block meet edge to edge.
+    - **Car number.** The tile keeps its lime fill and dark numeral, with no text shadow or
+      outline.
+    - **Driver name.** The name is the preset's yellow-green (`--bc-text`).
+    - **Bars.** The throttle and brake bars have square ends, and each track, its fill
+      included, is cut into upright blocks 10px wide with 2px gaps. The fill colours are
+      unchanged.
+    - **Paint only.** The blocks and segments add no size and move nothing, and the HUD moves
+      as it does under `modern`, the bars' per-tick smoothing included, at either motion
+      setting. Boxes sized to their text follow rule 60's second exception.
 
 ### Race update box (`/updates`, #27)
 

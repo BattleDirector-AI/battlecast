@@ -434,4 +434,76 @@
     color: var(--bc-text-2);
     line-height: 1;
   }
+
+  /* The HUD's own vintage look (widgets rules 97–98, ADR 0032). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box, and none touches the fill's width or transition (overlay-config rule 60). */
+  :global([data-theme='vintage70']) .bc-onboard__track,
+  :global([data-theme='vintage70']) .bc-onboard__fill,
+  :global([data-theme='vintage80']) .bc-onboard__track,
+  :global([data-theme='vintage80']) .bc-onboard__fill {
+    border-radius: 0;
+  }
+
+  /* 70s: a red rule along the plate's bottom, skewed tiles with upright type, gold gear, and
+     bars cut into leaning segments. The mask on the track clips the fill inside it. */
+  :global([data-theme='vintage70']) .bc-onboard {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .bc-onboard__number {
+    color: var(--bc-oncam-text);
+    text-shadow: none;
+    font-style: normal;
+    transform: skewX(-8deg);
+    filter: drop-shadow(2px 2px 0 #000);
+  }
+  :global([data-theme='vintage70']) .bc-onboard__class {
+    transform: skewX(-8deg);
+    filter: drop-shadow(2px 2px 0 #000);
+  }
+  /* ClassChip's own face (Barlow) is bundled italic only; Barlow Condensed has an upright cut. */
+  :global([data-theme='vintage70']) .bc-onboard__class :global(.bc-class-chip) {
+    font-family: var(--bc-font-display);
+    font-style: normal;
+  }
+  /* Barlow Condensed so THROTTLE fits its 64px column (#403); still italic. */
+  :global([data-theme='vintage70']) .bc-onboard__bar-label,
+  :global([data-theme='vintage70']) .bc-onboard__readout-label {
+    font-family: var(--bc-font-display);
+  }
+  :global([data-theme='vintage70']) .bc-onboard__value--gear {
+    color: var(--bc-text);
+  }
+  :global([data-theme='vintage70']) .bc-onboard__track {
+    -webkit-mask-image: repeating-linear-gradient(104deg, #000 0 10px, transparent 10px 13px);
+    mask-image: repeating-linear-gradient(104deg, #000 0 10px, transparent 10px 13px);
+  }
+
+  /* 80s: the black widget plate (scaled by plateAlpha), reverse-video tags whose 4px spreads
+     meet across the strip's gap, no outline on dark glyphs, and bars cut into upright blocks. */
+  :global([data-theme='vintage80']) .bc-onboard {
+    background: var(--bc-plate);
+  }
+  :global([data-theme='vintage80']) .bc-onboard__label {
+    background: var(--bc-live);
+    box-shadow: 0 0 0 4px var(--bc-live);
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .bc-onboard__position {
+    background: var(--bc-text-2);
+    box-shadow: 0 0 0 4px var(--bc-text-2);
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .bc-onboard__number {
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .bc-onboard__driver {
+    color: var(--bc-text);
+  }
+  :global([data-theme='vintage80']) .bc-onboard__track {
+    -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 10px, transparent 10px 12px);
+    mask-image: repeating-linear-gradient(90deg, #000 0 10px, transparent 10px 12px);
+  }
 </style>
