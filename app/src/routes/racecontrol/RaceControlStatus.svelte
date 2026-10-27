@@ -259,4 +259,48 @@
     background: transparent;
     border-color: var(--bc-intensity-mid);
   }
+
+  /* Race Control's own vintage look (widgets rules 95–96, ADR 0031). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sets a
+     length; the strip sizes to its text, so its width follows the typeface (overlay-config
+     rule 60). */
+
+  /* 70s: a red rule along the strip's foot, a leaning swatch, and a hard-shadowed FCY chip.
+     The rule is a background layer, not an inset box-shadow: the caution pulse animates the
+     strip's box-shadow and would wipe it. */
+  :global([data-theme='vintage70']) .bc-racecontrol {
+    background:
+      linear-gradient(var(--bc-accent), var(--bc-accent)) bottom / 100% 4px no-repeat,
+      var(--bc-header);
+  }
+  :global([data-theme='vintage70']) .bc-racecontrol__swatch {
+    transform: skewX(-8deg);
+  }
+  :global([data-theme='vintage70']) .bc-racecontrol__badge--fcy {
+    text-shadow: none;
+    filter: drop-shadow(2px 2px 0 #000);
+  }
+
+  /* 80s: the display face for the 12px labels (VT323 is too small there), and a black ring
+     so a red flag's swatch shows on the red plate. Only a box-shadow on the swatch: its
+     colour is an inline style a background would wipe. */
+  :global([data-theme='vintage80']) .bc-racecontrol__flag-label,
+  :global([data-theme='vintage80']) .bc-racecontrol__badge {
+    font-family: var(--bc-font-display);
+  }
+  :global([data-theme='vintage80']) .bc-racecontrol__swatch {
+    box-shadow:
+      inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+      0 0 0 2px #000;
+  }
+  :global([data-theme='vintage80']) .bc-racecontrol__badge--fcy {
+    text-shadow: none;
+  }
+
+  /* Both: no soft glow bloom under a caution; the ring on ::after keeps its pulse. Same
+     specificity as the base pulse rule above, so it wins by coming after it. */
+  :global([data-theme='vintage70']) .bc-racecontrol.bc-racecontrol--caution,
+  :global([data-theme='vintage80']) .bc-racecontrol.bc-racecontrol--caution {
+    animation: none;
+  }
 </style>
