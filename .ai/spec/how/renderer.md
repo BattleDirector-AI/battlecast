@@ -207,6 +207,19 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   line element is keyed on the entry's identity, not on its text, so the card's text changing
   never crossfades. `infoLines(infoLinesField, configLines)` keeps returning the text lines
   only.
+  - **Vintage look** (`what/widgets.md` rules 103–104,
+    `docs/decisions/0035-weather-box-vintage-pass.md`), in `WeatherBox.svelte`'s `<style>` under
+    `:global([data-theme='…'])`, as the tower's is. `vintage70`: `.bc-weather` is `box-shadow:
+    inset 0 -4px 0 var(--bc-accent), var(--bc-shadow-plate)`; `.bc-weather__value` is `color:
+    var(--bc-text-2)`; `.bc-weather__conditions` is `color: var(--bc-text)`. `vintage80`:
+    `.bc-weather__label` is `color: var(--bc-text-2)` and `font-family: var(--bc-font-display)`.
+    That typeface swap is the only themed font property, and it adds no height only because
+    `.bc-weather` sets the unitless `line-height: 1.15` that the items and labels inherit (neither
+    sets its own); under `normal` the Oswald label would be taller than the VT323 value. These
+    five declarations are the whole themed set: no other themed rule or declaration exists, and
+    none re-declares a `--bc-size-*` token (which would hide `/all`'s per-slot `textScale`
+    values). `WeatherBox.vintage.test.js` reads these rules from the component source (`?raw`),
+    since `happy-dom` applies no CSS, and checks the themed declarations as that closed set.
 - **Lower-third dwell default** (`what/overlay-config.md` rule 46): the default `6` lives in three
   places that must agree: the per-widget `dwellSeconds` literals in `DEFAULT_CONFIG`,
   `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).
