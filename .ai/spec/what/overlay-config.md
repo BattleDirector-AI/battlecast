@@ -562,11 +562,20 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 60. **A preset changes the look only.** Under every preset each widget shows the same content
     (rows, fields, text, values, order) at the same times (triggers, dwell, cycling, hide-when-idle,
     exit grace) at the same geometry (position, size, row heights, widget dimensions) as under
-    `modern`; switching preset on a live page changes none of these, with one exception: a
-    `full`-name-style tower's fit width (`widgets.md` rule 48) is measured in the row-name font,
-    which is the preset's typeface, so a full-name tower may be a different width under each
-    preset, and switching preset is a reset of the fit width under rule 48 (the tower measures
-    again in the new preset). A preset changes paint only:
+    `modern`; switching preset on a live page changes none of these, with two exceptions, both
+    because a preset changes the typeface. First, a `full`-name-style tower's fit width
+    (`widgets.md` rule 48) is measured in the row-name font, which is the preset's typeface, so a
+    full-name tower may be a different width under each preset, and switching preset is a reset
+    of the fit width under rule 48 (the tower measures again in the new preset). Second, a box
+    sized to its own text (for example the on-board HUD plate, the Race Control strip, the
+    weather box, or a chip or tag that hugs its label) paints at the size its text takes in the
+    preset's typeface and font style, up to its slot's width, past which its text is cut as it
+    is under `modern`. The text's font size, weight, letter spacing and case are the same as
+    under `modern`, and so are the box's widget slot, its alignment in the slot (centred or
+    anchored to an edge) and every set length (row heights, fixed widths, paddings, gaps, bar
+    and rule thicknesses), so the box grows or shrinks only by its typeface and font style. Inside
+    a box of set width (a tower row), the box keeps its set width while each text-sized cell
+    takes the size its text needs; how much of the row shows is the widget's own overflow rule. A preset changes paint only:
     colours, typefaces, font style, text shadow or outline, and plate colour and treatment. Class
     colours (rule 32, `widgets.md` rule 32) and the colours that carry meaning (battle intensity,
     lap-time flash, position change, live) are the same in every preset. Transitions are the same
