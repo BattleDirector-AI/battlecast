@@ -1,7 +1,7 @@
 # Decision: one overlay-wide theme lever — `modern` / `vintage70` / `vintage80` token sets on `data-theme`
 
 **Issues:** #356 (epic #358; custom themes #359) · **Milestone:** 0.16.0
-**Status:** Accepted · **Date:** 2026-10-24 · Decision 7's tower carve-out is amended by ADR 0027: a preset switch is a reset of the fit width, not a name-font load.
+**Status:** Accepted · **Date:** 2026-10-24 · Decision 7's tower carve-out is amended by ADR 0027: a preset switch is a reset of the fit width, not a name-font load. Decision 10's last sentence (modern fonts from the Google Fonts `@import`) is replaced by ADR 0028: the modern fonts are bundled too.
 
 battlecast gets a master look switch, `theme.preset`, with three curated values: `modern` (the
 default, today's look), `vintage70` (1970s US network: ABC Indy 500 / CBS Daytona 500, 1979) and

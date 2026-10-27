@@ -32,7 +32,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
 | `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. Each token file holds the `modern` values on `:root` and, after them, one `[data-theme="vintage70"]` and one `[data-theme="vintage80"]` block overriding them (ADR 0026). |
-| `public/fonts/<family>/` | `*.woff2`, `OFL.txt` | Self-hosted typefaces for the vintage presets (Barlow, Barlow Condensed, VT323, Oswald), each family's licence beside its files. Declared by `@font-face` in `src/design/tokens/fonts.css` with absolute `/fonts/…` URLs; `public/` is copied verbatim into `dist`, so the licences ship too. |
+| `public/fonts/<family>/` | `*.woff2`, `*.ttf`, `OFL.txt` | Self-hosted typefaces for every preset (modern: Saira Condensed, Saira, JetBrains Mono; vintage: Barlow, Barlow Condensed, VT323, Oswald), each family's licence beside its files. Declared by `@font-face` in `src/design/tokens/fonts.css` with absolute `/fonts/…` URLs; `public/` is copied verbatim into `dist`, so the licences ship too. |
 
 ## Data Flow
 
@@ -315,9 +315,16 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       transform, white space, flex, grid, position or offsets).
     `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
     `happy-dom` applies no CSS; `StandingsTower.themeSwitch.test.js` covers the re-measure.
-  - **Fonts are Google Fonts' pre-built `woff2` files, unmodified** (no re-subsetting or
-    conversion), each family folder with its `OFL.txt` from `google/fonts`. None of the four
-    families declares a Reserved Font Name.
+  - **Fonts are shipped unmodified** (no re-subsetting, conversion or renaming), each family
+    folder with its `OFL.txt` from `google/fonts`. Six families are Google Fonts' pre-built
+    `woff2` files with Google's `unicode-range`: the vintage four (latin and latin-ext subsets)
+    and Saira and JetBrains Mono (every subset Google serves for them; both are variable, one
+    file per subset declared `font-weight: 400 700`). Saira Condensed is the exception: its
+    licence reserves the name "Saira", so it ships as the four original static TTFs from
+    `google/fonts` (`SairaCondensed-{Regular,Medium,SemiBold,Bold}.ttf`, weights 400–700),
+    declared `format('truetype')` with no `unicode-range` (ADR 0028). `server/lib/static.js`
+    maps `ttf` to `font/ttf` beside `woff2`. No `@import` or `<link>` loads a font from another
+    origin; `fonts.css` holds only local `@font-face` rules.
   - `themeTokens.test.js` and `themeFonts.test.js` (in `src/design/`) read the token CSS from disk
     (a `?raw` CSS import is empty under vitest) and enforce these conventions and the bundled fonts.
 - **Class tags** (behavior in `what/widgets.md` rules 60–64, `what/overlay-config.md` rules
@@ -397,10 +404,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `0` before the letter spacing is added.
   - **Font readiness.** When `document.fonts` exists, names are measured only while
     `document.fonts.check(measuringFont)` returns `true`; while it returns `false`, the tower
-    computes no fit width (`N` is the configured width). `check()` can return `true` before
-    the stylesheet has registered the family (while the Google Fonts `@import` is still
-    loading), so the first measurement may be taken in the fallback face; the name-font load
-    below corrects it.
+    computes no fit width (`N` is the configured width). `check()` returns `true` for a family
+    no `@font-face` has registered yet (before the stylesheet applies), so the first
+    measurement may be taken in the fallback face; the name-font load below corrects it.
   - **Requesting the font, once.** While `check(measuringFont)` is `false`, the tower calls
     `document.fonts.load(measuringFont)` **once per measuring font** (the measuring weight may
     be one no rendered text uses, so it would never load by itself). It never calls it again

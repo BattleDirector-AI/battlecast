@@ -41,6 +41,31 @@ test('static: serves real files and SPA-falls-back for client routes', async () 
   }
 })
 
+test('static: bundled fonts go out with a font content-type (ADR 0028)', async () => {
+  // The modern preset ships Saira Condensed as TrueType beside the woff2 faces; both must be
+  // served as fonts, from disk and from the packaged binary's embedded map alike.
+  const distDir = await makeDist()
+  await fs.mkdir(path.join(distDir, 'fonts', 'x'), { recursive: true })
+  await fs.writeFile(path.join(distDir, 'fonts', 'x', 'a.ttf'), 'ttf')
+  await fs.writeFile(path.join(distDir, 'fonts', 'x', 'a.woff2'), 'woff2')
+  const embedded = embeddedFixture({ '/index.html': '<!doctype html>', '/fonts/x/b.ttf': 'ttf' })
+  try {
+    for (const [opts, url, type] of [
+      [{ distDir }, '/fonts/x/a.ttf', 'font/ttf'],
+      [{ distDir }, '/fonts/x/a.woff2', 'font/woff2'],
+      [{ embedded }, '/fonts/x/b.ttf', 'font/ttf'],
+    ]) {
+      await withServer(async ({ base }) => {
+        const res = await fetch(`${base}${url}`)
+        assert.equal(res.status, 200, url)
+        assert.equal(res.headers.get('content-type'), type, url)
+      }, opts)
+    }
+  } finally {
+    await fs.rm(distDir, { recursive: true, force: true })
+  }
+})
+
 test('static: a client route returns 503 when the app dir has no build', async () => {
   // dist dir exists but index.html was never built -> actionable 503, not a bare 404.
   const emptyDist = await fs.mkdtemp(path.join(os.tmpdir(), 'bc-nodist-'))
