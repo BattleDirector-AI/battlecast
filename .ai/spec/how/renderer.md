@@ -315,6 +315,39 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       transform, white space, flex, grid, position or offsets).
     `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
     `happy-dom` applies no CSS; `StandingsTower.themeSwitch.test.js` covers the re-measure.
+  - **On-board HUD** (`what/widgets.md` rules 97–98, `docs/decisions/0032-onboard-vintage-pass.md`),
+    in `OnBoardHud.svelte`'s `<style>`, all paint and none of it changing a box size:
+    - `vintage70`: `.bc-onboard` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the rule sits
+      in the plate's 8px bottom padding). `.bc-onboard__number` is `transform: skewX(-8deg)`,
+      `filter: drop-shadow(2px 2px 0 #000)`, `font-style: normal`, `color:
+      var(--bc-oncam-text)` and `text-shadow: none`, with no `background` (it keeps the base
+      accent fill). `.bc-onboard__class` (the span round `ClassChip`) is `transform:
+      skewX(-8deg)` and `filter: drop-shadow(2px 2px 0 #000)`. The chip itself sets its face
+      (`--bc-font-ui`, Barlow, bundled italic only, so `font-style: normal` alone still renders
+      italic), so `.bc-onboard__class :global(.bc-class-chip)` is `font-family:
+      var(--bc-font-display)` (Barlow Condensed, bundled upright at 700) and `font-style:
+      normal`. `.bc-onboard__bar-label` and `.bc-onboard__readout-label` are `font-family:
+      var(--bc-font-display)` and keep the inherited italic. `.bc-onboard__value--gear` is
+      `color: var(--bc-text)`. `.bc-onboard__track` is `-webkit-mask-image` and `mask-image:
+      repeating-linear-gradient(104deg, #000 0 10px, transparent 10px 13px)` (a 14° lean).
+    - `vintage80`: `.bc-onboard` is `background: var(--bc-plate)` (one of the tokens
+      `AllView`'s `plateVars` rescales per slot, so `plateAlpha` still applies).
+      `.bc-onboard__label` is `background: var(--bc-live)`, `box-shadow: 0 0 0 4px
+      var(--bc-live)`, `color: var(--bc-text-on-accent)` and `text-shadow: none`;
+      `.bc-onboard__position` the same with `var(--bc-text-2)` for the block. With the strip's
+      `--bc-space-2` gap the two 4px spreads meet. `.bc-onboard__number` is `text-shadow: none`.
+      `.bc-onboard__driver` is `color: var(--bc-text)`. `.bc-onboard__track` is
+      `-webkit-mask-image` and `mask-image: repeating-linear-gradient(90deg, #000 0 10px,
+      transparent 10px 12px)`.
+    - Both presets: `.bc-onboard__track` and `.bc-onboard__fill` are `border-radius: 0`. The
+      mask on the track clips the fill inside it, so the fill keeps its one `width` and its
+      transition. These are the only themed declarations: none recolours a fill or track, sets
+      a custom property, a `transition` or `animation`, or a property that sizes or positions a
+      box (the label `font-family` swaps are paint, rule 60), and every themed selector starts
+      with exactly `:global([data-theme='vintage70']) ` or `:global([data-theme='vintage80']) `.
+    `OnBoardHud.vintage.test.js` reads these rules from the component source (`?raw`), pins the
+    complete themed set per preset, checks the chip label's face against `tokens/fonts.css`, and
+    renders the HUD from `race-onboard-telemetry.json` under each preset to compare content.
   - **Fonts are shipped unmodified** (no re-subsetting, conversion or renaming), each family
     folder with its `OFL.txt` from `google/fonts`. Six families are Google Fonts' pre-built
     `woff2` files with Google's `unicode-range`: the vintage four (latin and latin-ext subsets)
