@@ -315,6 +315,34 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       transform, white space, flex, grid, position or offsets).
     `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
     `happy-dom` applies no CSS; `StandingsTower.themeSwitch.test.js` covers the re-measure.
+  - **Race Control** (`what/widgets.md` rules 95–96,
+    `docs/decisions/0031-racecontrol-vintage-pass.md`), in `RaceControlStatus.svelte`'s
+    `<style>`, all paint and none of it setting a length:
+    - `vintage70`: `.bc-racecontrol` is `background: linear-gradient(var(--bc-accent),
+      var(--bc-accent)) bottom / 100% 4px no-repeat, var(--bc-header)`. The rule is a background
+      layer, not an inset `box-shadow`, because the full-motion caution pulse animates the
+      strip's `box-shadow` and would wipe it. `.bc-racecontrol__swatch` is `transform:
+      skewX(-8deg)`; no chip selector sets a `transform`. `.bc-racecontrol__badge--fcy` is
+      `text-shadow: none` with `filter: drop-shadow(2px 2px 0 #000)`.
+    - `vintage80`: `.bc-racecontrol__flag-label` and `.bc-racecontrol__badge` are `font-family:
+      var(--bc-font-display)`. `.bc-racecontrol__swatch` sets only `box-shadow: inset 0 0 0 1px
+      rgba(0, 0, 0, 0.35), 0 0 0 2px #000` (its own edge plus the ring); a `background` there
+      would wipe the flag colour, which is an inline style, and the chequered squares.
+      `.bc-racecontrol__badge--fcy` is `text-shadow: none`. `.bc-racecontrol` sets no
+      background or shadow, so the base Scoreboard header and hard plate shadow stay.
+    - Both presets: `.bc-racecontrol.bc-racecontrol--caution` is `animation: none`, which drops
+      the glow-bloom pulse on the strip. It has the same specificity as the base
+      `:global(:root:not([data-motion='reduced'])) .bc-racecontrol--caution`, so it sits after
+      that rule in the source. The ring's pulse on `.bc-racecontrol--caution::after` and the
+      reduced-motion steady ring are untouched. No themed rule sets a length (widths, heights,
+      padding, margin, border widths, font size or weight, letter spacing, line height, text
+      transform, white space, flex, grid, position or offsets); `font-family` is the one type
+      property set, and the strip sizes to its text (`what/overlay-config.md` rule 60's
+      text-sized box), so its width follows the typeface while every set length stays.
+    These are the only themed rules, and every selector naming `data-theme` is one of the two
+    quoted scopes `:global([data-theme='vintage70'])` and `:global([data-theme='vintage80'])`.
+    `RaceControlStatus.vintage.test.js` reads them from the component source (`?raw`) and checks
+    that each preset's themed selector, property and value set is exactly the one above.
   - **Fonts are shipped unmodified** (no re-subsetting, conversion or renaming), each family
     folder with its `OFL.txt` from `google/fonts`. Six families are Google Fonts' pre-built
     `woff2` files with Google's `unicode-range`: the vintage four (latin and latin-ext subsets)

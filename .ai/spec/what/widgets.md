@@ -528,6 +528,35 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     both show. Under a full-course yellow or a safety car the chip is not shown (the FCY/SC
     badges already cover the whole course). A sector yellow does not start the caution pulse,
     which stays FCY/SC only. Decision record: `docs/decisions/0016-local-yellow-fields.md`.
+95. **Race Control under `vintage70`.** On top of the base look (`overlay-config.md` rule 60)
+    the strip takes the 1970s network look. Everything this rule does not name renders the base
+    look: the black plate, the italic type with its small-text extrusion, and every colour, the
+    flag swatch colours and the chips' amber included. Decision record:
+    `docs/decisions/0031-racecontrol-vintage-pass.md`.
+    - **Red rule.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the strip, inside it: the strip is no taller. It shows under every flag, red
+      included; the flag's meaning stays with its swatch and its label.
+    - **Flag swatch.** The swatch leans with the type: it is skewed 8° (top edge to the right).
+      Its colour, the chequered squares included, is unchanged.
+    - **Chips.** The `FULL COURSE YELLOW`, `SAFETY CAR` and sector-yellow chips are not skewed:
+      their italic type already leans. The `FULL COURSE YELLOW` chip's dark text has no
+      extrusion, and the chip casts a hard 2px black drop shadow.
+    - **Caution.** Under a full-course yellow or a safety car the amber ring pulses as under
+      `modern`, at the same timing, but the strip has no soft amber glow around it. Reduced motion
+      shows the same steady ring as under `modern`.
+96. **Race Control under `vintage80`.** On top of the base look the strip takes the 1980s
+    timing-page look. Everything this rule does not name renders the base look: the Scoreboard
+    red plate with its hard black shadow, the thin black outline on text, and every colour.
+    Decision record: `docs/decisions/0031-racecontrol-vintage-pass.md`.
+    - **Typeface.** The flag label and every chip are set in the preset's display face (Oswald,
+      `--bc-font-display`), not its timing-page face (VT323), at the same size and weight as
+      under `modern`. The strip is a box sized to its own text (`overlay-config.md` rule 60), so
+      its size follows the typeface; every set length (padding, gaps, swatch size) is unchanged.
+    - **Flag swatch.** The swatch keeps its own colour, chequered squares and edge, with a 2px
+      black ring around it, so a red flag's swatch shows on the red strip.
+    - **Chips.** The `FULL COURSE YELLOW` chip's dark text has no outline.
+    - **Caution.** As under `vintage70` (rule 95): the ring pulses as under `modern`, and the strip
+      has no soft amber glow around it.
 
 ### On-board HUD (`/onboard`, #26)
 
