@@ -439,6 +439,16 @@ A lower-third is the bottom-of-screen name-tag for the driver currently on camer
 subject-driven and **fire on a camera cut** (a change of `subject.slot_id`), not continuously.
 Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 
+107. **The bar-wipe under a vintage preset has no shine.** The skewed bar-wipe that the driver
+    and qualifying lower-thirds, the race update box (rule 74) and the info panel (rule 81)
+    enter and leave with, and the logo rotation's matching reveal, play under `vintage70` and
+    `vintage80` exactly as under `modern`, at the same timings and under reduced motion with
+    the same plain fade: the lower-thirds' plate skew-slide and content wipe, and the logo
+    rotation's sideways slide and image wipe. The one difference is the mint shine bar, which
+    does not render: no shine sweeps across the plate or the logo on the way in or out, at
+    either motion setting. Each widget takes the preset from the nearest `data-theme`
+    ancestor, so the `/config` preview shows it too.
+
 13. **Visibility layering** (every gate must pass): `config.visible` → trigger (`dwell` |
     `persistent`) → subject validity / idle → render. `?show=`/`?hide=` override `visible`.
 14. **Subject resolution:** *valid* = `slot_id` resolves to a `vehicles` entry; *degraded* =
