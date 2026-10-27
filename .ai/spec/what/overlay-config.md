@@ -600,6 +600,23 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     looks and not what it shows, and that a `?theme=` parameter overrides it per Browser Source; per
     rule 21 it says that the editor panel itself stays in the modern look and that class colours
     are the same in every look (either would otherwise read as a setting that did not take).
+63. **The preview renders every widget in the chosen preset.** Under every preset, each widget
+    the `/config` preview draws (every key in `widgets`, while it is visible) takes the look its
+    render page takes under that preset: the base look (rule 60) and the widget's own `widgets.md`
+    preset rules, with the same content, timing and geometry. A widget takes the preset from the
+    nearest ancestor carrying `data-theme`; in the preview that ancestor is the preview stage,
+    no element between the stage and a widget carries `data-theme`, and no widget's preset
+    styling or preset-dependent behaviour reads the document root's attribute alone (which in the
+    editor never names a vintage preset, rule 59). Choosing a preset re-renders the preview in it
+    at once, with no transition, and does in the preview whatever switching preset on a live
+    render page does (rule 60: a `full`-name tower measures its fit width again). The preview adds
+    no preset styling of its own: how a widget's text reads under a preset is that widget's rule.
+64. **The drag handles are editor chrome and keep the editor's look.** The preview's handles sit
+    inside the themed stage but take nothing from the preset: under every preset each handle's
+    dashed outline and tint, its resize corner, and its key label (the widget key, `tower`,
+    `battle` and so on, shown in capitals) render exactly as under `modern`. The key label keeps
+    the editor's typeface, upright, with no text shadow or outline, in its own dark-on-teal
+    colours, so it reads the same over every look and is never taken for overlay graphics.
 
 ### Editor help content
 
