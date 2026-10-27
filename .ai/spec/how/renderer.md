@@ -315,6 +315,41 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       transform, white space, flex, grid, position or offsets).
     `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
     `happy-dom` applies no CSS; `StandingsTower.themeSwitch.test.js` covers the re-measure.
+  - **Battle box** (`what/widgets.md` rules 91–92,
+    `docs/decisions/0029-battle-box-vintage-pass.md`), in `BattleBox.svelte`'s `<style>`. The
+    meter's elements belong to `IntensityMeter.svelte`, a shared design component, so the battle
+    box styles them from its own scope as `.bc-battle__meter :global(.bc-intensity__track)` (and
+    `__fill`, `__label`); `IntensityMeter.svelte` itself is unchanged.
+    - `vintage70`: `.bc-battle__header` is `box-shadow: inset 0 -4px 0 var(--bc-accent)`.
+      `.bc-battle__slot--focus` is `background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0,
+      0, 0.3)), repeating-linear-gradient(180deg, #2FB34A 0 7px, #9BCB2C 7px 14px, #E9B21C 14px
+      21px, #DE6A24 21px 28px, #B53C9A 28px 35px, #5A4FCF 35px 42px, #2C8FD8 42px 49px)` with
+      `box-shadow: 4px 4px 0 #000`. `.bc-battle__slot--focus .bc-battle__slot-label` and
+      `.bc-battle__focus-name` are `color: var(--bc-oncam-text)`; `.bc-battle__focus-name` is
+      `text-shadow: 1px 1px 0 #2a1200, 2px 2px 0 #1a0b00, 3px 3px 0 #000, 4px 4px 0 #000, 0 0
+      10px rgba(0, 0, 0, 0.55), 0 0 2px rgba(0, 0, 0, 0.9)` (the 70s mock's heavy form). The
+      track is `transform: skewX(-14deg)`, and `mask-image` and `-webkit-mask-image` are both
+      `repeating-linear-gradient(90deg, #000 0 calc(10% - 4px), transparent calc(10% - 4px)
+      10%)` (OBS 30's CEF 103 knows only the prefixed one).
+    - `vintage80`: `.bc-battle__title` is `background: #000` with `box-shadow: 0 0 0 2px #000`.
+      `.bc-battle__header :global(.bc-class-chip)` is filled by its shadow alone, `box-shadow:
+      inset 0 0 0 99px #000, 0 0 0 2px #000`, because `ClassChip` sets its background as an
+      inline style, which a stylesheet `background` cannot override. No themed rule sets the title's
+      `color`, so the base `.bc-battle--hot .bc-battle__title` keeps the intensity colour. The
+      title, the chip, `.bc-battle__slot-label`, `.bc-battle__meter
+      :global(.bc-intensity__label)`, `.bc-battle__idle-heading` and `.bc-battle__idle-sub` are
+      `font-family: var(--bc-font-display)` (Oswald; the chip's label inherits it).
+      `.bc-battle__slot--focus` is `background: var(--bc-accent)` with `box-shadow: 3px 3px 0
+      #000`; `.bc-battle__slot--focus .bc-battle__slot-label` and `.bc-battle__focus-name` are
+      `color: var(--bc-text-on-accent)` and `text-shadow: none`. The track's two masks are
+      `repeating-linear-gradient(90deg, #000 0 calc(100% / 12 - 4px), transparent calc(100% / 12
+      - 4px) calc(100% / 12))`, with no transform.
+    - Both presets: the track and the fill are `border-radius: 0`. These are the only themed
+      rules: every selector that names `data-theme` starts with exactly
+      `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`, and the
+      (selector, property, value) set under each is exactly the one listed here.
+    `BattleBox.vintage.test.js` reads these rules from the component source (`?raw`) and holds
+    them to that closed list.
   - **Fonts are shipped unmodified** (no re-subsetting, conversion or renaming), each family
     folder with its `OFL.txt` from `google/fonts`. Six families are Google Fonts' pre-built
     `woff2` files with Google's `unicode-range`: the vintage four (latin and latin-ext subsets)
