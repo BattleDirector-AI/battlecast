@@ -40,6 +40,22 @@ preview subtree while the editor's own panel, whose root carries no vintage them
 (`what/overlay-config.md` rule 62). The theme select (`data-testid="theme-preset"`) sits beside the
 class-tags select, writes through `configEditor.setThemePreset`, and its help is
 `FIELD_HELP.themePreset`.
+Every widget reaches the preset through the stage (rule 63): `AllView`'s widget slots carry no
+`data-theme` of their own, widget styles key off the bare `[data-theme=…]` ancestor
+(`how/renderer.md`, "Theme presets"), and the tower's theme-switch reset finds its scope with
+`closest('[data-theme]')`. `ConfigPage.previewTheme.test.js` holds all three: the rendered scope
+of every widget, and a source scan of every component `<style>` (no `:root[data-theme…]` /
+`html[data-theme…]` selector) and every module (no theme read off `document.documentElement`).
+Rule 63's re-measure clause, a `full`-name tower measuring its fit width again when the preview's
+preset changes, is held by `routes/tower/StandingsTower.themeSwitch.test.js` ("in the /config
+preview, follows the preview stage, not the document root").
+The handles (rule 64) are plain editor CSS in `ConfigPage.svelte`: literal colours, no `--bc-*`
+token and no `[data-theme]` selector, and `.handle__label` sets `text-shadow: none` and
+`font-style: normal` against the stage's inherited base-look rule (`design/tokens/effects.css`).
+Any inherited text property a token file's theme-scope rule sets, the label overrides with a
+literal value; the test derives that list from the token files, so a property added to the base
+look later must gain an override here. The label sets no `font-family`, so it inherits the editor
+root's typeface; the stage scopes the `--bc-font-*` tokens but sets no font itself.
 The editor renders the real `AllView` against a fixture snapshot, scaled by
 `previewScale` (`fitPreview()` fits the canvas into the panel, capped at 0.6). Pointer deltas are
 divided by that scale before reaching `moveWidget`/`resizeWidget`, so a drag moves the widget by

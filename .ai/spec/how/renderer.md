@@ -19,7 +19,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/widgetIdle.js` | `IDLE_PREDICATES`, `isWidgetIdle`, `widgetSupportsAutoHide` | Per-widget idle predicates for `hideWhenIdle`. |
 | `src/lib/lowerThirdTrigger.js` | — | Edge-triggered camera-cut / dwell state machine for lower-thirds. |
 | `src/routes/tower/towerCycle.js` | `computeRowBudget`, `clampPerPageSeconds`, `selectPins`, `selectRows`, `createTowerCycle` | Tower overflow selection + cycling-window stability (see `what/tower-overflow.md`). |
-| `src/lib/LowerThirdShell.svelte` | — | Shared reveal/dwell/wipe shell for lower-third widgets. |
+| `src/lib/LowerThirdShell.svelte` | — | Shared reveal/dwell/wipe shell for lower-third widgets. Under a vintage preset it hides its shine bar (`.lt3__bar`, `display: none` under `:global([data-theme='vintage70'])` and the same for `vintage80`, an ancestor scope so the /config preview gets it) and themes nothing else, so the wipe plays as under modern (widgets rule 107). `LogoRotation.svelte` keeps its own copy of the reveal and hides `.bc-logos__shine` the same way. |
 | `src/lib/raceEvents.js` | `raceEventCard`, `createRaceUpdateFeed` | Race update box logic, pure and DOM-free (`what/widgets.md` rules 69–73). `raceEventCard(entry)` validates one `race_events` entry and returns `{ id, type, label, name, value, detail }` with the card's exact strings (`value`/`detail` `null` when the card has none), or `null` for an entry rule 69 skips. `createRaceUpdateFeed` owns the seen ids, the baseline, the waiting queue and its cap of 5. |
 | `src/routes/updates/RaceUpdateBox.svelte` | props `snapshot`, `dwellSeconds`, `preview` | The race update box: feeds each snapshot to its feed, times the card on screen, renders it inside `LowerThirdShell`, keyed on the event id (`{#key}`) inside a stable `.lt3-anchor`, as `DriverLowerThird` keys its shell on the slot, so a replacement remounts the plate: the old one plays its exit while the new one enters (rule 74). |
 | `src/routes/updates/UpdatesPage.svelte` | — | Standalone `/updates` route: `sseClient.connect` + `loadConfig(location.search)` for the `updates` widget's `dwellSeconds`. |
@@ -258,7 +258,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `GridPage`, and `ResultsPage` each read `?class=` from `location.search`. Class-rank badges are
   computed from the *full* field (in `StandingsTower.svelte`) so a filtered view keeps correct
   `n/total` ranks.
-- **Theme presets** (behavior in `what/overlay-config.md` rules 58–62; rationale in
+- **Theme presets** (behavior in `what/overlay-config.md` rules 58–64; rationale in
   `docs/decisions/0026-theme-presets.md`). Each page applies the theme exactly where it applies
   motion: `App.svelte` at boot (URL baseline), then each profile-loading page in its `loadConfig`
   callback and its `watchConfig` `onChange`, as
@@ -334,6 +334,39 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       `what/widgets.md` rule 107) is the shell's own. `InfoPanel.vintage.test.js` reads the rules
       from the component source (`?raw`), rejects any other theme selector spelling, and pins
       the exact set per preset.
+  - **On-board HUD** (`what/widgets.md` rules 97–98, `docs/decisions/0032-onboard-vintage-pass.md`),
+    in `OnBoardHud.svelte`'s `<style>`, all paint and none of it changing a box size:
+    - `vintage70`: `.bc-onboard` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the rule sits
+      in the plate's 8px bottom padding). `.bc-onboard__number` is `transform: skewX(-8deg)`,
+      `filter: drop-shadow(2px 2px 0 #000)`, `font-style: normal`, `color:
+      var(--bc-oncam-text)` and `text-shadow: none`, with no `background` (it keeps the base
+      accent fill). `.bc-onboard__class` (the span round `ClassChip`) is `transform:
+      skewX(-8deg)` and `filter: drop-shadow(2px 2px 0 #000)`. The chip itself sets its face
+      (`--bc-font-ui`, Barlow, bundled italic only, so `font-style: normal` alone still renders
+      italic), so `.bc-onboard__class :global(.bc-class-chip)` is `font-family:
+      var(--bc-font-display)` (Barlow Condensed, bundled upright at 700) and `font-style:
+      normal`. `.bc-onboard__bar-label` and `.bc-onboard__readout-label` are `font-family:
+      var(--bc-font-display)` and keep the inherited italic. `.bc-onboard__value--gear` is
+      `color: var(--bc-text)`. `.bc-onboard__track` is `-webkit-mask-image` and `mask-image:
+      repeating-linear-gradient(104deg, #000 0 10px, transparent 10px 13px)` (a 14° lean).
+    - `vintage80`: `.bc-onboard` is `background: var(--bc-plate)` (one of the tokens
+      `AllView`'s `plateVars` rescales per slot, so `plateAlpha` still applies).
+      `.bc-onboard__label` is `background: var(--bc-live)`, `box-shadow: 0 0 0 4px
+      var(--bc-live)`, `color: var(--bc-text-on-accent)` and `text-shadow: none`;
+      `.bc-onboard__position` the same with `var(--bc-text-2)` for the block. With the strip's
+      `--bc-space-2` gap the two 4px spreads meet. `.bc-onboard__number` is `text-shadow: none`.
+      `.bc-onboard__driver` is `color: var(--bc-text)`. `.bc-onboard__track` is
+      `-webkit-mask-image` and `mask-image: repeating-linear-gradient(90deg, #000 0 10px,
+      transparent 10px 12px)`.
+    - Both presets: `.bc-onboard__track` and `.bc-onboard__fill` are `border-radius: 0`. The
+      mask on the track clips the fill inside it, so the fill keeps its one `width` and its
+      transition. These are the only themed declarations: none recolours a fill or track, sets
+      a custom property, a `transition` or `animation`, or a property that sizes or positions a
+      box (the label `font-family` swaps are paint, rule 60), and every themed selector starts
+      with exactly `:global([data-theme='vintage70']) ` or `:global([data-theme='vintage80']) `.
+    `OnBoardHud.vintage.test.js` reads these rules from the component source (`?raw`), pins the
+    complete themed set per preset, checks the chip label's face against `tokens/fonts.css`, and
+    renders the HUD from `race-onboard-telemetry.json` under each preset to compare content.
   - **Fonts are shipped unmodified** (no re-subsetting, conversion or renaming), each family
     folder with its `OFL.txt` from `google/fonts`. Six families are Google Fonts' pre-built
     `woff2` files with Google's `unicode-range`: the vintage four (latin and latin-ext subsets)
