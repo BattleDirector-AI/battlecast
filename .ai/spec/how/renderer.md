@@ -258,7 +258,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `GridPage`, and `ResultsPage` each read `?class=` from `location.search`. Class-rank badges are
   computed from the *full* field (in `StandingsTower.svelte`) so a filtered view keeps correct
   `n/total` ranks.
-- **Theme presets** (behavior in `what/overlay-config.md` rules 58–62; rationale in
+- **Theme presets** (behavior in `what/overlay-config.md` rules 58–64; rationale in
   `docs/decisions/0026-theme-presets.md`). Each page applies the theme exactly where it applies
   motion: `App.svelte` at boot (URL baseline), then each profile-loading page in its `loadConfig`
   callback and its `watchConfig` `onChange`, as
