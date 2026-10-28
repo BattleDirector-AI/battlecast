@@ -204,6 +204,9 @@
           lines={w.lines}
           weatherCard={w.weatherCard}
           tempUnit={w.tempUnit}
+          slotLeft={w.x}
+          slotWidth={w.w}
+          canvasWidth={canvas.w}
         />
       {:else if w.key === 'weather'}
         <WeatherBox {snapshot} tempUnit={w.tempUnit} />

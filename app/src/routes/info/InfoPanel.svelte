@@ -3,7 +3,7 @@
   import { fade } from 'svelte/transition'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
   import { prefersReducedMotion } from '../../lib/motion.js'
-  import { eventHeader, infoLines, createInfoRotation, WEATHER_CARD } from '../../lib/infoPanel.js'
+  import { eventHeader, infoLines, createInfoRotation, WEATHER_CARD, infoPanelSpan } from '../../lib/infoPanel.js'
   import { weatherCardText } from '../../lib/weather.js'
   import { DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
 
@@ -19,6 +19,9 @@
     lines = [],
     weatherCard = DEFAULT_CONFIG.widgets.info.weatherCard,
     tempUnit = DEFAULT_CONFIG.widgets.info.tempUnit,
+    slotLeft = null,
+    slotWidth = null,
+    canvasWidth = null,
   } = $props()
 
   const header = $derived(eventHeader(snapshot?.event))
@@ -59,17 +62,60 @@
 
   onDestroy(stopTimer)
 
+  // A long header widens the panel (rule 78a; how/renderer.md "A long header widens the
+  // panel"). The header is `max-content`, so its `offsetWidth` is its text's width whatever the
+  // panel's width, in layout px the /config preview's scale does not change. Its need adds the
+  // panel's side padding and the plate's side borders. Measured after every header change, and
+  // when the header's box resizes on its own (a font load, a preset switch, a textScale change).
+  let headerEl = $state(null)
+  let sectionEl = $state(null)
+  let need = $state(null)
+  const px = (v) => {
+    const n = parseFloat(v)
+    return Number.isFinite(n) ? n : 0
+  }
+  function measure() {
+    if (!headerEl || !sectionEl) {
+      need = null
+      return
+    }
+    const pad = getComputedStyle(sectionEl)
+    const plate = sectionEl.closest('.lt3')
+    const border = plate ? getComputedStyle(plate) : null
+    need =
+      headerEl.offsetWidth +
+      px(pad.paddingLeft) +
+      px(pad.paddingRight) +
+      (border ? px(border.borderLeftWidth) + px(border.borderRightWidth) : 0)
+  }
+  $effect(() => {
+    void header
+    void sectionEl
+    const el = headerEl
+    untrack(measure)
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => measure())
+    observer.observe(el)
+    return () => observer.disconnect()
+  })
+  // Without a slot (no host passing one) the panel fills its parent as it always has.
+  const span = $derived(
+    slotWidth == null || canvasWidth == null
+      ? null
+      : infoPanelSpan({ slotLeft: slotLeft ?? 0, slotWidth, headerNeed: need, canvasWidth }),
+  )
+
   // The line crossfade (rule 81). Local, so a line that comes or goes with an empty list (its
   // `{#if}` block) does not fade; duration 0 under reduced motion.
   const lineFade = (node) => (prefersReducedMotion() ? { duration: 0 } : fade(node, { duration: 300 }))
 </script>
 
 {#if header !== null || current !== null}
-  <div class="lt3-anchor">
+  <div class="lt3-anchor" style={span ? `width: ${span.width}px; left: ${span.left - (slotLeft ?? 0)}px` : undefined}>
     <LowerThirdShell>
-      <section class="bc-info" data-testid="info-panel" aria-label="Event information">
+      <section bind:this={sectionEl} class="bc-info" data-testid="info-panel" aria-label="Event information">
         {#if header !== null}
-          <span class="bc-info__header" data-testid="info-header">{header}</span>
+          <span bind:this={headerEl} class="bc-info__header" data-testid="info-header">{header}</span>
         {/if}
         {#if current !== null}
           <div class="bc-info__row">
@@ -113,12 +159,10 @@
     font-weight: var(--bc-weight-label);
     letter-spacing: var(--bc-track-label);
     color: var(--bc-text-3);
-    /* Caps the header at the content width when a preset aligns it to the start, so a long
-       header still ellipsizes (rule 102). A no-op while it stretches. */
-    max-width: 100%;
+    /* Sized to its text in every preset, never cut: the panel widens to hold it (rule 78a), and
+       this box is what it measures, so the measure never depends on the panel's width. */
+    width: max-content;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   /* One grid cell for every line, so the outgoing and incoming lines of a crossfade sit in
