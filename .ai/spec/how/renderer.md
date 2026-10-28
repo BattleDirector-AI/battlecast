@@ -343,6 +343,29 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     quoted scopes `:global([data-theme='vintage70'])` and `:global([data-theme='vintage80'])`.
     `RaceControlStatus.vintage.test.js` reads them from the component source (`?raw`) and checks
     that each preset's themed selector, property and value set is exactly the one above.
+  - **Takeover slides** (`what/widgets.md` rules 105–106,
+    `docs/decisions/0036-takeover-slides-vintage-pass.md`), in the `<style>` of
+    `GridSlide.svelte` and of `ResultsSlide.svelte`, the same rules in each with the slide's own
+    root prefix (`grid` or `results`), all paint and none of it changing a box size:
+    - Both presets: the root (`.grid`, `.results`) is `background: var(--bc-plate-solid)`; the
+      position numeral (`.cell__pos`, `.row__pos`) is `color: var(--bc-text-2)`.
+    - `vintage70`: the header (`.grid__header`, `.results__header`) is `box-shadow: inset 0 -4px
+      0 var(--bc-accent)`; `.group__count` (and on `/results` `.group__colhead`, whose spans
+      inherit it) is `color: #35D4C8`; `.group__head :global(.bc-class-chip)` and the filter's
+      `.grid__filter :global(.bc-class-chip)` / `.results__filter :global(.bc-class-chip)` are
+      `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0 #000)` and `font-style:
+      normal`. No other rule in either component names `--bc-accent`.
+    - `vintage80`: the title (`.grid__title`, `.results__title`) is `background:
+      var(--bc-header)` with `box-shadow: 0 0 0 6px var(--bc-header)` (a spread shadow takes no
+      layout space, and the header's 12px gap keeps it off the filter chip) and `color:
+      var(--bc-text-2)`; `.group__count` (and `.group__colhead`) is `color: var(--bc-text-2)`.
+    - No themed slide rule sets `text-shadow` or a property that sizes or positions a box (the
+      same list as the tower's).
+    `GridSlide.vintage.test.js` and `ResultsSlide.vintage.test.js` read these rules from the
+    component source (`?raw`). They hold the themed CSS to a closed set: every selector that names
+    `data-theme` starts with the exact quoted scope `:global([data-theme='vintage70'])` or
+    `…'vintage80'])`, each preset's sorted `selector | prop: value` list equals the one listed
+    here, and a render of the slide checks every themed selector names an element it draws.
   - **Info panel** (`what/widgets.md` rules 101–102, `docs/decisions/0034-info-panel-vintage-pass.md`),
     in `InfoPanel.svelte`'s `<style>`, exactly these themed declarations and no others, every
     one under the `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`
