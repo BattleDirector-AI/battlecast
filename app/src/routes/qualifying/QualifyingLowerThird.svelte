@@ -367,4 +367,56 @@
   .bc-qt__cell--delta.bc-qt__cell--ahead .bc-qt__cell-value {
     color: var(--bc-up, #7cffb2);
   }
+
+  /* The card's own vintage look (widgets rules 93–94, ADR 0030). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60); the plate is LowerThirdShell's. Where the base
+     rule is compound, the themed rule repeats it, or the base rule outranks it. */
+  :global([data-theme='vintage70']) .bc-qt__accent,
+  :global([data-theme='vintage80']) .bc-qt__accent {
+    border-radius: 0;
+    box-shadow: 2px 2px 0 #000;
+  }
+  :global([data-theme='vintage70']) .bc-qt--flash .bc-qt__accent,
+  :global([data-theme='vintage80']) .bc-qt--flash .bc-qt__accent {
+    box-shadow: 2px 2px 0 #000;
+  }
+  :global([data-theme='vintage70']) .bc-qt--flash .bc-qt__label,
+  :global([data-theme='vintage80']) .bc-qt--flash .bc-qt__label {
+    background: var(--bc-intensity-hot);
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+    box-shadow:
+      0 0 0 3px var(--bc-intensity-hot),
+      0 0 0 4px #000;
+  }
+  :global([data-theme='vintage70']) .bc-qt__cell--best .bc-qt__cell-value,
+  :global([data-theme='vintage80']) .bc-qt__cell--best .bc-qt__cell-value {
+    text-shadow: var(--bc-shadow-text);
+  }
+
+  /* 70s: a red rule along the card bottom, a warm-white position, a gold name. */
+  :global([data-theme='vintage70']) .bc-qt {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .bc-qt__pos {
+    color: var(--bc-text-2);
+  }
+  :global([data-theme='vintage70']) .bc-qt__name {
+    color: var(--bc-text);
+  }
+
+  /* 80s: every label in the caption face, and the ahead delta in reverse video. */
+  :global([data-theme='vintage80']) .bc-qt__label,
+  :global([data-theme='vintage80']) .bc-qt__cell-label {
+    font-family: var(--bc-font-display);
+  }
+  :global([data-theme='vintage80']) .bc-qt__cell--delta.bc-qt__cell--ahead .bc-qt__cell-value {
+    background: var(--bc-up);
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+    box-shadow:
+      0 0 0 2px var(--bc-up),
+      0 0 0 3px #000;
+  }
 </style>
