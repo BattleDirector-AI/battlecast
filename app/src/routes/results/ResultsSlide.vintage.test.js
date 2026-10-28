@@ -77,8 +77,8 @@ const EXPECTED = {
   vintage70: [
     '.results | background: var(--bc-plate-solid)',
     '.results__header | box-shadow: inset 0 -4px 0 var(--bc-accent)',
-    '.group__count | color: #35d4c8',
-    '.group__colhead | color: #35d4c8',
+    '.group__count | color: var(--bc-subhead)',
+    '.group__colhead | color: var(--bc-subhead)',
     '.row__pos | color: var(--bc-text-2)',
     ...CHIPS.flatMap((c) => [
       `${c} | transform: skewX(-8deg)`,
@@ -106,10 +106,10 @@ describe('vintage70 results slide (rule 105)', () => {
     expect(themed('vintage70', '.results__header', 'box-shadow')).toBe('inset 0 -4px 0 var(--bc-accent)')
   })
 
-  it('subheads: each group car count and the column heads are teal', () => {
+  it('subheads: each group car count and the column heads are the teal subhead token', () => {
     // The column-head spans set no colour of their own, so they inherit the row's.
     for (const sub of ['.group__count', '.group__colhead']) {
-      expect(themed('vintage70', sub, 'color')?.toLowerCase(), sub).toBe('#35d4c8')
+      expect(themed('vintage70', sub, 'color'), sub).toBe('var(--bc-subhead)')
     }
   })
 

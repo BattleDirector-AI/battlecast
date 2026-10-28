@@ -287,6 +287,12 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   - **Only existing token names.** A preset block overrides tokens that `:root` defines (new
     tokens get a `modern` value on `:root` first: `--bc-shadow-text: none`, `--bc-font-style:
     normal`). This keeps one vocabulary for a later custom theme.
+  - **The subhead colour.** `--bc-subhead` (in `colors.css`) is the colour of a small caption
+    line under a title: the info panel's header and the takeover slides' group subheads. `:root`
+    declares it as `var(--bc-text-2)`, so it is derived and both presets re-declare it:
+    `vintage70` as the 70s mock's teal `#35D4C8` (its `--bc-teal`), `vintage80` as
+    `var(--bc-text-2)`. Only the `vintage70` widget rules name it; no component writes the teal as a
+    literal. `themeTokens.test.js` pins the three values.
   - **No geometry tokens.** Preset blocks never override `spacing.css` tokens other than the radii:
     row heights feed the tower's row budget (`towerCycle.js`).
   - **Base look on the scope.** One rule on the theme scope sets the inherited `text-shadow:
@@ -432,10 +438,10 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       position numeral (`.cell__pos`, `.row__pos`) is `color: var(--bc-text-2)`.
     - `vintage70`: the header (`.grid__header`, `.results__header`) is `box-shadow: inset 0 -4px
       0 var(--bc-accent)`; `.group__count` (and on `/results` `.group__colhead`, whose spans
-      inherit it) is `color: #35D4C8`; `.group__head :global(.bc-class-chip)` and the filter's
-      `.grid__filter :global(.bc-class-chip)` / `.results__filter :global(.bc-class-chip)` are
-      `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0 #000)` and `font-style:
-      normal`. No other rule in either component names `--bc-accent`.
+      inherit it) is `color: var(--bc-subhead)`; `.group__head :global(.bc-class-chip)` and the
+      filter's `.grid__filter :global(.bc-class-chip)` / `.results__filter
+      :global(.bc-class-chip)` are `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0
+      #000)` and `font-style: normal`. No other rule in either component names `--bc-accent`.
     - `vintage80`: the title (`.grid__title`, `.results__title`) is `background:
       var(--bc-header)` with `box-shadow: 0 0 0 6px var(--bc-header)` (a spread shadow takes no
       layout space, and the header's 12px gap keeps it off the filter chip) and `color:
@@ -453,7 +459,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     ancestor selector and no other spelling of a theme selector:
     - `vintage70`: `.bc-info` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the red rule,
       drawn inside `.lt3__inner`, so it wipes with the content and takes no layout space);
-      `.bc-info__header` is `color: #35D4C8`, the same literal the takeover slides use (ADR 0034).
+      `.bc-info__header` is `color: var(--bc-subhead)`, the same token the takeover slides use.
     - `vintage80`: `.bc-info__header` is `align-self: flex-start` (a flex item of the column
       panel stretches to its width otherwise, and so would its block; the cross size stays capped
       at the content width, so `nowrap` and the ellipsis still cut a long header), `font-family:

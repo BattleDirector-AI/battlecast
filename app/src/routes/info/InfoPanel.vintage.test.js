@@ -73,13 +73,13 @@ describe('vintage70 info panel (rule 101)', () => {
     expect(decls()).toContain('.bc-info | box-shadow: inset 0 -4px 0 var(--bc-accent)')
   })
 
-  it('header: the mock teal subhead colour', () => {
-    expect(decls()).toContain('.bc-info__header | color: #35d4c8')
+  it('header: the mock teal subhead colour, as the --bc-subhead token', () => {
+    expect(decls()).toContain('.bc-info__header | color: var(--bc-subhead)')
   })
 
   it('nothing else is themed: the line, both shadows and the motion keep the base look', () => {
     expect(decls()).toEqual(
-      ['.bc-info | box-shadow: inset 0 -4px 0 var(--bc-accent)', '.bc-info__header | color: #35d4c8'].sort(),
+      ['.bc-info | box-shadow: inset 0 -4px 0 var(--bc-accent)', '.bc-info__header | color: var(--bc-subhead)'].sort(),
     )
   })
 })
