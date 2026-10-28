@@ -1026,6 +1026,26 @@ derives nothing from `vehicles[]` or any other field. Decision record:
     `visible` it is not mounted. The box has no idle predicate: with no weather it already draws
     nothing, so `/config` offers no "Hide when idle" for it and a saved `hideWhenIdle: true` on
     it changes nothing.
+103. **The weather box under `vintage70`.** On top of the base look (`overlay-config.md` rule
+     60) the box takes the 1970s network look. Everything this rule does not name renders the
+     base look: the black, square, unblurred plate, the preset's typefaces and lean, and its
+     small-text extrusion on every part. Decision record:
+     `docs/decisions/0035-weather-box-vintage-pass.md`.
+     - **Red rule.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+       box's bottom edge, inside it: the box is no taller and no wider. The plate keeps the
+       preset's plate shadow. The rule is the only red in the box: no text in it is red.
+     - **Temperatures.** Both temperature values are warm white (`--bc-text-2`), like every
+       numeral in the preset. Their `AIR` and `TRACK` labels keep the base colour.
+     - **Conditions.** The conditions text is the preset's gold (`--bc-text`).
+104. **The weather box under `vintage80`.** On top of the base look the box takes the 1980s
+     Channel 7 header-bar look. Everything this rule does not name renders the base look: the
+     square Scoreboard-red plate with its hard black plate shadow, VT323 on the temperature
+     values and the conditions, the yellow-green temperature values, the white conditions text,
+     and the thin black outline on all of it. Decision record:
+     `docs/decisions/0035-weather-box-vintage-pass.md`.
+     - **Labels.** The `AIR` and `TRACK` labels are set in the preset's display face (Oswald,
+       `--bc-font-display`) instead of VT323, at their usual label size and weight, and are CG
+       white (`--bc-text-2`).
 
 ### Composite & takeover routes
 
