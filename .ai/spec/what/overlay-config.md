@@ -562,11 +562,20 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 60. **A preset changes the look only.** Under every preset each widget shows the same content
     (rows, fields, text, values, order) at the same times (triggers, dwell, cycling, hide-when-idle,
     exit grace) at the same geometry (position, size, row heights, widget dimensions) as under
-    `modern`; switching preset on a live page changes none of these, with one exception: a
-    `full`-name-style tower's fit width (`widgets.md` rule 48) is measured in the row-name font,
-    which is the preset's typeface, so a full-name tower may be a different width under each
-    preset, and switching preset is a reset of the fit width under rule 48 (the tower measures
-    again in the new preset). A preset changes paint only:
+    `modern`; switching preset on a live page changes none of these, with two exceptions, both
+    because a preset changes the typeface. First, a `full`-name-style tower's fit width
+    (`widgets.md` rule 48) is measured in the row-name font, which is the preset's typeface, so a
+    full-name tower may be a different width under each preset, and switching preset is a reset
+    of the fit width under rule 48 (the tower measures again in the new preset). Second, a box
+    sized to its own text (for example the on-board HUD plate, the Race Control strip, the
+    weather box, or a chip or tag that hugs its label) paints at the size its text takes in the
+    preset's typeface and font style, up to its slot's width, past which its text is cut as it
+    is under `modern`. The text's font size, weight, letter spacing and case are the same as
+    under `modern`, and so are the box's widget slot, its alignment in the slot (centred or
+    anchored to an edge) and every set length (row heights, fixed widths, paddings, gaps, bar
+    and rule thicknesses), so the box grows or shrinks only by its typeface and font style. Inside
+    a box of set width (a tower row), the box keeps its set width while each text-sized cell
+    takes the size its text needs; how much of the row shows is the widget's own overflow rule. A preset changes paint only:
     colours, typefaces, font style, text shadow or outline, and plate colour and treatment. Class
     colours (rule 32, `widgets.md` rule 32) and the colours that carry meaning (battle intensity,
     lap-time flash, position change, live) are the same in every preset. Transitions are the same
@@ -600,6 +609,23 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     looks and not what it shows, and that a `?theme=` parameter overrides it per Browser Source; per
     rule 21 it says that the editor panel itself stays in the modern look and that class colours
     are the same in every look (either would otherwise read as a setting that did not take).
+63. **The preview renders every widget in the chosen preset.** Under every preset, each widget
+    the `/config` preview draws (every key in `widgets`, while it is visible) takes the look its
+    render page takes under that preset: the base look (rule 60) and the widget's own `widgets.md`
+    preset rules, with the same content, timing and geometry. A widget takes the preset from the
+    nearest ancestor carrying `data-theme`; in the preview that ancestor is the preview stage,
+    no element between the stage and a widget carries `data-theme`, and no widget's preset
+    styling or preset-dependent behaviour reads the document root's attribute alone (which in the
+    editor never names a vintage preset, rule 59). Choosing a preset re-renders the preview in it
+    at once, with no transition, and does in the preview whatever switching preset on a live
+    render page does (rule 60: a `full`-name tower measures its fit width again). The preview adds
+    no preset styling of its own: how a widget's text reads under a preset is that widget's rule.
+64. **The drag handles are editor chrome and keep the editor's look.** The preview's handles sit
+    inside the themed stage but take nothing from the preset: under every preset each handle's
+    dashed outline and tint, its resize corner, and its key label (the widget key, `tower`,
+    `battle` and so on, shown in capitals) render exactly as under `modern`. The key label keeps
+    the editor's typeface, upright, with no text shadow or outline, in its own dark-on-teal
+    colours, so it reads the same over every look and is never taken for overlay graphics.
 
 ### Editor help content
 
