@@ -23,9 +23,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/raceEvents.js` | `raceEventCard`, `createRaceUpdateFeed` | Race update box logic, pure and DOM-free (`what/widgets.md` rules 69–73). `raceEventCard(entry)` validates one `race_events` entry and returns `{ id, type, label, name, value, detail }` with the card's exact strings (`value`/`detail` `null` when the card has none), or `null` for an entry rule 69 skips. `createRaceUpdateFeed` owns the seen ids, the baseline, the waiting queue and its cap of 5. |
 | `src/routes/updates/RaceUpdateBox.svelte` | props `snapshot`, `dwellSeconds`, `preview` | The race update box: feeds each snapshot to its feed, times the card on screen, renders it inside `LowerThirdShell`, keyed on the event id (`{#key}`) inside a stable `.lt3-anchor`, as `DriverLowerThird` keys its shell on the slot, so a replacement remounts the plate: the old one plays its exit while the new one enters (rule 74). |
 | `src/routes/updates/UpdatesPage.svelte` | — | Standalone `/updates` route: `sseClient.connect` + `loadConfig(location.search)` for the `updates` widget's `dwellSeconds`. |
-| `src/lib/infoPanel.js` | `eventHeader`, `infoLines`, `createInfoRotation` | Info panel logic, pure and DOM-free (`what/widgets.md` rules 76–80, 88). `eventHeader(event)` returns the header string exactly as rendered (`ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`), or `null` when no part holds. `infoLines(infoLinesField, configLines)` returns the text lines: the producer's valid lines, trimmed, then the configured lines, duplicates dropped. `createInfoRotation()` holds the line on screen and its place; it compares list entries by identity (a text line is its text, the weather card one fixed entry whatever its text), so a weather value change is not a changed list (rule 80). |
-| `src/routes/info/InfoPanel.svelte` | props `snapshot`, `dwellSeconds`, `lines`, `weatherCard`, `tempUnit` | The info panel: builds the header and line list from the snapshot, `lines` and (while `weatherCard` is on) the weather card at the end, runs the rotation timer, renders inside `LowerThirdShell` only while it has something to show (rule 81's wipe on enter/leave), and keys the line element on the entry's identity, not its text, with a 300 ms fade in/out, duration 0 under reduced motion (`prefersReducedMotion()`): a change of line crossfades, and the weather card's text changing re-renders the same element (rule 88). |
-| `src/routes/info/InfoPage.svelte` | — | Standalone `/info` route: `sseClient.connect` + `loadConfig(location.search)` for the `info` widget's `dwellSeconds`, `lines`, `weatherCard` and `tempUnit`. |
+| `src/lib/infoPanel.js` | `eventHeader`, `infoLines`, `createInfoRotation` | Info panel logic, pure and DOM-free (`what/widgets.md` rules 76–80, 88). `eventHeader(event)` returns the header string exactly as rendered (`ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`), or `null` when no part holds. `infoLines(infoLinesField, configLines)` returns the text lines: the producer's valid lines, trimmed, then the configured lines, duplicates dropped. `createInfoRotation()` holds the line on screen and its place; it compares list entries by identity (a text line is its text, the weather card one fixed entry whatever its text), so a weather value change is not a changed list (rule 80). `infoPanelSpan({ slotLeft, slotWidth, headerNeed, canvasWidth })` returns the panel's `{ left, width }` in canvas px (rule 78a): `width` is the wider of `slotWidth` and `headerNeed` (`null` when there is no header), `left` is rule 78a's formula. |
+| `src/routes/info/InfoPanel.svelte` | props `snapshot`, `dwellSeconds`, `lines`, `weatherCard`, `tempUnit`, `slotLeft`, `slotWidth`, `canvasWidth` | The info panel: builds the header and line list from the snapshot, `lines` and (while `weatherCard` is on) the weather card at the end, runs the rotation timer, renders inside `LowerThirdShell` only while it has something to show (rule 81's wipe on enter/leave), and keys the line element on the entry's identity, not its text, with a 300 ms fade in/out, duration 0 under reduced motion (`prefersReducedMotion()`): a change of line crossfades, and the weather card's text changing re-renders the same element (rule 88). It measures its header's need and sizes and places `.lt3-anchor` from `infoPanelSpan` and its slot props (rule 78a; see "A long header widens the panel"). |
+| `src/routes/info/InfoPage.svelte` | — | Standalone `/info` route: `sseClient.connect` + `loadConfig(location.search)` for the `info` widget's `dwellSeconds`, `lines`, `weatherCard` and `tempUnit`; passes the panel its content box as the slot and `window.innerWidth` as the canvas, re-read on `resize` (rule 78a). |
 | `src/lib/weather.js` | `weatherParts`, `formatTemp`, `weatherCardText` | Weather logic, pure and DOM-free (`what/widgets.md` rules 83–84, 88). `weatherParts(weather)` returns `{ air, track, conditions }` (`air`/`track` the °C number or `null`, `conditions` the trimmed string or `null`). `formatTemp(celsius, unit)` returns the shown value (`22°C`, `88°F`). `weatherCardText(weather, unit)` returns the info panel card's text (`AIR 22°C · TRACK 31°C · LIGHT RAIN`), or `null` when no part holds. |
 | `src/routes/weather/WeatherBox.svelte` | props `snapshot`, `tempUnit` | The weather box: one row of the parts that hold, drawn only while one does, no transition (rule 86). |
 | `src/routes/weather/WeatherPage.svelte` | — | Standalone `/weather` route: `sseClient.connect` + `loadConfig(location.search)` + `watchConfig` for the `weather` widget's `tempUnit`. |
@@ -197,6 +197,41 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   adds it to the `info` entry only (as `textScaleOrigin` is added only where rule 41b keeps it),
   so the `DEFAULT_CONFIG.widgets.info` literal carries `lines: []` and no other literal has the
   key. The panel's one timer is the line on screen; it reads `dwellSeconds` when a line starts.
+  - **A long header widens the panel** (`what/widgets.md` rule 78a,
+    `docs/decisions/0037-info-panel-header-widens-panel.md`).
+    - **Header CSS.** The base `.bc-info__header` rule is `width: max-content` (so the header's
+      box is its text's width whatever the panel's width, in every preset) with `white-space:
+      nowrap`. No rule in any preset gives it `max-width`, `overflow`, `overflow-x`,
+      `text-overflow` or `text-wrap`, or a `width` other than `max-content`, so it is never cut.
+      `.bc-info__line` keeps `nowrap`, `overflow: hidden` and `text-overflow: ellipsis`.
+    - **The measure.** The need is `header.offsetWidth` + the `.bc-info` section's computed
+      `padding-left` + `padding-right` + the shell plate's (`.lt3`) computed `border-left-width`
+      + `border-right-width` (`parseFloat`, a non-number counting 0). `offsetWidth` is in layout
+      px, so the `/config` preview's `transform: scale(...)` does not change it (a
+      `getBoundingClientRect()` would), and because the header is `max-content` it does not
+      depend on the panel's width, so sizing the panel never feeds back into the measure and a
+      shorter header measures shorter. With no header element the need is `null`.
+    - **When it measures.** In an `$effect` after every header text change (post-DOM), and from a
+      `ResizeObserver` on the header element, which fires when the header's rendered size changes
+      without its text changing: a font finishing loading, a preset switch, a `textScale`
+      change.
+    - **Props and placement.** `InfoPanel` takes `slotLeft`, `slotWidth` and `canvasWidth`
+      (canvas px). Inside `/all`, `AllView` passes the `info` widget's `w.x`, `w.w` and
+      `normalized.canvas.w`, so a geometry or canvas change re-places the panel. On `/info`,
+      `InfoPage` reads its `.info-page` element: `slotLeft` is its computed `padding-left`,
+      `slotWidth` its `clientWidth` less its computed `padding-left` and `padding-right`, and
+      `canvasWidth` is `window.innerWidth`; it re-reads them on the window's `resize` event, so a
+      resized Browser Source re-places the panel. The panel applies `infoPanelSpan({ slotLeft,
+      slotWidth, headerNeed, canvasWidth })` as an inline style on `.lt3-anchor` (which is
+      `position: relative` in the slot): `width: <width>px; left: <left − slotLeft>px`, so a
+      panel that fits gets its slot's width and `left: 0px`. `LowerThirdShell`'s `.lt3` is
+      `width: 100%` of the anchor, so its `overflow: hidden` plate is exactly as wide as the
+      panel. The line row takes no part in the width.
+    - **Tests.** happy-dom does no layout. `InfoPanel.header.test.js` pins the header's CSS from
+      the source (`?raw`), `infoPanel.span.test.js` the arithmetic, and
+      `InfoPanel.width.test.js` the wiring in `/all` and `/info` with `offsetWidth`,
+      `clientWidth`, `innerWidth` and the computed paddings and borders stubbed. Only a real
+      browser shows the measured text width itself.
 - **Weather** (`what/widgets.md` rules 83–88, `what/overlay-config.md` rules 54–57): `/weather`
   joins `OVERLAY_ROUTES`, and `weather` joins `DEFAULT_CONFIG.widgets`, `RENDERABLE`,
   `PLATE_WIDGET_KEYS` and `TEXT_WIDGET_KEYS`, with no `IDLE_PREDICATES` entry. `tempUnit` is
@@ -455,8 +490,8 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       drawn inside `.lt3__inner`, so it wipes with the content and takes no layout space);
       `.bc-info__header` is `color: #35D4C8`, the same literal the takeover slides use (ADR 0034).
     - `vintage80`: `.bc-info__header` is `align-self: flex-start` (a flex item of the column
-      panel stretches to its width otherwise, and so would its block; the cross size stays capped
-      at the content width, so `nowrap` and the ellipsis still cut a long header), `font-family:
+      panel stretches to its width otherwise, and so would its block; a long header widens the
+      panel instead of being cut, rule 78a), `font-family:
       var(--bc-font-display)`, `color: var(--bc-text-2)`, `background: var(--bc-header)`,
       `box-shadow: 0 0 0 2px var(--bc-header), 3px 3px 0 2px #000` and `text-shadow: none`, as
       the race update box's label tag. The base `line-height: 1.15` is unitless, so the header's
