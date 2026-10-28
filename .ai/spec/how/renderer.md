@@ -19,7 +19,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/widgetIdle.js` | `IDLE_PREDICATES`, `isWidgetIdle`, `widgetSupportsAutoHide` | Per-widget idle predicates for `hideWhenIdle`. |
 | `src/lib/lowerThirdTrigger.js` | — | Edge-triggered camera-cut / dwell state machine for lower-thirds. |
 | `src/routes/tower/towerCycle.js` | `computeRowBudget`, `clampPerPageSeconds`, `selectPins`, `selectRows`, `createTowerCycle` | Tower overflow selection + cycling-window stability (see `what/tower-overflow.md`). |
-| `src/lib/LowerThirdShell.svelte` | — | Shared reveal/dwell/wipe shell for lower-third widgets. |
+| `src/lib/LowerThirdShell.svelte` | — | Shared reveal/dwell/wipe shell for lower-third widgets. Under a vintage preset it hides its shine bar (`.lt3__bar`, `display: none` under `:global([data-theme='vintage70'])` and the same for `vintage80`, an ancestor scope so the /config preview gets it) and themes nothing else, so the wipe plays as under modern (widgets rule 107). `LogoRotation.svelte` keeps its own copy of the reveal and hides `.bc-logos__shine` the same way. |
 | `src/lib/raceEvents.js` | `raceEventCard`, `createRaceUpdateFeed` | Race update box logic, pure and DOM-free (`what/widgets.md` rules 69–73). `raceEventCard(entry)` validates one `race_events` entry and returns `{ id, type, label, name, value, detail }` with the card's exact strings (`value`/`detail` `null` when the card has none), or `null` for an entry rule 69 skips. `createRaceUpdateFeed` owns the seen ids, the baseline, the waiting queue and its cap of 5. |
 | `src/routes/updates/RaceUpdateBox.svelte` | props `snapshot`, `dwellSeconds`, `preview` | The race update box: feeds each snapshot to its feed, times the card on screen, renders it inside `LowerThirdShell`, keyed on the event id (`{#key}`) inside a stable `.lt3-anchor`, as `DriverLowerThird` keys its shell on the slot, so a replacement remounts the plate: the old one plays its exit while the new one enters (rule 74). |
 | `src/routes/updates/UpdatesPage.svelte` | — | Standalone `/updates` route: `sseClient.connect` + `loadConfig(location.search)` for the `updates` widget's `dwellSeconds`. |
@@ -258,7 +258,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `GridPage`, and `ResultsPage` each read `?class=` from `location.search`. Class-rank badges are
   computed from the *full* field (in `StandingsTower.svelte`) so a filtered view keeps correct
   `n/total` ranks.
-- **Theme presets** (behavior in `what/overlay-config.md` rules 58–62; rationale in
+- **Theme presets** (behavior in `what/overlay-config.md` rules 58–64; rationale in
   `docs/decisions/0026-theme-presets.md`). Each page applies the theme exactly where it applies
   motion: `App.svelte` at boot (URL baseline), then each profile-loading page in its `loadConfig`
   callback and its `watchConfig` `onChange`, as
@@ -350,6 +350,81 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       (selector, property, value) set under each is exactly the one listed here.
     `BattleBox.vintage.test.js` reads these rules from the component source (`?raw`) and holds
     them to that closed list.
+  - **Takeover slides** (`what/widgets.md` rules 105–106,
+    `docs/decisions/0036-takeover-slides-vintage-pass.md`), in the `<style>` of
+    `GridSlide.svelte` and of `ResultsSlide.svelte`, the same rules in each with the slide's own
+    root prefix (`grid` or `results`), all paint and none of it changing a box size:
+    - Both presets: the root (`.grid`, `.results`) is `background: var(--bc-plate-solid)`; the
+      position numeral (`.cell__pos`, `.row__pos`) is `color: var(--bc-text-2)`.
+    - `vintage70`: the header (`.grid__header`, `.results__header`) is `box-shadow: inset 0 -4px
+      0 var(--bc-accent)`; `.group__count` (and on `/results` `.group__colhead`, whose spans
+      inherit it) is `color: #35D4C8`; `.group__head :global(.bc-class-chip)` and the filter's
+      `.grid__filter :global(.bc-class-chip)` / `.results__filter :global(.bc-class-chip)` are
+      `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0 #000)` and `font-style:
+      normal`. No other rule in either component names `--bc-accent`.
+    - `vintage80`: the title (`.grid__title`, `.results__title`) is `background:
+      var(--bc-header)` with `box-shadow: 0 0 0 6px var(--bc-header)` (a spread shadow takes no
+      layout space, and the header's 12px gap keeps it off the filter chip) and `color:
+      var(--bc-text-2)`; `.group__count` (and `.group__colhead`) is `color: var(--bc-text-2)`.
+    - No themed slide rule sets `text-shadow` or a property that sizes or positions a box (the
+      same list as the tower's).
+    `GridSlide.vintage.test.js` and `ResultsSlide.vintage.test.js` read these rules from the
+    component source (`?raw`). They hold the themed CSS to a closed set: every selector that names
+    `data-theme` starts with the exact quoted scope `:global([data-theme='vintage70'])` or
+    `…'vintage80'])`, each preset's sorted `selector | prop: value` list equals the one listed
+    here, and a render of the slide checks every themed selector names an element it draws.
+  - **Info panel** (`what/widgets.md` rules 101–102, `docs/decisions/0034-info-panel-vintage-pass.md`),
+    in `InfoPanel.svelte`'s `<style>`, exactly these themed declarations and no others, every
+    one under the `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`
+    ancestor selector and no other spelling of a theme selector:
+    - `vintage70`: `.bc-info` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the red rule,
+      drawn inside `.lt3__inner`, so it wipes with the content and takes no layout space);
+      `.bc-info__header` is `color: #35D4C8`, the same literal the takeover slides use (ADR 0034).
+    - `vintage80`: `.bc-info__header` is `align-self: flex-start` (a flex item of the column
+      panel stretches to its width otherwise, and so would its block; the cross size stays capped
+      at the content width, so `nowrap` and the ellipsis still cut a long header), `font-family:
+      var(--bc-font-display)`, `color: var(--bc-text-2)`, `background: var(--bc-header)`,
+      `box-shadow: 0 0 0 2px var(--bc-header), 3px 3px 0 2px #000` and `text-shadow: none`, as
+      the race update box's label tag. The base `line-height: 1.15` is unitless, so the header's
+      line box is `1.15 × --bc-size-label` in Oswald as in VT323 and the 72 px slot budget noted
+      in the component is unchanged.
+    - `LowerThirdShell.svelte` is not themed here: its vintage treatment (no shine,
+      `what/widgets.md` rule 107) is the shell's own. `InfoPanel.vintage.test.js` reads the rules
+      from the component source (`?raw`), rejects any other theme selector spelling, and pins
+      the exact set per preset.
+  - **On-board HUD** (`what/widgets.md` rules 97–98, `docs/decisions/0032-onboard-vintage-pass.md`),
+    in `OnBoardHud.svelte`'s `<style>`, all paint and none of it changing a box size:
+    - `vintage70`: `.bc-onboard` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the rule sits
+      in the plate's 8px bottom padding). `.bc-onboard__number` is `transform: skewX(-8deg)`,
+      `filter: drop-shadow(2px 2px 0 #000)`, `font-style: normal`, `color:
+      var(--bc-oncam-text)` and `text-shadow: none`, with no `background` (it keeps the base
+      accent fill). `.bc-onboard__class` (the span round `ClassChip`) is `transform:
+      skewX(-8deg)` and `filter: drop-shadow(2px 2px 0 #000)`. The chip itself sets its face
+      (`--bc-font-ui`, Barlow, bundled italic only, so `font-style: normal` alone still renders
+      italic), so `.bc-onboard__class :global(.bc-class-chip)` is `font-family:
+      var(--bc-font-display)` (Barlow Condensed, bundled upright at 700) and `font-style:
+      normal`. `.bc-onboard__bar-label` and `.bc-onboard__readout-label` are `font-family:
+      var(--bc-font-display)` and keep the inherited italic. `.bc-onboard__value--gear` is
+      `color: var(--bc-text)`. `.bc-onboard__track` is `-webkit-mask-image` and `mask-image:
+      repeating-linear-gradient(104deg, #000 0 10px, transparent 10px 13px)` (a 14° lean).
+    - `vintage80`: `.bc-onboard` is `background: var(--bc-plate)` (one of the tokens
+      `AllView`'s `plateVars` rescales per slot, so `plateAlpha` still applies).
+      `.bc-onboard__label` is `background: var(--bc-live)`, `box-shadow: 0 0 0 4px
+      var(--bc-live)`, `color: var(--bc-text-on-accent)` and `text-shadow: none`;
+      `.bc-onboard__position` the same with `var(--bc-text-2)` for the block. With the strip's
+      `--bc-space-2` gap the two 4px spreads meet. `.bc-onboard__number` is `text-shadow: none`.
+      `.bc-onboard__driver` is `color: var(--bc-text)`. `.bc-onboard__track` is
+      `-webkit-mask-image` and `mask-image: repeating-linear-gradient(90deg, #000 0 10px,
+      transparent 10px 12px)`.
+    - Both presets: `.bc-onboard__track` and `.bc-onboard__fill` are `border-radius: 0`. The
+      mask on the track clips the fill inside it, so the fill keeps its one `width` and its
+      transition. These are the only themed declarations: none recolours a fill or track, sets
+      a custom property, a `transition` or `animation`, or a property that sizes or positions a
+      box (the label `font-family` swaps are paint, rule 60), and every themed selector starts
+      with exactly `:global([data-theme='vintage70']) ` or `:global([data-theme='vintage80']) `.
+    `OnBoardHud.vintage.test.js` reads these rules from the component source (`?raw`), pins the
+    complete themed set per preset, checks the chip label's face against `tokens/fonts.css`, and
+    renders the HUD from `race-onboard-telemetry.json` under each preset to compare content.
   - **Fonts are shipped unmodified** (no re-subsetting, conversion or renaming), each family
     folder with its `OFL.txt` from `google/fonts`. Six families are Google Fonts' pre-built
     `woff2` files with Google's `unicode-range`: the vintage four (latin and latin-ext subsets)

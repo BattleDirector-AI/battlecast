@@ -489,6 +489,16 @@ A lower-third is the bottom-of-screen name-tag for the driver currently on camer
 subject-driven and **fire on a camera cut** (a change of `subject.slot_id`), not continuously.
 Full rules: `docs/decisions/0002-lower-third-widgets.md`.
 
+107. **The bar-wipe under a vintage preset has no shine.** The skewed bar-wipe that the driver
+    and qualifying lower-thirds, the race update box (rule 74) and the info panel (rule 81)
+    enter and leave with, and the logo rotation's matching reveal, play under `vintage70` and
+    `vintage80` exactly as under `modern`, at the same timings and under reduced motion with
+    the same plain fade: the lower-thirds' plate skew-slide and content wipe, and the logo
+    rotation's sideways slide and image wipe. The one difference is the mint shine bar, which
+    does not render: no shine sweeps across the plate or the logo on the way in or out, at
+    either motion setting. Each widget takes the preset from the nearest `data-theme`
+    ancestor, so the `/config` preview shows it too.
+
 13. **Visibility layering** (every gate must pass): `config.visible` → trigger (`dwell` |
     `persistent`) → subject validity / idle → render. `?show=`/`?hide=` override `visible`.
 14. **Subject resolution:** *valid* = `slot_id` resolves to a `vehicles` entry; *degraded* =
@@ -673,6 +683,54 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     on it changes nothing. In `/all`, its slot is placed whenever the widget is `visible`, even
     while the HUD is idle or held off, and the strip reads that widget's saved `driverInfo`. The
     standalone `/onboard` route uses the default `driverInfo` (name, number, position).
+97. **The HUD under `vintage70`.** On top of the base look (`overlay-config.md` rule 60) the HUD
+    takes the 1970s network look. Everything this rule does not name renders the base look, the
+    italic lean of every label included. Decision record:
+    `docs/decisions/0032-onboard-vintage-pass.md`.
+    - **Plate.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the HUD's plate, inside it, whichever of the HUD's parts show (rule 56): the
+      plate is no taller.
+    - **Car number.** The number tile keeps its accent-red fill and leans with the type: its
+      box is skewed 8° (top edge to the right), with a hard 2px black drop shadow, and its
+      numeral is upright type, so the skew alone gives it its lean. The numeral is white
+      (`--bc-oncam-text`), with no text shadow.
+    - **Class chip.** Its box is skewed 8° (top edge to the right) with a hard 2px black drop
+      shadow, and its label is upright type in the preset's display face (Barlow Condensed,
+      which is bundled with an upright cut), so the skew alone gives it its lean. Its colours,
+      text, type size and weight are unchanged.
+    - **Bar and readout labels.** `THROTTLE`, `BRAKE`, the speed unit and `GEAR` are set in the
+      preset's display face (Barlow Condensed), still italic, at the same size, weight and
+      tracking, so each bar label fits its column and clears its bar.
+    - **Gear.** The gear numeral is gold (`--bc-text`), like the speed, not the accent colour.
+    - **Bars.** The throttle and brake bars have square ends, and each track, its fill
+      included, is cut into segments 10px wide with 3px gaps (measured across the slant), the
+      gaps leaning 14° from upright, top edge to the right. The fill colours are unchanged.
+    - **Paint only.** The rule, tiles and segments add no size and move nothing, and the HUD
+      moves as it does under `modern`, the bars' per-tick smoothing included, at either motion
+      setting. Boxes sized to their text follow rule 60's second exception.
+98. **The HUD under `vintage80`.** On top of the base look the HUD takes the 1980s timing page
+    look. Everything this rule does not name renders the base look. Decision record:
+    `docs/decisions/0032-onboard-vintage-pass.md`.
+    - **Plate.** The HUD sits on the preset's black widget plate (`--bc-plate`), not the red
+      Scoreboard header colour, with the preset's hard plate shadow. The plate's opacity is the
+      widget's `plateAlpha` itself (0.82 by default), where `modern` and `vintage70` paint the
+      HUD at the header opacity (0.94 at the default).
+    - **ON BOARD label in reverse video.** The label is a solid block of the live colour
+      (`--bc-live`) that extends 4px past the label on every side, with the text in the dark
+      on-accent colour (`--bc-text-on-accent`) and no text shadow or outline.
+    - **Position in reverse video.** The position (`P4`) is a solid block of the preset's
+      white (`--bc-text-2`) that extends 4px past it on every side, with the text in the dark
+      on-accent colour and no text shadow or outline. When both show, the label's block and
+      the position's block meet edge to edge.
+    - **Car number.** The tile keeps its lime fill and dark numeral, with no text shadow or
+      outline.
+    - **Driver name.** The name is the preset's yellow-green (`--bc-text`).
+    - **Bars.** The throttle and brake bars have square ends, and each track, its fill
+      included, is cut into upright blocks 10px wide with 2px gaps. The fill colours are
+      unchanged.
+    - **Paint only.** The blocks and segments add no size and move nothing, and the HUD moves
+      as it does under `modern`, the bars' per-tick smoothing included, at either motion
+      setting. Boxes sized to their text follow rule 60's second exception.
 
 ### Race update box (`/updates`, #27)
 
@@ -889,6 +947,33 @@ part and line, uppercases the header and the weather card, and shows a repeated 
 
     While `weatherCard` is off, or the weather has no part, there is no card and the line list
     is exactly rule 77's text lines.
+101. **The info panel under `vintage70`.** On top of the base look (`overlay-config.md` rule
+     60) the panel takes the 1970s network look. Everything this rule does not name renders the
+     base look: the line stays in the preset's gold primary text, the header and the line both
+     keep the base text shadow (the small-text extrusion, not the mock's heavier one), and the
+     panel enters, leaves and crossfades as rules 81 and 107 say. Decision record:
+     `docs/decisions/0034-info-panel-vintage-pass.md`.
+     - **Header.** The header is the mock's teal subhead colour, `#35D4C8`, at its base size,
+       weight and tracking.
+     - **Red rule.** A solid red rule, 4px high and in the preset's accent colour, runs along
+       the bottom edge of the panel, inside it and over its bottom padding: the panel is no
+       taller. It shows whenever the panel draws, with a header, a line or both, and wipes in
+       and out with the panel's content. The panel draws no live, position-change or
+       battle-intensity colour, so the rule is its only red.
+102. **The info panel under `vintage80`.** On top of the base look the panel takes the 1980s
+     timing page look. Everything this rule does not name renders the base look: the line stays
+     in the preset's UI face (VT323) and yellow-green primary text, the line keeps the base 1px
+     outline (not the mock's 2px one), and the panel enters, leaves and crossfades as rules 81
+     and 107 say. Decision record: `docs/decisions/0034-info-panel-vintage-pass.md`.
+     - **Header as a red Scoreboard tag.** The header is set in the preset's display face
+       (Oswald) instead of VT323, in the preset's white (`--bc-text-2`) with no text shadow or
+       outline, at its base size, weight and tracking, on a solid block of the preset's red
+       header colour (`--bc-header`). The block hugs the header text (`overlay-config.md` rule
+       60), never wider than the panel's content width, where a long header is cut off with an
+       ellipsis as rule 78's line is. It extends 2px past the text on every side, so it fills
+       the 2px gap above the line and covers none of the line's glyphs, and casts a hard black
+       shadow 3px down and to the right. The face changes no height: the header's line box is
+       its line height times its size in either face, so the panel is no taller.
 
 ### Weather box (`/weather`, #208)
 
@@ -954,6 +1039,38 @@ derives nothing from `vehicles[]` or any other field. Decision record:
     grouped tower uses), order each group by `position`, and `/results` restarts class positions
     within each group (like the grouped tower). Both honor the `?class=` filter. `/grid` shows the
     overall position in a staggered two-column rake.
+105. **The takeover slides under `vintage70`.** On top of the base look (`overlay-config.md` rule
+    60) `/grid` and `/results` take the 1970s network look. Everything this rule does not name
+    renders the base look. Decision record: `docs/decisions/0036-takeover-slides-vintage-pass.md`.
+    - **Board.** The slide's board is solid black (`--bc-plate-solid`).
+    - **Header.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the header, inside it: the header is no taller. The title stays gold.
+    - **Subheads in teal.** Each class group's car count (`5 CARS`) and, on `/results`, each
+      group's column heads (`POS`, `DRIVER`, `BEST LAP`) are teal, `#35D4C8`.
+    - **Position numerals.** Every position numeral (each grid cell's and each results row's) is
+      warm white (`--bc-text-2`); driver names stay gold.
+    - **Class chips.** Every class chip on the slide (each group header's, and the header's
+      filter chip) leans as the tower's does (rule 89): its box is skewed 8° (top edge to the
+      right), with a hard 2px black drop shadow, and its label is upright type. Its colours and
+      text are unchanged.
+    - **The red marks nothing else.** The header rule is the only element on either slide in
+      the accent colour.
+    - **Type.** Every text keeps the base look's small-text extrusion; none takes the mock's
+      heavier one.
+106. **The takeover slides under `vintage80`.** On top of the base look `/grid` and `/results`
+    take the 1980s timing page look. Everything this rule does not name renders the base look.
+    Decision record: `docs/decisions/0036-takeover-slides-vintage-pass.md`.
+    - **Board.** The slide's board is solid black (`--bc-plate-solid`).
+    - **Title on a Scoreboard plate.** The header title sits on a block in the preset's header
+      red (`--bc-header`) that extends 6px past the title on every side, with no shadow. The
+      title is the preset's white (`--bc-text-2`) with the base outline. The block changes no
+      box size and does not reach the filter chip.
+    - **Subheads in white.** Each class group's car count and, on `/results`, each group's
+      column heads are the preset's white (`--bc-text-2`).
+    - **Position numerals.** Every position numeral is the preset's white (`--bc-text-2`);
+      driver names stay lime.
+    - **Class chips.** Unchanged from the base look.
+    - **Type.** Every text keeps the base look's 1px outline; none takes the mock's 2px one.
 
 ### Field filter & auto-hide
 

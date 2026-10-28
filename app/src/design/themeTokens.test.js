@@ -114,6 +114,9 @@ const REQUIRED = [
 
 /** Spacing tokens that are geometry (every spacing.css token but the radii). */
 const GEOMETRY = [...baseTokens(files['spacing.css']).keys()].filter((k) => !k.startsWith('--bc-radius'))
+// Rule 60's text-sized boxes grow or shrink only by typeface and font style: the text's size,
+// weight and letter spacing are the same in every preset.
+const TEXT_METRICS = [...baseTokens(files['typography.css']).keys()].filter((k) => /^--bc-(size|weight|track)-/.test(k))
 
 describe('the modern token set (rule 60: modern renders exactly as before)', () => {
   it('declares the two new base-look tokens with values that change nothing', () => {
@@ -147,6 +150,13 @@ describe.each(VINTAGE)('the %s token set', (preset) => {
   it('never overrides a geometry token', () => {
     expect(overrides.size, 'guard: the preset block exists').toBeGreaterThan(0)
     expect([...overrides.keys()].filter((t) => GEOMETRY.includes(t))).toEqual([])
+  })
+
+  it('never overrides a text size, weight or letter-spacing token', () => {
+    expect(TEXT_METRICS, 'guard: the typography metrics are found').toEqual(
+      expect.arrayContaining(['--bc-size-label', '--bc-weight-name', '--bc-track-label']),
+    )
+    expect([...overrides.keys()].filter((t) => TEXT_METRICS.includes(t))).toEqual([])
   })
 
   it('re-declares every derived token whose input it changes', () => {

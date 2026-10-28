@@ -1,25 +1,16 @@
-// .github/labels.yml against the skills that apply labels (#365 step 2). Zero dependencies:
-// labels.yml is a flat list, so a line reader is enough.
+// .github/labels.yml against the skills that apply labels (#365 step 2), and the live-label
+// diff (#379). Zero dependencies.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { applyPlan, declaredLabels as parseLabels, diffLabels, repoOf } from '../check-labels-live.mjs'
 
 const ROOT = join(import.meta.dirname, '..', '..')
 const RETIRED = ['ready for human review', 'Spec-approved']
 
 /** [{ name, lifecycle?, ... }] from the `- name:` entries of labels.yml. */
-function declaredLabels() {
-  const labels = []
-  for (const line of readFileSync(join(ROOT, '.github', 'labels.yml'), 'utf8').split(/\r?\n/)) {
-    const m = /^\s*(-\s+)?(\w+):\s*(.*?)\s*$/.exec(line)
-    if (!m || line.trimStart().startsWith('#')) continue
-    const value = m[3].replace(/^"(.*)"$|^'(.*)'$/, '$1$2')
-    if (m[1]) labels.push({})
-    if (labels.length && m[2] !== 'labels') labels.at(-1)[m[2]] = value
-  }
-  return labels
-}
+const declaredLabels = () => parseLabels(readFileSync(join(ROOT, '.github', 'labels.yml'), 'utf8'))
 
 /** Every Markdown file under .claude/skills (each SKILL.md and the shared files). */
 function skillFiles() {
@@ -84,4 +75,69 @@ test('the retired label names are gone from labels.yml and the skills', () => {
     assert.ok(!NAMES.has(name), `labels.yml still declares '${name}'`)
     for (const { path, text } of skillFiles()) assert.ok(!text.includes(name), `${path} still names '${name}'`)
   }
+})
+
+test('the live-label diff names the missing, the differing and the undeclared labels', () => {
+  const declared = [
+    { name: 'a', color: 'aabbcc', description: 'A' },
+    { name: 'b', color: '112233', description: 'B' },
+    { name: 'c', color: '445566', description: 'C' },
+    { name: 'd', color: '778899', description: 'D' },
+  ]
+  const live = [
+    { name: 'b', color: '112233', description: 'B' }, // in sync
+    { name: 'c', color: 'FFFFFF', description: 'C' }, // colour differs
+    { name: 'd', color: '778899', description: null }, // description missing live
+    { name: 'old', color: '000000', description: '' }, // not declared
+  ]
+  const { missing, differing, undeclared } = diffLabels(declared, live)
+  assert.deepEqual(missing.map((l) => l.name), ['a'])
+  assert.deepEqual(differing.map((l) => [l.name, l.fields]), [['c', ['color']], ['d', ['description']]])
+  assert.deepEqual(undeclared.map((l) => l.name), ['old'])
+})
+
+test('the live-label diff ignores colour case, and is empty for an exact match', () => {
+  const declared = [{ name: 'a', color: 'aabbcc', description: 'A' }]
+  const { missing, differing, undeclared } = diffLabels(declared, [{ name: 'a', color: 'AABBCC', description: 'A' }])
+  assert.deepEqual([missing, differing, undeclared], [[], [], []])
+})
+
+test('the repository comes from an https or ssh GitHub remote', () => {
+  for (const url of ['https://github.com/BattleDirector-AI/battlecast.git', 'https://github.com/BattleDirector-AI/battlecast', 'git@github.com:BattleDirector-AI/battlecast.git\n']) {
+    assert.equal(repoOf(url), 'BattleDirector-AI/battlecast', url)
+  }
+  assert.equal(repoOf('https://gitlab.com/a/b.git'), null)
+})
+
+test('names match case-insensitively: a case-only difference is a rename, not a missing label', () => {
+  const declared = [{ name: 'bug', color: 'd73a4a', description: 'Broken' }]
+  const { missing, differing, undeclared } = diffLabels(declared, [{ name: 'Bug', color: 'd73a4a', description: 'Broken' }])
+  assert.deepEqual([missing, undeclared], [[], []])
+  assert.deepEqual(differing.map((l) => [l.name, l.fields]), [['bug', ['name']]])
+})
+
+test('a label declared with no description matches an empty live one', () => {
+  const { differing } = diffLabels([{ name: 'a', color: 'aabbcc' }], [{ name: 'a', color: 'aabbcc', description: '' }])
+  assert.deepEqual(differing, [])
+})
+
+test('a double-quoted labels.yml value is read with its escapes undone', () => {
+  const [l] = parseLabels('labels:\n  - name: a\n    description: "say \\"hi\\" \\\\ ok"\n    color: \'aabbcc\'\n')
+  assert.equal(l.description, 'say "hi" \\ ok')
+  assert.equal(l.color, 'aabbcc')
+})
+
+test('--apply plans a POST per missing label and a PATCH by live name per differing one', () => {
+  const declared = [
+    { name: 'new one', color: '111111', description: 'N' },
+    { name: 'bug', color: '222222', description: 'B' },
+  ]
+  const plan = applyPlan(diffLabels(declared, [{ name: 'Bug', color: '999999', description: 'B' }]), 'o/r')
+  assert.deepEqual(plan, [
+    { done: 'created', name: 'new one', args: ['api', '-X', 'POST', 'repos/o/r/labels',
+      '-f', 'name=new one', '-f', 'color=111111', '-f', 'description=N'] },
+    { done: 'updated', name: 'bug', args: ['api', '-X', 'PATCH', 'repos/o/r/labels/Bug',
+      '-f', 'new_name=bug', '-f', 'color=222222', '-f', 'description=B'] },
+  ])
+  assert.deepEqual(applyPlan(diffLabels(declared, declared), 'o/r'), [], 'nothing to do when in sync')
 })
