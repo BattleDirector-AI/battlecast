@@ -432,6 +432,56 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     `null`, absent, a number, a boolean, an object or any other non-string — renders `—`. The
     empty cell rule 48 gives a missing name is the tower's; the battle box's slots show `—`. Each
     slot is judged on its own. The focus slot is outside this rule.
+91. **The battle box under `vintage70`.** On top of the base look (`overlay-config.md` rule 60)
+    the battle box takes the 1970s network look. Everything this rule does not name renders the
+    base look, the labels included. Decision record:
+    `docs/decisions/0029-battle-box-vintage-pass.md`.
+    - **Header.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the header, inside it: the header is no taller. It is the only thing the
+      battle box paints in the accent colour.
+    - **Focus slot on the raster band.** The focus slot is filled with the period rainbow raster:
+      seven horizontal stripes, 7px each, repeating top to bottom (green `#2FB34A`, yellow-green
+      `#9BCB2C`, gold `#E9B21C`, orange `#DE6A24`, magenta `#B53C9A`, violet `#5A4FCF`, blue
+      `#2C8FD8`), under a 30% black layer that knocks the stripes back. The fill has a hard 4px
+      black drop shadow, down and to the right, with no blur. The slot's `FOCUS` label and the
+      on-camera name are white (`--bc-oncam-text`). The name has no accent glow: it takes the
+      preset's heavy extrusion, four 1px dark steps down and to the right with a soft dark
+      halo, in place of the base look's three.
+    - **Meter.** The intensity meter's track and fill have square corners. The track is skewed
+      14° (top edge to the right) and drawn as 10 equal segments with a 4px gap between them;
+      the fill shows through the segments, so a value lights the segments it reaches, the last
+      one in part. The fill's colour ramp and the numeric value's colour are the intensity
+      colours, unchanged.
+    - **Intensifying.** The `CLOSING` title colour, the pulsing ring and its reduced-motion
+      steady ring render as under `modern`, in the intensity colour, not the accent.
+92. **The battle box under `vintage80`.** On top of the base look the battle box takes the 1980s
+    timing page look. Everything this rule does not name renders the base look. Decision record:
+    `docs/decisions/0029-battle-box-vintage-pass.md`.
+    - **Header blocks.** The red Scoreboard header stays. The title's line is filled solid
+      black, the fill reaching 2px past the title's line box on every side and staying inside the
+      header, so the title's colour reads on the red: the preset's white (`--bc-text-2`)
+      normally, and the intensity colour (`--bc-intensity-hot`) while the title reads `CLOSING`.
+      The class chip in the header is filled the same way, 2px past its own box.
+    - **Labels in the display face.** Every label in the box (the title, the three slot labels
+      `AHEAD`, `FOCUS` and `BEHIND`, the meter's `INTENSITY` label, the idle lines `NO ACTIVE
+      BATTLE` and `CLEAR AIR — <name>`, and the class chip's label) is set in the preset's display
+      face (Oswald, `--bc-font-display`), not its timing-page face (VT323), at the same size,
+      weight, letter spacing and case as under `modern`. The gaps and the meter's value stay in
+      VT323 at their own size and colour. A label sized to its own text, the class chip
+      included, takes the size its text needs in Oswald (`overlay-config.md` rule 60); every set
+      length is unchanged, and the box is 1px shorter than under `modern` only because the
+      labels' typeface changes the meter row's height (rule 60's exception for a box sized to its
+      own text).
+    - **Focus slot in reverse video.** The focus slot is filled solid in the preset's accent
+      colour (lime), with a hard 3px black drop shadow, down and to the right, with no blur.
+      Its `FOCUS` label and the on-camera name render in the dark on-accent colour
+      (`--bc-text-on-accent`) with no text shadow, outline or glow.
+    - **Meter.** The intensity meter's track and fill have square corners, and the track is
+      drawn upright as 12 equal segments with a 4px gap between them; the fill shows through the
+      segments as in rule 91. The fill's colour ramp and the numeric value's colour are the
+      intensity colours, unchanged.
+    - **Intensifying.** The pulsing ring and its reduced-motion steady ring render as under
+      `modern`.
 
 ### Subject-driven lower-thirds (`/driver` #21, `/qualifying` #22)
 
