@@ -150,7 +150,7 @@
     box-shadow: inset 0 -4px 0 var(--bc-accent);
   }
   :global([data-theme='vintage70']) .bc-info__header {
-    color: #35D4C8;
+    color: var(--bc-subhead);
   }
 
   /* 80s: the header as a red Scoreboard tag in Oswald, hugging its text. The base unitless
