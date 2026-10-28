@@ -220,6 +220,58 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     none re-declares a `--bc-size-*` token (which would hide `/all`'s per-slot `textScale`
     values). `WeatherBox.vintage.test.js` reads these rules from the component source (`?raw`),
     since `happy-dom` applies no CSS, and checks the themed declarations as that closed set.
+- **#22's head row gives way at the name** (`what/widgets.md` rule 110), in
+  `QualifyingLowerThird.svelte`.
+  - **Row CSS.** `.bc-qt__head` is a flex row, and a flex item's automatic minimum is its
+    min-content width, which for a label that may wrap is its longest word: `CLASS BEST` squeezed
+    by a long name breaks onto two lines. The base `.bc-qt__label` rule is `white-space: nowrap`
+    with `flex-shrink: 0`, so it holds under every preset. `.bc-qt__pos` (one word, never below
+    its min-content) and `ClassChip` (`flex-shrink: 0`, `white-space: nowrap`) already hold. The
+    name keeps `min-width: 0`, `white-space: nowrap`, `overflow: hidden` and `text-overflow:
+    ellipsis`, so it is the one item that shrinks, and the short form is cut by that ellipsis.
+    No rule on these four sets `min-width: 0` on anything but the name, or `white-space` other
+    than `nowrap`.
+  - **The probe.** The full form is measured on a second element, the last child of
+    `.bc-qt__head`: `<span class="bc-qt__name bc-qt__name-probe" aria-hidden="true">` holding the
+    full form (`card.name`). It shares the name's class, so it takes the name's face, size,
+    weight, letter spacing and every preset's name rule. Its base rule is `position: absolute`,
+    `visibility: hidden`, `width: max-content` and `pointer-events: none`: out of flow, so it is
+    not a flex item and takes no gap, and its width is the full form's whatever the row's width.
+    No rule on `.bc-qt__name`, base or themed, sets `width`, `max-width`, `inline-size` or
+    `max-inline-size`, since one would cap the probe and under-measure the full form.
+  - **The measure.** Every width is a fractional used width in layout px, read from
+    `getComputedStyle` (`parseFloat`, a non-number counting 0). It is not `offsetWidth` or
+    `clientWidth`: those round to whole px, so a full form 0.3px wider than the room would pass
+    as a fit and the name would show `E. Jaco…`. It is not `getBoundingClientRect()` either: that
+    is scaled by the `/config` preview's `transform: scale(...)`, and a computed `width` is not.
+    - An element's **outer width** is its computed `width`, plus its `padding-left`,
+      `padding-right`, `border-left-width` and `border-right-width` when its `box-sizing` is
+      `content-box`.
+    - The **room** is the head row's content width, less the outer width of each of the label,
+      the position and the chip that is rendered, less `getComputedStyle(head).columnGap` times
+      the number of those items (the gaps between them and the name). The head row's content
+      width is its computed `width`, less its padding and border when its `box-sizing` is
+      `border-box`.
+    - The full form fits when the probe's outer width `<= room`.
+
+    Neither the room nor the probe depends on which form the visible name shows: the name is the
+    one item left out of the room, and the probe is out of flow. So the choice never feeds back
+    into its own measure.
+  - **The text.** The visible name (`[data-testid=qt-name]`) holds the full form when it fits,
+    otherwise `fmtShortName` (rule 47) of the card's unformatted resolved name, or the full
+    form again when that short form is `''`. The card keeps the unformatted name beside `name`
+    for this, so a class-best flash shortens the driver who earned it.
+  - **When it measures.** In an `$effect` after every change of the card's name, label,
+    position or chip (post-DOM), and from one `ResizeObserver` watching the head row, the label,
+    the position, the chip and the probe, which fires when a size changes without the card's
+    data changing: a font finishing loading, a preset switch, a `textScale` change, a resize of
+    the card. The observer is disconnected when the card unmounts.
+  - **Tests.** happy-dom does no layout. `QualifyingLowerThird.head.test.js` pins the row's CSS
+    and the probe's from the source (`?raw`). `QualifyingLowerThird.nameFit.test.js` stubs the
+    computed widths, paddings, borders, `box-sizing` and `columnGap`, gives `offsetWidth`,
+    `clientWidth` and a half-scale `getBoundingClientRect()` the rounded or scaled values a wrong
+    measure would read, fakes `ResizeObserver` per watched element, and asserts the rendered name.
+    Only a real browser shows the measured text width itself.
 - **Lower-third dwell default** (`what/overlay-config.md` rule 46): the default `6` lives in three
   places that must agree: the per-widget `dwellSeconds` literals in `DEFAULT_CONFIG`,
   `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).

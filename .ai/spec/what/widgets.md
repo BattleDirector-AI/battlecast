@@ -567,6 +567,30 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     class-best flash even in a race (`fireOnClassBest`, default true) — firing on the transition to
     true, never by scanning lap times. Idle when subject invalid, no timing at all, or mode-gated
     out with no class-best fire.
+110. **#22's head row is one line, and the name gives way.** The row above the timing holds the
+    label (`TIMING`, or `CLASS BEST` on the flash), the position, the name and the class chip, and
+    it is always one line. The label, the position and the chip each render whole on one line at
+    their own size, however long the name is; only the name gives way. The name's **room** is
+    the row's width less the label, the position and the chip that are shown and the gaps between
+    the row's items.
+    - **Full form when it fits.** The name shows in its full form (rule 48: `Erik Jacobs` →
+      `E. Jacobs`) when that full form, as it renders (in the preset's face and font style, at
+      its size, weight and letter spacing, scaled by the widget's `textScale`), is no wider than
+      the room.
+    - **Short form when it does not.** Otherwise the name shows rule 47's short form (`E.JAC`).
+      Only when the short form is wider than the room too is it cut at its end with an ellipsis,
+      down to no name at all. A name whose short form is empty (no letter or digit) shows its full
+      form instead, cut the same way. The name never wraps. A missing name shows nothing (rule
+      14b).
+    - **When.** The choice follows the row as it renders: a change of name, of the label (the
+      flash), of the position or of the chip, a preset switch, a face finishing loading, a
+      `textScale` change or a change of the card's width decides it again at once, with no
+      transition and without replaying the wipe.
+
+    So the card's height does not depend on the name: a long name leaves the card exactly as tall
+    as a short one, under every preset. When the label, position and chip alone are wider than
+    the row, the name shows nothing and the row is cut at the plate's edge; the card is still no
+    taller.
 93. **The lower-thirds under `vintage70`.** On top of the base look (`overlay-config.md` rule 60)
     both lower-thirds, #21 and #22, take the 1970s network look. Everything this rule does not
     name renders the base look: every label and timing value keeps the preset's italic type and
