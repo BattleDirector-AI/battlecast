@@ -313,7 +313,13 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       `.row--oncam` has `background: none`; `.row__pos` and `.row--oncam .row__pos` are
       `var(--bc-text-2)` (the second because the base on-camera rule outranks the first);
       `.row__class` is `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0 #000)` and
-      `font-style: normal`.
+      `font-style: normal`. The chip itself sets its face (`--bc-font-ui`, Barlow, bundled
+      italic only, so `font-style: normal` alone still renders italic and the label leans
+      twice), so `.row__class :global(.bc-class-chip)` is `font-family: var(--bc-font-display)`
+      (Barlow Condensed, bundled upright at the chip's weight, 700) and `font-style: normal`, as
+      the on-board HUD's chip is. That is the one themed tower rule that sets a face: the chip hugs its label, so it
+      paints at the width its text takes in that face (`overlay-config.md` rule 60), inside the
+      `max-content` class column.
     - `vintage80`: `.row--oncam` is `background: var(--bc-accent)` with `box-shadow: none`.
       `.row--oncam > :not(.row__pit--in):not(.row__finish):not(.row__class)` and the nested
       cells that set their own colour, `.row--oncam .row__pit-label` and `.row--oncam
@@ -332,9 +338,14 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     - Both presets: `.row__oncam-flash` is `display: none`, so no shine element renders. No
       themed rule sets a property that sizes or positions a box (widths, heights, padding,
       margin, border widths, font size, family or weight, letter spacing, line height, text
-      transform, white space, flex, grid, position or offsets).
+      transform, white space, flex, grid, position or offsets), save the `vintage70` chip's
+      `font-family` above.
     `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
-    `happy-dom` applies no CSS; `StandingsTower.themeSwitch.test.js` covers the re-measure.
+    `happy-dom` applies no CSS, and checks the chip's face has a bundled upright cut at its
+    weight with `lib/testing/chipFace.js` (it reads `tokens/typography.css` and `tokens/fonts.css`
+    from disk, since a `?raw` CSS import is empty under vitest; the weight is the preset's
+    `--bc-weight-label` when it sets one, else `:root`'s); `StandingsTower.themeSwitch.test.js`
+    covers the re-measure.
   - **Race update box** (`what/widgets.md` rules 99–100,
     `docs/decisions/0033-race-update-box-vintage-pass.md`), in `RaceUpdateBox.svelte`'s
     `<style>`, under exactly `:global([data-theme='vintage70'])` or
@@ -467,18 +478,22 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       inherit it) is `color: var(--bc-subhead)`; `.group__head :global(.bc-class-chip)` and the
       filter's `.grid__filter :global(.bc-class-chip)` / `.results__filter
       :global(.bc-class-chip)` are `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0
-      #000)` and `font-style: normal`. No other rule in either component names `--bc-accent`.
+      #000)`, `font-style: normal` and `font-family: var(--bc-font-display)` (Barlow Condensed,
+      bundled upright at the chip's weight, 700; the chip's own face, Barlow, is bundled italic
+      only, as under **Tower**). No other rule in either component names `--bc-accent`.
     - `vintage80`: the title (`.grid__title`, `.results__title`) is `background:
       var(--bc-header)` with `box-shadow: 0 0 0 6px var(--bc-header)` (a spread shadow takes no
       layout space, and the header's 12px gap keeps it off the filter chip) and `color:
       var(--bc-text-2)`; `.group__count` (and `.group__colhead`) is `color: var(--bc-text-2)`.
     - No themed slide rule sets `text-shadow` or a property that sizes or positions a box (the
-      same list as the tower's).
+      same list as the tower's), save the `vintage70` chips' `font-family` above (the chip hugs
+      its label, `overlay-config.md` rule 60).
     `GridSlide.vintage.test.js` and `ResultsSlide.vintage.test.js` read these rules from the
     component source (`?raw`). They hold the themed CSS to a closed set: every selector that names
     `data-theme` starts with the exact quoted scope `:global([data-theme='vintage70'])` or
     `…'vintage80'])`, each preset's sorted `selector | prop: value` list equals the one listed
-    here, and a render of the slide checks every themed selector names an element it draws.
+    here, and a render of the slide checks every themed selector names an element it draws. The
+    `vintage70` chips' face is checked with `lib/testing/chipFace.js`, as the tower's is.
   - **Info panel** (`what/widgets.md` rules 101–102, `docs/decisions/0034-info-panel-vintage-pass.md`),
     in `InfoPanel.svelte`'s `<style>`, exactly these themed declarations and no others, every
     one under the `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`
