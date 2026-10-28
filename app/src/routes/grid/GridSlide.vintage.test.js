@@ -77,7 +77,7 @@ const EXPECTED = {
   vintage70: [
     '.grid | background: var(--bc-plate-solid)',
     '.grid__header | box-shadow: inset 0 -4px 0 var(--bc-accent)',
-    '.group__count | color: #35d4c8',
+    '.group__count | color: var(--bc-subhead)',
     '.cell__pos | color: var(--bc-text-2)',
     ...CHIPS.flatMap((c) => [
       `${c} | transform: skewX(-8deg)`,
@@ -104,8 +104,8 @@ describe('vintage70 grid slide (rule 105)', () => {
     expect(themed('vintage70', '.grid__header', 'box-shadow')).toBe('inset 0 -4px 0 var(--bc-accent)')
   })
 
-  it('subheads: each group car count is teal', () => {
-    expect(themed('vintage70', '.group__count', 'color')?.toLowerCase()).toBe('#35d4c8')
+  it('subheads: each group car count is the teal subhead token', () => {
+    expect(themed('vintage70', '.group__count', 'color')).toBe('var(--bc-subhead)')
   })
 
   it('position numerals: warm white', () => {

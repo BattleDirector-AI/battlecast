@@ -277,7 +277,7 @@
     box-shadow: inset 0 -4px 0 var(--bc-accent);
   }
   :global([data-theme='vintage70']) .group__count {
-    color: #35d4c8;
+    color: var(--bc-subhead);
   }
   :global([data-theme='vintage70']) .group__head :global(.bc-class-chip),
   :global([data-theme='vintage70']) .grid__filter :global(.bc-class-chip) {
