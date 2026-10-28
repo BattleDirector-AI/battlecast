@@ -416,7 +416,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     when present; otherwise no name. A subject with no `slot_id` (absent or `null`) matches no
     entry, even one that also lacks a `slot_id`. The same entry gives the class chip (rule 30) and
     the position that rule 68 reads, so such a subject shows no class chip and both neighbours
-    render as `—`. The name shows in the full form of rule 48. With no name, the focus slot is
+    render as `—`. In the focus slot the name shows in the full form of rule 48, or in rule 47's
+    short form when the full form does not fit the slot (rule 108); the idle line always shows
+    the full form. With no name, the focus slot is
     empty and the idle line reads `CLEAR AIR — ON-CAMERA CAR`; the battle still renders.
     Subject validity (rule 14) does not gate the box — rules 11–12 and 36–39 decide whether it
     renders. The ahead and behind slots' names are rule 68's; this rule supplies only the subject's
@@ -428,10 +430,34 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     plus 1. A subject with no matching vehicle (rule 65's match) or no `position`, or a position with no car, leaves
     that slot at `—`. A neighbour's `driver_name` counts as present by the same test as rule 14b:
     a string with at least one non-whitespace character. A present name renders as the battle box
-    renders every name (rule 48's full form); a missing one — `""`, a whitespace-only string,
+    renders every name (rule 48's full form, or rule 47's short form by rule 108); a missing one — `""`, a whitespace-only string,
     `null`, absent, a number, a boolean, an object or any other non-string — renders `—`. The
     empty cell rule 48 gives a missing name is the tower's; the battle box's slots show `—`. Each
     slot is judged on its own. The focus slot is outside this rule.
+108. **A name too wide for its slot shows its short form.** The ahead, focus and behind slots
+    each show their name on one line. A present name shows in rule 48's full form when that form
+    fits its slot, and otherwise in rule 47's short form (`E.JAC`, `N.DEV`), built from the same
+    `driver_name` the full form is (rules 65 and 68). A name is never cut, never ends in an
+    ellipsis and never wraps, and a slot never widens to its name: the three slots keep their
+    widths whatever the names.
+    - **Fits.** The full form fits when its width, rendered in the slot's own name style under the
+      current preset and text size, is no more than the slot's content width (the slot's width
+      less its own left and right padding). A full form exactly as wide as the content width fits.
+    - **Each slot on its own.** Each slot decides for its own name, so the focus slot can show a
+      short form while its neighbours show full ones, and the other way round.
+    - **Decided again.** A slot decides again whenever its name changes, its width changes, or its
+      full form's rendered width changes (a font finishing loading, a preset change, a
+      `textScale` change). A name that fits again shows in full again.
+    - **Nothing is clipped.** A name's glow, extrusion or outline (rules 91–92 and the base look)
+      is drawn in full, not clipped to the name's box. A short form wider than its slot still
+      shows in full and crosses the slot's edge; it is not cut.
+    - **No short form.** When rule 47 gives an empty short form (a name with no letter or digit),
+      the full form shows.
+    - **Scope.** A missing name is rule 65's empty focus slot or rule 68's `—`; `—` is never
+      measured or shortened. The rule covers the slots of a rendered battle, held ones (rule 37)
+      included, under every preset. The idle placeholder's line is outside it.
+
+    Decision record: `docs/decisions/0038-battle-box-short-name-fallback.md`.
 91. **The battle box under `vintage70`.** On top of the base look (`overlay-config.md` rule 60)
     the battle box takes the 1970s network look. Everything this rule does not name renders the
     base look, the labels included. Decision record:

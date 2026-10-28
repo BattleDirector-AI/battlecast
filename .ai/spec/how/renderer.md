@@ -169,6 +169,50 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `vehicles` as props, so it calls `resolveSubject({ subject, vehicles })` once: `.name` is the focus and idle-line
   name, `.vehicle` supplies the class chip and the position the neighbour lookups read (rule 65),
   and the ahead/behind lookups themselves stay in the box (rules 59, 68).
+- **Battle box short-name fallback** (`what/widgets.md` rule 108,
+  `docs/decisions/0038-battle-box-short-name-fallback.md`).
+  - **Formatters.** The full form is `fmtName` and the short form `fmtShortName`
+    (`design/format.js`), both called on the raw name rules 65 and 68 pick. No new formatter.
+  - **Elements.** Each slot with a present name holds the visible name element first
+    (`.bc-battle__focus-name` in the focus slot, `.bc-battle__slot-name` in the others), then a
+    measuring element: a `<span aria-hidden="true">` carrying the same name class plus
+    `.bc-battle__measure`, holding the full form at all times, whichever form the visible element
+    shows. Sharing the name class gives it the same face, size, weight, letter spacing and preset
+    styling, so it measures what the full form would render at. `.bc-battle__measure` is
+    `position: absolute`, `visibility: hidden`, `width: max-content` and `pointer-events: none`,
+    so it takes no part in the slot's layout and its width does not depend on the slot's.
+  - **The measure.** A slot shows the full form when `measure.offsetWidth <= slot.clientWidth −
+    padding-left − padding-right`, the paddings read from the slot's computed style
+    (`parseFloat`, a non-number counting 0); otherwise it shows the short form, unless that is
+    `''`. `offsetWidth` and `clientWidth` are layout px, so the `/config` preview's `transform:
+    scale(...)` does not change the result (a `getBoundingClientRect()` would). Because the
+    measured element always holds the full form and sits outside the flow, switching forms never
+    changes what is measured: there is no layout loop. Both widths are whole px, so a full form
+    up to about 1px wider than the content box can read as fitting; it then spills under 1px
+    into the slot's own padding or the 8px grid gap, and since nothing is clipped (below) no
+    glyph is lost. That is accepted rather than measured to the sub-pixel.
+  - **When it measures.** In an `$effect` after every name change (post-DOM), and from a
+    `ResizeObserver` on each slot element (its width changes) and on each measuring element (the
+    full form's rendered width changes: a font finishing loading, a preset switch, a `textScale`
+    change).
+  - **CSS.** `.bc-battle__focus-name` and `.bc-battle__slot-name` keep `white-space: nowrap`.
+    No rule, in the base look or any preset, gives the name classes, `.bc-battle__measure`, the
+    slots (`.bc-battle__slot` and its `--ahead`, `--focus` and `--behind` modifiers) or
+    `.bc-battle__body` an `overflow`, `overflow-x`, `overflow-y` other than `visible`, a
+    `text-overflow`, a `max-width`, a `contain` that includes `paint` (`paint`, `strict`,
+    `content`), or a `clip-path` other than `none`; nor does any rule whose last compound
+    selector names no class but which sits under a slot or the body. So no glow, extrusion or
+    outline is clipped, and nothing caps the measuring span, which shares the name class. The
+    root `.bc-battle` keeps its `overflow: hidden`: it frames the plate and the intensifying ring,
+    so nothing is drawn outside the box. The slots keep their widths through the grid:
+    `.bc-battle__body` is `grid-template-columns: 1fr 1.15fr 1fr` and `.bc-battle__slot` is
+    `min-width: 0`, so a track never grows to a name.
+  - **Observers end with the box.** The `ResizeObserver` is disconnected when the box unmounts
+    (the `$effect`'s cleanup), so a removed box keeps no element observed.
+  - **Tests.** `BattleBox.longName.test.js` pins the CSS from the component source (`?raw`), and
+    drives the fallback with `offsetWidth` on `.bc-battle__measure`, the slots' `clientWidth`
+    and computed padding, and `ResizeObserver` stubbed. happy-dom does no layout, so only a real
+    browser shows the measured text widths themselves.
 - **On-board HUD identity** (`what/widgets.md` rules 23, 54–58): `resolveIdentity()` in
   `OnBoardHud.svelte` builds the strip's fields from the subject and its `vehicles[]` match; both
   `/all` (`AllView.svelte`) and `/onboard` (`OnBoardHudPage.svelte`) call it and pass the result in
@@ -574,7 +618,8 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `--bc-tower-width`, and `400` when that does not resolve to a px number (as in `happy-dom`).
   - **Formatters.** Full is `fmtName` (`design/format.js`), the formatter the battle box,
     lower-thirds, HUD and grid/results slides use, applied to string names only (a non-string
-    gives `''`). Short is a separate formatter beside it that only the tower calls.
+    gives `''`). Short is `fmtShortName` beside it, which the tower and the battle box's
+    short-name fallback (rule 108) call.
   - **The width hook.** In full style the tower root carries an **inline `min-width: <N>px`**,
     `N = max(configuredWidth, ceil(widestName + widestRest + borderX))`, where `borderX` is the
     tower root's `parseFloat(borderLeftWidth) + parseFloat(borderRightWidth)` from its computed
