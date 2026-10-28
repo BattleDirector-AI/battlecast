@@ -113,6 +113,9 @@
     font-weight: var(--bc-weight-label);
     letter-spacing: var(--bc-track-label);
     color: var(--bc-text-3);
+    /* Caps the header at the content width when a preset aligns it to the start, so a long
+       header still ellipsizes (rule 102). A no-op while it stretches. */
+    max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -135,5 +138,31 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* The panel's own vintage look (widgets rules 101–102, ADR 0034). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60). */
+
+  /* 70s: the teal subhead over the gold line, and a red rule along the bottom edge, drawn
+     inside the panel over its bottom padding so it wipes with the content. */
+  :global([data-theme='vintage70']) .bc-info {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .bc-info__header {
+    color: #35D4C8;
+  }
+
+  /* 80s: the header as a red Scoreboard tag in Oswald, hugging its text. The base unitless
+     line-height keeps the header's line box the same height in either face. */
+  :global([data-theme='vintage80']) .bc-info__header {
+    align-self: flex-start;
+    font-family: var(--bc-font-display);
+    color: var(--bc-text-2);
+    background: var(--bc-header);
+    box-shadow:
+      0 0 0 2px var(--bc-header),
+      3px 3px 0 2px #000;
+    text-shadow: none;
   }
 </style>

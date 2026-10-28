@@ -262,6 +262,13 @@
     display: none;
   }
 
+  /* Vintage presets (widgets.md rule 107): the reveal plays as under modern, minus the
+     shine — period broadcast graphics had no light sweep. */
+  :global([data-theme='vintage70']) .bc-logos__shine,
+  :global([data-theme='vintage80']) .bc-logos__shine {
+    display: none;
+  }
+
   .bc-logos--idle {
     border: 1px dashed var(--bc-text-3);
     border-radius: var(--bc-radius);

@@ -1568,7 +1568,7 @@
     color: #06231b;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    /* Editor chrome inside the themed preview stage: keep the modern look (rule 62). */
+    /* Editor chrome inside the themed preview stage: keep the modern look (rule 64). */
     text-shadow: none;
     font-style: normal;
   }

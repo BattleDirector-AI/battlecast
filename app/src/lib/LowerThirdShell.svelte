@@ -175,6 +175,13 @@
     display: none;
   }
 
+  /* Vintage presets (widgets.md rule 107): the bar-wipe plays as under modern, minus the
+     shine — period broadcast graphics had no light sweep. */
+  :global([data-theme='vintage70']) .lt3__bar,
+  :global([data-theme='vintage80']) .lt3__bar {
+    display: none;
+  }
+
   @keyframes lt3-plate-in {
     from {
       opacity: 0;
