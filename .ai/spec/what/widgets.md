@@ -335,8 +335,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     - **Position numerals.** Every row's position numeral is warm white (`--bc-text-2`), the
       on-camera row's included; driver names stay gold.
     - **Class chip.** Each row's class chip leans with the type: its box is skewed 8° (top edge
-      to the right), with a hard 2px black drop shadow, and its label is upright type, so the
-      skew alone gives it its lean. Its colours and text are unchanged.
+      to the right), with a hard 2px black drop shadow, and its label is upright type in the
+      preset's display face (Barlow Condensed, which is bundled with an upright cut), so the skew
+      alone gives it its lean. Its colours, text, type size and weight are unchanged.
     - **On-camera row.** The row has no fill. Its driver name is white (`--bc-oncam-text`) at
       the on-camera weight, and a solid red bar 4px high in the accent colour runs along the
       row's bottom edge, inside the row. Every other cell, the class bar and class chip
@@ -1189,8 +1190,9 @@ derives nothing from `vehicles[]` or any other field. Decision record:
       warm white (`--bc-text-2`); driver names stay gold.
     - **Class chips.** Every class chip on the slide (each group header's, and the header's
       filter chip) leans as the tower's does (rule 89): its box is skewed 8° (top edge to the
-      right), with a hard 2px black drop shadow, and its label is upright type. Its colours and
-      text are unchanged.
+      right), with a hard 2px black drop shadow, and its label is upright type in the preset's
+      display face (Barlow Condensed, which is bundled with an upright cut). Its colours, text,
+      type size and weight are unchanged.
     - **The red marks nothing else.** The header rule is the only element on either slide in
       the accent colour.
     - **Type.** Every text keeps the base look's small-text extrusion; none takes the mock's
