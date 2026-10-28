@@ -212,4 +212,56 @@
     text-overflow: ellipsis;
     max-width: 100%;
   }
+
+  /* The card's own vintage look (widgets rules 93–94, ADR 0030). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60); the plate is LowerThirdShell's. */
+  :global([data-theme='vintage70']) .bc-lt__accent,
+  :global([data-theme='vintage80']) .bc-lt__accent {
+    border-radius: 0;
+    box-shadow: 2px 2px 0 #000;
+  }
+
+  /* 70s: a red rule along the card bottom, a warm-white position, and a gold name with the
+     mock's heavy extrusion. */
+  :global([data-theme='vintage70']) .bc-lt {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .bc-lt__pos {
+    color: var(--bc-text-2);
+  }
+  :global([data-theme='vintage70']) .bc-lt__name {
+    color: var(--bc-text);
+    text-shadow:
+      1px 1px 0 #2a1200,
+      2px 2px 0 #1a0b00,
+      3px 3px 0 #000,
+      4px 4px 0 #000,
+      0 0 10px rgba(0, 0, 0, 0.55),
+      0 0 2px rgba(0, 0, 0, 0.9);
+  }
+
+  /* 80s: the ON CAMERA tag in the caption face, and the mock's heavy outline on the name. */
+  :global([data-theme='vintage80']) .bc-lt__label {
+    font-family: var(--bc-font-display);
+    color: var(--bc-text-2);
+    background: var(--bc-header);
+    text-shadow: none;
+    box-shadow:
+      0 0 0 3px var(--bc-header),
+      2px 2px 0 3px #000;
+  }
+  :global([data-theme='vintage80']) .bc-lt__name {
+    text-shadow:
+      -2px -2px 0 #000,
+      0 -2px 0 #000,
+      2px -2px 0 #000,
+      2px 0 0 #000,
+      2px 2px 0 #000,
+      0 2px 0 #000,
+      -2px 2px 0 #000,
+      -2px 0 0 #000,
+      3px 3px 0 #000,
+      0 0 9px rgba(0, 0, 0, 0.6);
+  }
 </style>

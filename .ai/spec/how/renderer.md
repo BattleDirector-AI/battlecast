@@ -292,10 +292,11 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   - **Base look on the scope.** One rule on the theme scope sets the inherited `text-shadow:
     var(--bc-shadow-text)` and `font-style: var(--bc-font-style)`, so text in every widget picks up
     the preset's outline/shadow and lean without a per-widget change. An element that sets its own
-    `text-shadow` overrides the inherited one: today `BattleBox.svelte`, `DriverLowerThird.svelte`
-    and `QualifyingLowerThird.svelte` give the on-camera name `text-shadow: 0 0 12px
-    var(--bc-accent-glow)`, so each of those widget passes sets the preset's treatment on that name
-    itself (e.g. `:global([data-theme='vintage70']) .name { text-shadow: var(--bc-shadow-text) }`).
+    `text-shadow` overrides the inherited one: today `BattleBox.svelte` gives the on-camera name
+    `text-shadow: 0 0 12px var(--bc-accent-glow)`, so its pass sets the preset's treatment on that
+    name itself (e.g. `:global([data-theme='vintage70']) .name { text-shadow: var(--bc-shadow-text)
+    }`). The lower-thirds' own glows (#21's name, #22's `BEST` time, both accent bars) are restyled
+    under **Lower-thirds** below.
   - **Per-widget passes** add structural styling in the widget's own `<style>` under the theme
     selector, re-tune type only through `--bc-size-*` tokens in that scope (the tower measures
     names from them), and never fork markup per theme.
@@ -328,6 +329,38 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       transform, white space, flex, grid, position or offsets).
     `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
     `happy-dom` applies no CSS; `StandingsTower.themeSwitch.test.js` covers the re-measure.
+  - **Lower-thirds** (`what/widgets.md` rules 93–94,
+    `docs/decisions/0030-lower-thirds-vintage-pass.md`), in `DriverLowerThird.svelte`'s and
+    `QualifyingLowerThird.svelte`'s own `<style>`, never in `LowerThirdShell.svelte` (its vintage
+    look is rule 107's alone), all paint and none of it changing a set length. Below, `X` is `lt`
+    for the driver card and `qt` for the qualifying card.
+    - Both presets: `.bc-X__accent` is `border-radius: 0` with `box-shadow: 2px 2px 0 #000`, and
+      so is `.bc-qt--flash .bc-qt__accent` (`box-shadow` only), because the base flash rule
+      outranks a bare themed `.bc-qt__accent`. `.bc-qt__cell--best .bc-qt__cell-value` is
+      `text-shadow: var(--bc-shadow-text)`. `.bc-qt--flash .bc-qt__label` is `background:
+      var(--bc-intensity-hot)`, `color: var(--bc-text-on-accent)`, `text-shadow: none` and
+      `box-shadow: 0 0 0 3px var(--bc-intensity-hot), 0 0 0 4px #000`.
+    - `vintage70`: `.bc-X` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the card's own
+      padding holds it); `.bc-X__pos` is `color: var(--bc-text-2)`; `.bc-X__name` is `color:
+      var(--bc-text)`, and `.bc-lt__name` also `text-shadow: 1px 1px 0 #2a1200, 2px 2px 0
+      #1a0b00, 3px 3px 0 #000, 4px 4px 0 #000, 0 0 10px rgba(0, 0, 0, 0.55), 0 0 2px rgba(0, 0,
+      0, 0.9)` (the mock's `--bc-shadow-text`; not a token, as only this name uses it).
+    - `vintage80`: `.bc-lt__label`, `.bc-qt__label` and `.bc-qt__cell-label` are `font-family:
+      var(--bc-font-display)`, the one family a themed lower-third rule sets. `.bc-lt__label` is
+      also `color: var(--bc-text-2)`, `background: var(--bc-header)`, `text-shadow: none` and
+      `box-shadow: 0 0 0 3px var(--bc-header), 2px 2px 0 3px #000`. `.bc-lt__name` is
+      `text-shadow: -2px -2px 0 #000, 0 -2px 0 #000, 2px -2px 0 #000, 2px 0 0 #000, 2px 2px 0
+      #000, 0 2px 0 #000, -2px 2px 0 #000, -2px 0 0 #000, 3px 3px 0 #000, 0 0 9px rgba(0, 0, 0,
+      0.6)` (the mock's `--bc-outline`). The compound `.bc-qt__cell--delta.bc-qt__cell--ahead
+      .bc-qt__cell-value` (as the base rule it outranks) is `background: var(--bc-up)`, `color:
+      var(--bc-text-on-accent)`, `text-shadow: none` and `box-shadow: 0 0 0 2px var(--bc-up), 0 0
+      0 3px #000`.
+    - No themed rule sets a property that sizes or positions a box (the list under **Tower**),
+      the 80s labels' `font-family` excepted, and every themed selector is written in the
+      canonical `:global([data-theme='vintage70']) <target>` form. `DriverLowerThird.vintage.test.js`
+      and `QualifyingLowerThird.vintage.test.js` read these rules from the component source
+      (`?raw`) and pin the complete set: the themed selectors, properties and values above and no
+      others.
   - **Battle box** (`what/widgets.md` rules 91–92,
     `docs/decisions/0029-battle-box-vintage-pass.md`), in `BattleBox.svelte`'s `<style>`. The
     meter's elements belong to `IntensityMeter.svelte`, a shared design component, so the battle
