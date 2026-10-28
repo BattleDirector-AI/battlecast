@@ -23,7 +23,12 @@ git fetch origin
 git status --porcelain              # must be empty before you start
 git merge-base --is-ancestor origin/prerelease origin/next && echo "clean" || echo "DIVERGED — stop and investigate"
 git log --oneline origin/next --not origin/prerelease     # PRs/commits this release will carry
+node scripts/check-labels-live.mjs --agent                 # live labels match .github/labels.yml
 ```
+
+If the label check reports drift, run it again with `--apply`. That creates the missing labels
+and fixes the differing ones. It never deletes a label: one that `labels.yml` does not declare
+is only reported.
 
 If `next` has diverged from `prerelease` in a way that isn't a simple fast-forward
 history (e.g. someone committed directly to `prerelease` outside a release), stop and

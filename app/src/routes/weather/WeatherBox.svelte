@@ -87,4 +87,26 @@
     font-weight: var(--bc-weight-name);
     color: var(--bc-text-2);
   }
+
+  /* The weather box's own vintage look (widgets rules 103–104, ADR 0035). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60). */
+
+  /* 70s: a red rule along the bottom edge (inset, so the box is no taller), warm-white
+     temperatures and gold conditions. */
+  :global([data-theme='vintage70']) .bc-weather {
+    box-shadow: inset 0 -4px 0 var(--bc-accent), var(--bc-shadow-plate);
+  }
+  :global([data-theme='vintage70']) .bc-weather__value {
+    color: var(--bc-text-2);
+  }
+  :global([data-theme='vintage70']) .bc-weather__conditions {
+    color: var(--bc-text);
+  }
+
+  /* 80s: the AIR / TRACK labels in CG white and the display face, as Race Control's are. */
+  :global([data-theme='vintage80']) .bc-weather__label {
+    font-family: var(--bc-font-display);
+    color: var(--bc-text-2);
+  }
 </style>
