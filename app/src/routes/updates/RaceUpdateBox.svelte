@@ -152,4 +152,32 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
+  /* The box's own vintage look (widgets rules 99–100, ADR 0033). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: the plate, frame and
+     bar-wipe are the shell's, and no rule here sizes or moves a line (overlay-config rule 60). */
+  :global([data-theme='vintage70']) .bc-ru__accent,
+  :global([data-theme='vintage80']) .bc-ru__accent {
+    border-radius: 0;
+    box-shadow: 2px 2px 0 #000;
+  }
+
+  /* 70s: the accent bar is the box's only red. */
+  :global([data-theme='vintage70']) .bc-ru__value {
+    color: var(--bc-text-2);
+  }
+
+  /* 80s: the label on a header-red tag that hugs its text, painted outside its line box. */
+  :global([data-theme='vintage80']) .bc-ru__label {
+    align-self: flex-start;
+    font-family: var(--bc-font-display);
+    color: var(--bc-text-2);
+    background: var(--bc-header);
+    box-shadow: 0 0 0 2px var(--bc-header), 3px 3px 0 2px #000;
+    text-shadow: none;
+  }
+
+  :global([data-theme='vintage80']) .bc-ru__detail {
+    font-family: var(--bc-font-display);
+  }
 </style>
