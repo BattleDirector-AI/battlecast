@@ -343,6 +343,25 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     quoted scopes `:global([data-theme='vintage70'])` and `:global([data-theme='vintage80'])`.
     `RaceControlStatus.vintage.test.js` reads them from the component source (`?raw`) and checks
     that each preset's themed selector, property and value set is exactly the one above.
+  - **Info panel** (`what/widgets.md` rules 101–102, `docs/decisions/0034-info-panel-vintage-pass.md`),
+    in `InfoPanel.svelte`'s `<style>`, exactly these themed declarations and no others, every
+    one under the `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`
+    ancestor selector and no other spelling of a theme selector:
+    - `vintage70`: `.bc-info` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the red rule,
+      drawn inside `.lt3__inner`, so it wipes with the content and takes no layout space);
+      `.bc-info__header` is `color: #35D4C8`, the same literal the takeover slides use (ADR 0034).
+    - `vintage80`: `.bc-info__header` is `align-self: flex-start` (a flex item of the column
+      panel stretches to its width otherwise, and so would its block; the cross size stays capped
+      at the content width, so `nowrap` and the ellipsis still cut a long header), `font-family:
+      var(--bc-font-display)`, `color: var(--bc-text-2)`, `background: var(--bc-header)`,
+      `box-shadow: 0 0 0 2px var(--bc-header), 3px 3px 0 2px #000` and `text-shadow: none`, as
+      the race update box's label tag. The base `line-height: 1.15` is unitless, so the header's
+      line box is `1.15 × --bc-size-label` in Oswald as in VT323 and the 72 px slot budget noted
+      in the component is unchanged.
+    - `LowerThirdShell.svelte` is not themed here: its vintage treatment (no shine,
+      `what/widgets.md` rule 107) is the shell's own. `InfoPanel.vintage.test.js` reads the rules
+      from the component source (`?raw`), rejects any other theme selector spelling, and pins
+      the exact set per preset.
   - **On-board HUD** (`what/widgets.md` rules 97–98, `docs/decisions/0032-onboard-vintage-pass.md`),
     in `OnBoardHud.svelte`'s `<style>`, all paint and none of it changing a box size:
     - `vintage70`: `.bc-onboard` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the rule sits
