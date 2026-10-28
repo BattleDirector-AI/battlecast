@@ -1,7 +1,7 @@
 # Decision: one overlay-wide theme lever — `modern` / `vintage70` / `vintage80` token sets on `data-theme`
 
 **Issues:** #356 (epic #358; custom themes #359) · **Milestone:** 0.16.0
-**Status:** Accepted · **Date:** 2026-10-24 · Decision 7's tower carve-out is amended by ADR 0027: a preset switch is a reset of the fit width, not a name-font load. Decision 10's last sentence (modern fonts from the Google Fonts `@import`) is replaced by ADR 0028: the modern fonts are bundled too.
+**Status:** Accepted · **Date:** 2026-10-24 · Decision 7's tower carve-out is amended by ADR 0027: a preset switch is a reset of the fit width, not a name-font load. Decision 10's last sentence (modern fonts from the Google Fonts `@import`) is replaced by ADR 0028: the modern fonts are bundled too. Decision 7 names a second typeface effect since #399: a box sized to its own text follows its preset's typeface.
 
 battlecast gets a master look switch, `theme.preset`, with three curated values: `modern` (the
 default, today's look), `vintage70` (1970s US network: ABC Indy 500 / CBS Daytona 500, 1979) and
@@ -69,7 +69,12 @@ page re-applies it on load and on each live reload (#349, #351). The theme copie
    `--bc-battle-width`, `--bc-classbar*`, `--bc-inset-safe`): row heights feed the tower's row
    budget, so changing them would change how many rows show, which is behaviour. Radii are the
    exception: `--bc-radius*` live in `spacing.css` but are paint.
-   **One geometry carve-out: the full-name tower's fit width.** In `full` name style the tower
+   **A box sized to its own text** (the on-board HUD plate, the Race Control strip, the weather
+   box, a chip or tag) paints at its text's size in the preset's typeface and font
+   style; its slot, alignment and every set length do not change, and no preset overrides a
+   text size, weight or letter-spacing token. This was always the effect of swapping typefaces
+   and is stated in rule 60 since #399.
+   **The tower's own carve-out: the full-name fit width.** In `full` name style the tower
    grows to fit its widest name, measured in the row-name font (`widgets.md` rule 48). A preset
    swaps that font (`--bc-font-display`), so a full-name tower can be a different width under
    each preset. That is inherent to changing the typeface, not a behaviour change, and a preset
