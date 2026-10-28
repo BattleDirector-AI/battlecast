@@ -24,6 +24,7 @@
   --bc-text-3: rgba(242, 245, 247, 0.40);     /* tertiary / muted numerals */
   --bc-text-4: rgba(242, 245, 247, 0.18);     /* faint scaffolding */
   --bc-text-on-accent: #0b0e13;               /* text on cyan fill */
+  --bc-subhead: var(--bc-text-2);             /* caption line under a title (presets re-declare) */
 
   /* ---- Brand accent — RESERVED for the on-camera driver ONLY ---- */
   --bc-accent: #1FE0C4;                       /* cyan */
@@ -77,6 +78,7 @@
   --bc-text-3: #E9D49A;
   --bc-text-4: rgba(255, 241, 201, 0.24);
   --bc-text-on-accent: #141414;   /* dark: chips, badges and fills other than the red bar use it */
+  --bc-subhead: #35D4C8;          /* the mock's teal subhead (ABC "CURRENT STANDINGS") */
 
   --bc-accent: #E3241B;
   --bc-accent-soft: rgba(227, 36, 27, 0.30);
@@ -100,6 +102,7 @@
   --bc-text-3: #CDB98A;
   --bc-text-4: rgba(244, 243, 230, 0.24);
   --bc-text-on-accent: #0B0B06;
+  --bc-subhead: var(--bc-text-2);
 
   --bc-accent: #DCEB3F;
   --bc-accent-soft: rgba(220, 235, 63, 0.22);

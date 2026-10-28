@@ -304,13 +304,15 @@
   }
   :global([data-theme='vintage70']) .group__count,
   :global([data-theme='vintage70']) .group__colhead {
-    color: #35d4c8;
+    color: var(--bc-subhead);
   }
   :global([data-theme='vintage70']) .group__head :global(.bc-class-chip),
   :global([data-theme='vintage70']) .results__filter :global(.bc-class-chip) {
     transform: skewX(-8deg);
     filter: drop-shadow(2px 2px 0 #000);
     font-style: normal;
+    /* ClassChip's own face (Barlow) is bundled italic only; Barlow Condensed has an upright cut. */
+    font-family: var(--bc-font-display);
   }
 
   /* 80s: the title on a Scoreboard-red plate; the spread shadow takes no layout space. */

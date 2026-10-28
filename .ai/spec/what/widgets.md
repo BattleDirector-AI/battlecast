@@ -335,8 +335,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     - **Position numerals.** Every row's position numeral is warm white (`--bc-text-2`), the
       on-camera row's included; driver names stay gold.
     - **Class chip.** Each row's class chip leans with the type: its box is skewed 8° (top edge
-      to the right), with a hard 2px black drop shadow, and its label is upright type, so the
-      skew alone gives it its lean. Its colours and text are unchanged.
+      to the right), with a hard 2px black drop shadow, and its label is upright type in the
+      preset's display face (Barlow Condensed, which is bundled with an upright cut), so the skew
+      alone gives it its lean. Its colours, text, type size and weight are unchanged.
     - **On-camera row.** The row has no fill. Its driver name is white (`--bc-oncam-text`) at
       the on-camera weight, and a solid red bar 4px high in the accent colour runs along the
       row's bottom edge, inside the row. Every other cell, the class bar and class chip
@@ -902,6 +903,40 @@ between snapshots. Decision record: `docs/decisions/0023-race-update-box.md`.
     `dwellSeconds`; while not `visible` it is not mounted. The box has no idle predicate: with no
     card up it already draws nothing, so `/config` offers no "Hide when idle" for it and a saved
     `hideWhenIdle: true` on it changes nothing (as for the HUD, rule 58).
+99. **The race update box under `vintage70`.** On top of the base look (`overlay-config.md` rule
+    60) the box takes the 1970s network look. Everything this rule does not name renders the base
+    look. Decision record: `docs/decisions/0033-race-update-box-vintage-pass.md`.
+    - **Accent bar.** The bar at the card's left edge is flat, in the preset's accent colour
+      (red), with square corners, no glow, and a hard 2px black drop shadow down and to the right.
+    - **Value.** The lap time or penalty is warm white (`--bc-text-2`), not the accent colour.
+      No text in the box is red: the accent bar is the box's only red.
+    - **Type.** The label, name, value and detail keep the base look's lean and small-text
+      extrusion. No line takes a heavier shadow.
+    - **Plate and reveal.** The box gives its plate, frame and bar-wipe no treatment of its own:
+      they render as the shared lower-third shell renders them under the preset (rule 107), the
+      same as on the driver and qualifying lower-thirds.
+100. **The race update box under `vintage80`.** On top of the base look the box takes the 1980s
+    timing page look. Everything this rule does not name renders the base look. Decision record:
+    `docs/decisions/0033-race-update-box-vintage-pass.md`.
+    - **Accent bar.** As under `vintage70`: flat, in the preset's accent colour (lime), with
+      square corners, no glow, and a hard 2px black drop shadow down and to the right.
+    - **Label as a tag.** The label sits on a block of the preset's header red (`--bc-header`)
+      that is as wide as its text, not the card (a tag that hugs its label, `overlay-config.md`
+      rule 60's second exception), and extends 2px past the label's line on every side, with a
+      hard black drop shadow 3px down and to the right of the block. Its text is in
+      the display face (`--bc-font-display`), in the preset's white (`--bc-text-2`), with no
+      text shadow or outline. Every label takes the same tag, whatever the event type, class
+      prefix included.
+    - **Detail.** The detail is in the display face (`--bc-font-display`), with its base colour
+      and outline.
+    - **Name and value.** Both keep the base look: the name in the display face, the value in
+      the timing face (`--bc-font-mono`) and the accent colour. No line takes a heavier outline.
+    - **Plate and reveal.** As under `vintage70`, the shared lower-third shell's (rule 107).
+
+    Neither rule resizes the card or moves a line of text in it: the label's block and every
+    shadow are painted outside the boxes they belong to, and every line of the card takes the set
+    line height it inherits, whatever its face, so the card has the same size and its lines start
+    at the same places as under the base look.
 
 ### Info panel (`/info`, #62)
 
@@ -1195,8 +1230,9 @@ derives nothing from `vehicles[]` or any other field. Decision record:
       warm white (`--bc-text-2`); driver names stay gold.
     - **Class chips.** Every class chip on the slide (each group header's, and the header's
       filter chip) leans as the tower's does (rule 89): its box is skewed 8° (top edge to the
-      right), with a hard 2px black drop shadow, and its label is upright type. Its colours and
-      text are unchanged.
+      right), with a hard 2px black drop shadow, and its label is upright type in the preset's
+      display face (Barlow Condensed, which is bundled with an upright cut). Its colours, text,
+      type size and weight are unchanged.
     - **The red marks nothing else.** The header rule is the only element on either slide in
       the accent colour.
     - **Type.** Every text keeps the base look's small-text extrusion; none takes the mock's

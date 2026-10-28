@@ -13,7 +13,7 @@
  * The token CSS is read from disk (a `?raw` CSS import is empty under vitest's CSS handling).
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -129,6 +129,28 @@ describe('the modern token set (rule 60: modern renders exactly as before)', () 
     expect(BASE.get('--bc-plate')).toBe('rgba(var(--bc-plate-rgb), 0.82)')
     expect(GEOMETRY).toEqual(expect.arrayContaining(['--bc-row-standard', '--bc-tower-width', '--bc-inset-safe']))
     expect(GEOMETRY).not.toContain('--bc-radius')
+  })
+})
+
+describe('the subhead colour token (how/renderer.md "The subhead colour", #411)', () => {
+  it('modern declares it as the secondary text colour', () => {
+    expect(BASE.get('--bc-subhead'), '--bc-subhead on :root').toBe('var(--bc-text-2)')
+  })
+
+  it("vintage70 sets it to the 70s mock's teal", () => {
+    expect(presetOverrides('vintage70').get('--bc-subhead')?.toUpperCase()).toBe('#35D4C8')
+  })
+
+  it('vintage80 keeps it the secondary text colour', () => {
+    expect(presetOverrides('vintage80').get('--bc-subhead')).toBe('var(--bc-text-2)')
+  })
+
+  it('no component writes the teal as a literal', () => {
+    const SRC = join(dirname(fileURLToPath(import.meta.url)), '..')
+    const svelte = readdirSync(SRC, { recursive: true }).filter((f) => f.endsWith('.svelte'))
+    expect(svelte.length, 'guard: the component sources are found').toBeGreaterThan(10)
+    const literal = svelte.filter((f) => /#35d4c8/i.test(readFileSync(join(SRC, f), 'utf8')))
+    expect(literal).toEqual([])
   })
 })
 

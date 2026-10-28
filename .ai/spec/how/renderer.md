@@ -322,6 +322,12 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   - **Only existing token names.** A preset block overrides tokens that `:root` defines (new
     tokens get a `modern` value on `:root` first: `--bc-shadow-text: none`, `--bc-font-style:
     normal`). This keeps one vocabulary for a later custom theme.
+  - **The subhead colour.** `--bc-subhead` (in `colors.css`) is the colour of a small caption
+    line under a title: the info panel's header and the takeover slides' group subheads. `:root`
+    declares it as `var(--bc-text-2)`, so it is derived and both presets re-declare it:
+    `vintage70` as the 70s mock's teal `#35D4C8` (its `--bc-teal`), `vintage80` as
+    `var(--bc-text-2)`. Only the `vintage70` widget rules name it; no component writes the teal as a
+    literal. `themeTokens.test.js` pins the three values.
   - **No geometry tokens.** Preset blocks never override `spacing.css` tokens other than the radii:
     row heights feed the tower's row budget (`towerCycle.js`).
   - **Base look on the scope.** One rule on the theme scope sets the inherited `text-shadow:
@@ -342,7 +348,13 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       `.row--oncam` has `background: none`; `.row__pos` and `.row--oncam .row__pos` are
       `var(--bc-text-2)` (the second because the base on-camera rule outranks the first);
       `.row__class` is `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0 #000)` and
-      `font-style: normal`.
+      `font-style: normal`. The chip itself sets its face (`--bc-font-ui`, Barlow, bundled
+      italic only, so `font-style: normal` alone still renders italic and the label leans
+      twice), so `.row__class :global(.bc-class-chip)` is `font-family: var(--bc-font-display)`
+      (Barlow Condensed, bundled upright at the chip's weight, 700) and `font-style: normal`, as
+      the on-board HUD's chip is. That is the one themed tower rule that sets a face: the chip hugs its label, so it
+      paints at the width its text takes in that face (`overlay-config.md` rule 60), inside the
+      `max-content` class column.
     - `vintage80`: `.row--oncam` is `background: var(--bc-accent)` with `box-shadow: none`.
       `.row--oncam > :not(.row__pit--in):not(.row__finish):not(.row__class)` and the nested
       cells that set their own colour, `.row--oncam .row__pit-label` and `.row--oncam
@@ -361,9 +373,40 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     - Both presets: `.row__oncam-flash` is `display: none`, so no shine element renders. No
       themed rule sets a property that sizes or positions a box (widths, heights, padding,
       margin, border widths, font size, family or weight, letter spacing, line height, text
-      transform, white space, flex, grid, position or offsets).
+      transform, white space, flex, grid, position or offsets), save the `vintage70` chip's
+      `font-family` above.
     `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
-    `happy-dom` applies no CSS; `StandingsTower.themeSwitch.test.js` covers the re-measure.
+    `happy-dom` applies no CSS, and checks the chip's face has a bundled upright cut at its
+    weight with `lib/testing/chipFace.js` (it reads `tokens/typography.css` and `tokens/fonts.css`
+    from disk, since a `?raw` CSS import is empty under vitest; the weight is the preset's
+    `--bc-weight-label` when it sets one, else `:root`'s); `StandingsTower.themeSwitch.test.js`
+    covers the re-measure.
+  - **Race update box** (`what/widgets.md` rules 99–100,
+    `docs/decisions/0033-race-update-box-vintage-pass.md`), in `RaceUpdateBox.svelte`'s
+    `<style>`, under exactly `:global([data-theme='vintage70'])` or
+    `:global([data-theme='vintage80'])` (quoted, one per selector). These are the box's only
+    themed declarations, a closed set; anything else is the base look:
+    - Both presets: `.bc-ru__accent` is `border-radius: 0` and `box-shadow: 2px 2px 0 #000`,
+      which replaces the base glow; its `background` stays the base rule's accent.
+    - `vintage70`: `.bc-ru__value` is `color: var(--bc-text-2)`.
+    - `vintage80`: `.bc-ru__label` is `align-self: flex-start` (a flex item of the column body
+      stretches to the card's width otherwise, and so would its block; the narrower label box is
+      `what/overlay-config.md` rule 60's text-sized-box exception), `font-family:
+      var(--bc-font-display)`, `color: var(--bc-text-2)`, `background: var(--bc-header)`,
+      `box-shadow: 0 0 0 2px var(--bc-header), 3px 3px 0 2px #000` and `text-shadow: none`.
+      `.bc-ru__detail` is `font-family: var(--bc-font-display)`.
+    - Nothing in the box touches the shell: `LowerThirdShell.svelte` owns the plate, the frame
+      and the bar-wipe for the box and both lower-thirds.
+    - **The face swap depends on an inherited line height.** Every line of the card takes the
+      line height set by `app/src/app.css`'s `:root { font: 18px/145% … }` shorthand (a
+      percentage, so it inherits as a fixed length: 26.1px, or 23.2px under the file's ≤1024px
+      `font-size: 16px`). Nothing between it and the card sets `line-height` or a `font`
+      shorthand (which would reset it to `normal`, whose height depends on the face). So the label
+      and detail can change face with no line box changing. Cleaning that boilerplate out of
+      `app.css` would make the 80s card change height; the test pins it.
+    `RaceUpdateBox.vintage.test.js` reads these rules from the component source, as the tower's
+    test does, asserts the closed set with `toEqual`, and pins the line height (`app.css` read from
+    disk).
   - **Race Control** (`what/widgets.md` rules 95–96,
     `docs/decisions/0031-racecontrol-vintage-pass.md`), in `RaceControlStatus.svelte`'s
     `<style>`, all paint and none of it setting a length:
@@ -467,28 +510,32 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       position numeral (`.cell__pos`, `.row__pos`) is `color: var(--bc-text-2)`.
     - `vintage70`: the header (`.grid__header`, `.results__header`) is `box-shadow: inset 0 -4px
       0 var(--bc-accent)`; `.group__count` (and on `/results` `.group__colhead`, whose spans
-      inherit it) is `color: #35D4C8`; `.group__head :global(.bc-class-chip)` and the filter's
-      `.grid__filter :global(.bc-class-chip)` / `.results__filter :global(.bc-class-chip)` are
-      `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0 #000)` and `font-style:
-      normal`. No other rule in either component names `--bc-accent`.
+      inherit it) is `color: var(--bc-subhead)`; `.group__head :global(.bc-class-chip)` and the
+      filter's `.grid__filter :global(.bc-class-chip)` / `.results__filter
+      :global(.bc-class-chip)` are `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0
+      #000)`, `font-style: normal` and `font-family: var(--bc-font-display)` (Barlow Condensed,
+      bundled upright at the chip's weight, 700; the chip's own face, Barlow, is bundled italic
+      only, as under **Tower**). No other rule in either component names `--bc-accent`.
     - `vintage80`: the title (`.grid__title`, `.results__title`) is `background:
       var(--bc-header)` with `box-shadow: 0 0 0 6px var(--bc-header)` (a spread shadow takes no
       layout space, and the header's 12px gap keeps it off the filter chip) and `color:
       var(--bc-text-2)`; `.group__count` (and `.group__colhead`) is `color: var(--bc-text-2)`.
     - No themed slide rule sets `text-shadow` or a property that sizes or positions a box (the
-      same list as the tower's).
+      same list as the tower's), save the `vintage70` chips' `font-family` above (the chip hugs
+      its label, `overlay-config.md` rule 60).
     `GridSlide.vintage.test.js` and `ResultsSlide.vintage.test.js` read these rules from the
     component source (`?raw`). They hold the themed CSS to a closed set: every selector that names
     `data-theme` starts with the exact quoted scope `:global([data-theme='vintage70'])` or
     `…'vintage80'])`, each preset's sorted `selector | prop: value` list equals the one listed
-    here, and a render of the slide checks every themed selector names an element it draws.
+    here, and a render of the slide checks every themed selector names an element it draws. The
+    `vintage70` chips' face is checked with `lib/testing/chipFace.js`, as the tower's is.
   - **Info panel** (`what/widgets.md` rules 101–102, `docs/decisions/0034-info-panel-vintage-pass.md`),
     in `InfoPanel.svelte`'s `<style>`, exactly these themed declarations and no others, every
     one under the `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`
     ancestor selector and no other spelling of a theme selector:
     - `vintage70`: `.bc-info` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the red rule,
       drawn inside `.lt3__inner`, so it wipes with the content and takes no layout space);
-      `.bc-info__header` is `color: #35D4C8`, the same literal the takeover slides use (ADR 0034).
+      `.bc-info__header` is `color: var(--bc-subhead)`, the same token the takeover slides use.
     - `vintage80`: `.bc-info__header` is `align-self: flex-start` (a flex item of the column
       panel stretches to its width otherwise, and so would its block; a long header widens the
       panel instead of being cut, rule 78a), `font-family:
