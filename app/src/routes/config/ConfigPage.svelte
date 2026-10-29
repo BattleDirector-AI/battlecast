@@ -103,6 +103,14 @@
   let copied = $state(false)
 
   const canvas = $derived(config.canvas)
+  // Key labels sit in one layer above every handle (overlay-config rule 65): one more than the
+  // highest handle's `100 + z`.
+  const labelLayerZ = $derived.by(() => {
+    const zs = WIDGET_KEYS.filter((k) => config.widgets[k]?.visible).map((k) => config.widgets[k].z)
+    return 101 + (zs.length ? Math.max(...zs) : 0)
+  })
+  // A label above its widget needs this much canvas over the box; less, and it sits inside (rule 65).
+  const LABEL_H = 24
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const obsUrl = $derived(
     editor.buildObsUrl({ origin, profileName, producerSrc: config.producer?.src || '' }),
@@ -644,8 +652,8 @@
                 onpointerdown={(e) => startDrag(e, key, 'move')}
                 role="button"
                 tabindex="-1"
+                aria-label="move {key}"
               >
-                <span class="handle__label">{key}</span>
                 <span
                   class="handle__resize"
                   data-testid="resize-{key}"
@@ -660,6 +668,26 @@
               </div>
             {/if}
           {/each}
+
+          <!-- Key labels: their own layer above every handle, so no handle covers or takes a
+               press meant for a label (overlay-config rules 65–66). -->
+          <div class="handle-labels" data-testid="handle-labels" style="z-index: {labelLayerZ};">
+            {#each WIDGET_KEYS as key (key)}
+              {#if config.widgets[key]?.visible}
+                {@const w = config.widgets[key]}
+                {@const above = w.y >= LABEL_H}
+                <span
+                  class="handle__label"
+                  data-testid="label-{key}"
+                  data-placement={above ? 'above' : 'inside'}
+                  style="left: {w.x}px; top: {above ? w.y - LABEL_H : w.y}px; z-index: {100 + w.z};"
+                  onpointerdown={(e) => startDrag(e, key, 'move')}
+                  role="button"
+                  tabindex="-1"
+                >{key}</span>
+              {/if}
+            {/each}
+          </div>
         </div>
       </div>
     </section>
@@ -1563,12 +1591,23 @@
     background: rgba(46, 217, 166, 0.06);
     cursor: move;
   }
+  /* The key-label layer (rule 65): positioned so its inline z-index lifts it over every handle,
+     and transparent to presses so only the labels themselves take them. */
+  .handle-labels {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  /* One 24px line in canvas px; left/top come inline from the widget's x/y. */
   .handle__label {
     position: absolute;
-    top: 0;
-    left: 0;
+    height: 24px;
+    line-height: 24px;
+    padding: 0 8px;
     font-size: 22px;
-    padding: 2px 8px;
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: move;
     background: rgba(46, 217, 166, 0.9);
     color: #06231b;
     text-transform: uppercase;

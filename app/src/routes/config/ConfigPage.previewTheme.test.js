@@ -187,7 +187,7 @@ describe('the drag handles keep the editor look under every preset (rule 64)', (
     // And it really is the key label that rule styles.
     const { container } = render(ConfigPage)
     await settle()
-    const label = container.querySelector('[data-testid="handle-tower"] .handle__label')
+    const label = container.querySelector('[data-testid="label-tower"]')
     expect(label?.textContent).toBe('tower')
   })
 
