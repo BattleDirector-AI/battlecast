@@ -1453,10 +1453,12 @@ and the `/grid` and `/results` slides (rule 27). Decision record:
 114. **How each widget grows.** A widget's **need** is the narrowest width at which every name it
     shows renders whole (rule 112), with the reserved room of rule 113, and every item named
     below as whole renders whole. A widget renders as wide as the wider of its configured width
-    and its need, and only its width changes: its height is the same as with a short name. The
+    and its need, and a name never makes it taller: its height is the same as with a short
+    name, except #22's, which can be shorter (below). The
     configured width is the widget's `w` inside `/all` and the `/config` preview; on a
     standalone route it is the box the route gives the widget (the `--bc-battle-width` token
-    for `/battle`, the page's content box for `/driver`, `/qualifying` and `/updates`, the
+    for `/battle`, the page's content box for `/driver`, `/qualifying`, `/onboard` and
+    `/updates`, the
     viewport for `/grid` and `/results`).
     - **Battle box.** Each of the three slots is at least as wide as its own content: its label,
       its name (or `—`) and, ahead and behind, its gap, plus the slot's own padding and
@@ -1472,12 +1474,19 @@ and the `/grid` and `/results` slides (rule 27). Decision record:
       `CLASS BEST` on the flash), position, name and class chip each render whole on that line:
       the label never wraps. The card is at least as wide as the head row plus its accent bar,
       padding and gaps. The timing row below wraps its cells onto further lines at the card's
-      width and never widens the card, so the card's height does not depend on the name.
+      width and never widens the card. So a card the name widens is never taller than the same
+      card at its configured width: its timing row takes as many lines or fewer, and with fewer
+      the card is shorter.
     - **On-board HUD.** The identity strip's label, position, car number, name and class chip
-      each render whole. The make-and-model line is not a name: it still shows its beginning cut
-      at the end with an ellipsis, at the HUD's width, and never widens the HUD. The HUD stays as
-      wide as its content up to its slot's width (centred in the slot), and is wider than its slot only by what
-      the strip's whole items need. The telemetry row spans the HUD's width.
+      each render whole, and so does the telemetry row (rule 21): its throttle and brake bars
+      with their labels, each bar's track no narrower than its minimum, and its SPEED and GEAR
+      readouts. The make-and-model line is not a
+      name: it still shows its beginning cut at the end with an ellipsis, at the HUD's width, and
+      never widens the HUD. The HUD stays as wide as its content up to its slot's width (centred
+      in the slot), and is wider than its slot only by what the strip's whole items or the
+      telemetry row need, whichever is wider. The telemetry row's need does not depend on the
+      name, so in a slot narrower than it the HUD is that wide with any name or none. The
+      telemetry row spans the HUD's width.
     - **Race update card.** The label line and the line holding the name and the value render
       whole. The detail line is not a name: it is still cut at the end with an ellipsis at the
       card's width, and never widens the card.
@@ -1505,7 +1514,7 @@ and the `/grid` and `/results` slides (rule 27). Decision record:
       style change, a preset switch, a face finishing loading, a `textScale` change or a geometry
       change resizes and re-places the widget at once, with no transition and without replaying
       a lower-third's or the update card's wipe. A widget whose names fit again returns to its configured
-      width. During the battle box's exit grace (rule 37) the held battle's names decide. The
+      width (the HUD to the width rule 114 gives it without the name). During the battle box's exit grace (rule 37) the held battle's names decide. The
       tower is outside this rule: it grows only by rules 48 and 116.
     - **Neighbours and the editor.** A grown widget draws over or under the widgets it overlaps
       by its `z`; the overlay neither moves another widget nor narrows the grown one to avoid
