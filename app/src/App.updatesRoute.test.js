@@ -54,6 +54,6 @@ describe('App — /updates route', () => {
     const card = container.querySelector('[data-testid="race-update"]')
     expect(card, 'no race update card on /updates').not.toBeNull()
     expect(card.querySelector('[data-testid="update-label"]').textContent.trim()).toBe('NEW LEADER')
-    expect(card.querySelector('[data-testid="update-name"]').textContent.trim()).toBe('K. Estre')
+    expect(card.querySelector('[data-testid="update-name"]').textContent.trim()).toBe('K.EST')
   })
 })

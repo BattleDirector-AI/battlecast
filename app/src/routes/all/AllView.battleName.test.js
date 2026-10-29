@@ -29,7 +29,7 @@ describe('/all — a blank subject.driver_name reads the same in the battle box 
     await tick()
 
     const card = q(container, '[data-testid="driver-lt-name"]')
-    expect(card).toContain('Verstappen')
+    expect(card).toBe('M.VER')
     expect(q(container, '[data-testid="widget-battle"] .bc-battle__focus-name')).toBe(card)
   })
 })
@@ -54,7 +54,7 @@ describe('/all — the HUD strip shows the same name as the battle box and the d
     await tick()
 
     const card = q(container, '[data-testid="driver-lt-name"]')
-    expect(card).toContain('Verstappen')
+    expect(card).toBe('M.VER')
     expect(q(container, '[data-testid="widget-battle"] .bc-battle__focus-name')).toBe(card)
     expect(q(container, '[data-testid="onboard-driver-name"]')).toBe(card)
   })

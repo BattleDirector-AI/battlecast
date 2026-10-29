@@ -51,7 +51,7 @@ const chip = (c) => c.querySelector('[data-testid="onboard-driver-class"]')
 describe('/onboard standalone route — class chip follows session.multiclass (rule 63)', () => {
   it('shows no class chip in a single-class session (race-single-class.json)', async () => {
     const { container } = await renderWith(singleClass)
-    expect(container.querySelector('[data-testid="onboard-driver-name"]').textContent).toBe('E. Jacobs')
+    expect(container.querySelector('[data-testid="onboard-driver-name"]').textContent).toBe('E.JAC')
     expect(chip(container)).toBeNull()
   })
 

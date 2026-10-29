@@ -10,6 +10,7 @@
 // `waitForLowerThird = false`; hiding the card passes no gate at all, and the card's one timer
 // (run in AllView) is dropped, so showing it again is a (re)connect. Rule 24 asks for different
 // results when each is undone, so only AllView can tell them apart.
+// Names read in the profile's default short style (widgets.md rule 111): `VER`, `LEC`, `PIA`.
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
 import { tick } from 'svelte'
@@ -88,33 +89,33 @@ describe('rule 24 — persistent card: the strip is held again once the gate is 
   it('waitForLowerThird off -> on: the strip is held again beside the card', async () => {
     const { container, rerender } = render(AllView, { snapshot: raceOnboard, config: PERSISTENT })
     await tick()
-    expectStripHeld(container, { speed: 247, name: 'Verstappen' })
+    expectStripHeld(container, { speed: 247, name: 'VER' })
 
     await rerender({ config: PERSISTENT_UNTICKED })
     await tick()
-    expect(driverCardName(container), 'premise: the card stays up').toContain('Verstappen')
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expect(driverCardName(container), 'premise: the card stays up').toContain('VER')
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await rerender({ config: PERSISTENT })
     await tick()
-    expect(driverCardName(container)).toContain('Verstappen')
-    expectStripHeld(container, { speed: 247, name: 'Verstappen' })
+    expect(driverCardName(container)).toContain('VER')
+    expectStripHeld(container, { speed: 247, name: 'VER' })
   })
 
   it('driver lower-third hidden -> visible: the card comes back up and the strip is held', async () => {
     const { container, rerender } = render(AllView, { snapshot: raceOnboard, config: PERSISTENT })
     await tick()
-    expectStripHeld(container, { speed: 247, name: 'Verstappen' })
+    expectStripHeld(container, { speed: 247, name: 'VER' })
 
     await rerender({ config: PERSISTENT_CARD_HIDDEN })
     await tick()
     expect(driverCardName(container), 'premise: no card while hidden').toBeNull()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await rerender({ config: PERSISTENT })
     await tick()
-    expect(driverCardName(container), 'premise: the card is back').toContain('Verstappen')
-    expectStripHeld(container, { speed: 247, name: 'Verstappen' })
+    expect(driverCardName(container), 'premise: the card is back').toContain('VER')
+    expectStripHeld(container, { speed: 247, name: 'VER' })
   })
 })
 
@@ -128,17 +129,17 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     await at(1000)
     await rerender({ config: DWELL_UNTICKED })
     await tick()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await at(2000) // t = 3s, card still inside its 6s dwell
     await rerender({ config: DWELL })
     await tick()
-    expect(driverCardName(container), 'premise: the card is still up').toContain('Verstappen')
+    expect(driverCardName(container), 'premise: the card is still up').toContain('VER')
     expectWholeHudHeld(container)
 
     await at(3000) // t = 6s: the card's dwell ends, not 6s after the re-tick
     expect(driverCardName(container), 'premise: the card has wiped out').toBeNull()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
   })
 
   it('waitForLowerThird off -> on after the card wiped out: nothing held, and the next cut holds again', async () => {
@@ -153,16 +154,16 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     await rerender({ config: DWELL })
     await tick()
     expect(driverCardName(container), 'premise: the card is down').toBeNull()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await rerender({ snapshot: subjectBWithTelemetry })
     await tick()
-    expect(driverCardName(container), 'premise: the cut fires the card').toContain('Leclerc')
+    expect(driverCardName(container), 'premise: the cut fires the card').toContain('LEC')
     expectWholeHudHeld(container)
 
     await at(6000)
     expect(driverCardName(container)).toBeNull()
-    expectFullHud(container, { speed: 180, name: 'Leclerc' })
+    expectFullHud(container, { speed: 180, name: 'LEC' })
   })
 
   it('a camera cut while unticked: on again inside the cut\'s dwell holds until that dwell ends', async () => {
@@ -176,8 +177,8 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     await at(1000) // t = 2s: cut to Leclerc; the card fires a dwell that ends at 8s
     await rerender({ snapshot: subjectBWithTelemetry })
     await tick()
-    expect(driverCardName(container), 'premise: the cut fires the card').toContain('Leclerc')
-    expectFullHud(container, { speed: 180, name: 'Leclerc' })
+    expect(driverCardName(container), 'premise: the cut fires the card').toContain('LEC')
+    expectFullHud(container, { speed: 180, name: 'LEC' })
 
     await at(2000) // t = 4s
     await rerender({ config: DWELL })
@@ -185,12 +186,12 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     expectWholeHudHeld(container)
 
     await at(3999) // t = 7.999s: the card's dwell is still running
-    expect(driverCardName(container), 'premise: the card is still up').toContain('Leclerc')
+    expect(driverCardName(container), 'premise: the card is still up').toContain('LEC')
     expectWholeHudHeld(container)
 
     await at(1) // t = 8s: the card's dwell, counted from the cut, ends — not 6s after the re-tick
     expect(driverCardName(container), 'premise: the card has wiped out').toBeNull()
-    expectFullHud(container, { speed: 180, name: 'Leclerc' })
+    expectFullHud(container, { speed: 180, name: 'LEC' })
   })
 
   it('A -> invalid -> A while unticked: the card re-fires, and on again holds the HUD with it', async () => {
@@ -198,7 +199,7 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     const { container, rerender } = render(AllView, { snapshot: raceOnboard, config: DWELL })
     await tick()
     await at(6000) // first dwell over
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await rerender({ config: DWELL_UNTICKED })
     await tick()
@@ -207,7 +208,7 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     await at(1000) // t = 7s: back to Verstappen re-fires the card (rule 15); its dwell ends at 13s
     await rerender({ snapshot: structuredClone(raceOnboard) })
     await tick()
-    expect(driverCardName(container), 'premise: A -> invalid -> A re-fires the card').toContain('Verstappen')
+    expect(driverCardName(container), 'premise: A -> invalid -> A re-fires the card').toContain('VER')
 
     await at(2000) // t = 9s
     await rerender({ config: DWELL })
@@ -215,12 +216,12 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     expectWholeHudHeld(container)
 
     await at(3999) // t = 12.999s: the re-fired card's dwell is still running
-    expect(driverCardName(container), 'premise: the card is still up').toContain('Verstappen')
+    expect(driverCardName(container), 'premise: the card is still up').toContain('VER')
     expectWholeHudHeld(container)
 
     await at(1) // t = 13s
     expect(driverCardName(container), 'premise: the card has wiped out').toBeNull()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
   })
 
   it('driver lower-third hidden -> visible: the card re-fires on connect and the HUD holds a full dwell', async () => {
@@ -228,22 +229,22 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     const { container, rerender } = render(AllView, { snapshot: raceOnboard, config: DWELL })
     await tick()
     await at(6000)
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await rerender({ config: DWELL_CARD_HIDDEN })
     await tick()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await rerender({ config: DWELL })
     await tick()
-    expect(driverCardName(container), 'premise: the card fires on (re)connect').toContain('Verstappen')
+    expect(driverCardName(container), 'premise: the card fires on (re)connect').toContain('VER')
     expectWholeHudHeld(container)
 
     await at(5000)
     expectWholeHudHeld(container)
     await at(1000)
     expect(driverCardName(container)).toBeNull()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
   })
 
   it('driver lower-third hidden -> visible with showOnConnect off: no fire, nothing held until the next cut', async () => {
@@ -251,18 +252,18 @@ describe('rule 24 — dwell card: the HUD follows the card once the gate is back
     const { container, rerender } = render(AllView, { snapshot: raceOnboard, config: DWELL_NO_CONNECT })
     await tick()
     expect(driverCardName(container), 'premise: no fire on connect').toBeNull()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await rerender({ config: DWELL_NO_CONNECT_HIDDEN })
     await tick()
     await rerender({ config: DWELL_NO_CONNECT })
     await tick()
     expect(driverCardName(container), 'premise: no fire on reconnect').toBeNull()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await rerender({ snapshot: subjectBWithTelemetry })
     await tick()
-    expect(driverCardName(container)).toContain('Leclerc')
+    expect(driverCardName(container)).toContain('LEC')
     expectWholeHudHeld(container)
   })
 })
@@ -272,14 +273,14 @@ describe('rule 24 — trigger switched while the gate is off', () => {
     vi.useFakeTimers()
     const { container, rerender } = render(AllView, { snapshot: raceOnboard, config: PERSISTENT_UNTICKED })
     await tick()
-    expect(driverCardName(container), 'premise: the persistent card is up').toContain('Verstappen')
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expect(driverCardName(container), 'premise: the persistent card is up').toContain('VER')
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await at(10000) // long past any dwell: only a switch can start a fresh one
     await rerender({ config: DWELL_UNTICKED }) // the switch starts the card's fresh dwell, ending at t = 16s
     await tick()
-    expect(driverCardName(container), 'premise: the switch starts a fresh dwell').toContain('Verstappen')
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expect(driverCardName(container), 'premise: the switch starts a fresh dwell').toContain('VER')
+    expectFullHud(container, { speed: 247, name: 'VER' })
 
     await at(1000) // t = 11s, gate still off: the same subject again must not re-arm the dwell
     await rerender({ snapshot: structuredClone(raceOnboard) })
@@ -297,11 +298,11 @@ describe('rule 24 — trigger switched while the gate is off', () => {
     await tick()
 
     await at(1999) // t = 15.999s: the fresh dwell is still running
-    expect(driverCardName(container), 'premise: the card is still up').toContain('Verstappen')
+    expect(driverCardName(container), 'premise: the card is still up').toContain('VER')
     expectWholeHudHeld(container)
 
     await at(1) // t = 16s: the dwell, counted from the switch, ends
     expect(driverCardName(container), 'premise: the card has wiped out').toBeNull()
-    expectFullHud(container, { speed: 247, name: 'Verstappen' })
+    expectFullHud(container, { speed: 247, name: 'VER' })
   })
 })
