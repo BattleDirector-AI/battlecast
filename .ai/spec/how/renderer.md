@@ -262,6 +262,16 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).
   The last backs a second `> 0` guard in `DriverLowerThird.svelte`, `QualifyingLowerThird.svelte`
   and `lowerThirdTrigger.js`'s `sync()`.
+- **#21's name is never clipped on the block axis** (`what/widgets.md` rule 109): the base
+  `.bc-lt__name` rule in `DriverLowerThird.svelte`, so it holds under every preset, is `white-space:
+  nowrap`, and its `overflow-y` computes to `visible`. Its line box is the page's inherited
+  `line-height` (app.css's `:root`, 145% of 18px: 26.1px), shorter than the display faces'
+  descenders and accents at 24px, and more so at a larger `textScale`. No rule on the name, base or
+  themed, sets another clipper (`clip-path`, `contain` with `paint`, `content` or `strict`,
+  `mask`, `mask-image`). Neither the name nor `.bc-lt`, `.bc-lt__body` or `.bc-lt__meta` sets a
+  `line-height` or height, and the name sets no padding or margin, so its line box and the card
+  keep their size. `DriverLowerThird.name.test.js` reads the rules from the component source
+  (`?raw`).
 - **Tower overflow selection** (`towerCycle.js`, behavior in `what/tower-overflow.md`): the row
   budget is `floor((slotHeight − headerHeight) / rowHeight)`, **measured** from the
   `--bc-widget-header` (38px) and `--bc-row-standard` (44px) design tokens rather than hardcoded, so
