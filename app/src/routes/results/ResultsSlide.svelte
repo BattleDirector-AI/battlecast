@@ -311,6 +311,8 @@
     transform: skewX(-8deg);
     filter: drop-shadow(2px 2px 0 #000);
     font-style: normal;
+    /* ClassChip's own face (Barlow) is bundled italic only; Barlow Condensed has an upright cut. */
+    font-family: var(--bc-font-display);
   }
 
   /* 80s: the title on a Scoreboard-red plate; the spread shadow takes no layout space. */

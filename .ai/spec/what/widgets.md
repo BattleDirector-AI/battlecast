@@ -335,8 +335,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     - **Position numerals.** Every row's position numeral is warm white (`--bc-text-2`), the
       on-camera row's included; driver names stay gold.
     - **Class chip.** Each row's class chip leans with the type: its box is skewed 8° (top edge
-      to the right), with a hard 2px black drop shadow, and its label is upright type, so the
-      skew alone gives it its lean. Its colours and text are unchanged.
+      to the right), with a hard 2px black drop shadow, and its label is upright type in the
+      preset's display face (Barlow Condensed, which is bundled with an upright cut), so the skew
+      alone gives it its lean. Its colours, text, type size and weight are unchanged.
     - **On-camera row.** The row has no fill. Its driver name is white (`--bc-oncam-text`) at
       the on-camera weight, and a solid red bar 4px high in the accent colour runs along the
       row's bottom edge, inside the row. Every other cell, the class bar and class chip
@@ -993,7 +994,46 @@ part and line, uppercases the header and the weather card, and shows a repeated 
     line list it has the header only and no line element; with neither it draws nothing at all:
     no panel element, no plate, no placeholder. The line row is one line high: a line too long
     for the panel's width is cut off with an ellipsis and never wraps or grows the panel. The
-    panel shows in every `mode`; it has no mode gate, no trigger, and no class awareness.
+    header is one line high too and never wraps, but it is never cut: a header too long for the
+    panel's slot widens the panel (rule 78a). The panel shows in every `mode`; it has no mode
+    gate, no trigger, and no class awareness.
+78a. **A long header widens the panel.** The panel's **slot** is the box it is placed in: the
+    `info` widget's configured `x` and `w` inside `/all` (and the `/config` preview), and the
+    page's content box (the viewport less the page's safe inset on each side) on the standalone
+    `/info` route. Its **canvas** is the profile's canvas (`config.canvas`, 1920 px wide by
+    default) inside `/all` and the preview, and the Browser Source's viewport on `/info`. Decision record:
+    `docs/decisions/0037-info-panel-header-widens-panel.md`.
+    - **Width.** The panel is as wide as the wider of its slot's width and its header's
+      **need**: the header's full text width as it renders (in its preset's face and font
+      style, at its size, weight and letter spacing, scaled by the widget's `textScale`), plus
+      the panel's left and right padding and the shell's left and right border. The header
+      therefore shows in full, in every preset, and is never cut off with an ellipsis. A panel
+      with no header, or whose header's need is no wider than its slot, is exactly its slot's
+      width. A line never widens the panel: rule 78 cuts it at the panel's width, the widened
+      width included. The panel's height does not change.
+    - **Place.** A panel no wider than its slot sits in its slot. A wider panel keeps the
+      slot's left edge and extends to the right until its right edge reaches the canvas's
+      right edge; the extra width the canvas has no room for on the right is added on the left
+      instead, so the panel's right edge sits on the canvas's right edge. When the slot itself
+      already runs past the canvas's right edge, the panel keeps the slot's right edge and
+      extends left only. The panel never extends left past the canvas's left edge, or past its
+      slot's own left edge when the slot starts left of the canvas: a panel too wide for that
+      starts at whichever of the two is further left, and what runs past the right edge is cut
+      off by the page, header included. So the panel always covers its whole slot. With slot
+      left `x`, slot width `w`, panel width `W` and canvas width `C`, the panel's left edge is
+      `max(min(x, 0), x − max(0, x + W − max(C, x + w)))`, and where this prose and the formula
+      seem to differ the formula decides: in the default slot (`x` 1200, `w` 696, `C` 1920), a
+      700 px panel starts at 1200, a 900 px one at 1020, and a 2000 px one at 0.
+    - **When.** The width and place follow the header on screen as it renders: a header
+      change, a preset switch, a face finishing loading, a `textScale` change or a geometry
+      change (the slot or canvas in `/all`, a resized Browser Source on `/info`) resizes and
+      re-places the panel at once, with no transition and without
+      replaying the wipe (rule 81). A header that goes away (no part holds) leaves the panel
+      at its slot.
+    - **Neighbours and the editor.** A widened panel draws over or under the widgets it
+      overlaps by its `z`, as any widget does; the overlay neither moves another widget nor
+      narrows the panel to avoid one. The stored geometry does not change, and the `/config`
+      drag box stays on the configured slot.
 79. **Rotation.** The line row shows one line of the line list at a time. When the list first
     has a line (at mount, or after it was empty), its first line shows. A line stays up for the
     panel's dwell (`dwellSeconds`, default 8; `overlay-config.md` rule 52), counted from when it
@@ -1097,11 +1137,12 @@ part and line, uppercases the header and the weather card, and shows a repeated 
        (Oswald) instead of VT323, in the preset's white (`--bc-text-2`) with no text shadow or
        outline, at its base size, weight and tracking, on a solid block of the preset's red
        header colour (`--bc-header`). The block hugs the header text (`overlay-config.md` rule
-       60), never wider than the panel's content width, where a long header is cut off with an
-       ellipsis as rule 78's line is. It extends 2px past the text on every side, so it fills
-       the 2px gap above the line and covers none of the line's glyphs, and casts a hard black
-       shadow 3px down and to the right. The face changes no height: the header's line box is
-       its line height times its size in either face, so the panel is no taller.
+       60) and always holds all of it: a header too long for the slot widens the panel (rule
+       78a), so the block is never cut and the header never ellipsizes. It extends 2px past
+       the text on every side, so it fills the 2px gap above the line and covers none of the
+       line's glyphs, and casts a hard black shadow 3px down and to the right. The face
+       changes no height: the header's line box is its line height times its size in either
+       face, so the panel is no taller.
 
 ### Weather box (`/weather`, #208)
 
@@ -1199,8 +1240,9 @@ derives nothing from `vehicles[]` or any other field. Decision record:
       warm white (`--bc-text-2`); driver names stay gold.
     - **Class chips.** Every class chip on the slide (each group header's, and the header's
       filter chip) leans as the tower's does (rule 89): its box is skewed 8° (top edge to the
-      right), with a hard 2px black drop shadow, and its label is upright type. Its colours and
-      text are unchanged.
+      right), with a hard 2px black drop shadow, and its label is upright type in the preset's
+      display face (Barlow Condensed, which is bundled with an upright cut). Its colours, text,
+      type size and weight are unchanged.
     - **The red marks nothing else.** The header rule is the only element on either slide in
       the accent colour.
     - **Type.** Every text keeps the base look's small-text extrusion; none takes the mock's

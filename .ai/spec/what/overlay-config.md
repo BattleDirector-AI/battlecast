@@ -570,10 +570,13 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     sized to its own text (for example the on-board HUD plate, the Race Control strip, the
     weather box, or a chip or tag that hugs its label) paints at the size its text takes in the
     preset's typeface and font style, up to its slot's width, past which its text is cut as it
-    is under `modern`. The text's font size, weight, letter spacing and case are the same as
-    under `modern`, and so are the box's widget slot, its alignment in the slot (centred or
-    anchored to an edge) and every set length (row heights, fixed widths, paddings, gaps, bar
-    and rule thicknesses), so the box grows or shrinks only by its typeface and font style. Inside
+    is under `modern`. The info panel's header is the one exception: it is never cut, and the
+    panel widens past its slot to hold it (`widgets.md` rule 78a), so a panel holding a long
+    header may take a different width and place under each preset. The text's font size,
+    weight, letter spacing and case are the same as under `modern`, and so are the box's widget
+    slot, its alignment in the slot (centred or anchored to an edge) and every set length (row
+    heights, fixed widths, paddings, gaps, bar and rule thicknesses), so the box grows or
+    shrinks only by its typeface and font style. Inside
     a box of set width (a tower row), the box keeps its set width while each text-sized cell
     takes the size its text needs; how much of the row shows is the widget's own overflow rule. A preset changes paint only:
     colours, typefaces, font style, text shadow or outline, and plate colour and treatment. Class

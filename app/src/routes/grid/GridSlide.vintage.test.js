@@ -7,11 +7,14 @@
  * the paint each spec bullet names. A rule written under `:root[data-theme]` only, or under the
  * wrong preset, does not count. The last block renders the slide and checks that every themed
  * selector names an element it draws, so a rule aimed at a class the markup lacks fails too.
+ * The face test resolves the face the upright chip labels name through the token CSS
+ * (`lib/testing/chipFace.js`) to check it is bundled with an upright cut at the chip's weight.
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
 import GridSlide from './GridSlide.svelte'
 import source from './GridSlide.svelte?raw'
+import { chipFace } from '../../lib/testing/chipFace.js'
 import multiClass from '../../../../spec/v1/fixtures/grid-multiclass.json'
 
 afterEach(() => cleanup())
@@ -83,6 +86,7 @@ const EXPECTED = {
       `${c} | transform: skewX(-8deg)`,
       `${c} | filter: drop-shadow(2px 2px 0 #000)`,
       `${c} | font-style: normal`,
+      `${c} | font-family: var(--bc-font-display)`,
     ]),
   ].sort(),
   vintage80: [
@@ -118,6 +122,17 @@ describe('vintage70 grid slide (rule 105)', () => {
       expect(themed('vintage70', chip, 'filter'), chip).toBe('drop-shadow(2px 2px 0 #000)')
       // The skew gives the lean; an italic label on top would lean twice.
       expect(themed('vintage70', chip, 'font-style'), chip).toBe('normal')
+      // ClassChip sets its own face (--bc-font-ui, Barlow: bundled italic only, so `normal` alone
+      // would still render italic and lean twice).
+      expect(themed('vintage70', chip, 'font-family'), chip).toBe('var(--bc-font-display)')
+    }
+  })
+
+  it("class chips: the label's face has a bundled normal cut at the chip's weight", () => {
+    for (const chip of CHIPS) {
+      const face = chipFace('vintage70', themed('vintage70', chip, 'font-family'))
+      expect(face.token, `${chip} names a font token`).toBeTruthy()
+      expect(face.upright, `${chip}: ${face.family} has no bundled normal ${face.weight} face`).toBe(true)
     }
   })
 
@@ -182,6 +197,10 @@ describe('the vintage rules change paint only (overlay-config rule 60)', () => {
       expect(rules.length, `no ${preset} rules in the grid slide`).toBeGreaterThan(0)
       for (const rule of rules) {
         for (const prop of rule.decls.keys()) {
+          // The 70s chips' face is rule 105's upright label: a chip hugs its text, so it takes
+          // that face's width (overlay-config rule 60). Only the chip selectors, only that preset.
+          const chipsOnly = rule.selectors.every((s) => CHIPS.some((c) => s === `${scopeOf(preset)} ${c}`))
+          if (preset === 'vintage70' && prop === 'font-family' && chipsOnly) continue
           expect(GEOMETRY.test(prop), `${rule.selectors[0]} sets ${prop}`).toBe(false)
           // Every text keeps the base look's small-text shadow (rules 105, 106 "Type").
           expect(prop, `${rule.selectors[0]} sets its own text shadow`).not.toBe('text-shadow')

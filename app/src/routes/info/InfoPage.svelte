@@ -30,7 +30,23 @@
     applyTheme(resolveTheme(window.location.search, { preset: config.theme.preset }))
   }
 
+  // The panel's slot is the page's content box and its canvas the viewport (widgets.md rule
+  // 78a), re-read when the Browser Source is resized. The page box is observed too: a host can
+  // size the page after mount without a window `resize` (headless Chrome does).
+  let pageEl = $state(null)
+  let slot = $state({ slotLeft: null, slotWidth: null, canvasWidth: null })
+  function readSlot() {
+    if (!pageEl) return
+    const style = getComputedStyle(pageEl)
+    const left = parseFloat(style.paddingLeft) || 0
+    const right = parseFloat(style.paddingRight) || 0
+    slot = { slotLeft: left, slotWidth: pageEl.clientWidth - left - right, canvasWidth: window.innerWidth }
+  }
   onMount(() => {
+    readSlot()
+    window.addEventListener('resize', readSlot)
+    const pageObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(readSlot)
+    pageObserver?.observe(pageEl)
     let cancelled = false
     let stopWatch = () => {}
     let disconnect = () => {}
@@ -46,6 +62,8 @@
       stopWatch = watchConfig(window.location.search, applyConfig, { initial: config })
     })
     return () => {
+      window.removeEventListener('resize', readSlot)
+      pageObserver?.disconnect()
       cancelled = true
       stopWatch()
       disconnect()
@@ -53,8 +71,8 @@
   })
 </script>
 
-<div class="info-page">
-  <InfoPanel {snapshot} {dwellSeconds} {lines} {weatherCard} {tempUnit} />
+<div class="info-page" bind:this={pageEl}>
+  <InfoPanel {snapshot} {dwellSeconds} {lines} {weatherCard} {tempUnit} {...slot} />
 </div>
 
 <style>

@@ -1552,6 +1552,11 @@
     filter: drop-shadow(2px 2px 0 #000);
     font-style: normal;
   }
+  /* ClassChip's own face (Barlow) is bundled italic only; Barlow Condensed has an upright cut. */
+  :global([data-theme='vintage70']) .row__class :global(.bc-class-chip) {
+    font-family: var(--bc-font-display);
+    font-style: normal;
+  }
   :global([data-theme='vintage70']) .row--oncam {
     background: none;
     box-shadow: inset 0 -4px 0 var(--bc-accent);

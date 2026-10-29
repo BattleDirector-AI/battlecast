@@ -5,9 +5,12 @@
  * These tests read the rules from the component source (Vite `?raw`), keyed on the theme
  * selector how/renderer.md prescribes (`:global([data-theme='…'])` on an ancestor, so the
  * /config preview gets them too), and assert the paint each spec bullet names. A rule written
- * under `:root[data-theme]` only, or under the wrong preset, does not count.
+ * under `:root[data-theme]` only, or under the wrong preset, does not count. The face test
+ * resolves the face the upright chip label names through the token CSS (`lib/testing/chipFace.js`)
+ * to check it is bundled with an upright cut at the chip's weight.
  */
 import { describe, it, expect } from 'vitest'
+import { chipFace } from '../../lib/testing/chipFace.js'
 import source from './StandingsTower.svelte?raw'
 
 /** Flat rules of the component's <style>: [{ selectors: string[], decls: Map }]. */
@@ -38,6 +41,9 @@ function styleRules() {
 }
 const RULES = styleRules()
 
+/** The class chip itself: ClassChip sets its own face, so a face rule must reach it. */
+const CHIP = '.row__class :global(.bc-class-chip)'
+
 /** The declared value of `prop` in a rule for `target` under the preset's ancestor scope. */
 function themed(preset, target, prop) {
   const scope = `:global([data-theme='${preset}']) `
@@ -58,6 +64,11 @@ describe('vintage70 tower (rule 89)', () => {
     expect(themed('vintage70', '.row__class', 'filter')).toBe('drop-shadow(2px 2px 0 #000)')
     // The skew gives the lean; an italic label on top would lean twice.
     expect(themed('vintage70', '.row__class', 'font-style')).toBe('normal')
+    // ClassChip sets its own face (--bc-font-ui, Barlow: bundled italic only, so `normal` alone
+    // would still render italic and lean twice). The rule must reach the chip itself, and keep
+    // it upright there too.
+    expect(themed('vintage70', CHIP, 'font-family')).toBe('var(--bc-font-display)')
+    expect(themed('vintage70', CHIP, 'font-style')).toBe('normal')
   })
 
   it('on-camera row: no fill, a 4px accent underline inside the row', () => {
@@ -73,6 +84,14 @@ describe('vintage70 tower (rule 89)', () => {
 
   it('re-cut: no shine element renders', () => {
     expect(themed('vintage70', '.row__oncam-flash', 'display')).toBe('none')
+  })
+})
+
+describe('the upright chip label has a bundled upright face (rule 89)', () => {
+  it("the chip label's face under vintage70 has a normal cut at the chip's weight", () => {
+    const face = chipFace('vintage70', themed('vintage70', CHIP, 'font-family'))
+    expect(face.token, 'the chip label names a font token').toBeTruthy()
+    expect(face.upright, `${face.family} has no bundled normal ${face.weight} face`).toBe(true)
   })
 })
 
@@ -154,6 +173,9 @@ describe('the vintage rules change no box size (overlay-config rule 60)', () => 
           // `display: none` on the shine overlay is rule 89/90's own exception: it removes an
           // absolutely positioned, zero-layout element.
           if (prop === 'display' && rule.selectors.every((s) => s.endsWith('.row__oncam-flash'))) continue
+          // The 70s chip's face is rule 89's upright label: the chip hugs its text, so it takes
+          // that face's width (overlay-config rule 60). Only that selector, only that preset.
+          if (preset === 'vintage70' && prop === 'font-family' && rule.selectors.every((s) => s === `${scope} ${CHIP}`)) continue
           expect(GEOMETRY.test(prop), `${rule.selectors[0]} sets ${prop}`).toBe(false)
         }
       }
