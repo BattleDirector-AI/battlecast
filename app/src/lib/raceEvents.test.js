@@ -36,6 +36,7 @@ describe('raceEventCard — the card for each fixture event (rule 70, race-event
       type: 'fastest_lap',
       label: 'FASTEST LAP',
       name: 'K. Estre',
+      driverName: 'Kevin Estre',
       value: '3:28.977',
       detail: null,
     })
@@ -47,6 +48,7 @@ describe('raceEventCard — the card for each fixture event (rule 70, race-event
       type: 'fastest_lap',
       label: 'GT3 FASTEST LAP',
       name: 'R. Lietz',
+      driverName: 'Richard Lietz',
       value: '3:47.640',
       detail: 'Lap 14',
     })
@@ -58,6 +60,7 @@ describe('raceEventCard — the card for each fixture event (rule 70, race-event
       type: 'leader_change',
       label: 'NEW LEADER',
       name: 'M. Conway',
+      driverName: 'Mike Conway',
       value: null,
       detail: 'Passes K. Estre into the first chicane',
     })
@@ -69,6 +72,7 @@ describe('raceEventCard — the card for each fixture event (rule 70, race-event
       type: 'retirement',
       label: 'GT3 RETIRED',
       name: 'B. Barker',
+      driverName: 'Ben Barker',
       value: null,
       detail: 'Gearbox',
     })
@@ -80,6 +84,7 @@ describe('raceEventCard — the card for each fixture event (rule 70, race-event
       type: 'penalty',
       label: 'PENALTY',
       name: 'K. Bachler',
+      driverName: 'Klaus Bachler',
       value: 'Drive-through',
       detail: 'Speeding in the pit lane',
     })
@@ -87,6 +92,14 @@ describe('raceEventCard — the card for each fixture event (rule 70, race-event
 })
 
 describe('raceEventCard — formatting edges (rule 70)', () => {
+  it('carries the unformatted driver_name as driverName, so the box can show it in either name style (rule 111)', async () => {
+    // how/renderer.md "Driver names in every widget": RaceUpdateBox renders
+    // fmtDriverName(card.driverName, nameStyle), so a style change re-renders the card's name.
+    const card = await raceEventCard({ id: 'p', type: 'penalty', driver_name: 'Jean-Eric Vergne', penalty: '+5s' })
+    expect(card.driverName).toBe('Jean-Eric Vergne')
+    expect(card.name).toBe('J. Vergne')
+  })
+
   it('a retirement with finish_status 3 reads DISQUALIFIED, not RETIRED', async () => {
     const card = await raceEventCard({ id: 'dq', type: 'retirement', driver_name: 'Ben Barker', finish_status: 3 })
     expect(card.label).toBe('DISQUALIFIED')

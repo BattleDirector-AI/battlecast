@@ -53,7 +53,7 @@ describe('normalizeConfig — theme.preset (rule 58)', () => {
 
   it('a junk preset does not disturb the other theme keys', () => {
     const theme = normalizeConfig({ theme: { preset: 'retro', classTags: 'show', classColors: { gtp: '#112233' } } }).theme
-    expect(theme).toEqual({ preset: 'modern', classTags: 'show', classColors: { gtp: '#112233' } })
+    expect(theme).toEqual({ preset: 'modern', classTags: 'show', classColors: { gtp: '#112233' }, nameStyle: 'short' })
   })
 
   it('is overlay-wide, not normalized onto any widget', () => {

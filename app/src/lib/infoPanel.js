@@ -93,3 +93,15 @@ export function createInfoRotation() {
     },
   }
 }
+
+/**
+ * The panel's place and width in canvas px (rule 78a): as wide as the wider of its slot and its
+ * header's need (`null` with no header). It keeps the slot's left edge and takes on the left only
+ * the width the canvas has no room for on the right, never past the canvas's left edge (or the
+ * slot's own, when that is further left), so it always covers its slot.
+ */
+export function infoPanelSpan({ slotLeft: x, slotWidth: w, headerNeed, canvasWidth: c }) {
+  const width = Math.max(w, headerNeed ?? 0)
+  const pastRight = Math.max(0, x + width - Math.max(c, x + w))
+  return { left: Math.max(Math.min(x, 0), x - pastRight), width }
+}

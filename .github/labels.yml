@@ -1,0 +1,112 @@
+# Every GitHub label this repository uses, declared once: name, colour, description, who
+# applies it (`applied_by`) and, for the five PR lifecycle labels, the state each marks
+# (`lifecycle`, 1-5 in order). The pipeline labels follow BattleDirector's vocabulary (#365).
+#
+# scripts/test/labels.test.mjs holds the skills to this file: every label a skill applies is
+# declared here, every lifecycle label is used by a skill, and the retired names are gone.
+# A label a skill starts applying is declared here first.
+
+labels:
+  # --- PR lifecycle, in order -------------------------------------------------
+  - name: ai-spec-review
+    color: 5319e7
+    description: Spec PR under AI review; not yet ready for the owner
+    lifecycle: 1
+    applied_by: spec-first-pass skill, on opening the draft spec PR
+  - name: spec-review
+    color: fbca04
+    description: "Spec PR passed AI review: spec + failing tests, awaiting the owner's approval"
+    lifecycle: 2
+    applied_by: spec-first-pass skill, swapped in for ai-spec-review once the AI reviewer approves a what/ change
+  - name: spec-approved
+    color: 0e8a16
+    description: Spec approved (the owner for what/; the coordinator for how/-only); implement in this PR
+    lifecycle: 3
+    applied_by: owner for any .ai/spec/what/ change; spec-first-pass skill after a clean AI review of a how/-only spec
+  - name: ai-code-review
+    color: 1d76db
+    description: Implementation under AI code review; not a human gate
+    lifecycle: 4
+    applied_by: implement-spec skill, on pushing the implementation commit
+  - name: ready-to-merge
+    color: 006b75
+    description: Code review passed; merges once its required checks pass
+    lifecycle: 5
+    applied_by: implement-spec skill, swapped in for ai-code-review
+
+  - name: fail-escalated
+    color: b60205
+    description: CI still red after 3 fix attempts; needs a human
+    applied_by: implement-spec skill, after three failed CI fix attempts
+
+  # --- Triage / topic labels (not pipeline state) -----------------------------
+  - name: bug
+    color: d73a4a
+    description: Something isn't working
+    applied_by: issue author
+  - name: documentation
+    color: 0075ca
+    description: Improvements or additions to documentation
+    applied_by: issue author
+  - name: duplicate
+    color: cfd3d7
+    description: This issue or pull request already exists
+    applied_by: triage
+  - name: enhancement
+    color: a2eeef
+    description: New feature or request
+    applied_by: issue author
+  - name: good first issue
+    color: 7057ff
+    description: Good for newcomers
+    applied_by: triage
+  - name: help wanted
+    color: "008672"
+    description: Extra attention is needed
+    applied_by: triage
+  - name: invalid
+    color: e4e669
+    description: This doesn't seem right
+    applied_by: triage
+  - name: question
+    color: d876e3
+    description: Further information is requested
+    applied_by: issue author
+  - name: wontfix
+    color: ffffff
+    description: This will not be worked on
+    applied_by: triage
+  - name: widget
+    color: 1d76db
+    description: Broadcast overlay widget
+    applied_by: issue author
+  - name: epic
+    color: b60205
+    description: Tracking epic
+    applied_by: issue author
+  - name: spec
+    color: 5319e7
+    description: spec/schema contract change
+    applied_by: issue author
+  - name: differentiator
+    color: 0e8a16
+    description: Beats native rF2/LMU overlays
+    applied_by: issue author
+  - name: config
+    color: fbca04
+    description: Overlay configuration / config UI
+    applied_by: issue author
+
+  # --- Dependabot (.github/dependabot.yml) ------------------------------------
+  - name: dependencies
+    color: 0366d6
+    description: Pull requests that update a dependency file
+    applied_by: Dependabot
+  - name: javascript
+    color: "168700"
+    description: Pull requests that update javascript code
+    applied_by: Dependabot
+  - name: github_actions
+    color: "000000"
+    description: Pull requests that update GitHub Actions code
+    applied_by: Dependabot

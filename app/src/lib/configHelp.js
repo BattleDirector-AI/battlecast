@@ -169,11 +169,6 @@ export const FIELD_HELP = Object.freeze({
     '"inline" keeps one overall running order and badges each row with its position in class ' +
     '(e.g. GTP 3/7). "grouped" splits the tower into a block per class, with positions restarting ' +
     'inside each block.',
-  nameStyle:
-    '"short" shows each driver as a compact code (E.JAC), so the tower keeps its set width. ' +
-    '"full" shows the initial and last name (E. Jacobs) and never cuts a name short: the tower ' +
-    'grows wider than its set width to fit the longest name, and can run past the edge of the ' +
-    'canvas or the Browser Source.',
   cycleEnabled:
     'When there are more cars than fit in the tower’s height, page through the ones that do not ' +
     'fit instead of cutting them off the bottom. Leave this off to simply show as many as fit.',
@@ -245,6 +240,13 @@ export const FIELD_HELP = Object.freeze({
     'session and shows them when the producer does not say. "show" and "hide" override the ' +
     'producer either way. The class color bars stay in every case. The editor preview’s sample ' +
     'feed does not say, so at "auto" the preview shows the tags.',
+  nameStyle:
+    'How driver names show in every widget: the standings tower, battle box, lower-thirds, ' +
+    'on-board HUD, race updates, grid and results. "short" shows each driver as a compact code ' +
+    '(E.JAC), so widgets keep their set size. "full" shows the initial and last name ' +
+    '(E. Jacobs) and never cuts a name short: a widget grows wider than its set width to fit a ' +
+    'long name, past its box in the preview and over its neighbours, and can run past the edge ' +
+    'of the canvas or the Browser Source.',
   themePreset:
     'The look of the whole overlay. "Modern" is the standard battlecast look. "Vintage 70s" is a ' +
     '1970s US network look: gold italic lettering with a hard black drop shadow and a red bar on ' +

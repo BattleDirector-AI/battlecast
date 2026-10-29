@@ -40,6 +40,56 @@ preview subtree while the editor's own panel, whose root carries no vintage them
 (`what/overlay-config.md` rule 62). The theme select (`data-testid="theme-preset"`) sits beside the
 class-tags select, writes through `configEditor.setThemePreset`, and its help is
 `FIELD_HELP.themePreset`.
+The driver-names select (`data-testid="name-style"`, `what/overlay-config.md` rule 43) sits with
+these overlay-wide selects, not in the tower row, writes through `configEditor.setNameStyle`
+(`theme.nameStyle` only), and its help is `FIELD_HELP.nameStyle` (behind
+`data-testid="help-name-style"`). The tower row's former `name-style-tower` select and its
+`setWidgetField(…, 'nameStyle', …)` path are gone. The preview is an `AllView`, so every widget in
+it re-renders in the chosen style.
+Every widget reaches the preset through the stage (rule 63): `AllView`'s widget slots carry no
+`data-theme` of their own, widget styles key off the bare `[data-theme=…]` ancestor
+(`how/renderer.md`, "Theme presets"), and the tower's theme-switch reset finds its scope with
+`closest('[data-theme]')`. `ConfigPage.previewTheme.test.js` holds all three: the rendered scope
+of every widget, and a source scan of every component `<style>` (no `:root[data-theme…]` /
+`html[data-theme…]` selector) and every module (no theme read off `document.documentElement`).
+Rule 63's re-measure clause, a `full`-name tower measuring its fit width again when the preview's
+preset changes, is held by `routes/tower/StandingsTower.themeSwitch.test.js` ("in the /config
+preview, follows the preview stage, not the document root").
+The handles (rule 64) are plain editor CSS in `ConfigPage.svelte`: literal colours, no `--bc-*`
+token and no `[data-theme]` selector, and `.handle__label` sets `text-shadow: none` and
+`font-style: normal` against the stage's inherited base-look rule (`design/tokens/effects.css`).
+Any inherited text property a token file's theme-scope rule sets, the label overrides with a
+literal value; the test derives that list from the token files, so a property added to the base
+look later must gain an override here. The label sets no `font-family`, so it inherits the editor
+root's typeface; the stage scopes the `--bc-font-*` tokens but sets no font itself.
+The key labels (rules 65–66) are not children of the handles. After the handles' `{#each}`,
+`.preview__canvas` renders one label layer, `<div class="handle-labels"
+data-testid="handle-labels">`, with an inline `z-index` of `101 + max(z)` over the visible
+widgets, one more than the highest handle's `100 + z`. It holds one
+`<span class="handle__label" data-testid="label-{key}">{key}</span>` per visible widget, and
+each label has its own `onpointerdown={(e) => startDrag(e, key, 'move')}`. Its placement is
+decided in the markup, not by measuring: `data-placement="above"` when the widget's `y` is at
+least 24, `"inside"` otherwise. Its position is inline canvas pixels, in the same way the handle's
+`left`/`top` are: `left: {x}px; top: {y - 24}px` above, and `left: {x}px; top: {y}px` inside. The
+label also gets an inline `z-index: {100 + z}` for the order within the layer. The layer is
+the canvas's stacking context, not a handle, so there is no border offset: the label's left edge
+is the handle's outer left, and an above label's bottom is the handle's outer top.
+CSS: `.handle-labels` is `position: absolute; inset: 0; pointer-events: none`, so the layer
+blocks no handle. `.handle__label` is `position: absolute; height: 24px; line-height: 24px;
+padding: 0 8px; font-size: 22px; white-space: nowrap; pointer-events: auto; cursor: move`, with
+rule 64's colours and text overrides. Nothing sets `pointer-events: none` on a label. The
+layer's `position: absolute` is what makes its inline `z-index` apply at all: a static layer
+ignores `z-index` and paints under the positioned handles. Its `inset: 0` makes the canvas the
+labels' coordinate box. The label's own `position: absolute` makes the inline `left`/`top`
+apply.
+`ConfigPage.handleLabel.test.js` holds the placement, the inline offsets, the layer's `z-index`
+against every handle, the position, size and pointer-events declarations (from `?raw`), the press
+and the single look. happy-dom does no layout, so the painted edges are checked in a real browser.
+There, with the label above, its bounding rect's bottom equals the handle's top and the lefts
+are equal. With the label inside, the tops and lefts are equal. `elementFromPoint` at the label's
+centre returns the label itself. In the default layout, `elementFromPoint` at canvas (60, 880),
+the upper half of the `driver` label where it lies over `qualifying`'s handle, returns the
+`driver` label.
 The editor renders the real `AllView` against a fixture snapshot, scaled by
 `previewScale` (`fitPreview()` fits the canvas into the panel, capped at 0.6). Pointer deltas are
 divided by that scale before reaching `moveWidget`/`resizeWidget`, so a drag moves the widget by

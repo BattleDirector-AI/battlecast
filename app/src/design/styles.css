@@ -1,8 +1,21 @@
 /* Battlecast Design System — global entry point.
- * Consumers link this one file. Import-only; no rules live here. */
+ * Consumers link this one file. The token imports, plus the one rule every widget shares. */
 
 @import url('tokens/fonts.css');
 @import url('tokens/colors.css');
 @import url('tokens/typography.css');
 @import url('tokens/spacing.css');
 @import url('tokens/effects.css');
+
+/* The reference short form (widgets.md rule 113, how/renderer.md "Driver names in every
+ * widget"). In short style every single-name slot carries .bc-name-ref: this invisible
+ * block, set in the name's own font, keeps the name box at least as wide as `W.WWW` without
+ * adding height or text. The name element is a flex item (blockified), so the block sits
+ * inside it rather than splitting a line. */
+.bc-name-ref::after {
+  content: 'W.WWW';
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}

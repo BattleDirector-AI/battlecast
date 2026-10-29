@@ -132,6 +132,30 @@ describe('standalone pages live-reload their profile (overlay-config rule 22)', 
     expect(sse.connects).toBe(1)
   })
 
+  // The profile-wide driver name style (overlay-config rule 42, widgets rule 111): a
+  // `theme.nameStyle` edit reaches every standalone page's names without a refresh.
+  it('/driver: a theme.nameStyle edit switches the card to full names without a refresh or a reconnect', async () => {
+    await mount(DriverPage, '/driver', { theme: { nameStyle: 'short' } })
+    push(singleClass)
+    const name = () => document.querySelector('[data-testid="driver-lt-name"]')?.textContent.trim()
+    expect(name()).toBe('E.JAC')
+
+    await editProfile({ theme: { nameStyle: 'full' } })
+    expect(name()).toBe('E. Jacobs')
+    expect(sse.connects, 'a config edit must not reopen the producer feed').toBe(1)
+  })
+
+  it('/battle: a theme.nameStyle edit switches the box to short names without a refresh or a reconnect', async () => {
+    await mount(BattlePage, '/battle', { theme: { nameStyle: 'full' } })
+    push(singleClass)
+    const focus = () => document.querySelector('.bc-battle__focus-name')?.textContent.trim()
+    expect(focus()).toBe('E. Jacobs')
+
+    await editProfile({ theme: { nameStyle: 'short' } })
+    expect(focus()).toBe('E.JAC')
+    expect(sse.connects, 'a config edit must not reopen the producer feed').toBe(1)
+  })
+
   it('/tower: a failed poll keeps profile A rather than snapping to the default (#353)', async () => {
     // Profile A sets `full`; the default is `short`, so a snap to the default would show.
     await mount(TowerPage, '/tower', { widgets: { tower: { nameStyle: 'full' } } })

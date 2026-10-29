@@ -32,3 +32,6 @@ packaging/build/
 *.bun-build
 # Discord bot credentials for release announcements (token — never commit)
 .discord
+
+# GitHub App private keys (the agent identity key lives outside every worktree)
+*.pem

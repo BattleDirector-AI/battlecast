@@ -398,10 +398,11 @@
     return inlineRows.filter((v) => !rendered[v.slot_id])
   })
 
-  // ---- driver name style + the full-style width (widgets.md rules 46-48, ADR 0018) ----
-  // Short (E.JAC) never changes width. Full (E. Jacobs) is never ellipsized: the tower root
-  // carries an inline min-width of max(configured width, ceil(widestName + widestRest +
-  // borderX)), the running maxima cleared only by a reset. See how/renderer.md "Driver name style".
+  // ---- driver name style + the full-style width (widgets.md rules 46-48, 116, ADR 0018) ----
+  // Short (E.JAC) keeps the configured width unless the name column runs past it (rule 116).
+  // Full (E. Jacobs) is never ellipsized: the tower root carries an inline min-width of
+  // max(configured width, ceil(widestName + widestRest + borderX)), the running maxima cleared
+  // only by a reset. See how/renderer.md "Driver name style".
   const fullStyle = $derived(nameStyle === 'full')
   const fullNameOf = (v) => (typeof v.driver_name === 'string' ? fmtName(v.driver_name) : '')
   const nameOf = (v) => (fullStyle ? fullNameOf(v) : fmtShortName(v.driver_name))
@@ -431,9 +432,18 @@
       family: read('--bc-font-display', "'Saira Condensed', 'Arial Narrow', sans-serif"),
     }
   }
+  // The first rendered name cell, whose font style and letter-spacing the measuring reads. The
+  // tower root stands in when no row is rendered: correct while the name cell inherits both, as
+  // it does today.
+  const nameCell = () => towerEl?.querySelector('[data-testid="driver-name"]') ?? towerEl
+  // The name cell's font style leads the string when it is italic or oblique (italic under
+  // vintage70). Anything else stays out: ctx.font ignores a value it cannot parse and keeps
+  // the previous font.
   const measuringFont = () => {
     const f = nameFontParts()
-    return `${f.weight} ${f.size} ${f.family}`
+    const style = computedStyle(nameCell())?.fontStyle?.trim()
+    const lead = /^(italic|oblique(\s+-?[\d.]+deg)?)$/.test(style ?? '') ? `${style} ` : ''
+    return `${lead}${f.weight} ${f.size} ${f.family}`
   }
   const familyKey = (family) =>
     String(family ?? '').trim().replace(/^['"]|['"]$/g, '').trim().toLowerCase()
@@ -441,6 +451,9 @@
   let widestName = $state(0)
   let widestRest = $state(0)
   let borderX = $state(0) // the tower root's left + right border, inside its min-width
+  // Short style's lead width (rule 116): the widest rendered row's name-column right edge plus
+  // the root's borders, ceiled. Follows the rows; no running maximum.
+  let shortLead = $state(0)
   let namesMeasured = $state(false) // false until a pass ran with the name font loaded
   // Full name -> px, every name measured since the last reset. Prototype-free, so a driver
   // named '__proto__' caches like any other.
@@ -452,6 +465,9 @@
   let destroyed = false
   let lastSettings = null
   let lastMode = null
+  // Bumped by a theme preset change; the measuring effect resets when it moves.
+  let themeResets = $state(0)
+  let lastThemeResets = 0
   let measureCtx // undefined until first use; null when there is no 2D context
 
   function textWidth(text, font) {
@@ -477,12 +493,9 @@
       ? window.getComputedStyle(el)
       : null
 
-  // Canvas measureText ignores CSS letter-spacing, so it is added per code point, read off
-  // the first rendered name cell (the tower root when no row is rendered: correct while the
-  // name cell inherits its letter-spacing, as it does from :root today).
+  // Canvas measureText ignores CSS letter-spacing, so the name cell's is added per code point.
   function nameLetterSpacing() {
-    const cell = towerEl?.querySelector('[data-testid="driver-name"]') ?? towerEl
-    return cssPx(computedStyle(cell)?.letterSpacing)
+    return cssPx(computedStyle(nameCell())?.letterSpacing)
   }
   const nameWidth = (name, font, spacing) => textWidth(name, font) + [...name].length * spacing
 
@@ -519,10 +532,12 @@
     const mode = modeKey(snapshot)
     const full = fullStyle
     const el = towerEl
+    const themeKey = themeResets
     void [renderRows, groups, pageEpoch] // re-read the rest when the rows re-render
     untrack(() => {
-      let reset = key !== lastSettings
+      let reset = key !== lastSettings || themeKey !== lastThemeResets
       lastSettings = key
+      lastThemeResets = themeKey
       if (mode !== null) {
         if (lastMode !== null && mode !== lastMode) reset = true
         lastMode = mode
@@ -533,7 +548,19 @@
         widestRest = 0
         namesMeasured = false
       }
-      if (!full || !el) return
+      if (!el) return
+      const cs = computedStyle(el)
+      borderX = cssPx(cs?.borderLeftWidth) + cssPx(cs?.borderRightWidth)
+      if (!full) {
+        // The row is position: relative and flush with the tower's padding edge, so a name
+        // cell's offsetLeft + offsetWidth is the name column's right edge from the left border.
+        let lead = 0
+        for (const cell of el.querySelectorAll('[data-testid="driver-name"]')) {
+          lead = Math.max(lead, cell.offsetLeft + cell.offsetWidth)
+        }
+        shortLead = lead > 0 ? Math.ceil(lead + borderX) : 0
+        return
+      }
       const font = measuringFont()
       if (nameFontLoaded(font)) {
         const spacing = nameLetterSpacing()
@@ -553,8 +580,6 @@
         rest = Math.max(rest, row.scrollWidth - (nameCell?.clientWidth ?? 0))
       }
       widestRest = rest
-      const cs = computedStyle(el)
-      borderX = cssPx(cs?.borderLeftWidth) + cssPx(cs?.borderRightWidth)
     })
   })
 
@@ -612,14 +637,34 @@
       fonts.removeEventListener?.('loadingerror', onLoadingError)
     }
   })
+  // A theme preset change on the nearest data-theme ancestor is a reset. A render page writes
+  // the root attribute only after the tower mounts, so with no such ancestor the root is watched.
+  $effect(() => {
+    const el = towerEl
+    if (!el || typeof MutationObserver !== 'function') return
+    const target = el.closest('[data-theme]') ?? document.documentElement
+    const themeOf = () => target.getAttribute('data-theme') || 'modern'
+    let last = themeOf()
+    const observer = new MutationObserver(() => {
+      const theme = themeOf()
+      if (theme === last) return
+      last = theme
+      themeResets++
+    })
+    observer.observe(target, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => observer.disconnect()
+  })
   onDestroy(() => {
     destroyed = true
   })
 
+  // Short style sets one only when the name column runs past the configured width (rule 116).
   const towerMinWidth = $derived(
     fullStyle
       ? `${Math.max(baseWidth, namesMeasured ? Math.ceil(widestName + widestRest + borderX) : 0)}px`
-      : null,
+      : shortLead > baseWidth
+        ? `${shortLead}px`
+        : null,
   )
 
   // Gap-to-leader readout (#28). Each row shows its interval to the leader, from the
@@ -1500,5 +1545,77 @@
     .row--sizer {
       display: none;
     }
+  }
+
+  /* The tower's own vintage look (widgets rules 89–90, ADR 0027). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60). */
+  :global([data-theme='vintage70']) .row__oncam-flash,
+  :global([data-theme='vintage80']) .row__oncam-flash {
+    display: none;
+  }
+
+  /* 70s: a red rule under the header, warm-white numerals, a skewed class chip, and an
+     underlined on-camera row in place of the fill. */
+  :global([data-theme='vintage70']) .tower__header {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .row__pos,
+  :global([data-theme='vintage70']) .row--oncam .row__pos {
+    color: var(--bc-text-2);
+  }
+  :global([data-theme='vintage70']) .row__class {
+    transform: skewX(-8deg);
+    filter: drop-shadow(2px 2px 0 #000);
+    font-style: normal;
+  }
+  /* ClassChip's own face (Barlow) is bundled italic only; Barlow Condensed has an upright cut. */
+  :global([data-theme='vintage70']) .row__class :global(.bc-class-chip) {
+    font-family: var(--bc-font-display);
+    font-style: normal;
+  }
+  :global([data-theme='vintage70']) .row--oncam {
+    background: none;
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+
+  /* 80s: reverse video. The on-camera row is a solid accent block with dark text; its chips
+     sit on black so they read as on any other row. */
+  :global([data-theme='vintage80']) .row--oncam {
+    background: var(--bc-accent);
+    box-shadow: none;
+  }
+  :global([data-theme='vintage80']) .row--oncam > :not(.row__pit--in):not(.row__finish):not(.row__class),
+  :global([data-theme='vintage80']) .row--oncam .row__pit-label,
+  :global([data-theme='vintage80']) .row--oncam .row__tire-compound {
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .row--oncam .row__class,
+  :global([data-theme='vintage80']) .row--oncam .row__finish--dnf,
+  :global([data-theme='vintage80']) .row--oncam .row__finish--dq {
+    background: #000;
+    box-shadow: 0 0 0 2px #000;
+  }
+  /* No background here: it would wipe the flag's squares. */
+  :global([data-theme='vintage80']) .row--oncam .row__finish--flag {
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 0 2px #000;
+  }
+  /* Lap-time flash as a solid block, ringed in black so it shows on the lime row too.
+     Compound tier selectors outrank the plain-lap rule whatever the source order. */
+  :global([data-theme='vintage80']) .row__gap--flash {
+    background: var(--bc-text-2);
+    box-shadow: 0 0 0 2px var(--bc-text-2), 0 0 0 3px #000;
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .row__gap--flash.row__gap--flash-personal-best {
+    background: var(--bc-lap-pb);
+    box-shadow: 0 0 0 2px var(--bc-lap-pb), 0 0 0 3px #000;
+  }
+  :global([data-theme='vintage80']) .row__gap--flash.row__gap--flash-session-best,
+  :global([data-theme='vintage80']) .row__gap--flash.row__gap--flash-class-best {
+    background: var(--bc-lap-best);
+    box-shadow: 0 0 0 2px var(--bc-lap-best), 0 0 0 3px #000;
   }
 </style>
