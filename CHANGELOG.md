@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-29
+
 ### Added
 
 - **Every widget now has its own Vintage 70s and Vintage 80s look (#358).** 0.15.0 gave the
