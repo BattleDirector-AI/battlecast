@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-29
+
+### Added
+
+- **Every widget now has its own Vintage 70s and Vintage 80s look (#358).** 0.15.0 gave the
+  whole overlay three themes, but only changed colours, fonts and plates. Each widget now has its
+  own vintage pass: the standings tower (#372), battle box (#384), driver and qualifying
+  lower-thirds (#385), Race Control (#386), on-board HUD (#387), race update box (#388), info
+  panel (#389), weather box (#390), and the `/grid` and `/results` slides (#391). Content, layout
+  and timing are identical in every look.
+- **One driver-name setting for the whole overlay (#426, ADR 0038).** A new **driver names**
+  control in `/config`, next to Theme, chooses `short` (`E.JAC`) or `full` (`E. Jacobs`) for every
+  widget that shows a name. Before, only the tower had this setting. Under `full`, a widget
+  grows wider to fit the whole name and never cuts it or ends it in "…". Under `short`, every name
+  slot always has room for the short form. The default is `short`, and a tower already set to
+  `full` makes the whole overlay `full`.
+- **The `/config` preview renders every widget in the chosen theme (#392).** The drag handles'
+  labels now sit above each widget instead of covering its content (#394).
+- **The modern theme's fonts now ship with battlecast (#363),** so it looks right offline too.
+
+### Changed
+
+- **A widget never gets taller because of a name (#428, #429).** The on-board HUD is never
+  narrower than its throttle and brake row. A wider qualifying card can fit its timing row on
+  fewer lines, so it can get shorter.
+- **A long info-panel header widens the panel instead of being cut (#414).**
+- **Under a vintage theme, the lower-thirds' bar-wipe reveal has no shine (#405).**
+
+### Fixed
+
+- **The bottoms of letters like g, y and p are no longer cut off in the driver lower-third's
+  name (#415).**
+- **The on-board HUD's THROTTLE label no longer runs into its bar (#430).** Before, it did so in
+  the modern theme at every text size, and in the vintage themes at larger text sizes.
+- **The `/grid` and `/results` class groups have their gap again (#409).**
+- **The vintage 70s class chips use an upright face (#412, #419),** and the vintage 70s teal
+  subhead colour is consistent across widgets (#411).
+- **A box sized to its text gets as wide as the theme's typeface needs (#399).**
+
+### Internal
+
+- Agents act on GitHub as the `battledirector-agent` App. PRs get formal reviews, a PR-shape
+  check and auto-merge, and rulesets now protect `next`, `prerelease` and `main` (#365).
+- The release pre-flight checks the repo's live labels against `.github/labels.yml` (#379).
+- The tower reads each name cell once (#375).
+
 ## [0.15.0] - 2026-10-25
 
 ### Added
