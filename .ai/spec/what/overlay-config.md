@@ -644,6 +644,47 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     `battle` and so on, shown in capitals) render exactly as under `modern`. The key label keeps
     the editor's typeface, upright, with no text shadow or outline, in its own dark-on-teal
     colours, so it reads the same over every look and is never taken for overlay graphics.
+65. **A handle's key label sits outside its widget, above the top-left corner.** The key label
+    (rule 64) never covers its own widget's content, except at the canvas top edge. The label is
+    one line, exactly 24 canvas px tall with its text at 22 canvas px, and as wide as its text plus
+    its side padding. The widget box is the rectangle the widget's stored `x`, `y`, `w`, `h`
+    describe, which is the handle's outer edge, dashed outline included. Where the label sits
+    depends on the stored `y` alone:
+    - **Above**, when `y` is 24 or more. The label's bottom edge lies on the box's top edge, with
+      no gap, and its left edge lies on the box's left edge. It covers no part of the box, the
+      outline included.
+    - **Inside**, when `y` is less than 24. This is "at the top edge of the canvas": there are not
+      24 canvas px above the box for the label to fit in without being cut off by the canvas edge.
+      The label's top-left corner then lies on the box's top-left corner, and the label covers a
+      24 px strip at the top-left of its own widget.
+
+    The placement follows `y` at every moment, mid-drag included. A pointer step that moves the
+    widget from `y` 24 to 23 moves the label inside at that step, and a step back to 24 moves it
+    above again. Nothing else changes the placement: not `x`, `w`, `h`, `z`, the text-size
+    preset, the theme preset, or the preview's size. A label wider than its widget runs past the
+    box's right edge, and a label whose box ends at the canvas's right edge is cut off there.
+
+    The 24 px and 22 px are canvas pixels. The label is drawn inside the scaled preview canvas,
+    so it scales with the preview exactly as the widgets do (at the preview's 0.6 cap it is
+    14.4 screen px tall). In the default layout every visible widget's `y` is 24 or more, so
+    every default label sits above.
+
+    An above label lies over whatever is in the 24 px strip above its box, which can be part of a
+    neighbouring widget. In the default layout there are exactly three such overlaps:
+    `weather`'s label lies over the bottom of `racecontrol`, `qualifying`'s over `tower`, and
+    `driver`'s over the bottom of `qualifying` and over `tower`. The labels paint in one label
+    layer above every handle and every widget, so no handle's tint, outline or resize corner
+    ever paints over a label. Within that layer, where two labels overlap, the one whose widget
+    has the higher `z` paints on top.
+66. **The key label moves its own widget, with one look in every state.** Wherever the label
+    sits, a press on it starts a move drag of its own widget, exactly as a press on the handle's
+    box does (rules 41c–41e). Because the label layer is above every handle (rule 65), this holds
+    over the whole label, even where the label lies over another widget's handle: a press there
+    moves the label's widget, never the one beneath. The label is never a resize target and never
+    passes a press through to what lies under it. Hovering, pressing or dragging a handle or its
+    label changes nothing about the label's colours, size, opacity or text. During a drag, the
+    label moves with its widget and changes placement only as rule 65 says. The editor has no
+    selected-handle state, and the label has none.
 
 ### Editor help content
 
