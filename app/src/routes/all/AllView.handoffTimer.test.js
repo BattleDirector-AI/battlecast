@@ -7,6 +7,7 @@
 //      HUD's copy saw a subject change and fired.
 // Each test drives AllView from spec/v1 fixtures with fake timers and asserts what is on screen,
 // the card's name and the onboard slot, at concrete times.
+// Names read in the profile's default short style (widgets.md rule 111): `VER`, `LEC`, `PIA`.
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup } from '@testing-library/svelte'
 import { tick } from 'svelte'
@@ -50,7 +51,7 @@ describe('#290 case 1 — hiding and re-showing the HUD does not restart the car
     const driver = { trigger: 'dwell', dwellSeconds: 6 }
     const { container, rerender } = render(AllView, { snapshot: raceOnboard, config: cfg(driver) })
     await tick()
-    expect(cardName(container), 'premise: card fires on connect').toContain('Verstappen')
+    expect(cardName(container), 'premise: card fires on connect').toContain('VER')
     expect(q(hud(container), 'onboard-hud'), 'HUD held while the card is up').toBeNull()
 
     await at(6000)
@@ -80,7 +81,7 @@ describe('#290 case 1 — hiding and re-showing the HUD does not restart the car
 
     await rerender({ snapshot: subjectB })
     await tick()
-    expect(cardName(container), 'premise: camera cut fires the card').toContain('Leclerc')
+    expect(cardName(container), 'premise: camera cut fires the card').toContain('LEC')
     expect(q(hud(container), 'onboard-hud')).toBeNull()
 
     await at(2000)
@@ -89,14 +90,14 @@ describe('#290 case 1 — hiding and re-showing the HUD does not restart the car
     await at(1000)
     await rerender({ config: cfg(driver) })
     await tick()
-    expect(cardName(container), 'premise: card still up (3s into the dwell)').toContain('Leclerc')
+    expect(cardName(container), 'premise: card still up (3s into the dwell)').toContain('LEC')
     expect(q(hud(container), 'onboard-hud'), 'HUD must stay held beside the card').toBeNull()
-    expect(hud(container).textContent, 'the name must not show twice').not.toContain('Leclerc')
+    expect(hud(container).textContent, 'the name must not show twice').not.toContain('LEC')
 
     await at(3000)
     expect(cardName(container), 'card wipes out at 6s').toBeNull()
     expect(q(hud(container), 'onboard-hud'), 'HUD reveals with it').not.toBeNull()
-    expect(q(hud(container), 'onboard-driver-name').textContent).toContain('Leclerc')
+    expect(q(hud(container), 'onboard-driver-name').textContent).toContain('LEC')
   })
 })
 
@@ -104,8 +105,8 @@ describe('#290 case 2 — a hideWhenIdle card that returns as a connect does not
   const driver = { trigger: 'dwell', dwellSeconds: 6, showOnConnect: false, hideWhenIdle: true }
 
   it.each([
-    ['A -> invalid -> A', [raceOnboard, invalid, raceOnboard], 'Verstappen', 247],
-    ['A -> invalid -> B', [raceOnboard, invalid, subjectB], 'Leclerc', 180],
+    ['A -> invalid -> A', [raceOnboard, invalid, raceOnboard], 'VER', 247],
+    ['A -> invalid -> B', [raceOnboard, invalid, subjectB], 'LEC', 180],
   ])('%s: the HUD shows with no card when the card comes back as a connect', async (_n, steps, name, speed) => {
     vi.useFakeTimers()
     const { container, rerender } = render(AllView, { snapshot: steps[0], config: cfg(driver) })
@@ -142,10 +143,10 @@ describe('#290 case 2 — a hideWhenIdle card that returns as a connect does not
 
     await rerender({ snapshot: raceOnboard })
     await tick()
-    expect(cardName(container), 'the card fires on reconnect').toContain('Verstappen')
+    expect(cardName(container), 'the card fires on reconnect').toContain('VER')
     expect(q(hud(container), 'onboard-hud'), 'HUD held beside it').toBeNull()
     await at(5900)
-    expect(cardName(container)).toContain('Verstappen')
+    expect(cardName(container)).toContain('VER')
     expect(q(hud(container), 'onboard-hud'), 'still held at 5.9s').toBeNull()
     await at(200)
     expect(cardName(container), 'wiped out after the full dwell').toBeNull()
@@ -170,7 +171,7 @@ describe('the card hidden mid-dwell drops its timer (#290 hide path)', () => {
     await tick()
     await rerender({ snapshot: subjectB })
     await tick()
-    expect(cardName(container), 'premise: card up').toContain('Leclerc')
+    expect(cardName(container), 'premise: card up').toContain('LEC')
     expect(q(hud(container), 'onboard-hud')).toBeNull()
 
     await rerender({ config: cfg({ ...driver, visible: false }) })

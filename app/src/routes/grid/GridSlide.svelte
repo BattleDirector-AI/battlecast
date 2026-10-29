@@ -1,7 +1,7 @@
 <script>
   import ClassChip from '../../design/ClassChip.svelte'
   import { classColor, classMeta } from '../../design/classMeta.js'
-  import { fmtName } from '../../design/format.js'
+  import { fmtDriverName } from '../../design/format.js'
   import { classTagsShown } from '../../lib/classTags.js'
   import { listableVehicles } from '../../lib/vehicles.js'
 
@@ -13,12 +13,15 @@
   // saved profile, or `{}` when none is loaded/configured.
   // `classTags` (widgets.md rules 60, 64): with the tags hidden the slide renders one list in
   // overall position order, with no class group headers and no filter chip.
+  // `nameStyle` (widgets.md rule 111): the profile's `theme.nameStyle`; routes always pass it,
+  // and the bare default is the full form the slide showed before the style was overlay-wide.
   let {
     snapshot = null,
     classFilter = null,
     label = 'STARTING GRID',
     classColors = {},
     classTags = 'auto',
+    nameStyle = 'full',
   } = $props()
 
   const showTags = $derived(classTagsShown(classTags, snapshot?.session))
@@ -120,7 +123,7 @@
                 ></span>
                 <span class="cell__pos">{v.position}</span>
                 <span class="cell__name" data-testid="driver-name"
-                  >{fmtName(v.driver_name)}</span
+                  >{fmtDriverName(v.driver_name, nameStyle)}</span
                 >
               </li>
             {/each}
@@ -208,7 +211,7 @@
     margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(min-content, 1fr));
     gap: var(--bc-space-3) var(--bc-space-4);
   }
 
@@ -249,14 +252,50 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* A name is never cut (widgets.md rule 112): the rake columns are never narrower than it. */
   .cell__name {
-    min-width: 0;
     flex: 1 1 auto;
     font-family: var(--bc-font-display);
     font-size: var(--bc-size-name);
     font-weight: var(--bc-weight-name);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  }
+
+  /* The slide's own vintage look (widgets rules 105–106, ADR 0036). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60). */
+  :global([data-theme='vintage70']) .grid,
+  :global([data-theme='vintage80']) .grid {
+    background: var(--bc-plate-solid);
+  }
+  :global([data-theme='vintage70']) .cell__pos,
+  :global([data-theme='vintage80']) .cell__pos {
+    color: var(--bc-text-2);
+  }
+
+  /* 70s: a red rule under the header, teal subheads and the tower's leaning class chips. */
+  :global([data-theme='vintage70']) .grid__header {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .group__count {
+    color: var(--bc-subhead);
+  }
+  :global([data-theme='vintage70']) .group__head :global(.bc-class-chip),
+  :global([data-theme='vintage70']) .grid__filter :global(.bc-class-chip) {
+    transform: skewX(-8deg);
+    filter: drop-shadow(2px 2px 0 #000);
+    font-style: normal;
+    /* ClassChip's own face (Barlow) is bundled italic only; Barlow Condensed has an upright cut. */
+    font-family: var(--bc-font-display);
+  }
+
+  /* 80s: the title on a Scoreboard-red plate; the spread shadow takes no layout space. */
+  :global([data-theme='vintage80']) .grid__title {
+    background: var(--bc-header);
+    box-shadow: 0 0 0 6px var(--bc-header);
+    color: var(--bc-text-2);
+  }
+  :global([data-theme='vintage80']) .group__count {
+    color: var(--bc-text-2);
   }
 </style>

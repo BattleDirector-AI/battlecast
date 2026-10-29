@@ -49,7 +49,7 @@
 </script>
 
 <script>
-  import { fmtName, fmtGap } from '../../design/format.js'
+  import { fmtDriverName, fmtGap } from '../../design/format.js'
   import ClassChip from '../../design/ClassChip.svelte'
   import IntensityMeter from '../../design/IntensityMeter.svelte'
   import { classTagsShown } from '../../lib/classTags.js'
@@ -65,7 +65,14 @@
     classColors = {},
     // `theme.classTags` (widgets.md rules 60, 62): resolved against `session.multiclass`.
     classTags = 'auto',
+    // The profile's `theme.nameStyle` (widgets.md rule 111). Routes always pass it; the bare
+    // component's default is the full form it rendered before the style was overlay-wide.
+    nameStyle = 'full',
   } = $props()
+
+  const fmt = (name) => fmtDriverName(name, nameStyle)
+  // Short style reserves the reference short form in each name slot (widgets.md rule 113).
+  const nameRef = $derived(nameStyle === 'short')
 
   const showTags = $derived(classTagsShown(classTags, session))
 
@@ -117,18 +124,18 @@
     <div class="bc-battle__body">
       <div class="bc-battle__slot bc-battle__slot--ahead">
         <span class="bc-battle__slot-label">AHEAD</span>
-        <span class="bc-battle__slot-name">{aheadName ? fmtName(aheadName) : '—'}</span>
+        <span class="bc-battle__slot-name" class:bc-name-ref={nameRef}>{aheadName ? fmt(aheadName) : '—'}</span>
         <span class="bc-battle__gap">{fmtGap(relationship?.gap_ahead)}</span>
       </div>
 
       <div class="bc-battle__slot bc-battle__slot--focus">
         <span class="bc-battle__slot-label">FOCUS</span>
-        <span class="bc-battle__focus-name">{fmtName(subjectName)}</span>
+        <span class="bc-battle__focus-name" class:bc-name-ref={nameRef}>{fmt(subjectName)}</span>
       </div>
 
       <div class="bc-battle__slot bc-battle__slot--behind">
         <span class="bc-battle__slot-label">BEHIND</span>
-        <span class="bc-battle__slot-name">{behindName ? fmtName(behindName) : '—'}</span>
+        <span class="bc-battle__slot-name" class:bc-name-ref={nameRef}>{behindName ? fmt(behindName) : '—'}</span>
         <span class="bc-battle__gap">{fmtGap(relationship?.gap_behind)}</span>
       </div>
     </div>
@@ -139,7 +146,7 @@
   {:else}
     <div class="bc-battle__idle">
       <span class="bc-battle__idle-heading">NO ACTIVE BATTLE</span>
-      <span class="bc-battle__idle-sub">CLEAR AIR — {fmtName(subjectName) || 'ON-CAMERA CAR'}</span>
+      <span class="bc-battle__idle-sub">CLEAR AIR — {fmt(subjectName) || 'ON-CAMERA CAR'}</span>
     </div>
   {/if}
 </section>
@@ -158,6 +165,9 @@
     box-shadow: var(--bc-shadow-plate);
     overflow: hidden;
     color: var(--bc-text);
+    /* Never narrower than its content, so a name that needs more than the set width widens
+       the box instead of being cut (widgets.md rules 112, 114). Beats /all's width: 100%. */
+    min-width: min-content;
   }
 
   /* Intensifying border. The pulsing red RING is drawn on this overlay, which sits
@@ -221,9 +231,11 @@
     color: var(--bc-intensity-hot);
   }
 
+  /* Each slot is at least as wide as its own content (its name whole); spare width is shared
+     1 : 1.15 : 1 (widgets.md rule 114). */
   .bc-battle__body {
     display: grid;
-    grid-template-columns: 1fr 1.15fr 1fr;
+    grid-template-columns: minmax(min-content, 1fr) minmax(min-content, 1.15fr) minmax(min-content, 1fr);
     gap: var(--bc-space-2);
     padding: var(--bc-space-3);
   }
@@ -232,7 +244,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--bc-space-1);
-    min-width: 0;
   }
 
   .bc-battle__slot--focus {
@@ -263,9 +274,6 @@
     font-weight: var(--bc-weight-name);
     color: var(--bc-text);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
   }
 
   .bc-battle__focus-name {
@@ -314,5 +322,76 @@
     letter-spacing: var(--bc-track-label);
     text-transform: uppercase;
     color: var(--bc-text-3);
+    white-space: nowrap;
+  }
+
+  /* The battle box's own vintage look (widgets rules 91–92, ADR 0029). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60). The meter is the shared IntensityMeter, so its
+     parts are styled from here; the intensity colours stay as they are. */
+  :global([data-theme='vintage70']) .bc-battle__meter :global(.bc-intensity__track),
+  :global([data-theme='vintage70']) .bc-battle__meter :global(.bc-intensity__fill),
+  :global([data-theme='vintage80']) .bc-battle__meter :global(.bc-intensity__track),
+  :global([data-theme='vintage80']) .bc-battle__meter :global(.bc-intensity__fill) {
+    border-radius: 0;
+  }
+
+  /* 70s: a red rule under the header (the only accent paint), the focus slot on the rainbow
+     raster with a white, heavily extruded name, and a skewed 10-cell meter. */
+  :global([data-theme='vintage70']) .bc-battle__header {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .bc-battle__slot--focus {
+    background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+      repeating-linear-gradient(180deg, #2FB34A 0 7px, #9BCB2C 7px 14px, #E9B21C 14px 21px,
+        #DE6A24 21px 28px, #B53C9A 28px 35px, #5A4FCF 35px 42px, #2C8FD8 42px 49px);
+    box-shadow: 4px 4px 0 #000;
+  }
+  :global([data-theme='vintage70']) .bc-battle__slot--focus .bc-battle__slot-label {
+    color: var(--bc-oncam-text);
+  }
+  :global([data-theme='vintage70']) .bc-battle__focus-name {
+    color: var(--bc-oncam-text);
+    text-shadow: 1px 1px 0 #2a1200, 2px 2px 0 #1a0b00, 3px 3px 0 #000, 4px 4px 0 #000,
+      0 0 10px rgba(0, 0, 0, 0.55), 0 0 2px rgba(0, 0, 0, 0.9);
+  }
+  :global([data-theme='vintage70']) .bc-battle__meter :global(.bc-intensity__track) {
+    transform: skewX(-14deg);
+    mask-image: repeating-linear-gradient(90deg, #000 0 calc(10% - 4px), transparent calc(10% - 4px) 10%);
+    /* OBS 30's CEF 103 reads only the prefixed property. */
+    -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 calc(10% - 4px), transparent calc(10% - 4px) 10%);
+  }
+
+  /* 80s: the header's title and class chip on black blocks (so CLOSING keeps its intensity
+     colour and reads), the labels in the display face, the focus slot in reverse video, and an
+     upright 12-cell LED meter. */
+  :global([data-theme='vintage80']) .bc-battle__title {
+    background: #000;
+    box-shadow: 0 0 0 2px #000;
+    font-family: var(--bc-font-display);
+  }
+  /* ClassChip sets its background inline, so the chip's black fill is an inset shadow. */
+  :global([data-theme='vintage80']) .bc-battle__header :global(.bc-class-chip) {
+    box-shadow: inset 0 0 0 99px #000, 0 0 0 2px #000;
+    font-family: var(--bc-font-display);
+  }
+  :global([data-theme='vintage80']) .bc-battle__slot-label,
+  :global([data-theme='vintage80']) .bc-battle__meter :global(.bc-intensity__label),
+  :global([data-theme='vintage80']) .bc-battle__idle-heading,
+  :global([data-theme='vintage80']) .bc-battle__idle-sub {
+    font-family: var(--bc-font-display);
+  }
+  :global([data-theme='vintage80']) .bc-battle__slot--focus {
+    background: var(--bc-accent);
+    box-shadow: 3px 3px 0 #000;
+  }
+  :global([data-theme='vintage80']) .bc-battle__slot--focus .bc-battle__slot-label,
+  :global([data-theme='vintage80']) .bc-battle__focus-name {
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .bc-battle__meter :global(.bc-intensity__track) {
+    mask-image: repeating-linear-gradient(90deg, #000 0 calc(100% / 12 - 4px), transparent calc(100% / 12 - 4px) calc(100% / 12));
+    -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 calc(100% / 12 - 4px), transparent calc(100% / 12 - 4px) calc(100% / 12));
   }
 </style>

@@ -28,7 +28,7 @@ describe('AllView — standings tower + battle box from one snapshot', () => {
     ).toBe('true')
 
     // Battle box: on-camera driver + gaps, driven from the same snapshot.
-    expect(container.textContent).toContain('Verstappen')
+    expect(container.querySelector('[data-testid="widget-battle"]').textContent).toContain('VER')
     expect(container.textContent).toContain('+0.4')
     expect(container.textContent).toContain('+1.8')
   })
@@ -58,7 +58,7 @@ describe('AllView — standings tower + battle box from one snapshot', () => {
     expect(driverSlot.style.top).toBe('900px')
     // Fires on connect for the on-camera subject (car-1 = Verstappen, P2).
     expect(driverSlot.querySelector('[data-testid="driver-lt-name"]').textContent.trim()).toBe(
-      'Verstappen',
+      'VER',
     )
     expect(driverSlot.querySelector('[data-testid="driver-lt-pos"]').textContent.trim()).toBe('P2')
   })

@@ -41,9 +41,9 @@ describe('/all — a junk vehicles[] entry (null, number, string)', () => {
     expect(names(container).slice(0, 3)).toEqual(['HAM', 'VER', 'LEC'])
     expect(Array.from(container.querySelectorAll('[data-testid="tower-row"]'))).toHaveLength(3)
     // Driver lower-third still resolves the subject past the junk (the HUD slot is in the list above).
-    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('Verstappen')
+    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('VER')
     // Battle box: the subject's own name.
-    expect(q(container, 'widget-battle')?.textContent).toContain('Verstappen')
+    expect(q(container, 'widget-battle')?.textContent).toContain('VER')
   })
 })
 
@@ -60,6 +60,6 @@ describe('/all — a vehicles that is not an array', () => {
     expect(Array.from(container.querySelectorAll('[data-testid="tower-row"]'))).toHaveLength(0)
     expect(q(container, 'tower-empty')?.getAttribute('data-reason')).toBe('no-state')
     // The subject has a name but resolves to no vehicle: the driver card renders degraded.
-    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('Verstappen')
+    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('VER')
   })
 })

@@ -19,20 +19,20 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/widgetIdle.js` | `IDLE_PREDICATES`, `isWidgetIdle`, `widgetSupportsAutoHide` | Per-widget idle predicates for `hideWhenIdle`. |
 | `src/lib/lowerThirdTrigger.js` | — | Edge-triggered camera-cut / dwell state machine for lower-thirds. |
 | `src/routes/tower/towerCycle.js` | `computeRowBudget`, `clampPerPageSeconds`, `selectPins`, `selectRows`, `createTowerCycle` | Tower overflow selection + cycling-window stability (see `what/tower-overflow.md`). |
-| `src/lib/LowerThirdShell.svelte` | — | Shared reveal/dwell/wipe shell for lower-third widgets. |
+| `src/lib/LowerThirdShell.svelte` | — | Shared reveal/dwell/wipe shell for lower-third widgets. Under a vintage preset it hides its shine bar (`.lt3__bar`, `display: none` under `:global([data-theme='vintage70'])` and the same for `vintage80`, an ancestor scope so the /config preview gets it) and themes nothing else, so the wipe plays as under modern (widgets rule 107). `LogoRotation.svelte` keeps its own copy of the reveal and hides `.bc-logos__shine` the same way. |
 | `src/lib/raceEvents.js` | `raceEventCard`, `createRaceUpdateFeed` | Race update box logic, pure and DOM-free (`what/widgets.md` rules 69–73). `raceEventCard(entry)` validates one `race_events` entry and returns `{ id, type, label, name, value, detail }` with the card's exact strings (`value`/`detail` `null` when the card has none), or `null` for an entry rule 69 skips. `createRaceUpdateFeed` owns the seen ids, the baseline, the waiting queue and its cap of 5. |
 | `src/routes/updates/RaceUpdateBox.svelte` | props `snapshot`, `dwellSeconds`, `preview` | The race update box: feeds each snapshot to its feed, times the card on screen, renders it inside `LowerThirdShell`, keyed on the event id (`{#key}`) inside a stable `.lt3-anchor`, as `DriverLowerThird` keys its shell on the slot, so a replacement remounts the plate: the old one plays its exit while the new one enters (rule 74). |
 | `src/routes/updates/UpdatesPage.svelte` | — | Standalone `/updates` route: `sseClient.connect` + `loadConfig(location.search)` for the `updates` widget's `dwellSeconds`. |
-| `src/lib/infoPanel.js` | `eventHeader`, `infoLines`, `createInfoRotation` | Info panel logic, pure and DOM-free (`what/widgets.md` rules 76–80, 88). `eventHeader(event)` returns the header string exactly as rendered (`ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`), or `null` when no part holds. `infoLines(infoLinesField, configLines)` returns the text lines: the producer's valid lines, trimmed, then the configured lines, duplicates dropped. `createInfoRotation()` holds the line on screen and its place; it compares list entries by identity (a text line is its text, the weather card one fixed entry whatever its text), so a weather value change is not a changed list (rule 80). |
-| `src/routes/info/InfoPanel.svelte` | props `snapshot`, `dwellSeconds`, `lines`, `weatherCard`, `tempUnit` | The info panel: builds the header and line list from the snapshot, `lines` and (while `weatherCard` is on) the weather card at the end, runs the rotation timer, renders inside `LowerThirdShell` only while it has something to show (rule 81's wipe on enter/leave), and keys the line element on the entry's identity, not its text, with a 300 ms fade in/out, duration 0 under reduced motion (`prefersReducedMotion()`): a change of line crossfades, and the weather card's text changing re-renders the same element (rule 88). |
-| `src/routes/info/InfoPage.svelte` | — | Standalone `/info` route: `sseClient.connect` + `loadConfig(location.search)` for the `info` widget's `dwellSeconds`, `lines`, `weatherCard` and `tempUnit`. |
+| `src/lib/infoPanel.js` | `eventHeader`, `infoLines`, `createInfoRotation` | Info panel logic, pure and DOM-free (`what/widgets.md` rules 76–80, 88). `eventHeader(event)` returns the header string exactly as rendered (`ROUND 3 · SPA 6 HOURS · SPA-FRANCORCHAMPS`), or `null` when no part holds. `infoLines(infoLinesField, configLines)` returns the text lines: the producer's valid lines, trimmed, then the configured lines, duplicates dropped. `createInfoRotation()` holds the line on screen and its place; it compares list entries by identity (a text line is its text, the weather card one fixed entry whatever its text), so a weather value change is not a changed list (rule 80). `infoPanelSpan({ slotLeft, slotWidth, headerNeed, canvasWidth })` returns the panel's `{ left, width }` in canvas px (rule 78a): `width` is the wider of `slotWidth` and `headerNeed` (`null` when there is no header), `left` is rule 78a's formula. |
+| `src/routes/info/InfoPanel.svelte` | props `snapshot`, `dwellSeconds`, `lines`, `weatherCard`, `tempUnit`, `slotLeft`, `slotWidth`, `canvasWidth` | The info panel: builds the header and line list from the snapshot, `lines` and (while `weatherCard` is on) the weather card at the end, runs the rotation timer, renders inside `LowerThirdShell` only while it has something to show (rule 81's wipe on enter/leave), and keys the line element on the entry's identity, not its text, with a 300 ms fade in/out, duration 0 under reduced motion (`prefersReducedMotion()`): a change of line crossfades, and the weather card's text changing re-renders the same element (rule 88). It measures its header's need and sizes and places `.lt3-anchor` from `infoPanelSpan` and its slot props (rule 78a; see "A long header widens the panel"). |
+| `src/routes/info/InfoPage.svelte` | — | Standalone `/info` route: `sseClient.connect` + `loadConfig(location.search)` for the `info` widget's `dwellSeconds`, `lines`, `weatherCard` and `tempUnit`; passes the panel its content box as the slot and `window.innerWidth` as the canvas, re-read on the window's `resize` and from a `ResizeObserver` on `.info-page` (rule 78a). |
 | `src/lib/weather.js` | `weatherParts`, `formatTemp`, `weatherCardText` | Weather logic, pure and DOM-free (`what/widgets.md` rules 83–84, 88). `weatherParts(weather)` returns `{ air, track, conditions }` (`air`/`track` the °C number or `null`, `conditions` the trimmed string or `null`). `formatTemp(celsius, unit)` returns the shown value (`22°C`, `88°F`). `weatherCardText(weather, unit)` returns the info panel card's text (`AIR 22°C · TRACK 31°C · LIGHT RAIN`), or `null` when no part holds. |
 | `src/routes/weather/WeatherBox.svelte` | props `snapshot`, `tempUnit` | The weather box: one row of the parts that hold, drawn only while one does, no transition (rule 86). |
 | `src/routes/weather/WeatherPage.svelte` | — | Standalone `/weather` route: `sseClient.connect` + `loadConfig(location.search)` + `watchConfig` for the `weather` widget's `tempUnit`. |
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
 | `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. Each token file holds the `modern` values on `:root` and, after them, one `[data-theme="vintage70"]` and one `[data-theme="vintage80"]` block overriding them (ADR 0026). |
-| `public/fonts/<family>/` | `*.woff2`, `OFL.txt` | Self-hosted typefaces for the vintage presets (Barlow, Barlow Condensed, VT323, Oswald), each family's licence beside its files. Declared by `@font-face` in `src/design/tokens/fonts.css` with absolute `/fonts/…` URLs; `public/` is copied verbatim into `dist`, so the licences ship too. |
+| `public/fonts/<family>/` | `*.woff2`, `*.ttf`, `OFL.txt` | Self-hosted typefaces for every preset (modern: Saira Condensed, Saira, JetBrains Mono; vintage: Barlow, Barlow Condensed, VT323, Oswald), each family's licence beside its files. Declared by `@font-face` in `src/design/tokens/fonts.css` with absolute `/fonts/…` URLs; `public/` is copied verbatim into `dist`, so the licences ship too. |
 
 ## Data Flow
 
@@ -185,8 +185,8 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `dwellSeconds: 8` is the widget literal in `DEFAULT_CONFIG`; `normalizeConfig` applies rule 50's
   `[2, 60]` range to the `updates` key only, every other widget keeping rule 46's `> 0`. The
   editor's dwell input reuses the lower-third dwell field's commit path with rule 50's range.
-  The card's strings come from existing formatters, not new ones: the name from `fmtName` after
-  `presentName` (rule 14b), the lap time from `fmtLapTime`, the same call the tower's lap flash
+  The card's strings come from existing formatters, not new ones: the name from the name-style
+  formatter after `presentName` (rule 14b; see "Driver names in every widget"), the lap time from `fmtLapTime`, the same call the tower's lap flash
   makes. The box's one timer is the card on screen; it reads `dwellSeconds` when a card starts.
 - **Info panel** (`what/widgets.md` rules 76–82, `what/overlay-config.md` rules 52–53): `/info`
   joins `OVERLAY_ROUTES` in `App.svelte`, and `info` joins `DEFAULT_CONFIG.widgets` (so
@@ -197,6 +197,43 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   adds it to the `info` entry only (as `textScaleOrigin` is added only where rule 41b keeps it),
   so the `DEFAULT_CONFIG.widgets.info` literal carries `lines: []` and no other literal has the
   key. The panel's one timer is the line on screen; it reads `dwellSeconds` when a line starts.
+  - **A long header widens the panel** (`what/widgets.md` rule 78a,
+    `docs/decisions/0037-info-panel-header-widens-panel.md`).
+    - **Header CSS.** The base `.bc-info__header` rule is `width: max-content` (so the header's
+      box is its text's width whatever the panel's width, in every preset) with `white-space:
+      nowrap`. No rule in any preset gives it `max-width`, `overflow`, `overflow-x`,
+      `text-overflow` or `text-wrap`, or a `width` other than `max-content`, so it is never cut.
+      `.bc-info__line` keeps `nowrap`, `overflow: hidden` and `text-overflow: ellipsis`.
+    - **The measure.** The need is `header.offsetWidth` + the `.bc-info` section's computed
+      `padding-left` + `padding-right` + the shell plate's (`.lt3`) computed `border-left-width`
+      + `border-right-width` (`parseFloat`, a non-number counting 0). `offsetWidth` is in layout
+      px, so the `/config` preview's `transform: scale(...)` does not change it (a
+      `getBoundingClientRect()` would), and because the header is `max-content` it does not
+      depend on the panel's width, so sizing the panel never feeds back into the measure and a
+      shorter header measures shorter. With no header element the need is `null`.
+    - **When it measures.** In an `$effect` after every header text change (post-DOM), and from a
+      `ResizeObserver` on the header element, which fires when the header's rendered size changes
+      without its text changing: a font finishing loading, a preset switch, a `textScale`
+      change.
+    - **Props and placement.** `InfoPanel` takes `slotLeft`, `slotWidth` and `canvasWidth`
+      (canvas px). Inside `/all`, `AllView` passes the `info` widget's `w.x`, `w.w` and
+      `normalized.canvas.w`, so a geometry or canvas change re-places the panel. On `/info`,
+      `InfoPage` reads its `.info-page` element: `slotLeft` is its computed `padding-left`,
+      `slotWidth` its `clientWidth` less its computed `padding-left` and `padding-right`, and
+      `canvasWidth` is `window.innerWidth`; it re-reads them on the window's `resize` event, so a
+      resized Browser Source re-places the panel, and from a `ResizeObserver` on the
+      `.info-page` box, because the first read at mount can be stale (headless Chrome measured
+      1028 px against a 1184 px content box) with no window `resize` to correct it. The panel applies `infoPanelSpan({ slotLeft,
+      slotWidth, headerNeed, canvasWidth })` as an inline style on `.lt3-anchor` (which is
+      `position: relative` in the slot): `width: <width>px; left: <left − slotLeft>px`, so a
+      panel that fits gets its slot's width and `left: 0px`. `LowerThirdShell`'s `.lt3` is
+      `width: 100%` of the anchor, so its `overflow: hidden` plate is exactly as wide as the
+      panel. The line row takes no part in the width.
+    - **Tests.** happy-dom does no layout. `InfoPanel.header.test.js` pins the header's CSS from
+      the source (`?raw`), `infoPanel.span.test.js` the arithmetic, and
+      `InfoPanel.width.test.js` the wiring in `/all` and `/info` with `offsetWidth`,
+      `clientWidth`, `innerWidth` and the computed paddings and borders stubbed. Only a real
+      browser shows the measured text width itself.
 - **Weather** (`what/widgets.md` rules 83–88, `what/overlay-config.md` rules 54–57): `/weather`
   joins `OVERLAY_ROUTES`, and `weather` joins `DEFAULT_CONFIG.widgets`, `RENDERABLE`,
   `PLATE_WIDGET_KEYS` and `TEXT_WIDGET_KEYS`, with no `IDLE_PREDICATES` entry. `tempUnit` is
@@ -207,11 +244,34 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   line element is keyed on the entry's identity, not on its text, so the card's text changing
   never crossfades. `infoLines(infoLinesField, configLines)` keeps returning the text lines
   only.
+  - **Vintage look** (`what/widgets.md` rules 103–104,
+    `docs/decisions/0035-weather-box-vintage-pass.md`), in `WeatherBox.svelte`'s `<style>` under
+    `:global([data-theme='…'])`, as the tower's is. `vintage70`: `.bc-weather` is `box-shadow:
+    inset 0 -4px 0 var(--bc-accent), var(--bc-shadow-plate)`; `.bc-weather__value` is `color:
+    var(--bc-text-2)`; `.bc-weather__conditions` is `color: var(--bc-text)`. `vintage80`:
+    `.bc-weather__label` is `color: var(--bc-text-2)` and `font-family: var(--bc-font-display)`.
+    That typeface swap is the only themed font property, and it adds no height only because
+    `.bc-weather` sets the unitless `line-height: 1.15` that the items and labels inherit (neither
+    sets its own); under `normal` the Oswald label would be taller than the VT323 value. These
+    five declarations are the whole themed set: no other themed rule or declaration exists, and
+    none re-declares a `--bc-size-*` token (which would hide `/all`'s per-slot `textScale`
+    values). `WeatherBox.vintage.test.js` reads these rules from the component source (`?raw`),
+    since `happy-dom` applies no CSS, and checks the themed declarations as that closed set.
 - **Lower-third dwell default** (`what/overlay-config.md` rule 46): the default `6` lives in three
   places that must agree: the per-widget `dwellSeconds` literals in `DEFAULT_CONFIG`,
   `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).
   The last backs a second `> 0` guard in `DriverLowerThird.svelte`, `QualifyingLowerThird.svelte`
   and `lowerThirdTrigger.js`'s `sync()`.
+- **#21's name is never clipped on the block axis** (`what/widgets.md` rule 109): the base
+  `.bc-lt__name` rule in `DriverLowerThird.svelte`, so it holds under every preset, is `white-space:
+  nowrap`, and its `overflow-y` computes to `visible`. Its line box is the page's inherited
+  `line-height` (app.css's `:root`, 145% of 18px: 26.1px), shorter than the display faces'
+  descenders and accents at 24px, and more so at a larger `textScale`. No rule on the name, base or
+  themed, sets another clipper (`clip-path`, `contain` with `paint`, `content` or `strict`,
+  `mask`, `mask-image`). Neither the name nor `.bc-lt`, `.bc-lt__body` or `.bc-lt__meta` sets a
+  `line-height` or height, and the name sets no padding or margin, so its line box and the card
+  keep their size. `DriverLowerThird.name.test.js` reads the rules from the component source
+  (`?raw`).
 - **Tower overflow selection** (`towerCycle.js`, behavior in `what/tower-overflow.md`): the row
   budget is `floor((slotHeight − headerHeight) / rowHeight)`, **measured** from the
   `--bc-widget-header` (38px) and `--bc-row-standard` (44px) design tokens rather than hardcoded, so
@@ -258,7 +318,7 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `GridPage`, and `ResultsPage` each read `?class=` from `location.search`. Class-rank badges are
   computed from the *full* field (in `StandingsTower.svelte`) so a filtered view keeps correct
   `n/total` ranks.
-- **Theme presets** (behavior in `what/overlay-config.md` rules 58–62; rationale in
+- **Theme presets** (behavior in `what/overlay-config.md` rules 58–64; rationale in
   `docs/decisions/0026-theme-presets.md`). Each page applies the theme exactly where it applies
   motion: `App.svelte` at boot (URL baseline), then each profile-loading page in its `loadConfig`
   callback and its `watchConfig` `onChange`, as
@@ -274,22 +334,275 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   - **Only existing token names.** A preset block overrides tokens that `:root` defines (new
     tokens get a `modern` value on `:root` first: `--bc-shadow-text: none`, `--bc-font-style:
     normal`). This keeps one vocabulary for a later custom theme.
+  - **The subhead colour.** `--bc-subhead` (in `colors.css`) is the colour of a small caption
+    line under a title: the info panel's header and the takeover slides' group subheads. `:root`
+    declares it as `var(--bc-text-2)`, so it is derived and both presets re-declare it:
+    `vintage70` as the 70s mock's teal `#35D4C8` (its `--bc-teal`), `vintage80` as
+    `var(--bc-text-2)`. Only the `vintage70` widget rules name it; no component writes the teal as a
+    literal. `themeTokens.test.js` pins the three values.
   - **No geometry tokens.** Preset blocks never override `spacing.css` tokens other than the radii:
     row heights feed the tower's row budget (`towerCycle.js`).
   - **Base look on the scope.** One rule on the theme scope sets the inherited `text-shadow:
     var(--bc-shadow-text)` and `font-style: var(--bc-font-style)`, so text in every widget picks up
     the preset's outline/shadow and lean without a per-widget change. An element that sets its own
-    `text-shadow` overrides the inherited one: today `BattleBox.svelte`, `DriverLowerThird.svelte`
-    and `QualifyingLowerThird.svelte` give the on-camera name `text-shadow: 0 0 12px
-    var(--bc-accent-glow)`, so each of those widget passes sets the preset's treatment on that name
-    itself (e.g. `:global([data-theme='vintage70']) .name { text-shadow: var(--bc-shadow-text) }`).
+    `text-shadow` overrides the inherited one: today `BattleBox.svelte` gives the on-camera name
+    `text-shadow: 0 0 12px var(--bc-accent-glow)`, so its pass sets the preset's treatment on that
+    name itself (e.g. `:global([data-theme='vintage70']) .name { text-shadow: var(--bc-shadow-text)
+    }`). The lower-thirds' own glows (#21's name, #22's `BEST` time, both accent bars) are restyled
+    under **Lower-thirds** below.
   - **Per-widget passes** add structural styling in the widget's own `<style>` under the theme
     selector, re-tune type only through `--bc-size-*` tokens in that scope (the tower measures
-    names from them), and never fork markup per theme. The tower pass also makes a live preset
-    switch re-measure full-form names (a name-font load under `what/widgets.md` rule 48).
-  - **Fonts are Google Fonts' pre-built `woff2` files, unmodified** (no re-subsetting or
-    conversion), each family folder with its `OFL.txt` from `google/fonts`. None of the four
-    families declares a Reserved Font Name.
+    names from them), and never fork markup per theme.
+  - **Tower** (`what/widgets.md` rules 89–90, `docs/decisions/0027-tower-vintage-pass.md`), in
+    `StandingsTower.svelte`'s `<style>`, all paint and none of it changing a box size:
+    - `vintage70`: `.tower__header` and `.row--oncam` draw their 4px red rule as `box-shadow:
+      inset 0 -4px 0 var(--bc-accent)` (an inset shadow takes no layout space);
+      `.row--oncam` has `background: none`; `.row__pos` and `.row--oncam .row__pos` are
+      `var(--bc-text-2)` (the second because the base on-camera rule outranks the first);
+      `.row__class` is `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0 #000)` and
+      `font-style: normal`. The chip itself sets its face (`--bc-font-ui`, Barlow, bundled
+      italic only, so `font-style: normal` alone still renders italic and the label leans
+      twice), so `.row__class :global(.bc-class-chip)` is `font-family: var(--bc-font-display)`
+      (Barlow Condensed, bundled upright at the chip's weight, 700) and `font-style: normal`, as
+      the on-board HUD's chip is. That is the one themed tower rule that sets a face: the chip hugs its label, so it
+      paints at the width its text takes in that face (`overlay-config.md` rule 60), inside the
+      `max-content` class column.
+    - `vintage80`: `.row--oncam` is `background: var(--bc-accent)` with `box-shadow: none`.
+      `.row--oncam > :not(.row__pit--in):not(.row__finish):not(.row__class)` and the nested
+      cells that set their own colour, `.row--oncam .row__pit-label` and `.row--oncam
+      .row__tire-compound`, are `color: var(--bc-text-on-accent)` and `text-shadow: none`.
+      `.row--oncam .row__class`, `.row--oncam .row__finish--dnf` and `.row--oncam
+      .row__finish--dq` are `background: #000` with `box-shadow: 0 0 0 2px #000`.
+      `.row--oncam .row__finish--flag` sets only `box-shadow: inset 0 0 0 1px rgba(0, 0, 0,
+      0.35), 0 0 0 2px #000` (its own edge plus the ring); a `background` there would wipe the
+      flag's gradient squares. `.row__gap--flash` is `background:
+      var(--bc-text-2)`, `box-shadow: 0 0 0 2px var(--bc-text-2), 0 0 0 3px #000`, `color:
+      var(--bc-text-on-accent)` and `text-shadow: none`; the compound selectors
+      `.row__gap--flash.row__gap--flash-session-best`, `…-class-best` and `…-personal-best`
+      swap the background and the 2px spread colour to `var(--bc-lap-best)` and
+      `var(--bc-lap-pb)`. They are compound so they outrank the base flash rule whatever the
+      source order.
+    - Both presets: `.row__oncam-flash` is `display: none`, so no shine element renders. No
+      themed rule sets a property that sizes or positions a box (widths, heights, padding,
+      margin, border widths, font size, family or weight, letter spacing, line height, text
+      transform, white space, flex, grid, position or offsets), save the `vintage70` chip's
+      `font-family` above.
+    `StandingsTower.vintage.test.js` reads these rules from the component source (`?raw`), since
+    `happy-dom` applies no CSS, and checks the chip's face has a bundled upright cut at its
+    weight with `lib/testing/chipFace.js` (it reads `tokens/typography.css` and `tokens/fonts.css`
+    from disk, since a `?raw` CSS import is empty under vitest; the weight is the preset's
+    `--bc-weight-label` when it sets one, else `:root`'s); `StandingsTower.themeSwitch.test.js`
+    covers the re-measure.
+  - **Race update box** (`what/widgets.md` rules 99–100,
+    `docs/decisions/0033-race-update-box-vintage-pass.md`), in `RaceUpdateBox.svelte`'s
+    `<style>`, under exactly `:global([data-theme='vintage70'])` or
+    `:global([data-theme='vintage80'])` (quoted, one per selector). These are the box's only
+    themed declarations, a closed set; anything else is the base look:
+    - Both presets: `.bc-ru__accent` is `border-radius: 0` and `box-shadow: 2px 2px 0 #000`,
+      which replaces the base glow; its `background` stays the base rule's accent.
+    - `vintage70`: `.bc-ru__value` is `color: var(--bc-text-2)`.
+    - `vintage80`: `.bc-ru__label` is `align-self: flex-start` (a flex item of the column body
+      stretches to the card's width otherwise, and so would its block; the narrower label box is
+      `what/overlay-config.md` rule 60's text-sized-box exception), `font-family:
+      var(--bc-font-display)`, `color: var(--bc-text-2)`, `background: var(--bc-header)`,
+      `box-shadow: 0 0 0 2px var(--bc-header), 3px 3px 0 2px #000` and `text-shadow: none`.
+      `.bc-ru__detail` is `font-family: var(--bc-font-display)`.
+    - Nothing in the box touches the shell: `LowerThirdShell.svelte` owns the plate, the frame
+      and the bar-wipe for the box and both lower-thirds.
+    - **The face swap depends on an inherited line height.** Every line of the card takes the
+      line height set by `app/src/app.css`'s `:root { font: 18px/145% … }` shorthand (a
+      percentage, so it inherits as a fixed length: 26.1px, or 23.2px under the file's ≤1024px
+      `font-size: 16px`). Nothing between it and the card sets `line-height` or a `font`
+      shorthand (which would reset it to `normal`, whose height depends on the face). So the label
+      and detail can change face with no line box changing. Cleaning that boilerplate out of
+      `app.css` would make the 80s card change height; the test pins it.
+    `RaceUpdateBox.vintage.test.js` reads these rules from the component source, as the tower's
+    test does, asserts the closed set with `toEqual`, and pins the line height (`app.css` read from
+    disk).
+  - **Race Control** (`what/widgets.md` rules 95–96,
+    `docs/decisions/0031-racecontrol-vintage-pass.md`), in `RaceControlStatus.svelte`'s
+    `<style>`, all paint and none of it setting a length:
+    - `vintage70`: `.bc-racecontrol` is `background: linear-gradient(var(--bc-accent),
+      var(--bc-accent)) bottom / 100% 4px no-repeat, var(--bc-header)`. The rule is a background
+      layer, not an inset `box-shadow`, because the full-motion caution pulse animates the
+      strip's `box-shadow` and would wipe it. `.bc-racecontrol__swatch` is `transform:
+      skewX(-8deg)`; no chip selector sets a `transform`. `.bc-racecontrol__badge--fcy` is
+      `text-shadow: none` with `filter: drop-shadow(2px 2px 0 #000)`.
+    - `vintage80`: `.bc-racecontrol__flag-label` and `.bc-racecontrol__badge` are `font-family:
+      var(--bc-font-display)`. `.bc-racecontrol__swatch` sets only `box-shadow: inset 0 0 0 1px
+      rgba(0, 0, 0, 0.35), 0 0 0 2px #000` (its own edge plus the ring); a `background` there
+      would wipe the flag colour, which is an inline style, and the chequered squares.
+      `.bc-racecontrol__badge--fcy` is `text-shadow: none`. `.bc-racecontrol` sets no
+      background or shadow, so the base Scoreboard header and hard plate shadow stay.
+    - Both presets: `.bc-racecontrol.bc-racecontrol--caution` is `animation: none`, which drops
+      the glow-bloom pulse on the strip. It has the same specificity as the base
+      `:global(:root:not([data-motion='reduced'])) .bc-racecontrol--caution`, so it sits after
+      that rule in the source. The ring's pulse on `.bc-racecontrol--caution::after` and the
+      reduced-motion steady ring are untouched. No themed rule sets a length (widths, heights,
+      padding, margin, border widths, font size or weight, letter spacing, line height, text
+      transform, white space, flex, grid, position or offsets); `font-family` is the one type
+      property set, and the strip sizes to its text (`what/overlay-config.md` rule 60's
+      text-sized box), so its width follows the typeface while every set length stays.
+    These are the only themed rules, and every selector naming `data-theme` is one of the two
+    quoted scopes `:global([data-theme='vintage70'])` and `:global([data-theme='vintage80'])`.
+    `RaceControlStatus.vintage.test.js` reads them from the component source (`?raw`) and checks
+    that each preset's themed selector, property and value set is exactly the one above.
+  - **Lower-thirds** (`what/widgets.md` rules 93–94,
+    `docs/decisions/0030-lower-thirds-vintage-pass.md`), in `DriverLowerThird.svelte`'s and
+    `QualifyingLowerThird.svelte`'s own `<style>`, never in `LowerThirdShell.svelte` (its vintage
+    look is rule 107's alone), all paint and none of it changing a set length. Below, `X` is `lt`
+    for the driver card and `qt` for the qualifying card.
+    - Both presets: `.bc-X__accent` is `border-radius: 0` with `box-shadow: 2px 2px 0 #000`, and
+      so is `.bc-qt--flash .bc-qt__accent` (`box-shadow` only), because the base flash rule
+      outranks a bare themed `.bc-qt__accent`. `.bc-qt__cell--best .bc-qt__cell-value` is
+      `text-shadow: var(--bc-shadow-text)`. `.bc-qt--flash .bc-qt__label` is `background:
+      var(--bc-intensity-hot)`, `color: var(--bc-text-on-accent)`, `text-shadow: none` and
+      `box-shadow: 0 0 0 3px var(--bc-intensity-hot), 0 0 0 4px #000`.
+    - `vintage70`: `.bc-X` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the card's own
+      padding holds it); `.bc-X__pos` is `color: var(--bc-text-2)`; `.bc-X__name` is `color:
+      var(--bc-text)`, and `.bc-lt__name` also `text-shadow: 1px 1px 0 #2a1200, 2px 2px 0
+      #1a0b00, 3px 3px 0 #000, 4px 4px 0 #000, 0 0 10px rgba(0, 0, 0, 0.55), 0 0 2px rgba(0, 0,
+      0, 0.9)` (the mock's `--bc-shadow-text`; not a token, as only this name uses it).
+    - `vintage80`: `.bc-lt__label`, `.bc-qt__label` and `.bc-qt__cell-label` are `font-family:
+      var(--bc-font-display)`, the one family a themed lower-third rule sets. `.bc-lt__label` is
+      also `color: var(--bc-text-2)`, `background: var(--bc-header)`, `text-shadow: none` and
+      `box-shadow: 0 0 0 3px var(--bc-header), 2px 2px 0 3px #000`. `.bc-lt__name` is
+      `text-shadow: -2px -2px 0 #000, 0 -2px 0 #000, 2px -2px 0 #000, 2px 0 0 #000, 2px 2px 0
+      #000, 0 2px 0 #000, -2px 2px 0 #000, -2px 0 0 #000, 3px 3px 0 #000, 0 0 9px rgba(0, 0, 0,
+      0.6)` (the mock's `--bc-outline`). The compound `.bc-qt__cell--delta.bc-qt__cell--ahead
+      .bc-qt__cell-value` (as the base rule it outranks) is `background: var(--bc-up)`, `color:
+      var(--bc-text-on-accent)`, `text-shadow: none` and `box-shadow: 0 0 0 2px var(--bc-up), 0 0
+      0 3px #000`.
+    - No themed rule sets a property that sizes or positions a box (the list under **Tower**),
+      the 80s labels' `font-family` excepted, and every themed selector is written in the
+      canonical `:global([data-theme='vintage70']) <target>` form. `DriverLowerThird.vintage.test.js`
+      and `QualifyingLowerThird.vintage.test.js` read these rules from the component source
+      (`?raw`) and pin the complete set: the themed selectors, properties and values above and no
+      others.
+  - **Battle box** (`what/widgets.md` rules 91–92,
+    `docs/decisions/0029-battle-box-vintage-pass.md`), in `BattleBox.svelte`'s `<style>`. The
+    meter's elements belong to `IntensityMeter.svelte`, a shared design component, so the battle
+    box styles them from its own scope as `.bc-battle__meter :global(.bc-intensity__track)` (and
+    `__fill`, `__label`); `IntensityMeter.svelte` itself is unchanged.
+    - `vintage70`: `.bc-battle__header` is `box-shadow: inset 0 -4px 0 var(--bc-accent)`.
+      `.bc-battle__slot--focus` is `background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0,
+      0, 0.3)), repeating-linear-gradient(180deg, #2FB34A 0 7px, #9BCB2C 7px 14px, #E9B21C 14px
+      21px, #DE6A24 21px 28px, #B53C9A 28px 35px, #5A4FCF 35px 42px, #2C8FD8 42px 49px)` with
+      `box-shadow: 4px 4px 0 #000`. `.bc-battle__slot--focus .bc-battle__slot-label` and
+      `.bc-battle__focus-name` are `color: var(--bc-oncam-text)`; `.bc-battle__focus-name` is
+      `text-shadow: 1px 1px 0 #2a1200, 2px 2px 0 #1a0b00, 3px 3px 0 #000, 4px 4px 0 #000, 0 0
+      10px rgba(0, 0, 0, 0.55), 0 0 2px rgba(0, 0, 0, 0.9)` (the 70s mock's heavy form). The
+      track is `transform: skewX(-14deg)`, and `mask-image` and `-webkit-mask-image` are both
+      `repeating-linear-gradient(90deg, #000 0 calc(10% - 4px), transparent calc(10% - 4px)
+      10%)` (OBS 30's CEF 103 knows only the prefixed one).
+    - `vintage80`: `.bc-battle__title` is `background: #000` with `box-shadow: 0 0 0 2px #000`.
+      `.bc-battle__header :global(.bc-class-chip)` is filled by its shadow alone, `box-shadow:
+      inset 0 0 0 99px #000, 0 0 0 2px #000`, because `ClassChip` sets its background as an
+      inline style, which a stylesheet `background` cannot override. No themed rule sets the title's
+      `color`, so the base `.bc-battle--hot .bc-battle__title` keeps the intensity colour. The
+      title, the chip, `.bc-battle__slot-label`, `.bc-battle__meter
+      :global(.bc-intensity__label)`, `.bc-battle__idle-heading` and `.bc-battle__idle-sub` are
+      `font-family: var(--bc-font-display)` (Oswald; the chip's label inherits it).
+      `.bc-battle__slot--focus` is `background: var(--bc-accent)` with `box-shadow: 3px 3px 0
+      #000`; `.bc-battle__slot--focus .bc-battle__slot-label` and `.bc-battle__focus-name` are
+      `color: var(--bc-text-on-accent)` and `text-shadow: none`. The track's two masks are
+      `repeating-linear-gradient(90deg, #000 0 calc(100% / 12 - 4px), transparent calc(100% / 12
+      - 4px) calc(100% / 12))`, with no transform.
+    - Both presets: the track and the fill are `border-radius: 0`. These are the only themed
+      rules: every selector that names `data-theme` starts with exactly
+      `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`, and the
+      (selector, property, value) set under each is exactly the one listed here.
+    `BattleBox.vintage.test.js` reads these rules from the component source (`?raw`) and holds
+    them to that closed list.
+  - **Takeover slides** (`what/widgets.md` rules 105–106,
+    `docs/decisions/0036-takeover-slides-vintage-pass.md`), in the `<style>` of
+    `GridSlide.svelte` and of `ResultsSlide.svelte`, the same rules in each with the slide's own
+    root prefix (`grid` or `results`), all paint and none of it changing a box size:
+    - Both presets: the root (`.grid`, `.results`) is `background: var(--bc-plate-solid)`; the
+      position numeral (`.cell__pos`, `.row__pos`) is `color: var(--bc-text-2)`.
+    - `vintage70`: the header (`.grid__header`, `.results__header`) is `box-shadow: inset 0 -4px
+      0 var(--bc-accent)`; `.group__count` (and on `/results` `.group__colhead`, whose spans
+      inherit it) is `color: var(--bc-subhead)`; `.group__head :global(.bc-class-chip)` and the
+      filter's `.grid__filter :global(.bc-class-chip)` / `.results__filter
+      :global(.bc-class-chip)` are `transform: skewX(-8deg)`, `filter: drop-shadow(2px 2px 0
+      #000)`, `font-style: normal` and `font-family: var(--bc-font-display)` (Barlow Condensed,
+      bundled upright at the chip's weight, 700; the chip's own face, Barlow, is bundled italic
+      only, as under **Tower**). No other rule in either component names `--bc-accent`.
+    - `vintage80`: the title (`.grid__title`, `.results__title`) is `background:
+      var(--bc-header)` with `box-shadow: 0 0 0 6px var(--bc-header)` (a spread shadow takes no
+      layout space, and the header's 12px gap keeps it off the filter chip) and `color:
+      var(--bc-text-2)`; `.group__count` (and `.group__colhead`) is `color: var(--bc-text-2)`.
+    - No themed slide rule sets `text-shadow` or a property that sizes or positions a box (the
+      same list as the tower's), save the `vintage70` chips' `font-family` above (the chip hugs
+      its label, `overlay-config.md` rule 60).
+    `GridSlide.vintage.test.js` and `ResultsSlide.vintage.test.js` read these rules from the
+    component source (`?raw`). They hold the themed CSS to a closed set: every selector that names
+    `data-theme` starts with the exact quoted scope `:global([data-theme='vintage70'])` or
+    `…'vintage80'])`, each preset's sorted `selector | prop: value` list equals the one listed
+    here, and a render of the slide checks every themed selector names an element it draws. The
+    `vintage70` chips' face is checked with `lib/testing/chipFace.js`, as the tower's is.
+  - **Info panel** (`what/widgets.md` rules 101–102, `docs/decisions/0034-info-panel-vintage-pass.md`),
+    in `InfoPanel.svelte`'s `<style>`, exactly these themed declarations and no others, every
+    one under the `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`
+    ancestor selector and no other spelling of a theme selector:
+    - `vintage70`: `.bc-info` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the red rule,
+      drawn inside `.lt3__inner`, so it wipes with the content and takes no layout space);
+      `.bc-info__header` is `color: var(--bc-subhead)`, the same token the takeover slides use.
+    - `vintage80`: `.bc-info__header` is `align-self: flex-start` (a flex item of the column
+      panel stretches to its width otherwise, and so would its block; a long header widens the
+      panel instead of being cut, rule 78a), `font-family:
+      var(--bc-font-display)`, `color: var(--bc-text-2)`, `background: var(--bc-header)`,
+      `box-shadow: 0 0 0 2px var(--bc-header), 3px 3px 0 2px #000` and `text-shadow: none`, as
+      the race update box's label tag. The base `line-height: 1.15` is unitless, so the header's
+      line box is `1.15 × --bc-size-label` in Oswald as in VT323 and the 72 px slot budget noted
+      in the component is unchanged.
+    - `LowerThirdShell.svelte` is not themed here: its vintage treatment (no shine,
+      `what/widgets.md` rule 107) is the shell's own. `InfoPanel.vintage.test.js` reads the rules
+      from the component source (`?raw`), rejects any other theme selector spelling, and pins
+      the exact set per preset.
+  - **On-board HUD** (`what/widgets.md` rules 97–98, `docs/decisions/0032-onboard-vintage-pass.md`),
+    in `OnBoardHud.svelte`'s `<style>`, all paint and none of it changing a box size:
+    - `vintage70`: `.bc-onboard` is `box-shadow: inset 0 -4px 0 var(--bc-accent)` (the rule sits
+      in the plate's 8px bottom padding). `.bc-onboard__number` is `transform: skewX(-8deg)`,
+      `filter: drop-shadow(2px 2px 0 #000)`, `font-style: normal`, `color:
+      var(--bc-oncam-text)` and `text-shadow: none`, with no `background` (it keeps the base
+      accent fill). `.bc-onboard__class` (the span round `ClassChip`) is `transform:
+      skewX(-8deg)` and `filter: drop-shadow(2px 2px 0 #000)`. The chip itself sets its face
+      (`--bc-font-ui`, Barlow, bundled italic only, so `font-style: normal` alone still renders
+      italic), so `.bc-onboard__class :global(.bc-class-chip)` is `font-family:
+      var(--bc-font-display)` (Barlow Condensed, bundled upright at 700) and `font-style:
+      normal`. `.bc-onboard__bar-label` and `.bc-onboard__readout-label` are `font-family:
+      var(--bc-font-display)` and keep the inherited italic. `.bc-onboard__value--gear` is
+      `color: var(--bc-text)`. `.bc-onboard__track` is `-webkit-mask-image` and `mask-image:
+      repeating-linear-gradient(104deg, #000 0 10px, transparent 10px 13px)` (a 14° lean).
+    - `vintage80`: `.bc-onboard` is `background: var(--bc-plate)` (one of the tokens
+      `AllView`'s `plateVars` rescales per slot, so `plateAlpha` still applies).
+      `.bc-onboard__label` is `background: var(--bc-live)`, `box-shadow: 0 0 0 4px
+      var(--bc-live)`, `color: var(--bc-text-on-accent)` and `text-shadow: none`;
+      `.bc-onboard__position` the same with `var(--bc-text-2)` for the block. With the strip's
+      `--bc-space-2` gap the two 4px spreads meet. `.bc-onboard__number` is `text-shadow: none`.
+      `.bc-onboard__driver` is `color: var(--bc-text)`. `.bc-onboard__track` is
+      `-webkit-mask-image` and `mask-image: repeating-linear-gradient(90deg, #000 0 10px,
+      transparent 10px 12px)`.
+    - Both presets: `.bc-onboard__track` and `.bc-onboard__fill` are `border-radius: 0`. The
+      mask on the track clips the fill inside it, so the fill keeps its one `width` and its
+      transition. These are the only themed declarations: none recolours a fill or track, sets
+      a custom property, a `transition` or `animation`, or a property that sizes or positions a
+      box (the label `font-family` swaps are paint, rule 60), and every themed selector starts
+      with exactly `:global([data-theme='vintage70']) ` or `:global([data-theme='vintage80']) `.
+    `OnBoardHud.vintage.test.js` reads these rules from the component source (`?raw`), pins the
+    complete themed set per preset, checks the chip label's face against `tokens/fonts.css`, and
+    renders the HUD from `race-onboard-telemetry.json` under each preset to compare content.
+  - **Fonts are shipped unmodified** (no re-subsetting, conversion or renaming), each family
+    folder with its `OFL.txt` from `google/fonts`. Six families are Google Fonts' pre-built
+    `woff2` files with Google's `unicode-range`: the vintage four (latin and latin-ext subsets)
+    and Saira and JetBrains Mono (every subset Google serves for them; both are variable, one
+    file per subset declared `font-weight: 400 700`). Saira Condensed is the exception: its
+    licence reserves the name "Saira", so it ships as the four original static TTFs from
+    `google/fonts` (`SairaCondensed-{Regular,Medium,SemiBold,Bold}.ttf`, weights 400–700),
+    declared `format('truetype')` with no `unicode-range` (ADR 0028). `server/lib/static.js`
+    maps `ttf` to `font/ttf` beside `woff2`. No `@import` or `<link>` loads a font from another
+    origin; `fonts.css` holds only local `@font-face` rules.
   - `themeTokens.test.js` and `themeFonts.test.js` (in `src/design/`) read the token CSS from disk
     (a `?raw` CSS import is empty under vitest) and enforce these conventions and the bundled fonts.
 - **Class tags** (behavior in `what/widgets.md` rules 60–64, `what/overlay-config.md` rules
@@ -311,19 +624,32 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `?metrics=` on the standalone route),
   and `StandingsTower.svelte` suppresses pit/tire-wear/fuel outright in lap-timed modes
   (`hideRaceStrategy`) regardless of the toggles or producer data.
-- **Driver name style** (behavior in `what/widgets.md` rules 46–48, `what/overlay-config.md`
-  rule 42; rationale in `docs/decisions/0018-tower-driver-name-style.md`).
+- **Driver name style** (behavior in `what/widgets.md` rules 46–48 and 116,
+  `what/overlay-config.md` rule 42; rationale in `docs/decisions/0018-tower-driver-name-style.md`
+  and `docs/decisions/0038-profile-wide-driver-name-style.md`). The other widgets' side is
+  "Driver names in every widget" below.
   - **Props.** `StandingsTower.svelte` takes `nameStyle` (`'short'` | `'full'`; the bare
     component's default is `'short'`, the style that never changes width), `configuredWidth`
     (canvas px) and `textScale`. It stamps `data-name-style` on its root. `AllView.svelte`
-    passes `normalized.widgets.tower.nameStyle`, the tower's `w` as `configuredWidth`, and its
+    passes `normalized.theme.nameStyle`, the tower's `w` as `configuredWidth`, and its
     `textScale` (only a reset trigger; the type tokens on the slot already scale the text).
-    `TowerPage.svelte` passes `config.widgets.tower.nameStyle` from the profile it already
+    `TowerPage.svelte` passes `config.theme.nameStyle` from the profile it already
     loads for `maxRows`/`cycle`, and no `configuredWidth`; the component then uses the resolved
     `--bc-tower-width`, and `400` when that does not resolve to a px number (as in `happy-dom`).
-  - **Formatters.** Full is `fmtName` (`design/format.js`), the formatter the battle box,
-    lower-thirds, HUD and grid/results slides use, applied to string names only (a non-string
-    gives `''`). Short is a separate formatter beside it that only the tower calls.
+  - **Formatters.** Full is `fmtName` (`design/format.js`), applied to string names only (a
+    non-string gives `''`). Short is `fmtShortName` beside it. Every widget picks between the
+    two by the one style (see "Driver names in every widget").
+  - **Short-style minimum width** (rule 116). In short style the tower root carries an inline
+    `min-width: <N>px` only when `N = ceil(lead + borderX)` exceeds the configured width, and
+    none otherwise (so at the default width short style still sets no `min-width`). `lead` is
+    the largest `nameCell.offsetLeft + nameCell.offsetWidth` over the rendered rows' name cells
+    (`[data-testid="driver-name"]`); the row is `position: relative`, so that is the name
+    column's right edge measured from the row's left edge, and the rows sit flush with the
+    tower's padding edge, so the row's left edge is the tower's left border. `borderX` is the
+    root's `borderLeftWidth + borderRightWidth`, read as in full style. It is read after every
+    render of the rows and is not a running maximum: the short-style `min-width` follows the
+    current rows, unlike full style's. In `happy-dom` both reads are `0`, so `N` is `0` and no
+    `min-width` is set unless a test stubs them.
   - **The width hook.** In full style the tower root carries an **inline `min-width: <N>px`**,
     `N = max(configuredWidth, ceil(widestName + widestRest + borderX))`, where `borderX` is the
     tower root's `parseFloat(borderLeftWidth) + parseFloat(borderRightWidth)` from its computed
@@ -341,7 +667,21 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `` `${--bc-weight-leader} ${--bc-size-name} ${--bc-font-display}` ``. Each token that does
     not resolve (empty, as in `happy-dom`) takes its default from `tokens/typography.css`, so
     the fully unresolved string is exactly **`700 22px 'Saira Condensed', 'Arial Narrow',
-    sans-serif`**. Every name is measured in this string, the on-camera weight.
+    sans-serif`**. Every name is measured in this string, the on-camera weight. When the
+    first rendered name cell's (or, with no row rendered, the tower root's) computed
+    `fontStyle` is anything but `normal` or empty, it leads the string:
+    `italic 700 22px 'Barlow Condensed', …` under `vintage70`. A `normal` style is left out, so
+    the modern string is unchanged.
+  - **Theme switch.** The tower watches the `data-theme` attribute of
+    `towerEl.closest('[data-theme]') ?? document.documentElement`, looked up on mount, with a
+    `MutationObserver` (`attributeFilter: ['data-theme']`), disconnected on destroy. The
+    fallback matters: Svelte runs a child's mount before its parent's, so on a render page the
+    tower mounts before `App.svelte` writes the root attribute, and `closest()` finds nothing.
+    The last value seen starts as the attribute's value at mount, an absent one read as
+    `modern`. A value that differs bumps a reset counter that the measuring `$effect` reads, so
+    the effect runs the reset (names, `widestRest`, `namesMeasured`) and measures again at
+    once, rows included, without waiting for a snapshot. The same value written again changes
+    nothing.
   - **Measuring names.** With a 2D canvas context from
     `document.createElement('canvas').getContext('2d')`: set `ctx.font` to the measuring font,
     then a name's width is `ctx.measureText(fullName).width + [...fullName].length ×
@@ -355,10 +695,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `0` before the letter spacing is added.
   - **Font readiness.** When `document.fonts` exists, names are measured only while
     `document.fonts.check(measuringFont)` returns `true`; while it returns `false`, the tower
-    computes no fit width (`N` is the configured width). `check()` can return `true` before
-    the stylesheet has registered the family (while the Google Fonts `@import` is still
-    loading), so the first measurement may be taken in the fallback face; the name-font load
-    below corrects it.
+    computes no fit width (`N` is the configured width). `check()` returns `true` for a family
+    no `@font-face` has registered yet (before the stylesheet applies), so the first
+    measurement may be taken in the fallback face; the name-font load below corrects it.
   - **Requesting the font, once.** While `check(measuringFont)` is `false`, the tower calls
     `document.fonts.load(measuringFont)` **once per measuring font** (the measuring weight may
     be one no rendered text uses, so it would never load by itself). It never calls it again
@@ -404,6 +743,121 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `min-width` beating the `/all` slot's `width: 100%`, and the row CSS that makes the rest
     read exact (the shared tracks below; in the flex fallback, non-name cells `flex-shrink: 0`
     and the name cell `flex: 1 0 auto`): `happy-dom` does no layout, so no unit test can see it.
+- **Driver names in every widget** (behavior in `what/widgets.md` rules 111–115 and
+  `what/overlay-config.md` rules 42–43; rationale in
+  `docs/decisions/0038-profile-wide-driver-name-style.md`).
+  - **The setting.** `overlayConfig.js` normalizes `theme.nameStyle` with the theme's other
+    keys: the theme value when it is exactly `'short'` or `'full'`, else the source profile's
+    `widgets.tower.nameStyle` when that is, else `'short'`. `DEFAULT_CONFIG.theme` carries
+    `nameStyle: 'short'`. The widget literals in `DEFAULT_CONFIG`, `TOWER_DEFAULTS` and the
+    per-widget normalization no longer carry `nameStyle`, so a normalized widget has no such
+    key. `configEditor.setNameStyle(config, value)` writes `theme.nameStyle` and nothing else,
+    as `setClassTags` does.
+  - **One formatter.** `fmtDriverName(name, style)` in `design/format.js` returns
+    `fmtShortName(name)` for `'short'` and `fmtName(name)` for `'full'`, and `''` for a
+    non-string. Every widget formats its names through it; the present-name tests (rule 14b,
+    `presentName`) still run first where they run now.
+  - **Props.** Each widget that shows a name takes a `nameStyle` prop: `StandingsTower` (above),
+    `BattleBox`, `DriverLowerThird`, `QualifyingLowerThird`, `RaceUpdateBox`, `GridSlide` and
+    `ResultsSlide`. The HUD's name is formatted where its identity is built:
+    `resolveIdentity(snapshot, cfg, showTags, nameStyle)` (`OnBoardHud.svelte`). A bare
+    component's default is `'short'` for the tower, as before, and `'full'` for the others, the
+    form each rendered before, so their own suites keep testing their own rules; every route
+    passes the style explicitly, so no route ever renders a bare default. `raceEvents.js` keeps
+    `name` as it is and adds the unformatted `driverName` (after `presentName`) to each card, and
+    `RaceUpdateBox` renders `fmtDriverName(card.driverName, nameStyle)`.
+  - **Routes.** `AllView.svelte` passes `normalized.theme.nameStyle` to every widget above and to
+    `resolveIdentity` for the HUD, so the `/config` preview (an `AllView`) follows the editor's
+    value. `TowerPage`, `BattlePage`, `DriverPage`, `QualifyingPage`, `UpdatesPage`, `GridPage`
+    and `ResultsPage` pass `config.theme.nameStyle` from the profile they load, and live reload
+    (`watchConfig`) updates it like their other settings. `OnBoardHudPage` loads no profile and
+    passes `'short'`.
+  - **Name CSS: nothing cuts.** The name elements are `.bc-battle__focus-name`,
+    `.bc-battle__slot-name`, `.bc-battle__idle-sub` (`BattleBox.svelte`), `.bc-lt__name`
+    (`DriverLowerThird.svelte`), `.bc-qt__name` (`QualifyingLowerThird.svelte`),
+    `.bc-onboard__driver` (`OnBoardHud.svelte`), `.bc-ru__name` (`RaceUpdateBox.svelte`),
+    `.cell__name` (`GridSlide.svelte`) and `.row__name` (`ResultsSlide.svelte`). Each is
+    `white-space: nowrap`, and no rule on it, base or under a preset, sets `text-overflow`, an
+    `overflow`, `overflow-x` or `overflow-y` other than `visible`, `max-width`, `min-width: 0`,
+    or `text-wrap`. `.bc-qt__label` is `white-space: nowrap` and `flex-shrink: 0`, so
+    `CLASS BEST` stays one line. A flex item whose `overflow` is `visible` and whose `min-width`
+    is `auto` cannot shrink below its text, so the name's own width becomes part of its widget's
+    min-content width; the widget CSS below turns that into growth.
+  - **Reference short form.** `design/styles.css` defines one global rule:
+    `.bc-name-ref::after { content: 'W.WWW'; display: block; height: 0; overflow: hidden;
+    visibility: hidden; }`. In short style every single-name element (rule 113:
+    `.bc-battle__focus-name`, both `.bc-battle__slot-name`s, `.bc-lt__name`, `.bc-qt__name`,
+    `.bc-onboard__driver`, `.bc-ru__name`) carries the class `bc-name-ref`; in full style none
+    does, and no other element does in either style. The pseudo-element inherits the name's
+    face, size, weight, letter spacing and case, so its block box is `W.WWW` as the name would
+    render it; being a block child of the (blockified) name element, it makes the name box's
+    min-content width at least its own, and with `height: 0` it adds no height. It is not text,
+    so `textContent` reads the name alone.
+  - **Growth CSS.** Each widget's root is never narrower than its min-content width, which the
+    name rules above make the rule 114 need:
+    - `BattleBox`: `.bc-battle` gets `min-width: min-content`; `.bc-battle__body` is
+      `grid-template-columns: minmax(min-content, 1fr) minmax(min-content, 1.15fr)
+      minmax(min-content, 1fr)`, and `.bc-battle__slot` loses `min-width: 0`. The root keeps
+      `overflow: hidden` (it frames the plate and the intensifying ring); since the root is
+      never narrower than its content, that clips nothing of a name.
+    - `DriverLowerThird`, `QualifyingLowerThird`, `RaceUpdateBox`: the plates in
+      `LowerThirdShell` are absolutely positioned (#185) and so give `.lt3-anchor` no width of
+      its own. These three widgets' anchors get `display: grid` and `min-width: min-content`,
+      and their plates take `grid-area: 1 / 1` in place of `position: absolute`, so an exiting
+      and an entering plate still share one box during a re-cut while the anchor takes the
+      card's min-content width. The info panel keeps its own sizing (rule 78a): the anchor
+      change does not apply to it, since its line must not widen it. `.bc-lt__body`,
+      `.bc-ru__body`, `.bc-ru__main`, `.bc-qt__body` and `.bc-qt__head` lose `min-width: 0`. Lines that still
+      cut, `.bc-ru__detail` here and `.bc-onboard__car` in the HUD, add nothing to the
+      min-content width: for example `width: 0; min-width: 100%` (an intrinsic contribution of
+      `0`, then the full line at layout), keeping `overflow: hidden` and `text-overflow:
+      ellipsis`. #22's `.bc-qt__times` keeps `flex-wrap: wrap`, so its min-content is its widest
+      cell and it still wraps rather than widening the card. It has no width, `max-width` or
+      `flex-basis` of its own, so it wraps at the card's width: a card a name widens wraps it
+      onto as many lines or fewer.
+    - `OnBoardHud`: `.bc-onboard` keeps `width: fit-content` and `max-width: 100%` and adds
+      `min-width: min-content`, which wins over `max-width` where they conflict.
+      `.bc-onboard__identity` loses `min-width: 0`. The same `min-width: min-content` takes in
+      the telemetry row, whose min-content is its labels, readouts and values plus a positive
+      px floor on the bar tracks (a `min-width` on `.bc-onboard__bars`, or a `minmax(<px>, …)`
+      track on `.bc-onboard__bars` or `__bar`); nothing in the row (`.bc-onboard__telemetry`,
+      `__bars`, `__bar`, `__bar-label`, `__readouts`, `__readout`, `__value`,
+      `__readout-label`) has a `width`, a `flex-basis`, `min-width: 0`, a clipping `overflow`,
+      `contain` or a `max-width`, so the row is never cut and the HUD is never narrower than
+      it (rule 114).
+    - `GridSlide`: `.group__grid` is `grid-template-columns: repeat(2, minmax(min-content,
+      1fr))`. `ResultsSlide`: the row and column-head grid's middle track is `minmax(min-content,
+      1fr)`. `.cell`'s `overflow: hidden` stays (its corners); the track is never narrower than
+      the cell's content, so it clips no name.
+    - Inside `/all`, `.widget-slot > *` keeps `width: 100%`; the root's `min-width: min-content`
+      beats it, so a grown widget overflows its slot to the right before placement.
+  - **Placement in `/all`** (rule 115). A pure helper beside `infoPanelSpan` (for example
+    `grownLeft({ naturalLeft, slotLeft, slotWidth, width, canvasWidth })` in `lib/`) returns
+    `max(min(L0, 0), L0 − max(0, L0 + W − max(C, x + w)))`; `infoPanelSpan`'s `left` is the same
+    formula with `L0 = x`. For each `battle`, `driver`, `qualifying`, `onboard` and `updates`
+    slot, `AllView` reads the slot's first element child's `offsetWidth` (`W`, layout px, so the
+    preview's `transform: scale(...)` does not change it; `0` or no child means nothing is
+    drawn), takes `L0 = x` (`x + (w − W) / 2` for `onboard`, whose slot centres it), and gives
+    the slot element an inline `transform: translateX(<L − L0>px)` when `L − L0` is not `0`, and
+    no `transform` otherwise. The slot's inline `left`, `top`, `width` and `height` stay the
+    stored geometry, which is what the editor's drag box reads. It measures in an `$effect` after
+    each render and from a `ResizeObserver` on each such child (a font load, a preset switch, a
+    `textScale` change and a name change all resize it), disconnected on unmount. Standalone
+    routes do no placement: the widget overflows its page to the right.
+  - **Tests.** `lib/overlayConfig.nameStyle.test.js` (normalization and migration),
+    `routes/config/ConfigPage.nameStyle.test.js` (the control),
+    `routes/all/AllView.nameStyle.test.js` (the style in every widget of `/all`, the reference
+    class, and the placement with `offsetWidth` stubbed on each slot's child),
+    `routes/nameStyle.routes.test.js` (the standalone routes),
+    `routes/tower/StandingsTower.shortWidth.test.js` (rule 116, with the name cells'
+    `offsetLeft` / `offsetWidth` and the root's borders stubbed) and `routes/nameStyle.css.test.js`
+    (the name CSS above, read from each component's source with `?raw`, and the
+    `.bc-name-ref::after` rule in `styles.css`). What only a real browser shows, and a one-time
+    headless-Chromium check confirms: that each widget's min-content width really is its rule 114
+    need (the grid tracks, the anchor grid, the zero-contribution lines, the HUD's telemetry
+    row), that a grown #22 card is never taller than at its configured width, that a grown widget's
+    `offsetWidth` is its grown width, that `W.WWW` reserves the room it should in each preset's
+    face, and that no glyph or shadow of a long name is cut. `happy-dom` does no layout.
 - **Tower columns** (behavior in `what/widgets.md` rules 49–53; rationale in
   `docs/decisions/0020-tower-table-columns.md`). The columns are **CSS grid tracks shared by
   every row**, with no measuring in JS.

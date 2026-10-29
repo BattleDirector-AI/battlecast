@@ -48,7 +48,7 @@
 <script>
   import { onDestroy } from 'svelte'
   import ClassChip from '../../design/ClassChip.svelte'
-  import { fmtName, positiveIntOrNull } from '../../design/format.js'
+  import { fmtDriverName, positiveIntOrNull } from '../../design/format.js'
   import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
   import { classTagsShown } from '../../lib/classTags.js'
@@ -60,7 +60,16 @@
   // `shownOverride` (boolean): in `/all` the card's show/hide timer runs once in AllView and is
   // shared with the on-board HUD, so the card just renders that flag. Absent (the standalone
   // route), the card runs its own timer.
-  let { snapshot = null, widget = {}, classColors = {}, classTags = 'auto', shownOverride = undefined } = $props()
+  // `nameStyle`: the profile's `theme.nameStyle` (widgets.md rule 111). Routes always pass it;
+  // the bare default is the full form the card rendered before the style was overlay-wide.
+  let {
+    snapshot = null,
+    widget = {},
+    classColors = {},
+    classTags = 'auto',
+    shownOverride = undefined,
+    nameStyle = 'full',
+  } = $props()
 
   const resolved = $derived(resolveSubject(snapshot))
   const active = $derived(resolved.state !== 'invalid')
@@ -95,7 +104,7 @@
   const carClass = $derived(
     classTagsShown(classTags, snapshot?.session) ? resolved.vehicle?.vehicle_class : undefined,
   )
-  const displayName = $derived(fmtName(resolved.name))
+  const displayName = $derived(fmtDriverName(resolved.name, nameStyle))
 </script>
 
 {#if shown}
@@ -135,7 +144,7 @@
                 <ClassChip {carClass} size="compact" {classColors} />
               {/if}
             </div>
-            <span class="bc-lt__name" data-testid="driver-lt-name">{displayName}</span>
+            <span class="bc-lt__name" class:bc-name-ref={nameStyle === 'short'} data-testid="driver-lt-name">{displayName}</span>
           </div>
         </section>
       </LowerThirdShell>
@@ -147,8 +156,22 @@
   /* The plate chrome (background, blur, border, radius, shadow) and the
      entrance/exit motion now live in LowerThirdShell; this owns only the card's
      inner layout. */
+  /* One grid cell holds the plate, so the anchor takes the card's min-content width and a
+     name too long for the slot widens the card instead of being cut (widgets.md rules 112,
+     114). An exiting and an entering plate still share the one cell during a re-cut (#185). */
   .lt3-anchor {
     position: relative;
+    display: grid;
+    /* A min-content track: the plate clips (overflow: hidden), which would otherwise give it
+       no minimum in an auto track. */
+    grid-template-columns: minmax(min-content, 1fr);
+    min-width: min-content;
+  }
+  /* .lt3.lt3: outranks LowerThirdShell's own `.lt3 { position: absolute }` whatever the
+     order the two stylesheets land in the bundle. */
+  .lt3-anchor > :global(.lt3.lt3) {
+    position: relative;
+    grid-area: 1 / 1;
   }
 
   .bc-lt {
@@ -175,13 +198,13 @@
     flex-direction: column;
     justify-content: center;
     gap: var(--bc-space-1);
-    min-width: 0;
   }
 
   .bc-lt__meta {
     display: flex;
     align-items: center;
     gap: var(--bc-space-2);
+    white-space: nowrap;
   }
 
   .bc-lt__label {
@@ -208,8 +231,57 @@
     color: var(--bc-oncam-text);
     text-shadow: 0 0 12px var(--bc-accent-glow);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
+  }
+
+  /* The card's own vintage look (widgets rules 93–94, ADR 0030). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box (overlay-config rule 60); the plate is LowerThirdShell's. */
+  :global([data-theme='vintage70']) .bc-lt__accent,
+  :global([data-theme='vintage80']) .bc-lt__accent {
+    border-radius: 0;
+    box-shadow: 2px 2px 0 #000;
+  }
+
+  /* 70s: a red rule along the card bottom, a warm-white position, and a gold name with the
+     mock's heavy extrusion. */
+  :global([data-theme='vintage70']) .bc-lt {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .bc-lt__pos {
+    color: var(--bc-text-2);
+  }
+  :global([data-theme='vintage70']) .bc-lt__name {
+    color: var(--bc-text);
+    text-shadow:
+      1px 1px 0 #2a1200,
+      2px 2px 0 #1a0b00,
+      3px 3px 0 #000,
+      4px 4px 0 #000,
+      0 0 10px rgba(0, 0, 0, 0.55),
+      0 0 2px rgba(0, 0, 0, 0.9);
+  }
+
+  /* 80s: the ON CAMERA tag in the caption face, and the mock's heavy outline on the name. */
+  :global([data-theme='vintage80']) .bc-lt__label {
+    font-family: var(--bc-font-display);
+    color: var(--bc-text-2);
+    background: var(--bc-header);
+    text-shadow: none;
+    box-shadow:
+      0 0 0 3px var(--bc-header),
+      2px 2px 0 3px #000;
+  }
+  :global([data-theme='vintage80']) .bc-lt__name {
+    text-shadow:
+      -2px -2px 0 #000,
+      0 -2px 0 #000,
+      2px -2px 0 #000,
+      2px 0 0 #000,
+      2px 2px 0 #000,
+      0 2px 0 #000,
+      -2px 2px 0 #000,
+      -2px 0 0 #000,
+      3px 3px 0 #000,
+      0 0 9px rgba(0, 0, 0, 0.6);
   }
 </style>

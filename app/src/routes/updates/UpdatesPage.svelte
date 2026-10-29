@@ -8,10 +8,12 @@
   import { loadConfig, DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
 
   // Standalone race update box Browser Source (widgets.md rule 75). Connects like every
-  // render page (`?src=`, then the default) and reads the `updates` widget's dwell from the
-  // profile named by `?profile=`; no profile, or one that fails to load, keeps the default.
+  // render page (`?src=`, then the default) and reads the `updates` widget's dwell and the
+  // overlay-wide driver name style from the profile named by `?profile=`; no profile, or one
+  // that fails to load, keeps the defaults.
   let snapshot = $state(null)
   let dwellSeconds = $state(DEFAULT_CONFIG.widgets.updates.dwellSeconds)
+  let nameStyle = $state(DEFAULT_CONFIG.theme.nameStyle)
 
   onMount(() => {
     let cancelled = false
@@ -20,6 +22,7 @@
     loadConfig(window.location.search).then((config) => {
       if (cancelled) return
       dwellSeconds = config.widgets.updates.dwellSeconds
+      nameStyle = config.theme.nameStyle
       // Refine the motion mode from the resolved profile's `reducedMotion` (a `?motion=`
       // URL param still wins). App.svelte already set a URL/default baseline at boot.
       applyMotion(resolveMotion(window.location.search, { reducedMotion: config.reducedMotion }))
@@ -36,6 +39,7 @@
         window.location.search,
         (nextConfig) => {
           dwellSeconds = nextConfig.widgets.updates.dwellSeconds
+          nameStyle = nextConfig.theme.nameStyle
           applyMotion(
             resolveMotion(window.location.search, { reducedMotion: nextConfig.reducedMotion }),
           )
@@ -53,7 +57,7 @@
 </script>
 
 <div class="updates-page">
-  <RaceUpdateBox {snapshot} {dwellSeconds} />
+  <RaceUpdateBox {snapshot} {dwellSeconds} {nameStyle} />
 </div>
 
 <style>

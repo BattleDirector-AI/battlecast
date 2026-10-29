@@ -95,7 +95,6 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `classDisplay` | tower | inline vs grouped multi-class layout |
     | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
     | `maxRows`, `cycle` | tower | overflow row cap + pinned-rows/cycling-window config (see `tower-overflow.md`) |
-    | `nameStyle` | tower | `short` (default) / `full` driver names (rules 42–43) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
 
 46. **`dwellSeconds`** (lower-thirds; default `6`) is how long a `dwell`-trigger lower-third shows
@@ -457,31 +456,44 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     is one commit and so one rule 41a edit, never two. Rule 44b applies to every commit alike: an
     Enter on a blank or refused value keeps the stored value, exactly as leaving the field does.
 
-### Tower driver name style
+### Driver name style
 
-42. **`nameStyle`** (tower; default `short`) selects how the standings tower renders driver
-    names: `short` (`E.JAC`) or `full` (`E. Jacobs`, with the tower growing wider to fit;
-    `widgets.md` rules 46–48). Normalization keeps exactly the string `short` or `full` and
-    replaces anything else with `short`: absent, null, another case such as `Full`, any other
-    string, or a value of another type. It is normalized onto every widget for a uniform
-    shape, and only the tower reads it. Both `/all` and the standalone `/tower` route read it
-    from the loaded profile. A route with no profile, or a profile without the key, renders
-    `short`. There is no URL knob for it. A profile without the key renders short names at its
-    saved geometry, and `configVersion` stays `"1"` (rule 2). Decision record:
-    `docs/decisions/0018-tower-driver-name-style.md`.
-43. **The editor exposes it in the tower row**, as part of rule 14's control surface. It is a
-    select labelled **driver names** with exactly two options, `short` and `full` in that
-    order, showing the current value, offered for `tower` only. Choosing an option writes that
-    value to the tower's `nameStyle` and the live preview re-renders with it. It changes no
-    geometry: unlike a text-size preset (rule 41), the editor never alters `x`, `w` or any
-    other field when the style changes. Per rule 16 it carries help copy, which says that
-    `full` lets the tower grow wider than its set width and can run past the edge of the
-    Browser Source (rule 21: growth past the box would otherwise look like a bug). Per rule 19
-    the coverage tests require it. Like `plateAlpha` (rule 24), withholding the control from
-    the other widgets never rewrites a stored value. In `full` the preview's drag-and-resize
-    box shows the stored `x` and `w`, the tower's left edge and minimum width; a tower
-    grown wider than `w` (`widgets.md` rule 48) draws past the box's right side, and dragging
-    or resizing edits `x` and `w` only.
+42. **`theme.nameStyle`** (default `short`) is one overlay-wide setting, not a per-widget knob,
+    that selects how every widget shows driver names (`widgets.md` rules 111–116): `short`
+    (`E.JAC`, rule 47's short form) or `full` (`E. Jacobs`, rule 48's full form). Normalization
+    keeps exactly the string `short` or `full`. Anything else in `theme.nameStyle` (absent, null,
+    another case such as `Full`, a padded string such as `' full '`, any other string, or a value
+    of another type) is replaced by the profile's `widgets.tower.nameStyle` when that is exactly
+    `short` or `full`, and otherwise by `short`. So a profile saved when the style was a tower
+    setting keeps its tower's style, now for every widget, and a valid `theme.nameStyle` wins
+    over the tower's. It is not normalized onto widgets: a normalized widget carries no
+    `nameStyle` key, so a profile saved from the editor stores the style once, in `theme`.
+    Normalizing it never changes `theme.classColors` (rule 32), `theme.classTags` (rule 47) or
+    `theme.preset` (rule 58). A profile with no `theme`, a `theme` that is not an object, or no
+    valid value in either place renders `short`. `/all` reads it, and so does every standalone
+    route that loads a profile and shows a name: `/tower`, `/battle`, `/driver`, `/qualifying`,
+    `/updates`, `/grid` and `/results`. The standalone `/onboard` route loads no profile and
+    renders `short`. There is no URL knob for it. A profile without it renders at its saved
+    geometry, and `configVersion` stays `"1"` (rule 2). Decision records:
+    `docs/decisions/0018-tower-driver-name-style.md`,
+    `docs/decisions/0038-profile-wide-driver-name-style.md`.
+43. **The editor exposes it once for the whole overlay**, as part of rule 14's control surface:
+    a select labelled **driver names** (`data-testid="name-style"`), in no widget row, with
+    exactly two options, `short` and `full` in that order, showing the current value. No widget
+    row has a name-style control. Choosing an option writes that value to `theme.nameStyle`, the
+    live preview re-renders every widget with it, and Save writes it into the profile. It changes
+    no geometry and no other setting, `theme.classColors`, `theme.classTags` and `theme.preset`
+    included: unlike a text-size preset (rule 41), the editor never alters `x`, `w` or any other
+    field when the style changes. Per rule 16 it carries help copy behind an ⓘ
+    (`data-testid="help-name-style"`), which says that the setting applies to the driver names in
+    every widget; that `short` shows a code such as `E.JAC` and keeps widgets at their set size;
+    and that `full` shows the initial and last name such as `E. Jacobs`, never cuts a name short,
+    and makes widgets grow wider than their set width to fit a long name, past their box and
+    over their neighbours, and past the edge of the canvas or the Browser Source (rule 21: growth
+    past the box would otherwise look like a bug). Per rule 19 the coverage tests require it. In
+    either style the preview's drag-and-resize boxes show each widget's stored `x` and `w`; a
+    widget grown wider than its `w` (`widgets.md` rules 48, 114–116) draws past its box, and
+    dragging or resizing edits `x` and `w` only.
 
 ### Class color overrides
 
@@ -562,11 +574,26 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 60. **A preset changes the look only.** Under every preset each widget shows the same content
     (rows, fields, text, values, order) at the same times (triggers, dwell, cycling, hide-when-idle,
     exit grace) at the same geometry (position, size, row heights, widget dimensions) as under
-    `modern`; switching preset on a live page changes none of these, with one exception: a
-    `full`-name-style tower's fit width (`widgets.md` rule 48) is measured in the row-name font,
-    which is the preset's typeface, so a full-name tower may be a different width under each
-    preset, and switching preset counts as a name-font load under rule 48 (the tower re-measures
-    the names). A preset changes paint only:
+    `modern`; switching preset on a live page changes none of these, with two exceptions, both
+    because a preset changes the typeface. First, a `full`-name-style tower's fit width
+    (`widgets.md` rule 48) is measured in the row-name font, which is the preset's typeface, so a
+    full-name tower may be a different width under each preset, and switching preset is a reset
+    of the fit width under rule 48 (the tower measures again in the new preset). Second, a box
+    sized to its own text (for example the on-board HUD plate, the Race Control strip, the
+    weather box, or a chip or tag that hugs its label) paints at the size its text takes in the
+    preset's typeface and font style, up to its slot's width, past which its text is cut as it
+    is under `modern`. Two kinds of text are the exception and are never cut: the info panel's
+    header, which widens the panel past its slot to hold it (`widgets.md` rule 78a), and a
+    driver's name, which widens its widget past its slot to hold it, together with the room the
+    reference short form takes (`widgets.md` rules 112–116). So a panel holding a long header,
+    or a widget holding a name or reserving short-form room, may take a different width and
+    place under each preset. The text's font size,
+    weight, letter spacing and case are the same as under `modern`, and so are the box's widget
+    slot, its alignment in the slot (centred or anchored to an edge) and every set length (row
+    heights, fixed widths, paddings, gaps, bar and rule thicknesses), so the box grows or
+    shrinks only by its typeface and font style. Inside
+    a box of set width (a tower row), the box keeps its set width while each text-sized cell
+    takes the size its text needs; how much of the row shows is the widget's own overflow rule. A preset changes paint only:
     colours, typefaces, font style, text shadow or outline, and plate colour and treatment. Class
     colours (rule 32, `widgets.md` rule 32) and the colours that carry meaning (battle intensity,
     lap-time flash, position change, live) are the same in every preset. Transitions are the same
@@ -577,11 +604,16 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     text that does not set its own shadow, and square, unblurred plates. Text that sets its own
     glow (the on-camera name in the battle box and both lower-thirds) keeps that glow until its
     widget's own rule gives it the preset's treatment. The base-look values are listed in the decision record.
-61. **Every typeface a preset uses is bundled.** The faces `vintage70` (Barlow, Barlow Condensed)
-    and `vintage80` (VT323, Oswald) name are served by battlecast itself, from the same origin as
-    the overlay, so an OBS machine with no internet connection renders the period typeface, not a
-    fallback. Each bundled family ships with its licence file beside its font files, in the source
-    tree and in the built app. A `modern` overlay does not download them.
+61. **Every typeface a preset uses is bundled.** The faces `modern` (Saira Condensed, Saira,
+    JetBrains Mono), `vintage70` (Barlow, Barlow Condensed) and `vintage80` (VT323, Oswald) name
+    are served by battlecast itself, from the same origin as the overlay, so an OBS machine with
+    no internet connection renders each preset's own typeface, not a fallback. No page battlecast
+    serves, the `/config` editor included, loads a typeface or a font stylesheet from another
+    origin. Each bundled family ships with its licence file beside its font files, in the source
+    tree and in the built app. The `modern` faces render Latin, Latin Extended and Vietnamese
+    text in all three families, and Greek and Cyrillic (Cyrillic Extended included) in JetBrains
+    Mono. A `modern` overlay does not download the vintage faces. Decision record:
+    `docs/decisions/0028-self-hosted-modern-fonts.md`.
 62. **The editor exposes it once for the whole overlay**, as part of rule 14's control surface: a
     select labelled **theme** (`data-testid="theme-preset"`), in no widget row, with exactly three
     options in this order, shown to the broadcaster as **Modern**, **Vintage 70s** and **Vintage
@@ -595,6 +627,64 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     looks and not what it shows, and that a `?theme=` parameter overrides it per Browser Source; per
     rule 21 it says that the editor panel itself stays in the modern look and that class colours
     are the same in every look (either would otherwise read as a setting that did not take).
+63. **The preview renders every widget in the chosen preset.** Under every preset, each widget
+    the `/config` preview draws (every key in `widgets`, while it is visible) takes the look its
+    render page takes under that preset: the base look (rule 60) and the widget's own `widgets.md`
+    preset rules, with the same content, timing and geometry. A widget takes the preset from the
+    nearest ancestor carrying `data-theme`; in the preview that ancestor is the preview stage,
+    no element between the stage and a widget carries `data-theme`, and no widget's preset
+    styling or preset-dependent behaviour reads the document root's attribute alone (which in the
+    editor never names a vintage preset, rule 59). Choosing a preset re-renders the preview in it
+    at once, with no transition, and does in the preview whatever switching preset on a live
+    render page does (rule 60: a `full`-name tower measures its fit width again). The preview adds
+    no preset styling of its own: how a widget's text reads under a preset is that widget's rule.
+64. **The drag handles are editor chrome and keep the editor's look.** The preview's handles sit
+    inside the themed stage but take nothing from the preset: under every preset each handle's
+    dashed outline and tint, its resize corner, and its key label (the widget key, `tower`,
+    `battle` and so on, shown in capitals) render exactly as under `modern`. The key label keeps
+    the editor's typeface, upright, with no text shadow or outline, in its own dark-on-teal
+    colours, so it reads the same over every look and is never taken for overlay graphics.
+65. **A handle's key label sits outside its widget, above the top-left corner.** The key label
+    (rule 64) never covers its own widget's content, except at the canvas top edge. The label is
+    one line, exactly 24 canvas px tall with its text at 22 canvas px, and as wide as its text plus
+    its side padding. The widget box is the rectangle the widget's stored `x`, `y`, `w`, `h`
+    describe, which is the handle's outer edge, dashed outline included. Where the label sits
+    depends on the stored `y` alone:
+    - **Above**, when `y` is 24 or more. The label's bottom edge lies on the box's top edge, with
+      no gap, and its left edge lies on the box's left edge. It covers no part of the box, the
+      outline included.
+    - **Inside**, when `y` is less than 24. This is "at the top edge of the canvas": there are not
+      24 canvas px above the box for the label to fit in without being cut off by the canvas edge.
+      The label's top-left corner then lies on the box's top-left corner, and the label covers a
+      24 px strip at the top-left of its own widget.
+
+    The placement follows `y` at every moment, mid-drag included. A pointer step that moves the
+    widget from `y` 24 to 23 moves the label inside at that step, and a step back to 24 moves it
+    above again. Nothing else changes the placement: not `x`, `w`, `h`, `z`, the text-size
+    preset, the theme preset, or the preview's size. A label wider than its widget runs past the
+    box's right edge, and a label whose box ends at the canvas's right edge is cut off there.
+
+    The 24 px and 22 px are canvas pixels. The label is drawn inside the scaled preview canvas,
+    so it scales with the preview exactly as the widgets do (at the preview's 0.6 cap it is
+    14.4 screen px tall). In the default layout every visible widget's `y` is 24 or more, so
+    every default label sits above.
+
+    An above label lies over whatever is in the 24 px strip above its box, which can be part of a
+    neighbouring widget. In the default layout there are exactly three such overlaps:
+    `weather`'s label lies over the bottom of `racecontrol`, `qualifying`'s over `tower`, and
+    `driver`'s over the bottom of `qualifying` and over `tower`. The labels paint in one label
+    layer above every handle and every widget, so no handle's tint, outline or resize corner
+    ever paints over a label. Within that layer, where two labels overlap, the one whose widget
+    has the higher `z` paints on top.
+66. **The key label moves its own widget, with one look in every state.** Wherever the label
+    sits, a press on it starts a move drag of its own widget, exactly as a press on the handle's
+    box does (rules 41c–41e). Because the label layer is above every handle (rule 65), this holds
+    over the whole label, even where the label lies over another widget's handle: a press there
+    moves the label's widget, never the one beneath. The label is never a resize target and never
+    passes a press through to what lies under it. Hovering, pressing or dragging a handle or its
+    label changes nothing about the label's colours, size, opacity or text. During a drag, the
+    label moves with its widget and changes placement only as rule 65 says. The editor has no
+    selected-handle state, and the label has none.
 
 ### Editor help content
 
@@ -785,12 +875,12 @@ Decision record: `docs/decisions/0011-feed-status-accessibility.md`.
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
-`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags,preset}`,
+`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags,preset,nameStyle}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
-`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird` +
+`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `speedUnit`/`driverInfo`/`waitForLowerThird` +
 `tempUnit`), but only the widget noted in the rule-11 table actually reads each. The `info`
 widget also carries `lines` and `weatherCard`, which no other widget has (rules 52, 57).
 

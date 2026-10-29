@@ -15,7 +15,7 @@
   // Dumb overlay, smart producer (docs/decisions/0002-lower-third-widgets.md): every
   // value is producer-owned. Inputs may be null/undefined/partial/garbage — these
   // helpers normalize defensively and never throw.
-  import { fmtName, positiveIntOrNull } from '../../design/format.js'
+  import { fmtDriverName, positiveIntOrNull } from '../../design/format.js'
   import { resolveSubject } from '../driver/DriverLowerThird.svelte'
 
   /** Coerce to a finite number, else null. */
@@ -87,8 +87,10 @@
    * can omit the identity strip entirely. Never throws on partial/garbage data.
    * `showClass` is the overlay-wide class-tags answer (`classTagsShown`, rule 63): false makes
    * the class field count as having no value, so a class-only strip resolves to null.
+   * `nameStyle` is the profile's `theme.nameStyle` (widgets.md rule 111); routes always pass it,
+   * and the bare default is the full form the strip showed before the style was overlay-wide.
    */
-  export function resolveIdentity(snapshot, widget = {}, showClass) {
+  export function resolveIdentity(snapshot, widget = {}, showClass, nameStyle = 'full') {
     const info = widget && typeof widget.driverInfo === 'object' && widget.driverInfo ? widget.driverInfo : {}
     const subject = snapshot?.subject ?? null
     if (!subject || typeof subject !== 'object') return null
@@ -96,7 +98,7 @@
     // (widgets.md rules 14a/14b) cannot drift between the HUD and the lower-thirds.
     const { vehicle, name: rawName } = resolveSubject(snapshot)
     const out = {}
-    if (info.name && rawName) out.name = fmtName(rawName)
+    if (info.name && rawName) out.name = fmtDriverName(rawName, nameStyle)
     const number = vehicle?.car_number
     if (info.number && number != null && String(number).trim()) out.number = String(number).trim()
     const position = positiveIntOrNull(vehicle?.position)
@@ -130,6 +132,9 @@
     cardShown = false,
     waitForLowerThird = true,
     classColors = {},
+    // The style `identity.name` was resolved in; short style reserves the reference short form
+    // in the name slot (widgets.md rule 113).
+    nameStyle = 'full',
   } = $props()
 
   const t = $derived(resolveTelemetry(telemetry))
@@ -167,7 +172,9 @@
         <span class="bc-onboard__number" data-testid="onboard-driver-number">{identity.number}</span>
       {/if}
       {#if identity.name}
-        <span class="bc-onboard__driver" data-testid="onboard-driver-name">{identity.name}</span>
+        <span class="bc-onboard__driver" class:bc-name-ref={nameStyle === 'short'} data-testid="onboard-driver-name"
+          >{identity.name}</span
+        >
       {/if}
       {#if identity.class}
         <span class="bc-onboard__class" data-testid="onboard-driver-class">
@@ -175,7 +182,9 @@
         </span>
       {/if}
       {#if carLine}
-        <span class="bc-onboard__car" data-testid="onboard-driver-car">{carLine}</span>
+        <span class="bc-onboard__car" data-testid="onboard-driver-car"
+          ><span class="bc-onboard__car-text">{carLine}</span></span
+        >
       {/if}
     </div>
   {/if}
@@ -239,6 +248,9 @@
     gap: var(--bc-space-2);
     width: fit-content;
     max-width: 100%;
+    /* Never narrower than the strip's whole items, the name above all, which beats the
+       max-width (widgets.md rules 112, 114); the make-and-model line adds nothing to it. */
+    min-width: min-content;
     box-sizing: border-box;
     padding: var(--bc-space-2) var(--bc-space-3);
     background: var(--bc-header);
@@ -256,7 +268,6 @@
     display: flex;
     align-items: center;
     gap: var(--bc-space-2);
-    min-width: 0;
     padding-bottom: var(--bc-space-1);
     border-bottom: 1px solid var(--bc-divider);
   }
@@ -308,9 +319,6 @@
     font-weight: var(--bc-weight-name);
     color: var(--bc-oncam-text);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
   }
 
   .bc-onboard__class {
@@ -318,8 +326,18 @@
     display: inline-flex;
   }
 
+  /* The make-and-model line is not a name: it is cut at the HUD's width and never widens it.
+     A one-track grid of minmax(0, max-content) gives it no min-content width (so the HUD's
+     min-width ignores it) while its max-content still sizes a HUD that has room; the text
+     inside is clipped with the line's ellipsis. The strip's gap before it is moved inside the
+     line (a negative margin, then the text's padding), so a line squeezed to nothing leaves no
+     empty gap behind. */
   .bc-onboard__car {
     flex: 0 1 auto;
+    min-width: 0;
+    margin-left: calc(-1 * var(--bc-space-2));
+    display: grid;
+    grid-template-columns: minmax(0, max-content);
     font-family: var(--bc-font-ui);
     font-size: var(--bc-size-label);
     letter-spacing: var(--bc-track-label);
@@ -329,6 +347,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .bc-onboard__car-text {
+    padding-left: var(--bc-space-2);
+    overflow: hidden;
+    text-overflow: inherit;
+  }
 
   /* Telemetry row: bars on the left, SPEED / GEAR readouts on the right. */
   .bc-onboard__telemetry {
@@ -337,22 +360,25 @@
     gap: var(--bc-space-4);
   }
 
+  /* One grid for both rows, so the label column is as wide as the widest label (at least
+     64px, the label's min-width) and both tracks start at the same x. A fixed column let
+     THROTTLE run into its track once the face or textScale made it wider (#430). The floor
+     sits on the label, not the column, so the label's real width counts in the HUD's
+     min-content and a narrow slot cannot squeeze the column under it; the track keeps 108px. */
   .bc-onboard__bars {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: var(--bc-space-2);
-    min-width: 180px;
-  }
-
-  .bc-onboard__bar {
     display: grid;
-    grid-template-columns: 64px 1fr;
+    grid-template-columns: max-content minmax(108px, 1fr);
+    align-content: center;
     align-items: center;
     gap: var(--bc-space-2);
   }
 
+  .bc-onboard__bar {
+    display: contents;
+  }
+
   .bc-onboard__bar-label {
+    min-width: 64px;
     font-family: var(--bc-font-ui);
     font-size: var(--bc-size-label);
     font-weight: var(--bc-weight-label);
@@ -433,5 +459,77 @@
     text-transform: uppercase;
     color: var(--bc-text-2);
     line-height: 1;
+  }
+
+  /* The HUD's own vintage look (widgets rules 97–98, ADR 0032). Keyed on an ancestor's
+     data-theme, so the /config preview stage gets it too. Paint only: no rule here sizes or
+     positions a box, and none touches the fill's width or transition (overlay-config rule 60). */
+  :global([data-theme='vintage70']) .bc-onboard__track,
+  :global([data-theme='vintage70']) .bc-onboard__fill,
+  :global([data-theme='vintage80']) .bc-onboard__track,
+  :global([data-theme='vintage80']) .bc-onboard__fill {
+    border-radius: 0;
+  }
+
+  /* 70s: a red rule along the plate's bottom, skewed tiles with upright type, gold gear, and
+     bars cut into leaning segments. The mask on the track clips the fill inside it. */
+  :global([data-theme='vintage70']) .bc-onboard {
+    box-shadow: inset 0 -4px 0 var(--bc-accent);
+  }
+  :global([data-theme='vintage70']) .bc-onboard__number {
+    color: var(--bc-oncam-text);
+    text-shadow: none;
+    font-style: normal;
+    transform: skewX(-8deg);
+    filter: drop-shadow(2px 2px 0 #000);
+  }
+  :global([data-theme='vintage70']) .bc-onboard__class {
+    transform: skewX(-8deg);
+    filter: drop-shadow(2px 2px 0 #000);
+  }
+  /* ClassChip's own face (Barlow) is bundled italic only; Barlow Condensed has an upright cut. */
+  :global([data-theme='vintage70']) .bc-onboard__class :global(.bc-class-chip) {
+    font-family: var(--bc-font-display);
+    font-style: normal;
+  }
+  /* Barlow Condensed so THROTTLE fits its 64px column (#403); still italic. */
+  :global([data-theme='vintage70']) .bc-onboard__bar-label,
+  :global([data-theme='vintage70']) .bc-onboard__readout-label {
+    font-family: var(--bc-font-display);
+  }
+  :global([data-theme='vintage70']) .bc-onboard__value--gear {
+    color: var(--bc-text);
+  }
+  :global([data-theme='vintage70']) .bc-onboard__track {
+    -webkit-mask-image: repeating-linear-gradient(104deg, #000 0 10px, transparent 10px 13px);
+    mask-image: repeating-linear-gradient(104deg, #000 0 10px, transparent 10px 13px);
+  }
+
+  /* 80s: the black widget plate (scaled by plateAlpha), reverse-video tags whose 4px spreads
+     meet across the strip's gap, no outline on dark glyphs, and bars cut into upright blocks. */
+  :global([data-theme='vintage80']) .bc-onboard {
+    background: var(--bc-plate);
+  }
+  :global([data-theme='vintage80']) .bc-onboard__label {
+    background: var(--bc-live);
+    box-shadow: 0 0 0 4px var(--bc-live);
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .bc-onboard__position {
+    background: var(--bc-text-2);
+    box-shadow: 0 0 0 4px var(--bc-text-2);
+    color: var(--bc-text-on-accent);
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .bc-onboard__number {
+    text-shadow: none;
+  }
+  :global([data-theme='vintage80']) .bc-onboard__driver {
+    color: var(--bc-text);
+  }
+  :global([data-theme='vintage80']) .bc-onboard__track {
+    -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 10px, transparent 10px 12px);
+    mask-image: repeating-linear-gradient(90deg, #000 0 10px, transparent 10px 12px);
   }
 </style>

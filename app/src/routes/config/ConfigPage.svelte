@@ -22,6 +22,7 @@
     normalizeInfoLine,
     INFO_LINES_MAX,
     INFO_LINE_MAX_LENGTH,
+    NAME_STYLES,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
@@ -102,6 +103,14 @@
   let copied = $state(false)
 
   const canvas = $derived(config.canvas)
+  // Key labels sit in one layer above every handle (overlay-config rule 65): one more than the
+  // highest handle's `100 + z`.
+  const labelLayerZ = $derived.by(() => {
+    const zs = WIDGET_KEYS.filter((k) => config.widgets[k]?.visible).map((k) => config.widgets[k].z)
+    return 101 + (zs.length ? Math.max(...zs) : 0)
+  })
+  // A label above its widget needs this much canvas over the box; less, and it sits inside (rule 65).
+  const LABEL_H = 24
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const obsUrl = $derived(
     editor.buildObsUrl({ origin, profileName, producerSrc: config.producer?.src || '' }),
@@ -431,10 +440,6 @@
   // with positions restarting per class (`grouped`).
   const setClassDisplay = (key, value) =>
     (config = editor.setWidgetField(config, key, 'classDisplay', value))
-  // Tower-only (rule 43): driver name style. Writes `nameStyle` and nothing else — unlike a
-  // text-size preset, it never touches `x` / `w`.
-  const setNameStyle = (key, value) =>
-    (config = editor.setWidgetField(config, key, 'nameStyle', value))
   // Richer-tower (slice 3 of #20): which additive per-vehicle metrics the standings
   // tower surfaces — interval column + pit / tire / fuel indicators, each toggled
   // independently. Only the tower reads `towerMetrics`; the producer must supply the
@@ -509,6 +514,9 @@
   const removeClassColor = (name) => (config = editor.removeClassColor(config, name))
   const setClassTags = (value) => (config = editor.setClassTags(config, value))
   const setThemePreset = (value) => (config = editor.setThemePreset(config, value))
+  // Overlay-wide driver name style (overlay-config rule 43): writes `theme.nameStyle` and
+  // nothing else — unlike a text-size preset, it never touches any widget's `x` / `w`.
+  const setNameStyle = (value) => (config = editor.setNameStyle(config, value))
   // Labels for the overlay-wide look (overlay-config rule 62), in THEME_PRESETS order.
   const THEME_LABELS = { modern: 'Modern', vintage70: 'Vintage 70s', vintage80: 'Vintage 80s' }
   function addClassColor() {
@@ -644,8 +652,8 @@
                 onpointerdown={(e) => startDrag(e, key, 'move')}
                 role="button"
                 tabindex="-1"
+                aria-label="move {key}"
               >
-                <span class="handle__label">{key}</span>
                 <span
                   class="handle__resize"
                   data-testid="resize-{key}"
@@ -660,6 +668,26 @@
               </div>
             {/if}
           {/each}
+
+          <!-- Key labels: their own layer above every handle, so no handle covers or takes a
+               press meant for a label (overlay-config rules 65–66). -->
+          <div class="handle-labels" data-testid="handle-labels" style="z-index: {labelLayerZ};">
+            {#each WIDGET_KEYS as key (key)}
+              {#if config.widgets[key]?.visible}
+                {@const w = config.widgets[key]}
+                {@const above = w.y >= LABEL_H}
+                <span
+                  class="handle__label"
+                  data-testid="label-{key}"
+                  data-placement={above ? 'above' : 'inside'}
+                  style="left: {w.x}px; top: {above ? w.y - LABEL_H : w.y}px; z-index: {100 + w.z};"
+                  onpointerdown={(e) => startDrag(e, key, 'move')}
+                  role="button"
+                  tabindex="-1"
+                >{key}</span>
+              {/if}
+            {/each}
+          </div>
         </div>
       </div>
     </section>
@@ -1077,20 +1105,6 @@
                   <option value="grouped">grouped</option>
                 </select>
               </label>
-              <!-- Rule 43: driver name style. `full` lets the tower grow past its `w`; the
-                   drag box keeps showing the stored x / w. -->
-              <label class="num class-display-row">
-                driver names
-                <HelpTip text={FIELD_HELP.nameStyle} label="driver names" testid="help-name-style-{key}" />
-                <select
-                  data-testid="name-style-{key}"
-                  value={w.nameStyle}
-                  onchange={(e) => setNameStyle(key, e.currentTarget.value)}
-                >
-                  <option value="short">short</option>
-                  <option value="full">full</option>
-                </select>
-              </label>
               <!-- #28 follow-on: which additive per-vehicle metrics the tower surfaces —
                    the interval-to-ahead column plus pit / tire / fuel indicators. The
                    producer must supply the underlying fields (interval_ahead / pit_stops /
@@ -1273,6 +1287,25 @@
           >
             {#each THEME_PRESETS as value (value)}
               <option {value}>{THEME_LABELS[value]}</option>
+            {/each}
+          </select>
+        </label>
+      </section>
+
+      <section class="panel__group">
+        <h2>Driver Names</h2>
+        <!-- Overlay-wide, not per widget (overlay-config rules 42-43, ADR 0038). `full` lets a
+             widget grow past its `w`; the drag boxes keep showing the stored x / w. -->
+        <label class="num">
+          driver names
+          <HelpTip text={FIELD_HELP.nameStyle} label="driver names" testid="help-name-style" />
+          <select
+            data-testid="name-style"
+            value={config.theme.nameStyle}
+            onchange={(e) => setNameStyle(e.currentTarget.value)}
+          >
+            {#each NAME_STYLES as value (value)}
+              <option {value}>{value}</option>
             {/each}
           </select>
         </label>
@@ -1558,17 +1591,28 @@
     background: rgba(46, 217, 166, 0.06);
     cursor: move;
   }
+  /* The key-label layer (rule 65): positioned so its inline z-index lifts it over every handle,
+     and transparent to presses so only the labels themselves take them. */
+  .handle-labels {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  /* One 24px line in canvas px; left/top come inline from the widget's x/y. */
   .handle__label {
     position: absolute;
-    top: 0;
-    left: 0;
+    height: 24px;
+    line-height: 24px;
+    padding: 0 8px;
     font-size: 22px;
-    padding: 2px 8px;
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: move;
     background: rgba(46, 217, 166, 0.9);
     color: #06231b;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    /* Editor chrome inside the themed preview stage: keep the modern look (rule 62). */
+    /* Editor chrome inside the themed preview stage: keep the modern look (rule 64). */
     text-shadow: none;
     font-style: normal;
   }

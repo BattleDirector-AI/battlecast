@@ -93,7 +93,7 @@ describe('/all without hideWhenIdle (rule 37)', () => {
   it('keeps the slot and shows the held battle through the grace, then the placeholder', async () => {
     const { container } = await holdStarted(cfg({ hideWhenIdle: false }))
     advance(4900)
-    expect(battleText(container)).toContain('Hamilton')
+    expect(battleText(container)).toContain('HAM')
     expect(battleText(container)).toContain('+1.8')
     expect(battleText(container)).not.toContain('NO ACTIVE BATTLE')
 

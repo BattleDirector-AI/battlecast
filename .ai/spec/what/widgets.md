@@ -128,15 +128,13 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     field: the chip shows under any `session.flag` or with no `session` at all, so a car that
     retires under green shows `DNF` at once. Decision record:
     `docs/decisions/0017-finish-status-field.md`.
-46. **Driver name style.** The tower renders every row's driver name in the style its
-    `nameStyle` setting selects (`overlay-config.md` rule 42): **short** (rule 47, the
-    default) or **full** (rule 48). The style applies to every row in both layouts (inline and
-    grouped), in every mode, and wherever the tower renders: the standalone `/tower` route and
-    the tower inside `/all`, including the `/config` preview. The root element
+46. **Driver name style.** The tower renders every row's driver name in the profile's name
+    style (`overlay-config.md` rule 42, rule 111): **short** (rule 47, the default) or **full**
+    (rule 48). The style applies to every row in both layouts (inline and grouped), in every
+    mode, and wherever the tower renders: the standalone `/tower` route and the tower inside
+    `/all`, including the `/config` preview. The root element
     (`data-testid="standings-tower"`) carries `data-name-style` = `short` | `full`, the style
-    it is rendering. Only the tower reads the setting. The battle box, the lower-thirds, the
-    on-board HUD and the `/grid` and `/results` slides render names in their own format,
-    whatever it holds. The name is derived from the car's own `driver_name` and nothing else. The tower never compares one
+    it is rendering. The name is derived from the car's own `driver_name` and nothing else. The tower never compares one
     car's name with another's, and the style changes no other cell, no row order and no
     highlight.
 47. **Short names.** The short form is built from `driver_name` as follows:
@@ -186,11 +184,13 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     | `-` | *(empty)* |
     | `  ` (whitespace) | *(empty)* |
 
-    The name cell is never narrower than the short name it holds and never ellipsizes it. When
-    a row with every metric cell on still needs more width than the tower has, the row is
-    clipped at the tower's right edge (rule 45).
-48. **Full names, and the tower that fits them.** The full form is the trimmed name as the
-    battle box shows it. A name containing `.` shows exactly as sent. A one-word name shows as
+    The short form is the form every widget shows in short style (rule 111). The name cell is
+    never narrower than the short name it holds and never ellipsizes it. When a row with every
+    metric cell on still needs more width than the tower has, the row is clipped at the tower's
+    right edge (rule 45), but never inside the name column: rule 116 widens the tower to the
+    end of its name column first.
+48. **Full names, and the tower that fits them.** The full form is the form every widget shows
+    in full style (rule 111): the trimmed name, read as follows. A name containing `.` shows exactly as sent. A one-word name shows as
     is. Otherwise it is the first word's first character, `. `, and the remaining words joined
     by single spaces: `Erik Jacobs` → `E. Jacobs`, `Nyck de Vries` → `N. de Vries`. A missing,
     null, non-string, empty or whitespace-only `driver_name` gives an empty cell, as in rule 47.
@@ -199,8 +199,9 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
       width*. The configured width is the widget's `w` inside `/all` and the `--bc-tower-width`
       token on the standalone route. The fit width is the widest full-form name in the
       **class-filtered field**, every car that passes `?class=` (rule 10), rendered or not,
-      measured in the row-name font at the on-camera row's weight and including the letter
-      spacing the name cell renders with, plus the widest non-name content (position, class
+      measured in the row-name font at the on-camera row's weight, in the font style the name
+      cell renders with (italic under `vintage70`), and including the letter spacing the name
+      cell renders with, plus the widest non-name content (position, class
       bar and badge, gap, interval, metric cells, finish chip, and the row's own padding and
       gaps) of any row rendered since the last reset, plus the tower's own left and right
       border. The configured width already includes the border, so it is not added there.
@@ -238,7 +239,18 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
         `maxRows`, `cycle`, `nameStyle`, the configured width, or (inside `/all`) the tower's
         `textScale`;
       - whether class tags show (rule 60) changes, from the setting or from a snapshot's
-        `session.multiclass`.
+        `session.multiclass`;
+      - the theme preset the tower renders in changes (`overlay-config.md` rule 59): the
+        `data-theme` value of the tower's nearest ancestor that carries one, which is the
+        document root on a render page and the preview stage in `/config`
+        (`overlay-config.md` rule 62). When no ancestor carries one at mount (a render page
+        writes the root attribute after the tower mounts), the tower watches the document
+        root. The value is compared as written, and an absent attribute counts as `modern`:
+        the root attribute appearing as `modern`, or the same value written again, is not a
+        change; appearing as `vintage70` or `vintage80` is. The names are then measured in the new preset's row-name font,
+        under the font-loading rules above: if that face has not loaded, the tower requests it
+        and measures once it loads. Switching back to a face that loaded earlier measures at
+        once.
 
       A new session in the same mode (one race, then the next) is **not** a reset: the
       protocol carries no session identity, so the tower cannot tell it apart from the same
@@ -251,7 +263,8 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     - **Height is untouched.** Names never wrap and the row height is the same as in short style. The tower's
       height bound, row budget, pins and cycling (`tower-overflow.md`) apply exactly as in
       short style.
-    - **Short style sets no minimum width.** The tower renders at its configured width.
+    - **Short style's minimum width is rule 116's.** The tower renders at its configured width
+      unless that is narrower than its rows up to the end of the name column.
 
     Decision record: `docs/decisions/0018-tower-driver-name-style.md`.
 49. **Table columns.** The tower lays its rows out as a table. Every row has the same cells in
@@ -314,7 +327,59 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     widest name the field needs in the current name style (rules 47, 48), and has no other
     minimum: in short style it is as narrow as the widest short code in the field, not a
     fixed width, so short names leave their room to the other columns. This holds with or
-    without a finish slot reserved.
+    without a finish slot reserved. The tower takes no reference short form (rule 113): its
+    name column is sized by the whole field already.
+116. **A short-style tower is never narrower than its names.** In short style the tower's
+    minimum width is the larger of its configured width (rule 48) and its **lead width**: the
+    width from the tower's left outer edge to the right edge of the name column in the widest
+    rendered row, plus the tower's right border. So every short code shows whole whatever `w`
+    is set: what a row has past its name column (gap, interval, metric cells, finish chip) is
+    what rule 45 clips at the tower's right edge, never the name. The lead width follows the
+    rows as they render, with no hold and no reset rules of its own: it changes when the name
+    column or a column before it (position, class chip, class-rank badge) changes width. At
+    any `w` at least as wide as the lead width the tower is exactly as it was, so this changes
+    nothing at the default width. The tower grows as rule 48 places it (left edge kept,
+    growing right); its height is untouched. Full style's minimum width is rule 48's fit width,
+    which already holds the whole row. Decision record:
+    `docs/decisions/0038-profile-wide-driver-name-style.md`.
+89. **The tower under `vintage70`.** On top of the base look (`overlay-config.md` rule 60) the
+    tower takes the 1970s network look. Everything this rule does not name renders the base
+    look. Decision record: `docs/decisions/0027-tower-vintage-pass.md`.
+    - **Header.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the header, inside it: the header is no taller.
+    - **Position numerals.** Every row's position numeral is warm white (`--bc-text-2`), the
+      on-camera row's included; driver names stay gold.
+    - **Class chip.** Each row's class chip leans with the type: its box is skewed 8° (top edge
+      to the right), with a hard 2px black drop shadow, and its label is upright type in the
+      preset's display face (Barlow Condensed, which is bundled with an upright cut), so the skew
+      alone gives it its lean. Its colours, text, type size and weight are unchanged.
+    - **On-camera row.** The row has no fill. Its driver name is white (`--bc-oncam-text`) at
+      the on-camera weight, and a solid red bar 4px high in the accent colour runs along the
+      row's bottom edge, inside the row. Every other cell, the class bar and class chip
+      included, renders as it does on any other row.
+    - **Re-cut.** When the highlight moves to a new driver it appears at once: there is no
+      shine sweep, at either motion setting.
+90. **The tower under `vintage80`.** On top of the base look the tower takes the 1980s timing
+    page look. Everything this rule does not name renders the base look. Decision record:
+    `docs/decisions/0027-tower-vintage-pass.md`.
+    - **On-camera row in reverse video.** The row is filled solid in the preset's accent colour
+      (lime), with no shadow. All of its text (position, class position, name, gap or lap time,
+      interval, the pit-stop count and its `STOP` label, the tire compound and the fuel cell)
+      renders in the dark on-accent colour (`--bc-text-on-accent`) with no text shadow or
+      outline. The class chip and the `DNF` and `DQ` chips each sit on a solid black block that
+      extends 2px past their cell on every side, so they read exactly as on any other row,
+      outline included. The chequered flag keeps its own white-and-black squares and edge, with
+      a 2px black ring around it. The `PIT` chip keeps its own red fill and dark text. The class
+      bar keeps its colour.
+    - **Lap-time flash in reverse video.** While a lap time flashes (rule 41), its cell is a
+      solid block of the flash colour with the time in the dark on-accent colour and no text
+      shadow: purple for a session or class best, green for a personal best, and for a plain
+      lap the preset's white (`--bc-text-2`), not its yellow-green, so a plain lap and a
+      personal best cannot be confused. The block extends 2px past the cell on every side, and a
+      1px black ring surrounds it, so it stands out on the plate and on the lime on-camera row
+      alike; neither changes the cell's size, so no column moves.
+    - **Re-cut.** When the highlight moves to a new driver it appears at once: there is no
+      shine sweep, at either motion setting.
 
 ### Battle box (`/battle`)
 
@@ -367,7 +432,8 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     when present; otherwise no name. A subject with no `slot_id` (absent or `null`) matches no
     entry, even one that also lacks a `slot_id`. The same entry gives the class chip (rule 30) and
     the position that rule 68 reads, so such a subject shows no class chip and both neighbours
-    render as `—`. The name shows in the full form of rule 48. With no name, the focus slot is
+    render as `—`. The name shows in the profile's name style (rule 111), whole (rule 112), in
+    the focus slot and in the idle line alike. With no name, the focus slot is
     empty and the idle line reads `CLEAR AIR — ON-CAMERA CAR`; the battle still renders.
     Subject validity (rule 14) does not gate the box — rules 11–12 and 36–39 decide whether it
     renders. The ahead and behind slots' names are rule 68's; this rule supplies only the subject's
@@ -379,16 +445,76 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     plus 1. A subject with no matching vehicle (rule 65's match) or no `position`, or a position with no car, leaves
     that slot at `—`. A neighbour's `driver_name` counts as present by the same test as rule 14b:
     a string with at least one non-whitespace character. A present name renders as the battle box
-    renders every name (rule 48's full form); a missing one — `""`, a whitespace-only string,
+    renders every name, in the profile's name style (rule 111), whole (rule 112); a missing one — `""`, a whitespace-only string,
     `null`, absent, a number, a boolean, an object or any other non-string — renders `—`. The
     empty cell rule 48 gives a missing name is the tower's; the battle box's slots show `—`. Each
     slot is judged on its own. The focus slot is outside this rule.
+91. **The battle box under `vintage70`.** On top of the base look (`overlay-config.md` rule 60)
+    the battle box takes the 1970s network look. Everything this rule does not name renders the
+    base look, the labels included. Decision record:
+    `docs/decisions/0029-battle-box-vintage-pass.md`.
+    - **Header.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the header, inside it: the header is no taller. It is the only thing the
+      battle box paints in the accent colour.
+    - **Focus slot on the raster band.** The focus slot is filled with the period rainbow raster:
+      seven horizontal stripes, 7px each, repeating top to bottom (green `#2FB34A`, yellow-green
+      `#9BCB2C`, gold `#E9B21C`, orange `#DE6A24`, magenta `#B53C9A`, violet `#5A4FCF`, blue
+      `#2C8FD8`), under a 30% black layer that knocks the stripes back. The fill has a hard 4px
+      black drop shadow, down and to the right, with no blur. The slot's `FOCUS` label and the
+      on-camera name are white (`--bc-oncam-text`). The name has no accent glow: it takes the
+      preset's heavy extrusion, four 1px dark steps down and to the right with a soft dark
+      halo, in place of the base look's three.
+    - **Meter.** The intensity meter's track and fill have square corners. The track is skewed
+      14° (top edge to the right) and drawn as 10 equal segments with a 4px gap between them;
+      the fill shows through the segments, so a value lights the segments it reaches, the last
+      one in part. The fill's colour ramp and the numeric value's colour are the intensity
+      colours, unchanged.
+    - **Intensifying.** The `CLOSING` title colour, the pulsing ring and its reduced-motion
+      steady ring render as under `modern`, in the intensity colour, not the accent.
+92. **The battle box under `vintage80`.** On top of the base look the battle box takes the 1980s
+    timing page look. Everything this rule does not name renders the base look. Decision record:
+    `docs/decisions/0029-battle-box-vintage-pass.md`.
+    - **Header blocks.** The red Scoreboard header stays. The title's line is filled solid
+      black, the fill reaching 2px past the title's line box on every side and staying inside the
+      header, so the title's colour reads on the red: the preset's white (`--bc-text-2`)
+      normally, and the intensity colour (`--bc-intensity-hot`) while the title reads `CLOSING`.
+      The class chip in the header is filled the same way, 2px past its own box.
+    - **Labels in the display face.** Every label in the box (the title, the three slot labels
+      `AHEAD`, `FOCUS` and `BEHIND`, the meter's `INTENSITY` label, the idle lines `NO ACTIVE
+      BATTLE` and `CLEAR AIR — <name>`, and the class chip's label) is set in the preset's display
+      face (Oswald, `--bc-font-display`), not its timing-page face (VT323), at the same size,
+      weight, letter spacing and case as under `modern`. The gaps and the meter's value stay in
+      VT323 at their own size and colour. A label sized to its own text, the class chip
+      included, takes the size its text needs in Oswald (`overlay-config.md` rule 60); every set
+      length is unchanged, and the box is 1px shorter than under `modern` only because the
+      labels' typeface changes the meter row's height (rule 60's exception for a box sized to its
+      own text).
+    - **Focus slot in reverse video.** The focus slot is filled solid in the preset's accent
+      colour (lime), with a hard 3px black drop shadow, down and to the right, with no blur.
+      Its `FOCUS` label and the on-camera name render in the dark on-accent colour
+      (`--bc-text-on-accent`) with no text shadow, outline or glow.
+    - **Meter.** The intensity meter's track and fill have square corners, and the track is
+      drawn upright as 12 equal segments with a 4px gap between them; the fill shows through the
+      segments as in rule 91. The fill's colour ramp and the numeric value's colour are the
+      intensity colours, unchanged.
+    - **Intensifying.** The pulsing ring and its reduced-motion steady ring render as under
+      `modern`.
 
 ### Subject-driven lower-thirds (`/driver` #21, `/qualifying` #22)
 
 A lower-third is the bottom-of-screen name-tag for the driver currently on camera. Both are
 subject-driven and **fire on a camera cut** (a change of `subject.slot_id`), not continuously.
 Full rules: `docs/decisions/0002-lower-third-widgets.md`.
+
+107. **The bar-wipe under a vintage preset has no shine.** The skewed bar-wipe that the driver
+    and qualifying lower-thirds, the race update box (rule 74) and the info panel (rule 81)
+    enter and leave with, and the logo rotation's matching reveal, play under `vintage70` and
+    `vintage80` exactly as under `modern`, at the same timings and under reduced motion with
+    the same plain fade: the lower-thirds' plate skew-slide and content wipe, and the logo
+    rotation's sideways slide and image wipe. The one difference is the mint shine bar, which
+    does not render: no shine sweeps across the plate or the logo on the way in or out, at
+    either motion setting. Each widget takes the preset from the nearest `data-theme`
+    ancestor, so the `/config` preview shows it too.
 
 13. **Visibility layering** (every gate must pass): `config.visible` → trigger (`dwell` |
     `persistent`) → subject validity / idle → render. `?show=`/`?hide=` override `visible`.
@@ -446,18 +572,84 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     fire on connect, and an overlay that connects during a race makes its connect fire on the
     first such subject once the session turns eligible. A class-best fire does NOT trigger on
     connect.
-18. **#21 driver lower-third** renders identity: name, position (`P4`), class chip (while class
-    tags show, rule 62). Fires on any subject change to a valid or degraded subject (rule 14), in
+18. **#21 driver lower-third** renders identity: name (in the profile's name style, rule 111,
+    whole, rule 112), position (`P4`), class chip (while class tags show, rule 62). Fires on any subject change to a valid or degraded subject (rule 14), in
     all modes. Degrades to name-only when `slot_id` unresolved.
     The position renders as `P` plus the vehicle's `position` only when that is a positive integer;
     `0`, a negative or fractional number, a numeric string (`"3"`), null or absent show no position,
     and the rest of the card renders as normal.
+109. **#21's name is never cut at its top or bottom.** The name is one line and never wraps. At its
+    top and bottom the name's own box cuts nothing it draws: every glyph renders whole — the
+    descenders of `g`, `j`, `p`, `q` and `y`, the tops of capitals and accents (`Å`, `É`) — and so
+    does its text shadow (the `modern` glow, and the `vintage70` extrusion and `vintage80` outline
+    of rules 93–94). This holds under every preset and at every `textScale` (`overlay-config.md`
+    rule 39). Showing them whole changes no box size: the name's line keeps the line height the page
+    gives it, so the card is no taller for it, and the plate's edge still bounds everything the card
+    draws. Where the name's glyphs and shadow reach past its line box, they paint over the card's
+    own marks beside them, such as the `vintage80` `ON CAMERA` tag above (rule 94) and, at a larger
+    `textScale`, the `vintage70` red rule below (rule 93); nothing moves or shrinks to avoid them.
 19. **#22 qualifying/sector lower-third** renders timing: best/last lap, per-sector times, and
-    target/delta when present. **Mode-gated** by `modes` (default `["qualifying","practice"]`).
+    target/delta when present, under a head row holding its label, the position, the name (in the
+    profile's name style, rule 111, whole, rule 112) and the class chip. **Mode-gated** by `modes` (default `["qualifying","practice"]`).
     Independently, when the producer flags the subject's `notable.class_best_lap` true, it fires a
     class-best flash even in a race (`fireOnClassBest`, default true) — firing on the transition to
     true, never by scanning lap times. Idle when subject invalid, no timing at all, or mode-gated
     out with no class-best fire.
+93. **The lower-thirds under `vintage70`.** On top of the base look (`overlay-config.md` rule 60)
+    both lower-thirds, #21 and #22, take the 1970s network look. Everything this rule does not
+    name renders the base look: every label and timing value keeps the preset's italic type and
+    its small-text extrusion at its `modern` size, and the class chip is the base chip. Decision
+    record: `docs/decisions/0030-lower-thirds-vintage-pass.md`.
+    - **Red rule.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the card, inside it: the card is no taller. #22 draws it on the class-best
+      flash too.
+    - **Accent bar.** The card's accent bar keeps its colour (the accent red; on a #22 class-best
+      flash, the flash colour) and is square-ended, with no glow: a hard 2px black drop shadow
+      (2px right, 2px down, no blur) sits under it instead.
+    - **Position.** The `P4` position is warm white (`--bc-text-2`), not the accent.
+    - **Name.** The driver's name is gold (`--bc-text`) on both cards. On #21 it carries the
+      mock's heavy extrusion in place of the accent glow: four hard black steps, 1px to 4px down
+      and right, with a soft dark halo. On #22 it keeps the base extrusion.
+    - **#22 best lap.** The `BEST` time has no glow: it takes the preset's base text shadow, in
+      its own colour.
+    - **#22 class-best label.** While the class-best flash is up, its `CLASS BEST` label is a
+      solid block of the flash colour (`--bc-intensity-hot`) with the label in the dark on-accent
+      colour (`--bc-text-on-accent`) and no text shadow. The block extends 3px past the label on
+      every side with a 1px black ring outside it, and changes no box size. A plain card's
+      `TIMING` label is plain text.
+    - **Plate and transitions.** The plate is the shared shell's base-look plate; its entrance and
+      exit are rule 107's.
+94. **The lower-thirds under `vintage80`.** On top of the base look both lower-thirds take the
+    1980s caption look. Everything this rule does not name renders the base look: the position
+    and every timing value stay in the preset's raster face (VT323) at their `modern` size, and
+    the class chip is the base chip. Decision record:
+    `docs/decisions/0030-lower-thirds-vintage-pass.md`.
+    - **Labels in the caption face.** Every label on both cards (`ON CAMERA`, `TIMING`,
+      `CLASS BEST`, and #22's `BEST`, `LAST`, `S1`–`S3`, `TARGET` and `Δ`) takes the preset's
+      display family (`--bc-font-display`: Oswald and its fallbacks) instead of the raster face,
+      at its `modern` size, weight and tracking. The bundled Oswald has no Greek, so `Δ` renders
+      in the family's next available face. Each label's box, and so #22's card height, takes the size the label takes in that
+      face (`overlay-config.md` rule 60).
+    - **#21 tag.** The `ON CAMERA` label is a tag: the label in CG white (`--bc-text-2`) with no
+      text shadow on a solid block of the preset's header red (`--bc-header`) that extends 3px
+      past the label on every side, with a hard black drop shadow of the same block 2px right and
+      2px down. It changes no box size.
+    - **Accent bar.** As under `vintage70` (rule 93): its colour kept, square-ended, no glow, a
+      hard 2px black drop shadow under it.
+    - **Name.** #21's name keeps its colour and carries the mock's heavy outline in place of the
+      accent glow: a 2px black outline on all eight sides, a 3px hard black drop and a soft dark
+      halo. #22's name keeps the base outline.
+    - **#22 best lap.** The `BEST` time has no glow: it takes the preset's base outline, in its
+      own colour.
+    - **#22 delta ahead in reverse video.** While the delta to target is ahead (zero or below),
+      its value is a solid block of the position-gain green (`--bc-up`) with the delta in the dark
+      on-accent colour and no text shadow, the block 2px past the value on every side with a 1px
+      black ring outside it, so it cannot be mistaken for the yellow-green of an ordinary value. A
+      delta behind target renders as any other value. Neither changes a box size.
+    - **#22 class-best label.** As under `vintage70` (rule 93): a solid block of the flash colour,
+      3px past the label, a 1px black ring, the label dark with no text shadow.
+    - **Plate and transitions.** The plate is the shared shell's base-look plate; its entrance and
+      exit are rule 107's.
 
 ### Race Control (`/racecontrol`, session status #25)
 
@@ -479,6 +671,35 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     both show. Under a full-course yellow or a safety car the chip is not shown (the FCY/SC
     badges already cover the whole course). A sector yellow does not start the caution pulse,
     which stays FCY/SC only. Decision record: `docs/decisions/0016-local-yellow-fields.md`.
+95. **Race Control under `vintage70`.** On top of the base look (`overlay-config.md` rule 60)
+    the strip takes the 1970s network look. Everything this rule does not name renders the base
+    look: the black plate, the italic type with its small-text extrusion, and every colour, the
+    flag swatch colours and the chips' amber included. Decision record:
+    `docs/decisions/0031-racecontrol-vintage-pass.md`.
+    - **Red rule.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the strip, inside it: the strip is no taller. It shows under every flag, red
+      included; the flag's meaning stays with its swatch and its label.
+    - **Flag swatch.** The swatch leans with the type: it is skewed 8° (top edge to the right).
+      Its colour, the chequered squares included, is unchanged.
+    - **Chips.** The `FULL COURSE YELLOW`, `SAFETY CAR` and sector-yellow chips are not skewed:
+      their italic type already leans. The `FULL COURSE YELLOW` chip's dark text has no
+      extrusion, and the chip casts a hard 2px black drop shadow.
+    - **Caution.** Under a full-course yellow or a safety car the amber ring pulses as under
+      `modern`, at the same timing, but the strip has no soft amber glow around it. Reduced motion
+      shows the same steady ring as under `modern`.
+96. **Race Control under `vintage80`.** On top of the base look the strip takes the 1980s
+    timing-page look. Everything this rule does not name renders the base look: the Scoreboard
+    red plate with its hard black shadow, the thin black outline on text, and every colour.
+    Decision record: `docs/decisions/0031-racecontrol-vintage-pass.md`.
+    - **Typeface.** The flag label and every chip are set in the preset's display face (Oswald,
+      `--bc-font-display`), not its timing-page face (VT323), at the same size and weight as
+      under `modern`. The strip is a box sized to its own text (`overlay-config.md` rule 60), so
+      its size follows the typeface; every set length (padding, gaps, swatch size) is unchanged.
+    - **Flag swatch.** The swatch keeps its own colour, chequered squares and edge, with a 2px
+      black ring around it, so a red flag's swatch shows on the red strip.
+    - **Chips.** The `FULL COURSE YELLOW` chip's dark text has no outline.
+    - **Caution.** As under `vintage70` (rule 95): the ring pulses as under `modern`, and the strip
+      has no soft amber glow around it.
 
 ### On-board HUD (`/onboard`, #26)
 
@@ -542,7 +763,8 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     car number, driver name, class chip (while class tags show, rule 63), then make and model as
     one line. Each enabled field shows only when it has a value. The name is the subject's name as
     rule 14b picks it (`subject.driver_name`, falling back to the vehicle's `driver_name`), in the
-    HUD's name format; the others are read off the resolved vehicle.
+    profile's name style (rule 111), whole (rule 112); the others are read off the resolved
+    vehicle.
     Position renders as `P` followed by the vehicle's overall `position` — `P4`. A `position` that
     is null, absent, or anything other than a positive integer shows no position, and the rest of
     the strip renders as normal.
@@ -574,6 +796,54 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     on it changes nothing. In `/all`, its slot is placed whenever the widget is `visible`, even
     while the HUD is idle or held off, and the strip reads that widget's saved `driverInfo`. The
     standalone `/onboard` route uses the default `driverInfo` (name, number, position).
+97. **The HUD under `vintage70`.** On top of the base look (`overlay-config.md` rule 60) the HUD
+    takes the 1970s network look. Everything this rule does not name renders the base look, the
+    italic lean of every label included. Decision record:
+    `docs/decisions/0032-onboard-vintage-pass.md`.
+    - **Plate.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the HUD's plate, inside it, whichever of the HUD's parts show (rule 56): the
+      plate is no taller.
+    - **Car number.** The number tile keeps its accent-red fill and leans with the type: its
+      box is skewed 8° (top edge to the right), with a hard 2px black drop shadow, and its
+      numeral is upright type, so the skew alone gives it its lean. The numeral is white
+      (`--bc-oncam-text`), with no text shadow.
+    - **Class chip.** Its box is skewed 8° (top edge to the right) with a hard 2px black drop
+      shadow, and its label is upright type in the preset's display face (Barlow Condensed,
+      which is bundled with an upright cut), so the skew alone gives it its lean. Its colours,
+      text, type size and weight are unchanged.
+    - **Bar and readout labels.** `THROTTLE`, `BRAKE`, the speed unit and `GEAR` are set in the
+      preset's display face (Barlow Condensed), still italic, at the same size, weight and
+      tracking, so each bar label fits its column and clears its bar.
+    - **Gear.** The gear numeral is gold (`--bc-text`), like the speed, not the accent colour.
+    - **Bars.** The throttle and brake bars have square ends, and each track, its fill
+      included, is cut into segments 10px wide with 3px gaps (measured across the slant), the
+      gaps leaning 14° from upright, top edge to the right. The fill colours are unchanged.
+    - **Paint only.** The rule, tiles and segments add no size and move nothing, and the HUD
+      moves as it does under `modern`, the bars' per-tick smoothing included, at either motion
+      setting. Boxes sized to their text follow rule 60's second exception.
+98. **The HUD under `vintage80`.** On top of the base look the HUD takes the 1980s timing page
+    look. Everything this rule does not name renders the base look. Decision record:
+    `docs/decisions/0032-onboard-vintage-pass.md`.
+    - **Plate.** The HUD sits on the preset's black widget plate (`--bc-plate`), not the red
+      Scoreboard header colour, with the preset's hard plate shadow. The plate's opacity is the
+      widget's `plateAlpha` itself (0.82 by default), where `modern` and `vintage70` paint the
+      HUD at the header opacity (0.94 at the default).
+    - **ON BOARD label in reverse video.** The label is a solid block of the live colour
+      (`--bc-live`) that extends 4px past the label on every side, with the text in the dark
+      on-accent colour (`--bc-text-on-accent`) and no text shadow or outline.
+    - **Position in reverse video.** The position (`P4`) is a solid block of the preset's
+      white (`--bc-text-2`) that extends 4px past it on every side, with the text in the dark
+      on-accent colour and no text shadow or outline. When both show, the label's block and
+      the position's block meet edge to edge.
+    - **Car number.** The tile keeps its lime fill and dark numeral, with no text shadow or
+      outline.
+    - **Driver name.** The name is the preset's yellow-green (`--bc-text`).
+    - **Bars.** The throttle and brake bars have square ends, and each track, its fill
+      included, is cut into upright blocks 10px wide with 2px gaps. The fill colours are
+      unchanged.
+    - **Paint only.** The blocks and segments add no size and move nothing, and the HUD moves
+      as it does under `modern`, the bars' per-tick smoothing included, at either motion
+      setting. Boxes sized to their text follow rule 60's second exception.
 
 ### Race update box (`/updates`, #27)
 
@@ -610,8 +880,10 @@ between snapshots. Decision record: `docs/decisions/0023-race-update-box.md`.
       one space: `GT3 FASTEST LAP`, `LMGT3 PRO-AM NEW LEADER`, `GT3 RETIRED`. Any other event is
       overall and its label has no prefix. The prefix is part of the label, not a class tag:
       hiding class tags (rule 60) does not remove it.
-    - **Name** (`data-testid="update-name"`): the event's `driver_name` in the full form of
-      rule 48: `Kevin Estre` → `K. Estre`, `Estre` → `Estre`, `E.Jacobs` → `E.Jacobs`.
+    - **Name** (`data-testid="update-name"`): the event's `driver_name` in the profile's name
+      style (rule 111), whole (rule 112). Full (rule 48): `Kevin Estre` → `K. Estre`, `Estre` →
+      `Estre`, `E.Jacobs` → `E.Jacobs`. Short (rule 47): `Kevin Estre` → `K.EST`, `Estre` →
+      `EST`, `E.Jacobs` → `E.JAC`.
     - **Value** (`data-testid="update-value"`): for `fastest_lap`, `lap_time` formatted exactly
       as the tower's lap-time flash formats a lap (rule 40): `208.977` → `3:28.977`, `58.204`
       → `58.204`. For `penalty`, the `penalty` string trimmed and otherwise verbatim
@@ -661,6 +933,40 @@ between snapshots. Decision record: `docs/decisions/0023-race-update-box.md`.
     `dwellSeconds`; while not `visible` it is not mounted. The box has no idle predicate: with no
     card up it already draws nothing, so `/config` offers no "Hide when idle" for it and a saved
     `hideWhenIdle: true` on it changes nothing (as for the HUD, rule 58).
+99. **The race update box under `vintage70`.** On top of the base look (`overlay-config.md` rule
+    60) the box takes the 1970s network look. Everything this rule does not name renders the base
+    look. Decision record: `docs/decisions/0033-race-update-box-vintage-pass.md`.
+    - **Accent bar.** The bar at the card's left edge is flat, in the preset's accent colour
+      (red), with square corners, no glow, and a hard 2px black drop shadow down and to the right.
+    - **Value.** The lap time or penalty is warm white (`--bc-text-2`), not the accent colour.
+      No text in the box is red: the accent bar is the box's only red.
+    - **Type.** The label, name, value and detail keep the base look's lean and small-text
+      extrusion. No line takes a heavier shadow.
+    - **Plate and reveal.** The box gives its plate, frame and bar-wipe no treatment of its own:
+      they render as the shared lower-third shell renders them under the preset (rule 107), the
+      same as on the driver and qualifying lower-thirds.
+100. **The race update box under `vintage80`.** On top of the base look the box takes the 1980s
+    timing page look. Everything this rule does not name renders the base look. Decision record:
+    `docs/decisions/0033-race-update-box-vintage-pass.md`.
+    - **Accent bar.** As under `vintage70`: flat, in the preset's accent colour (lime), with
+      square corners, no glow, and a hard 2px black drop shadow down and to the right.
+    - **Label as a tag.** The label sits on a block of the preset's header red (`--bc-header`)
+      that is as wide as its text, not the card (a tag that hugs its label, `overlay-config.md`
+      rule 60's second exception), and extends 2px past the label's line on every side, with a
+      hard black drop shadow 3px down and to the right of the block. Its text is in
+      the display face (`--bc-font-display`), in the preset's white (`--bc-text-2`), with no
+      text shadow or outline. Every label takes the same tag, whatever the event type, class
+      prefix included.
+    - **Detail.** The detail is in the display face (`--bc-font-display`), with its base colour
+      and outline.
+    - **Name and value.** Both keep the base look: the name in the display face, the value in
+      the timing face (`--bc-font-mono`) and the accent colour. No line takes a heavier outline.
+    - **Plate and reveal.** As under `vintage70`, the shared lower-third shell's (rule 107).
+
+    Neither rule resizes the card or moves a line of text in it: the label's block and every
+    shadow are painted outside the boxes they belong to, and every line of the card takes the set
+    line height it inherits, whatever its face, so the card has the same size and its lines start
+    at the same places as under the base look.
 
 ### Info panel (`/info`, #62)
 
@@ -708,7 +1014,46 @@ part and line, uppercases the header and the weather card, and shows a repeated 
     line list it has the header only and no line element; with neither it draws nothing at all:
     no panel element, no plate, no placeholder. The line row is one line high: a line too long
     for the panel's width is cut off with an ellipsis and never wraps or grows the panel. The
-    panel shows in every `mode`; it has no mode gate, no trigger, and no class awareness.
+    header is one line high too and never wraps, but it is never cut: a header too long for the
+    panel's slot widens the panel (rule 78a). The panel shows in every `mode`; it has no mode
+    gate, no trigger, and no class awareness.
+78a. **A long header widens the panel.** The panel's **slot** is the box it is placed in: the
+    `info` widget's configured `x` and `w` inside `/all` (and the `/config` preview), and the
+    page's content box (the viewport less the page's safe inset on each side) on the standalone
+    `/info` route. Its **canvas** is the profile's canvas (`config.canvas`, 1920 px wide by
+    default) inside `/all` and the preview, and the Browser Source's viewport on `/info`. Decision record:
+    `docs/decisions/0037-info-panel-header-widens-panel.md`.
+    - **Width.** The panel is as wide as the wider of its slot's width and its header's
+      **need**: the header's full text width as it renders (in its preset's face and font
+      style, at its size, weight and letter spacing, scaled by the widget's `textScale`), plus
+      the panel's left and right padding and the shell's left and right border. The header
+      therefore shows in full, in every preset, and is never cut off with an ellipsis. A panel
+      with no header, or whose header's need is no wider than its slot, is exactly its slot's
+      width. A line never widens the panel: rule 78 cuts it at the panel's width, the widened
+      width included. The panel's height does not change.
+    - **Place.** A panel no wider than its slot sits in its slot. A wider panel keeps the
+      slot's left edge and extends to the right until its right edge reaches the canvas's
+      right edge; the extra width the canvas has no room for on the right is added on the left
+      instead, so the panel's right edge sits on the canvas's right edge. When the slot itself
+      already runs past the canvas's right edge, the panel keeps the slot's right edge and
+      extends left only. The panel never extends left past the canvas's left edge, or past its
+      slot's own left edge when the slot starts left of the canvas: a panel too wide for that
+      starts at whichever of the two is further left, and what runs past the right edge is cut
+      off by the page, header included. So the panel always covers its whole slot. With slot
+      left `x`, slot width `w`, panel width `W` and canvas width `C`, the panel's left edge is
+      `max(min(x, 0), x − max(0, x + W − max(C, x + w)))`, and where this prose and the formula
+      seem to differ the formula decides: in the default slot (`x` 1200, `w` 696, `C` 1920), a
+      700 px panel starts at 1200, a 900 px one at 1020, and a 2000 px one at 0.
+    - **When.** The width and place follow the header on screen as it renders: a header
+      change, a preset switch, a face finishing loading, a `textScale` change or a geometry
+      change (the slot or canvas in `/all`, a resized Browser Source on `/info`) resizes and
+      re-places the panel at once, with no transition and without
+      replaying the wipe (rule 81). A header that goes away (no part holds) leaves the panel
+      at its slot.
+    - **Neighbours and the editor.** A widened panel draws over or under the widgets it
+      overlaps by its `z`, as any widget does; the overlay neither moves another widget nor
+      narrows the panel to avoid one. The stored geometry does not change, and the `/config`
+      drag box stays on the configured slot.
 79. **Rotation.** The line row shows one line of the line list at a time. When the list first
     has a line (at mount, or after it was empty), its first line shows. A line stays up for the
     panel's dwell (`dwellSeconds`, default 8; `overlay-config.md` rule 52), counted from when it
@@ -790,6 +1135,34 @@ part and line, uppercases the header and the weather card, and shows a repeated 
 
     While `weatherCard` is off, or the weather has no part, there is no card and the line list
     is exactly rule 77's text lines.
+101. **The info panel under `vintage70`.** On top of the base look (`overlay-config.md` rule
+     60) the panel takes the 1970s network look. Everything this rule does not name renders the
+     base look: the line stays in the preset's gold primary text, the header and the line both
+     keep the base text shadow (the small-text extrusion, not the mock's heavier one), and the
+     panel enters, leaves and crossfades as rules 81 and 107 say. Decision record:
+     `docs/decisions/0034-info-panel-vintage-pass.md`.
+     - **Header.** The header is the mock's teal subhead colour, `#35D4C8`, at its base size,
+       weight and tracking.
+     - **Red rule.** A solid red rule, 4px high and in the preset's accent colour, runs along
+       the bottom edge of the panel, inside it and over its bottom padding: the panel is no
+       taller. It shows whenever the panel draws, with a header, a line or both, and wipes in
+       and out with the panel's content. The panel draws no live, position-change or
+       battle-intensity colour, so the rule is its only red.
+102. **The info panel under `vintage80`.** On top of the base look the panel takes the 1980s
+     timing page look. Everything this rule does not name renders the base look: the line stays
+     in the preset's UI face (VT323) and yellow-green primary text, the line keeps the base 1px
+     outline (not the mock's 2px one), and the panel enters, leaves and crossfades as rules 81
+     and 107 say. Decision record: `docs/decisions/0034-info-panel-vintage-pass.md`.
+     - **Header as a red Scoreboard tag.** The header is set in the preset's display face
+       (Oswald) instead of VT323, in the preset's white (`--bc-text-2`) with no text shadow or
+       outline, at its base size, weight and tracking, on a solid block of the preset's red
+       header colour (`--bc-header`). The block hugs the header text (`overlay-config.md` rule
+       60) and always holds all of it: a header too long for the slot widens the panel (rule
+       78a), so the block is never cut and the header never ellipsizes. It extends 2px past
+       the text on every side, so it fills the 2px gap above the line and covers none of the
+       line's glyphs, and casts a hard black shadow 3px down and to the right. The face
+       changes no height: the header's line box is its line height times its size in either
+       face, so the panel is no taller.
 
 ### Weather box (`/weather`, #208)
 
@@ -842,6 +1215,26 @@ derives nothing from `vehicles[]` or any other field. Decision record:
     `visible` it is not mounted. The box has no idle predicate: with no weather it already draws
     nothing, so `/config` offers no "Hide when idle" for it and a saved `hideWhenIdle: true` on
     it changes nothing.
+103. **The weather box under `vintage70`.** On top of the base look (`overlay-config.md` rule
+     60) the box takes the 1970s network look. Everything this rule does not name renders the
+     base look: the black, square, unblurred plate, the preset's typefaces and lean, and its
+     small-text extrusion on every part. Decision record:
+     `docs/decisions/0035-weather-box-vintage-pass.md`.
+     - **Red rule.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+       box's bottom edge, inside it: the box is no taller and no wider. The plate keeps the
+       preset's plate shadow. The rule is the only red in the box: no text in it is red.
+     - **Temperatures.** Both temperature values are warm white (`--bc-text-2`), like every
+       numeral in the preset. Their `AIR` and `TRACK` labels keep the base colour.
+     - **Conditions.** The conditions text is the preset's gold (`--bc-text`).
+104. **The weather box under `vintage80`.** On top of the base look the box takes the 1980s
+     Channel 7 header-bar look. Everything this rule does not name renders the base look: the
+     square Scoreboard-red plate with its hard black plate shadow, VT323 on the temperature
+     values and the conditions, the yellow-green temperature values, the white conditions text,
+     and the thin black outline on all of it. Decision record:
+     `docs/decisions/0035-weather-box-vintage-pass.md`.
+     - **Labels.** The `AIR` and `TRACK` labels are set in the preset's display face (Oswald,
+       `--bc-font-display`) instead of VT323, at their usual label size and weight, and are CG
+       white (`--bc-text-2`).
 
 ### Composite & takeover routes
 
@@ -854,7 +1247,41 @@ derives nothing from `vehicles[]` or any other field. Decision record:
     show (rule 64) they group the field by class in class-registry order (the same sequence the
     grouped tower uses), order each group by `position`, and `/results` restarts class positions
     within each group (like the grouped tower). Both honor the `?class=` filter. `/grid` shows the
-    overall position in a staggered two-column rake.
+    overall position in a staggered two-column rake. Each car's name shows in the profile's name
+    style (rule 111), whole (rule 112).
+105. **The takeover slides under `vintage70`.** On top of the base look (`overlay-config.md` rule
+    60) `/grid` and `/results` take the 1970s network look. Everything this rule does not name
+    renders the base look. Decision record: `docs/decisions/0036-takeover-slides-vintage-pass.md`.
+    - **Board.** The slide's board is solid black (`--bc-plate-solid`).
+    - **Header.** A solid red rule, 4px high and in the preset's accent colour, runs along the
+      bottom edge of the header, inside it: the header is no taller. The title stays gold.
+    - **Subheads in teal.** Each class group's car count (`5 CARS`) and, on `/results`, each
+      group's column heads (`POS`, `DRIVER`, `BEST LAP`) are teal, `#35D4C8`.
+    - **Position numerals.** Every position numeral (each grid cell's and each results row's) is
+      warm white (`--bc-text-2`); driver names stay gold.
+    - **Class chips.** Every class chip on the slide (each group header's, and the header's
+      filter chip) leans as the tower's does (rule 89): its box is skewed 8° (top edge to the
+      right), with a hard 2px black drop shadow, and its label is upright type in the preset's
+      display face (Barlow Condensed, which is bundled with an upright cut). Its colours, text,
+      type size and weight are unchanged.
+    - **The red marks nothing else.** The header rule is the only element on either slide in
+      the accent colour.
+    - **Type.** Every text keeps the base look's small-text extrusion; none takes the mock's
+      heavier one.
+106. **The takeover slides under `vintage80`.** On top of the base look `/grid` and `/results`
+    take the 1980s timing page look. Everything this rule does not name renders the base look.
+    Decision record: `docs/decisions/0036-takeover-slides-vintage-pass.md`.
+    - **Board.** The slide's board is solid black (`--bc-plate-solid`).
+    - **Title on a Scoreboard plate.** The header title sits on a block in the preset's header
+      red (`--bc-header`) that extends 6px past the title on every side, with no shadow. The
+      title is the preset's white (`--bc-text-2`) with the base outline. The block changes no
+      box size and does not reach the filter chip.
+    - **Subheads in white.** Each class group's car count and, on `/results`, each group's
+      column heads are the preset's white (`--bc-text-2`).
+    - **Position numerals.** Every position numeral is the preset's white (`--bc-text-2`);
+      driver names stay lime.
+    - **Class chips.** Unchanged from the base look.
+    - **Type.** Every text keeps the base look's 1px outline; none takes the mock's 2px one.
 
 ### Field filter & auto-hide
 
@@ -978,6 +1405,121 @@ derives nothing from `vehicles[]` or any other field. Decision record:
     profile that says `inline`, says nothing, or has not loaded yet gives the one overall list and
     `data-class-display` reads `inline`. `?class=` narrows the grouped field on `/tower` as it does
     in `/all`. There is no URL knob for the layout.
+
+### Driver names in every widget
+
+These rules cover every place a widget shows a driver's name: the standings tower's rows
+(rules 46–48, 53, 116), the battle box's focus, ahead and behind slots and its idle line
+(rules 65, 68), the driver lower-third's name (#21, rule 18), the qualifying lower-third's head
+row (#22, rule 19), the on-board HUD's identity strip (rule 54), the race update card (rule 70),
+and the `/grid` and `/results` slides (rule 27). Decision record:
+`docs/decisions/0038-profile-wide-driver-name-style.md`.
+
+111. **One name style for every widget.** Every name above shows in the profile's name style
+    (`overlay-config.md` rule 42): in `short`, rule 47's short form (`Erik Jacobs` → `E.JAC`);
+    in `full`, rule 48's full form (`Erik Jacobs` → `E. Jacobs`). The style is the same for
+    every widget, in every mode and under every preset and `textScale`, so in `/all` the tower,
+    the battle box, #21 and the HUD show one car's name as the same string. The routes take the
+    style as `overlay-config.md` rule 42 says: `/all` and the `/config` preview from the profile
+    (the preview from the editor's current value), each standalone route that loads a profile
+    from it, and `/onboard`, which loads none, `short`. Each form is derived from the car's own
+    `driver_name` alone (for the battle box, #21, #22 and the HUD, the name rule 14b picks);
+    no widget compares one car's name with another's to choose a form, and the style changes
+    nothing a widget shows but its names. A missing name renders as each widget's own rule
+    says: an empty tower cell (rule 47), an empty focus slot or `—` in the battle box (rules 65,
+    68), an empty name on #21 and #22 (rule 14b), no name in the HUD strip (rule 54).
+112. **A name is never cut.** In either style every name renders whole, on one line: it never
+    ends in an ellipsis, is never clipped by its own box, its slot, its row or its widget's
+    plate, never wraps, never shows in the other style's form, and never renders smaller than
+    its widget's text size. Its glow, extrusion or outline (the base look and the vintage rules)
+    is not clipped by the name's own box. Where a widget's configured width leaves a name less
+    room than it needs, the widget grows wider instead (rules 114–116; rule 48 for the tower in
+    full style). Only the page cuts a name, and only what lies past the canvas or the Browser
+    Source edge (rule 115).
+113. **Room for any short form.** In short style each **single-name slot** (the battle box's
+    focus, ahead and behind names, #21's name, #22's name, the HUD strip's name and the race
+    update card's name) is never narrower than the **reference short form** `W.WWW`: a capital
+    `W`, `.`, then three capital `W`s, rendered as that name renders (its face, font style,
+    size, weight, letter spacing and case, at its widget's `textScale`, under the current
+    preset). So any short form of letters no wider than `W` fits the slot at the same width,
+    and the widget's width does not change from one car's short form to the next. A short form
+    wider than the reference (rule 47's `ß` → `SS` lengthening, `J.ASSM`, or a letter wider
+    than `W`) still shows whole: the slot is then as wide as the short form, and its widget
+    grows for it as in rule 114. The reference is reserved whatever the slot shows, so a battle
+    slot showing `—`, or an empty focus slot, keeps the reference's room. It draws nothing and
+    adds no height. In full style no reference is reserved. The tower (rule 53) and the slides
+    take no reference, since their name column is sized by the whole field, and the battle box's
+    idle line is a sentence, not a slot, and takes none either.
+114. **How each widget grows.** A widget's **need** is the narrowest width at which every name it
+    shows renders whole (rule 112), with the reserved room of rule 113, and every item named
+    below as whole renders whole. A widget renders as wide as the wider of its configured width
+    and its need, and a name never makes it taller: its height is the same as with a short
+    name, except #22's, which can be shorter (below). The
+    configured width is the widget's `w` inside `/all` and the `/config` preview; on a
+    standalone route it is the box the route gives the widget (the `--bc-battle-width` token
+    for `/battle`, the page's content box for `/driver`, `/qualifying`, `/onboard` and
+    `/updates`, the
+    viewport for `/grid` and `/results`).
+    - **Battle box.** Each of the three slots is at least as wide as its own content: its label,
+      its name (or `—`) and, ahead and behind, its gap, plus the slot's own padding and
+      dividers. Width the box has beyond what the slots need is shared between them in the
+      1 : 1.15 : 1 proportion (ahead : focus : behind), so with names that fit each slot is its
+      share of the box's width. The idle line (`CLEAR AIR — <name>`) is one line, whole, and the idle box is at
+      least as wide as it plus the idle box's padding. The header and the meter span the box's
+      width.
+    - **#21 driver lower-third.** The card is at least as wide as its accent bar, its padding
+      and gaps, and the wider of its top line (the `ON CAMERA` label, the position and the class
+      chip, each whole) and its name. The plate is the card's width.
+    - **#22 qualifying lower-third.** The head row is one line, and its label (`TIMING`, or
+      `CLASS BEST` on the flash), position, name and class chip each render whole on that line:
+      the label never wraps. The card is at least as wide as the head row plus its accent bar,
+      padding and gaps. The timing row below wraps its cells onto further lines at the card's
+      width and never widens the card. So a card the name widens is never taller than the same
+      card at its configured width: its timing row takes as many lines or fewer, and with fewer
+      the card is shorter.
+    - **On-board HUD.** The identity strip's label, position, car number, name and class chip
+      each render whole, and so does the telemetry row (rule 21): its throttle and brake bars
+      with their labels, each bar's track no narrower than its minimum, and its SPEED and GEAR
+      readouts. The make-and-model line is not a
+      name: it still shows its beginning cut at the end with an ellipsis, at the HUD's width, and
+      never widens the HUD. The HUD stays as wide as its content up to its slot's width (centred
+      in the slot), and is wider than its slot only by what the strip's whole items or the
+      telemetry row need, whichever is wider. The telemetry row's need does not depend on the
+      name, so in a slot narrower than it the HUD is that wide with any name or none. The
+      telemetry row spans the HUD's width.
+    - **Race update card.** The label line and the line holding the name and the value render
+      whole. The detail line is not a name: it is still cut at the end with an ellipsis at the
+      card's width, and never widens the card.
+    - **`/grid` and `/results`.** On `/grid` each of the two rake columns is at least as wide as
+      its widest cell's content (the class bar, the position, the name and the cell's padding),
+      and the width beyond that is shared equally. On `/results` the name column of each row is
+      at least as wide as that row's name, and the position and best-lap columns keep their
+      widths. A slide wider than the viewport runs past its right edge, where the page cuts it.
+115. **Where a grown widget sits, and when it changes.**
+    - **Place inside `/all` and the preview.** A widget no wider than its slot sits at its slot
+      (the HUD centred in it, every other widget filling it from its left edge). A wider one sits by the info panel's formula (rule 78a), with the slot's left `x`,
+      slot width `w`, canvas width `C`, the widget's width `W`, and its **natural left** `L0`:
+      `x` for every widget but the HUD, and `x + (w − W) / 2` for the HUD, which is centred on
+      its slot. The widget's left edge is `max(min(L0, 0), L0 − max(0, L0 + W − max(C, x + w)))`.
+      So it keeps its natural left edge and grows to the right until its right edge reaches the
+      canvas's right edge; the width the canvas has no room for on the right is taken on the
+      left instead; it never moves left of the canvas's left edge (or of `L0` when that is
+      already left of it); and what still runs past the right edge is cut by the page. In the
+      default layout (`C` 1920): the race update card (`x` 1376, `w` 520) at 600 px starts at
+      1320; a HUD in a slot at `x` 1500, `w` 400, 600 px wide starts at 1320.
+    - **Place on a standalone route.** The widget keeps its left edge and grows to the right;
+      what runs past the viewport is cut by the page.
+    - **When.** The width and place follow the names on screen as they render, with no hold:
+      a name change (a camera cut, a neighbour changing in the battle box, a new update card), a
+      style change, a preset switch, a face finishing loading, a `textScale` change or a geometry
+      change resizes and re-places the widget at once, with no transition and without replaying
+      a lower-third's or the update card's wipe. A widget whose names fit again returns to its configured
+      width (the HUD to the width rule 114 gives it without the name). During the battle box's exit grace (rule 37) the held battle's names decide. The
+      tower is outside this rule: it grows only by rules 48 and 116.
+    - **Neighbours and the editor.** A grown widget draws over or under the widgets it overlaps
+      by its `z`; the overlay neither moves another widget nor narrows the grown one to avoid
+      it. The stored geometry does not change, and the `/config` drag box stays on the
+      configured slot.
 
 ## Constraints
 

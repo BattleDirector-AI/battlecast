@@ -71,7 +71,7 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(tower.style.left).toBe('24px')
     expect(battle.style.left).toBe('448px')
     // Existing /all content contract still holds inside the laid-out slots.
-    expect(container.textContent).toContain('Hamilton')
+    expect(container.textContent).toContain('HAM')
   })
 
   it('auto-hides a hideWhenIdle widget when idle, and shows it when active', () => {
@@ -134,14 +134,15 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(racecontrol.textContent).toContain('SAFETY CAR')
 
     // Existing widgets keep rendering their own content unaffected (tower shows the
-    // fixture's running order; battle shows the on-camera subject).
+    // fixture's running order; the driver lower-third shows the on-camera subject, since the
+    // battle box hides under a full-course yellow, widgets rule 36).
     const tower = slot(container, 'tower')
     const battle = slot(container, 'battle')
     expect(tower).not.toBeNull()
     expect(battle).not.toBeNull()
     // The tower renders short names by default (widgets.md rule 47).
     expect(tower.textContent).toContain('HAM')
-    expect(container.textContent).toContain('Verstappen')
+    expect(slot(container, 'driver').textContent).toContain('VER')
   })
 
   it('omits the racecontrol widget from the DOM when hidden via config', () => {
@@ -166,8 +167,8 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     const battle = slot(container, 'battle')
     expect(tower).not.toBeNull()
     expect(battle).not.toBeNull()
-    expect(container.textContent).toContain('Hamilton')
-    expect(container.textContent).toContain('Verstappen')
+    expect(battle.textContent).toContain('HAM')
+    expect(battle.textContent).toContain('VER')
   })
 
   it('shows only the identity strip when the snapshot carries no telemetry (#61, rule 56)', () => {
@@ -182,7 +183,7 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     expect(onboard.querySelector('[data-testid="onboard-label"]').textContent.trim()).toBe('ON BOARD')
     expect(onboard.querySelector('[data-testid="onboard-driver-position"]').textContent.trim()).toBe('P2')
     expect(onboard.querySelector('[data-testid="onboard-driver-name"]').textContent.trim()).toBe(
-      'Verstappen',
+      'VER',
     )
     expect(onboard.querySelector('[data-testid="onboard-speed"]')).toBeNull()
     expect(onboard.querySelector('[data-testid="onboard-gear"]')).toBeNull()
@@ -203,7 +204,7 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     const onboard = slot(container, 'onboard')
     expect(onboard).not.toBeNull()
     expect(onboard.querySelector('[data-testid="onboard-driver-name"]')?.textContent.trim()).toBe(
-      'C. Leclerc',
+      'C.LEC',
     )
   })
 
@@ -217,16 +218,16 @@ describe('AllView — config-driven layout (render side of #16)', () => {
       const driverSlot = slot(container, 'driver')
       const onboard = slot(container, 'onboard')
       // Card up: the lower-third carries the name, the HUD shows nothing.
-      expect(driverSlot.querySelector('[data-testid="driver-lt-name"]')?.textContent).toContain('Leclerc')
+      expect(driverSlot.querySelector('[data-testid="driver-lt-name"]')?.textContent).toContain('C.LEC')
       expect(onboard.querySelector('[data-testid="onboard-hud"]')).toBeNull()
-      expect(onboard.textContent).not.toContain('Leclerc')
+      expect(onboard.textContent).not.toContain('C.LEC')
 
       vi.advanceTimersByTime(6000)
       await tick()
       // Card gone: the HUD's strip reveals with the name and position.
       expect(driverSlot.querySelector('[data-testid="driver-lt-name"]')).toBeNull()
       expect(onboard.querySelector('[data-testid="onboard-hud"]'), 'strip must reveal after the dwell').not.toBeNull()
-      expect(onboard.querySelector('[data-testid="onboard-driver-name"]').textContent.trim()).toBe('C. Leclerc')
+      expect(onboard.querySelector('[data-testid="onboard-driver-name"]').textContent.trim()).toBe('C.LEC')
       expect(onboard.querySelector('[data-testid="onboard-driver-position"]').textContent.trim()).toBe('P3')
     } finally {
       vi.useRealTimers()
@@ -259,7 +260,7 @@ describe('AllView — config-driven layout (render side of #16)', () => {
     const { container } = render(AllView, { snapshot: raceOnboard, preview: true })
     expect(container.querySelector('[data-testid="onboard-identity"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="onboard-driver-name"]').textContent).toContain(
-      'Verstappen',
+      'VER',
     )
     expect(container.querySelector('[data-testid="onboard-driver-number"]').textContent).toBe('1')
     // class / make+model are off by default.

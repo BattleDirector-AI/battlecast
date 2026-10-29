@@ -35,6 +35,11 @@ Node ≥ 22. The `server/` and `producers/mock/` are zero-dependency (Node built
 | `make lint` | Lint the app (ESLint). |
 | `make dev-app` / `dev-mock` / `dev-server` | Run one piece on its own. |
 
+Agents act on GitHub as the `battledirector-agent` App: `alias gh='bash scripts/agent-gh.sh'`
+and run `bash scripts/agent-identity-setup.sh` once per clone. See `CONTRIBUTING.md`, "Agent identity".
+This applies only once the App's installation covers this repository (epic #365); before that,
+the alias and the helper fail every write.
+
 ## Testing discipline (non-negotiable)
 
 **Fixture-based behavioral testing.** Given a `spec/v1` state fixture, drive the widget and assert
