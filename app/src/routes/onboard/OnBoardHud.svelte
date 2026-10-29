@@ -360,22 +360,25 @@
     gap: var(--bc-space-4);
   }
 
+  /* One grid for both rows, so the label column is as wide as the widest label (at least
+     64px, the label's min-width) and both tracks start at the same x. A fixed column let
+     THROTTLE run into its track once the face or textScale made it wider (#430). The floor
+     sits on the label, not the column, so the label's real width counts in the HUD's
+     min-content and a narrow slot cannot squeeze the column under it; the track keeps 108px. */
   .bc-onboard__bars {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: var(--bc-space-2);
-    min-width: 180px;
-  }
-
-  .bc-onboard__bar {
     display: grid;
-    grid-template-columns: 64px 1fr;
+    grid-template-columns: max-content minmax(108px, 1fr);
+    align-content: center;
     align-items: center;
     gap: var(--bc-space-2);
   }
 
+  .bc-onboard__bar {
+    display: contents;
+  }
+
   .bc-onboard__bar-label {
+    min-width: 64px;
     font-family: var(--bc-font-ui);
     font-size: var(--bc-size-label);
     font-weight: var(--bc-weight-label);
