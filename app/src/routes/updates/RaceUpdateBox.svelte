@@ -2,13 +2,16 @@
   import { onDestroy, untrack } from 'svelte'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
   import { createRaceUpdateFeed } from '../../lib/raceEvents.js'
+  import { fmtDriverName } from '../../design/format.js'
   import { DEFAULT_CONFIG } from '../../lib/overlayConfig.js'
 
   // Race update box (#27; widgets.md rules 69-75, ADR 0023). The feed (lib/raceEvents.js)
   // decides which events are new and what waits; this component only times the card on
   // screen. `preview` (the /config editor) takes no baseline; it is read once at mount.
+  // `nameStyle` is the profile's `theme.nameStyle` (widgets.md rule 111); routes always pass it,
+  // and the bare default is the full form the card showed before the style was overlay-wide.
   const DEFAULT_DWELL = DEFAULT_CONFIG.widgets.updates.dwellSeconds
-  let { snapshot = null, dwellSeconds = DEFAULT_DWELL, preview = false } = $props()
+  let { snapshot = null, dwellSeconds = DEFAULT_DWELL, preview = false, nameStyle = 'full' } = $props()
 
   const feed = createRaceUpdateFeed({ preview: untrack(() => preview) })
   let current = $state.raw(null)
@@ -62,13 +65,17 @@
           <div class="bc-ru__body">
             <span class="bc-ru__label" data-testid="update-label">{current.label}</span>
             <div class="bc-ru__main">
-              <span class="bc-ru__name" data-testid="update-name">{current.name}</span>
+              <span class="bc-ru__name" class:bc-name-ref={nameStyle === 'short'} data-testid="update-name"
+                >{fmtDriverName(current.driverName, nameStyle)}</span
+              >
               {#if current.value != null}
                 <span class="bc-ru__value" data-testid="update-value">{current.value}</span>
               {/if}
             </div>
             {#if current.detail != null}
-              <span class="bc-ru__detail" data-testid="update-detail">{current.detail}</span>
+              <span class="bc-ru__detail" data-testid="update-detail"
+                ><span class="bc-ru__detail-text">{current.detail}</span></span
+              >
             {/if}
           </div>
         </section>
@@ -78,8 +85,22 @@
 {/if}
 
 <style>
+  /* One grid cell holds the plate, so the anchor takes the card's min-content width and a
+     name too long for the slot widens the card instead of being cut (widgets.md rules 112,
+     114). An exiting and an entering card still share the one cell (rule 74). */
   .lt3-anchor {
     position: relative;
+    display: grid;
+    /* A min-content track: the plate clips (overflow: hidden), which would otherwise give it
+       no minimum in an auto track. */
+    grid-template-columns: minmax(min-content, 1fr);
+    min-width: min-content;
+  }
+  /* .lt3.lt3: outranks LowerThirdShell's own `.lt3 { position: absolute }` whatever the
+     order the two stylesheets land in the bundle. */
+  .lt3-anchor > :global(.lt3.lt3) {
+    position: relative;
+    grid-area: 1 / 1;
   }
 
   .bc-ru {
@@ -105,7 +126,6 @@
     flex-direction: column;
     justify-content: center;
     gap: var(--bc-space-1);
-    min-width: 0;
   }
 
   .bc-ru__label {
@@ -115,13 +135,13 @@
     letter-spacing: var(--bc-track-label);
     text-transform: uppercase;
     color: var(--bc-text-3);
+    white-space: nowrap;
   }
 
   .bc-ru__main {
     display: flex;
     align-items: baseline;
     gap: var(--bc-space-3);
-    min-width: 0;
   }
 
   .bc-ru__name {
@@ -130,9 +150,6 @@
     font-weight: var(--bc-weight-leader);
     color: var(--bc-oncam-text);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
   }
 
   .bc-ru__value {
@@ -144,13 +161,23 @@
     color: var(--bc-accent);
   }
 
+  /* The detail line is not a name: it is cut at the card's width and never widens it. A
+     one-track grid of minmax(0, max-content) gives it no min-content width (so the anchor's
+     min-width ignores it) while its max-content still sizes the card as before; the text
+     inside is clipped with the line's ellipsis. */
   .bc-ru__detail {
+    display: grid;
+    grid-template-columns: minmax(0, max-content);
     font-family: var(--bc-font-ui);
     font-size: var(--bc-size-label);
     color: var(--bc-text-2);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .bc-ru__detail-text {
+    overflow: hidden;
+    text-overflow: inherit;
   }
 
   /* The box's own vintage look (widgets rules 99–100, ADR 0033). Keyed on an ancestor's

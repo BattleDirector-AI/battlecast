@@ -398,10 +398,11 @@
     return inlineRows.filter((v) => !rendered[v.slot_id])
   })
 
-  // ---- driver name style + the full-style width (widgets.md rules 46-48, ADR 0018) ----
-  // Short (E.JAC) never changes width. Full (E. Jacobs) is never ellipsized: the tower root
-  // carries an inline min-width of max(configured width, ceil(widestName + widestRest +
-  // borderX)), the running maxima cleared only by a reset. See how/renderer.md "Driver name style".
+  // ---- driver name style + the full-style width (widgets.md rules 46-48, 116, ADR 0018) ----
+  // Short (E.JAC) keeps the configured width unless the name column runs past it (rule 116).
+  // Full (E. Jacobs) is never ellipsized: the tower root carries an inline min-width of
+  // max(configured width, ceil(widestName + widestRest + borderX)), the running maxima cleared
+  // only by a reset. See how/renderer.md "Driver name style".
   const fullStyle = $derived(nameStyle === 'full')
   const fullNameOf = (v) => (typeof v.driver_name === 'string' ? fmtName(v.driver_name) : '')
   const nameOf = (v) => (fullStyle ? fullNameOf(v) : fmtShortName(v.driver_name))
@@ -450,6 +451,9 @@
   let widestName = $state(0)
   let widestRest = $state(0)
   let borderX = $state(0) // the tower root's left + right border, inside its min-width
+  // Short style's lead width (rule 116): the widest rendered row's name-column right edge plus
+  // the root's borders, ceiled. Follows the rows; no running maximum.
+  let shortLead = $state(0)
   let namesMeasured = $state(false) // false until a pass ran with the name font loaded
   // Full name -> px, every name measured since the last reset. Prototype-free, so a driver
   // named '__proto__' caches like any other.
@@ -544,7 +548,19 @@
         widestRest = 0
         namesMeasured = false
       }
-      if (!full || !el) return
+      if (!el) return
+      const cs = computedStyle(el)
+      borderX = cssPx(cs?.borderLeftWidth) + cssPx(cs?.borderRightWidth)
+      if (!full) {
+        // The row is position: relative and flush with the tower's padding edge, so a name
+        // cell's offsetLeft + offsetWidth is the name column's right edge from the left border.
+        let lead = 0
+        for (const cell of el.querySelectorAll('[data-testid="driver-name"]')) {
+          lead = Math.max(lead, cell.offsetLeft + cell.offsetWidth)
+        }
+        shortLead = lead > 0 ? Math.ceil(lead + borderX) : 0
+        return
+      }
       const font = measuringFont()
       if (nameFontLoaded(font)) {
         const spacing = nameLetterSpacing()
@@ -564,8 +580,6 @@
         rest = Math.max(rest, row.scrollWidth - (nameCell?.clientWidth ?? 0))
       }
       widestRest = rest
-      const cs = computedStyle(el)
-      borderX = cssPx(cs?.borderLeftWidth) + cssPx(cs?.borderRightWidth)
     })
   })
 
@@ -644,10 +658,13 @@
     destroyed = true
   })
 
+  // Short style sets one only when the name column runs past the configured width (rule 116).
   const towerMinWidth = $derived(
     fullStyle
       ? `${Math.max(baseWidth, namesMeasured ? Math.ceil(widestName + widestRest + borderX) : 0)}px`
-      : null,
+      : shortLead > baseWidth
+        ? `${shortLead}px`
+        : null,
   )
 
   // Gap-to-leader readout (#28). Each row shows its interval to the leader, from the

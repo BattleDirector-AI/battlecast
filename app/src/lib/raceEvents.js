@@ -37,9 +37,10 @@ function hasRequiredField(e) {
 }
 
 /**
- * The card for one `race_events` entry: `{ id, type, label, name, value, detail }`
+ * The card for one `race_events` entry: `{ id, type, label, name, driverName, value, detail }`
  * (`value` / `detail` null when the card has none), or null when the entry is not an
- * event (rule 69).
+ * event (rule 69). `name` is the full form; `driverName` is the unformatted name, which the
+ * box shows in the profile's name style (widgets.md rule 111).
  */
 export function raceEventCard(entry) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
@@ -59,6 +60,7 @@ export function raceEventCard(entry) {
     type: entry.type,
     label: cls ? `${cls.toUpperCase()} ${label}` : label,
     name: fmtName(driver),
+    driverName: driver,
     value,
     detail: text(entry.detail),
   }

@@ -95,7 +95,6 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `classDisplay` | tower | inline vs grouped multi-class layout |
     | `towerMetrics` | tower | `{interval,pit,tire,fuel,lapFlash}` toggles (interval and lapFlash on, rest off by default; rule 38) |
     | `maxRows`, `cycle` | tower | overflow row cap + pinned-rows/cycling-window config (see `tower-overflow.md`) |
-    | `nameStyle` | tower | `short` (default) / `full` driver names (rules 42–43) |
     | `speedUnit`, `driverInfo`, `waitForLowerThird` | onboard | unit, identity fields, hand-off |
 
 46. **`dwellSeconds`** (lower-thirds; default `6`) is how long a `dwell`-trigger lower-third shows
@@ -457,31 +456,44 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     is one commit and so one rule 41a edit, never two. Rule 44b applies to every commit alike: an
     Enter on a blank or refused value keeps the stored value, exactly as leaving the field does.
 
-### Tower driver name style
+### Driver name style
 
-42. **`nameStyle`** (tower; default `short`) selects how the standings tower renders driver
-    names: `short` (`E.JAC`) or `full` (`E. Jacobs`, with the tower growing wider to fit;
-    `widgets.md` rules 46–48). Normalization keeps exactly the string `short` or `full` and
-    replaces anything else with `short`: absent, null, another case such as `Full`, any other
-    string, or a value of another type. It is normalized onto every widget for a uniform
-    shape, and only the tower reads it. Both `/all` and the standalone `/tower` route read it
-    from the loaded profile. A route with no profile, or a profile without the key, renders
-    `short`. There is no URL knob for it. A profile without the key renders short names at its
-    saved geometry, and `configVersion` stays `"1"` (rule 2). Decision record:
-    `docs/decisions/0018-tower-driver-name-style.md`.
-43. **The editor exposes it in the tower row**, as part of rule 14's control surface. It is a
-    select labelled **driver names** with exactly two options, `short` and `full` in that
-    order, showing the current value, offered for `tower` only. Choosing an option writes that
-    value to the tower's `nameStyle` and the live preview re-renders with it. It changes no
-    geometry: unlike a text-size preset (rule 41), the editor never alters `x`, `w` or any
-    other field when the style changes. Per rule 16 it carries help copy, which says that
-    `full` lets the tower grow wider than its set width and can run past the edge of the
-    Browser Source (rule 21: growth past the box would otherwise look like a bug). Per rule 19
-    the coverage tests require it. Like `plateAlpha` (rule 24), withholding the control from
-    the other widgets never rewrites a stored value. In `full` the preview's drag-and-resize
-    box shows the stored `x` and `w`, the tower's left edge and minimum width; a tower
-    grown wider than `w` (`widgets.md` rule 48) draws past the box's right side, and dragging
-    or resizing edits `x` and `w` only.
+42. **`theme.nameStyle`** (default `short`) is one overlay-wide setting, not a per-widget knob,
+    that selects how every widget shows driver names (`widgets.md` rules 111–116): `short`
+    (`E.JAC`, rule 47's short form) or `full` (`E. Jacobs`, rule 48's full form). Normalization
+    keeps exactly the string `short` or `full`. Anything else in `theme.nameStyle` (absent, null,
+    another case such as `Full`, a padded string such as `' full '`, any other string, or a value
+    of another type) is replaced by the profile's `widgets.tower.nameStyle` when that is exactly
+    `short` or `full`, and otherwise by `short`. So a profile saved when the style was a tower
+    setting keeps its tower's style, now for every widget, and a valid `theme.nameStyle` wins
+    over the tower's. It is not normalized onto widgets: a normalized widget carries no
+    `nameStyle` key, so a profile saved from the editor stores the style once, in `theme`.
+    Normalizing it never changes `theme.classColors` (rule 32), `theme.classTags` (rule 47) or
+    `theme.preset` (rule 58). A profile with no `theme`, a `theme` that is not an object, or no
+    valid value in either place renders `short`. `/all` reads it, and so does every standalone
+    route that loads a profile and shows a name: `/tower`, `/battle`, `/driver`, `/qualifying`,
+    `/updates`, `/grid` and `/results`. The standalone `/onboard` route loads no profile and
+    renders `short`. There is no URL knob for it. A profile without it renders at its saved
+    geometry, and `configVersion` stays `"1"` (rule 2). Decision records:
+    `docs/decisions/0018-tower-driver-name-style.md`,
+    `docs/decisions/0038-profile-wide-driver-name-style.md`.
+43. **The editor exposes it once for the whole overlay**, as part of rule 14's control surface:
+    a select labelled **driver names** (`data-testid="name-style"`), in no widget row, with
+    exactly two options, `short` and `full` in that order, showing the current value. No widget
+    row has a name-style control. Choosing an option writes that value to `theme.nameStyle`, the
+    live preview re-renders every widget with it, and Save writes it into the profile. It changes
+    no geometry and no other setting, `theme.classColors`, `theme.classTags` and `theme.preset`
+    included: unlike a text-size preset (rule 41), the editor never alters `x`, `w` or any other
+    field when the style changes. Per rule 16 it carries help copy behind an ⓘ
+    (`data-testid="help-name-style"`), which says that the setting applies to the driver names in
+    every widget; that `short` shows a code such as `E.JAC` and keeps widgets at their set size;
+    and that `full` shows the initial and last name such as `E. Jacobs`, never cuts a name short,
+    and makes widgets grow wider than their set width to fit a long name, past their box and
+    over their neighbours, and past the edge of the canvas or the Browser Source (rule 21: growth
+    past the box would otherwise look like a bug). Per rule 19 the coverage tests require it. In
+    either style the preview's drag-and-resize boxes show each widget's stored `x` and `w`; a
+    widget grown wider than its `w` (`widgets.md` rules 48, 114–116) draws past its box, and
+    dragging or resizing edits `x` and `w` only.
 
 ### Class color overrides
 
@@ -570,9 +582,12 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     sized to its own text (for example the on-board HUD plate, the Race Control strip, the
     weather box, or a chip or tag that hugs its label) paints at the size its text takes in the
     preset's typeface and font style, up to its slot's width, past which its text is cut as it
-    is under `modern`. The info panel's header is the one exception: it is never cut, and the
-    panel widens past its slot to hold it (`widgets.md` rule 78a), so a panel holding a long
-    header may take a different width and place under each preset. The text's font size,
+    is under `modern`. Two kinds of text are the exception and are never cut: the info panel's
+    header, which widens the panel past its slot to hold it (`widgets.md` rule 78a), and a
+    driver's name, which widens its widget past its slot to hold it, together with the room the
+    reference short form takes (`widgets.md` rules 112–116). So a panel holding a long header,
+    or a widget holding a name or reserving short-form room, may take a different width and
+    place under each preset. The text's font size,
     weight, letter spacing and case are the same as under `modern`, and so are the box's widget
     slot, its alignment in the slot (centred or anchored to an edge) and every set length (row
     heights, fixed widths, paddings, gaps, bar and rule thicknesses), so the box grows or
@@ -819,12 +834,12 @@ Decision record: `docs/decisions/0011-feed-status-accessibility.md`.
 ## Configuration Surface
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
-`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags,preset}`,
+`widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags,preset,nameStyle}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
-`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `nameStyle` + `speedUnit`/`driverInfo`/`waitForLowerThird` +
+`classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `speedUnit`/`driverInfo`/`waitForLowerThird` +
 `tempUnit`), but only the widget noted in the rule-11 table actually reads each. The `info`
 widget also carries `lines` and `weatherCard`, which no other widget has (rules 52, 57).
 

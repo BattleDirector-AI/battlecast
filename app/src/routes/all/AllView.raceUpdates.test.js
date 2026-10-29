@@ -50,7 +50,7 @@ describe('/all — the updates widget (widgets rule 75, overlay-config rule 50)'
     await push(withNew(classLap))
     expect(card().getAttribute('data-event-id')).toBe('ev-106')
     expect(part('update-label')).toBe('GT3 FASTEST LAP')
-    expect(part('update-name')).toBe('K. Bachler')
+    expect(part('update-name')).toBe('K.BAC')
     expect(part('update-value')).toBe('3:47.120')
 
     vi.advanceTimersByTime(8000)

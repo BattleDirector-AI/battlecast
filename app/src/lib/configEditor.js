@@ -8,6 +8,7 @@ import {
   normalizeClassColors,
   normalizeClassTags,
   normalizeThemePreset,
+  normalizeNameStyle,
   MIN_CANVAS,
   finiteOrNull,
   TEXT_SCALES,
@@ -244,6 +245,14 @@ export function removeInfoLine(config, index) {
 export function setClassTags(config, value) {
   const next = normalizeConfig(config)
   next.theme = { ...next.theme, classTags: normalizeClassTags(value) }
+  return next
+}
+
+/** Set the overlay-wide driver name style (overlay-config rule 43); anything unknown is
+ *  `short`. Touches nothing else: no geometry, no other theme key. */
+export function setNameStyle(config, value) {
+  const next = normalizeConfig(config)
+  next.theme = { ...next.theme, nameStyle: normalizeNameStyle(value) }
   return next
 }
 

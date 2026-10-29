@@ -48,7 +48,7 @@
 <script>
   import { onDestroy } from 'svelte'
   import ClassChip from '../../design/ClassChip.svelte'
-  import { fmtName, positiveIntOrNull } from '../../design/format.js'
+  import { fmtDriverName, positiveIntOrNull } from '../../design/format.js'
   import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
   import { classTagsShown } from '../../lib/classTags.js'
@@ -60,7 +60,16 @@
   // `shownOverride` (boolean): in `/all` the card's show/hide timer runs once in AllView and is
   // shared with the on-board HUD, so the card just renders that flag. Absent (the standalone
   // route), the card runs its own timer.
-  let { snapshot = null, widget = {}, classColors = {}, classTags = 'auto', shownOverride = undefined } = $props()
+  // `nameStyle`: the profile's `theme.nameStyle` (widgets.md rule 111). Routes always pass it;
+  // the bare default is the full form the card rendered before the style was overlay-wide.
+  let {
+    snapshot = null,
+    widget = {},
+    classColors = {},
+    classTags = 'auto',
+    shownOverride = undefined,
+    nameStyle = 'full',
+  } = $props()
 
   const resolved = $derived(resolveSubject(snapshot))
   const active = $derived(resolved.state !== 'invalid')
@@ -95,7 +104,7 @@
   const carClass = $derived(
     classTagsShown(classTags, snapshot?.session) ? resolved.vehicle?.vehicle_class : undefined,
   )
-  const displayName = $derived(fmtName(resolved.name))
+  const displayName = $derived(fmtDriverName(resolved.name, nameStyle))
 </script>
 
 {#if shown}
@@ -135,7 +144,7 @@
                 <ClassChip {carClass} size="compact" {classColors} />
               {/if}
             </div>
-            <span class="bc-lt__name" data-testid="driver-lt-name">{displayName}</span>
+            <span class="bc-lt__name" class:bc-name-ref={nameStyle === 'short'} data-testid="driver-lt-name">{displayName}</span>
           </div>
         </section>
       </LowerThirdShell>
@@ -147,8 +156,22 @@
   /* The plate chrome (background, blur, border, radius, shadow) and the
      entrance/exit motion now live in LowerThirdShell; this owns only the card's
      inner layout. */
+  /* One grid cell holds the plate, so the anchor takes the card's min-content width and a
+     name too long for the slot widens the card instead of being cut (widgets.md rules 112,
+     114). An exiting and an entering plate still share the one cell during a re-cut (#185). */
   .lt3-anchor {
     position: relative;
+    display: grid;
+    /* A min-content track: the plate clips (overflow: hidden), which would otherwise give it
+       no minimum in an auto track. */
+    grid-template-columns: minmax(min-content, 1fr);
+    min-width: min-content;
+  }
+  /* .lt3.lt3: outranks LowerThirdShell's own `.lt3 { position: absolute }` whatever the
+     order the two stylesheets land in the bundle. */
+  .lt3-anchor > :global(.lt3.lt3) {
+    position: relative;
+    grid-area: 1 / 1;
   }
 
   .bc-lt {
@@ -175,13 +198,13 @@
     flex-direction: column;
     justify-content: center;
     gap: var(--bc-space-1);
-    min-width: 0;
   }
 
   .bc-lt__meta {
     display: flex;
     align-items: center;
     gap: var(--bc-space-2);
+    white-space: nowrap;
   }
 
   .bc-lt__label {
@@ -208,13 +231,6 @@
     color: var(--bc-oncam-text);
     text-shadow: 0 0 12px var(--bc-accent-glow);
     white-space: nowrap;
-    /* Clip the inline axis only (widgets rule 109). The line box is the page's inherited line
-       height, shorter than the display faces' descenders, accents and shadow; `hidden` would turn
-       the visible block axis into `auto` and cut them, and `clip` is the one value that leaves it
-       visible. */
-    overflow: clip visible;
-    text-overflow: ellipsis;
-    max-width: 100%;
   }
 
   /* The card's own vintage look (widgets rules 93–94, ADR 0030). Keyed on an ancestor's

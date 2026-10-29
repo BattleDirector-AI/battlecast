@@ -1,7 +1,8 @@
 # Decision: tower driver names — short by default, full names that widen the tower
 
 **Issues:** #242 (raised while measuring #225) · **Milestone:** 0.14.0
-**Status:** Accepted · **Date:** 2026-10-18
+**Status:** Accepted; its tower-only scope is superseded by
+`0038-profile-wide-driver-name-style.md` (one style for every widget) · **Date:** 2026-10-18
 
 The standings tower gets a per-tower **name style**: `short` (`E.JAC`, the default) or
 `full` (`E. Jacobs`, never ellipsized, the tower widening to fit).

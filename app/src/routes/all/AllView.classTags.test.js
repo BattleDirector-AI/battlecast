@@ -55,9 +55,9 @@ const RACE_SITES = ['tower', 'battle', 'driver', 'onboard']
 /** Every race-time class-tag site, checked together. The rest of each widget must still render. */
 function expectRaceSites(container, shown) {
   expect(slot(container, 'tower').querySelectorAll('[data-testid="tower-row"]')).toHaveLength(4)
-  expect(slot(container, 'battle').textContent).toContain('Jacobs')
+  expect(slot(container, 'battle').textContent).toContain('E.JAC')
   expect(slot(container, 'driver').querySelector('[data-testid="driver-lt-name"]')?.textContent.trim()).toBe(
-    'E. Jacobs',
+    'E.JAC',
   )
   expect(slot(container, 'onboard').querySelector('[data-testid="onboard-driver-number"]')?.textContent.trim()).toBe(
     '07',

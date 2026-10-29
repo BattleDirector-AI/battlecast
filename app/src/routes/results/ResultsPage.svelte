@@ -61,7 +61,7 @@
 </script>
 
 <div class="results-page">
-  <ResultsSlide {snapshot} {classFilter} classColors={config.theme.classColors} classTags={config.theme.classTags} />
+  <ResultsSlide {snapshot} {classFilter} classColors={config.theme.classColors} classTags={config.theme.classTags} nameStyle={config.theme.nameStyle} />
 </div>
 
 <style>

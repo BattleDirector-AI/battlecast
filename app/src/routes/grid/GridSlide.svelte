@@ -1,7 +1,7 @@
 <script>
   import ClassChip from '../../design/ClassChip.svelte'
   import { classColor, classMeta } from '../../design/classMeta.js'
-  import { fmtName } from '../../design/format.js'
+  import { fmtDriverName } from '../../design/format.js'
   import { classTagsShown } from '../../lib/classTags.js'
   import { listableVehicles } from '../../lib/vehicles.js'
 
@@ -13,12 +13,15 @@
   // saved profile, or `{}` when none is loaded/configured.
   // `classTags` (widgets.md rules 60, 64): with the tags hidden the slide renders one list in
   // overall position order, with no class group headers and no filter chip.
+  // `nameStyle` (widgets.md rule 111): the profile's `theme.nameStyle`; routes always pass it,
+  // and the bare default is the full form the slide showed before the style was overlay-wide.
   let {
     snapshot = null,
     classFilter = null,
     label = 'STARTING GRID',
     classColors = {},
     classTags = 'auto',
+    nameStyle = 'full',
   } = $props()
 
   const showTags = $derived(classTagsShown(classTags, snapshot?.session))
@@ -120,7 +123,7 @@
                 ></span>
                 <span class="cell__pos">{v.position}</span>
                 <span class="cell__name" data-testid="driver-name"
-                  >{fmtName(v.driver_name)}</span
+                  >{fmtDriverName(v.driver_name, nameStyle)}</span
                 >
               </li>
             {/each}
@@ -208,7 +211,7 @@
     margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(min-content, 1fr));
     gap: var(--bc-space-3) var(--bc-space-4);
   }
 
@@ -249,15 +252,13 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* A name is never cut (widgets.md rule 112): the rake columns are never narrower than it. */
   .cell__name {
-    min-width: 0;
     flex: 1 1 auto;
     font-family: var(--bc-font-display);
     font-size: var(--bc-size-name);
     font-weight: var(--bc-weight-name);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   /* The slide's own vintage look (widgets rules 105–106, ADR 0036). Keyed on an ancestor's

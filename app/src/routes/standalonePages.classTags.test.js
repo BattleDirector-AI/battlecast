@@ -36,8 +36,8 @@ const text = (sel) => document.querySelector(sel)?.textContent.trim()
  *  actually rendered its widget, so a hidden-tags case cannot pass on an empty page. */
 const PAGES = [
   ['/tower', TowerPage, (s) => s, 4, () => expect(count('[data-testid="tower-row"]')).toBe(4)],
-  ['/battle', BattlePage, (s) => s, 1, () => expect(document.body.textContent).toContain('Jacobs')],
-  ['/driver', DriverPage, (s) => s, 1, () => expect(text('[data-testid="driver-lt-name"]')).toBe('E. Jacobs')],
+  ['/battle', BattlePage, (s) => s, 1, () => expect(document.body.textContent).toContain('E.JAC')],
+  ['/driver', DriverPage, (s) => s, 1, () => expect(text('[data-testid="driver-lt-name"]')).toBe('E.JAC')],
   ['/qualifying', QualifyingPage, qual, 1, () => expect(text('[data-testid="qt-best"]')).toBe('1:38.320')],
   ['/grid', GridPage, (s) => s, 1, () => expect(count('[data-testid="grid-cell"]')).toBe(4)],
   ['/results', ResultsPage, (s) => s, 1, () => expect(count('[data-testid="results-row"]')).toBe(4)],

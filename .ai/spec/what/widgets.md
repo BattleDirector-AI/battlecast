@@ -128,15 +128,13 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     field: the chip shows under any `session.flag` or with no `session` at all, so a car that
     retires under green shows `DNF` at once. Decision record:
     `docs/decisions/0017-finish-status-field.md`.
-46. **Driver name style.** The tower renders every row's driver name in the style its
-    `nameStyle` setting selects (`overlay-config.md` rule 42): **short** (rule 47, the
-    default) or **full** (rule 48). The style applies to every row in both layouts (inline and
-    grouped), in every mode, and wherever the tower renders: the standalone `/tower` route and
-    the tower inside `/all`, including the `/config` preview. The root element
+46. **Driver name style.** The tower renders every row's driver name in the profile's name
+    style (`overlay-config.md` rule 42, rule 111): **short** (rule 47, the default) or **full**
+    (rule 48). The style applies to every row in both layouts (inline and grouped), in every
+    mode, and wherever the tower renders: the standalone `/tower` route and the tower inside
+    `/all`, including the `/config` preview. The root element
     (`data-testid="standings-tower"`) carries `data-name-style` = `short` | `full`, the style
-    it is rendering. Only the tower reads the setting. The battle box, the lower-thirds, the
-    on-board HUD and the `/grid` and `/results` slides render names in their own format,
-    whatever it holds. The name is derived from the car's own `driver_name` and nothing else. The tower never compares one
+    it is rendering. The name is derived from the car's own `driver_name` and nothing else. The tower never compares one
     car's name with another's, and the style changes no other cell, no row order and no
     highlight.
 47. **Short names.** The short form is built from `driver_name` as follows:
@@ -186,11 +184,13 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     | `-` | *(empty)* |
     | `  ` (whitespace) | *(empty)* |
 
-    The name cell is never narrower than the short name it holds and never ellipsizes it. When
-    a row with every metric cell on still needs more width than the tower has, the row is
-    clipped at the tower's right edge (rule 45).
-48. **Full names, and the tower that fits them.** The full form is the trimmed name as the
-    battle box shows it. A name containing `.` shows exactly as sent. A one-word name shows as
+    The short form is the form every widget shows in short style (rule 111). The name cell is
+    never narrower than the short name it holds and never ellipsizes it. When a row with every
+    metric cell on still needs more width than the tower has, the row is clipped at the tower's
+    right edge (rule 45), but never inside the name column: rule 116 widens the tower to the
+    end of its name column first.
+48. **Full names, and the tower that fits them.** The full form is the form every widget shows
+    in full style (rule 111): the trimmed name, read as follows. A name containing `.` shows exactly as sent. A one-word name shows as
     is. Otherwise it is the first word's first character, `. `, and the remaining words joined
     by single spaces: `Erik Jacobs` → `E. Jacobs`, `Nyck de Vries` → `N. de Vries`. A missing,
     null, non-string, empty or whitespace-only `driver_name` gives an empty cell, as in rule 47.
@@ -263,7 +263,8 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     - **Height is untouched.** Names never wrap and the row height is the same as in short style. The tower's
       height bound, row budget, pins and cycling (`tower-overflow.md`) apply exactly as in
       short style.
-    - **Short style sets no minimum width.** The tower renders at its configured width.
+    - **Short style's minimum width is rule 116's.** The tower renders at its configured width
+      unless that is narrower than its rows up to the end of the name column.
 
     Decision record: `docs/decisions/0018-tower-driver-name-style.md`.
 49. **Table columns.** The tower lays its rows out as a table. Every row has the same cells in
@@ -326,7 +327,21 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     widest name the field needs in the current name style (rules 47, 48), and has no other
     minimum: in short style it is as narrow as the widest short code in the field, not a
     fixed width, so short names leave their room to the other columns. This holds with or
-    without a finish slot reserved.
+    without a finish slot reserved. The tower takes no reference short form (rule 113): its
+    name column is sized by the whole field already.
+116. **A short-style tower is never narrower than its names.** In short style the tower's
+    minimum width is the larger of its configured width (rule 48) and its **lead width**: the
+    width from the tower's left outer edge to the right edge of the name column in the widest
+    rendered row, plus the tower's right border. So every short code shows whole whatever `w`
+    is set: what a row has past its name column (gap, interval, metric cells, finish chip) is
+    what rule 45 clips at the tower's right edge, never the name. The lead width follows the
+    rows as they render, with no hold and no reset rules of its own: it changes when the name
+    column or a column before it (position, class chip, class-rank badge) changes width. At
+    any `w` at least as wide as the lead width the tower is exactly as it was, so this changes
+    nothing at the default width. The tower grows as rule 48 places it (left edge kept,
+    growing right); its height is untouched. Full style's minimum width is rule 48's fit width,
+    which already holds the whole row. Decision record:
+    `docs/decisions/0038-profile-wide-driver-name-style.md`.
 89. **The tower under `vintage70`.** On top of the base look (`overlay-config.md` rule 60) the
     tower takes the 1970s network look. Everything this rule does not name renders the base
     look. Decision record: `docs/decisions/0027-tower-vintage-pass.md`.
@@ -417,7 +432,8 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     when present; otherwise no name. A subject with no `slot_id` (absent or `null`) matches no
     entry, even one that also lacks a `slot_id`. The same entry gives the class chip (rule 30) and
     the position that rule 68 reads, so such a subject shows no class chip and both neighbours
-    render as `—`. The name shows in the full form of rule 48. With no name, the focus slot is
+    render as `—`. The name shows in the profile's name style (rule 111), whole (rule 112), in
+    the focus slot and in the idle line alike. With no name, the focus slot is
     empty and the idle line reads `CLEAR AIR — ON-CAMERA CAR`; the battle still renders.
     Subject validity (rule 14) does not gate the box — rules 11–12 and 36–39 decide whether it
     renders. The ahead and behind slots' names are rule 68's; this rule supplies only the subject's
@@ -429,7 +445,7 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
     plus 1. A subject with no matching vehicle (rule 65's match) or no `position`, or a position with no car, leaves
     that slot at `—`. A neighbour's `driver_name` counts as present by the same test as rule 14b:
     a string with at least one non-whitespace character. A present name renders as the battle box
-    renders every name (rule 48's full form); a missing one — `""`, a whitespace-only string,
+    renders every name, in the profile's name style (rule 111), whole (rule 112); a missing one — `""`, a whitespace-only string,
     `null`, absent, a number, a boolean, an object or any other non-string — renders `—`. The
     empty cell rule 48 gives a missing name is the tower's; the battle box's slots show `—`. Each
     slot is judged on its own. The focus slot is outside this rule.
@@ -556,8 +572,8 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     fire on connect, and an overlay that connects during a race makes its connect fire on the
     first such subject once the session turns eligible. A class-best fire does NOT trigger on
     connect.
-18. **#21 driver lower-third** renders identity: name, position (`P4`), class chip (while class
-    tags show, rule 62). Fires on any subject change to a valid or degraded subject (rule 14), in
+18. **#21 driver lower-third** renders identity: name (in the profile's name style, rule 111,
+    whole, rule 112), position (`P4`), class chip (while class tags show, rule 62). Fires on any subject change to a valid or degraded subject (rule 14), in
     all modes. Degrades to name-only when `slot_id` unresolved.
     The position renders as `P` plus the vehicle's `position` only when that is a positive integer;
     `0`, a negative or fractional number, a numeric string (`"3"`), null or absent show no position,
@@ -573,7 +589,8 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     own marks beside them, such as the `vintage80` `ON CAMERA` tag above (rule 94) and, at a larger
     `textScale`, the `vintage70` red rule below (rule 93); nothing moves or shrinks to avoid them.
 19. **#22 qualifying/sector lower-third** renders timing: best/last lap, per-sector times, and
-    target/delta when present. **Mode-gated** by `modes` (default `["qualifying","practice"]`).
+    target/delta when present, under a head row holding its label, the position, the name (in the
+    profile's name style, rule 111, whole, rule 112) and the class chip. **Mode-gated** by `modes` (default `["qualifying","practice"]`).
     Independently, when the producer flags the subject's `notable.class_best_lap` true, it fires a
     class-best flash even in a race (`fireOnClassBest`, default true) — firing on the transition to
     true, never by scanning lap times. Idle when subject invalid, no timing at all, or mode-gated
@@ -746,7 +763,8 @@ Decision record: `docs/decisions/0021-onboard-identity-without-telemetry.md`.
     car number, driver name, class chip (while class tags show, rule 63), then make and model as
     one line. Each enabled field shows only when it has a value. The name is the subject's name as
     rule 14b picks it (`subject.driver_name`, falling back to the vehicle's `driver_name`), in the
-    HUD's name format; the others are read off the resolved vehicle.
+    profile's name style (rule 111), whole (rule 112); the others are read off the resolved
+    vehicle.
     Position renders as `P` followed by the vehicle's overall `position` — `P4`. A `position` that
     is null, absent, or anything other than a positive integer shows no position, and the rest of
     the strip renders as normal.
@@ -862,8 +880,10 @@ between snapshots. Decision record: `docs/decisions/0023-race-update-box.md`.
       one space: `GT3 FASTEST LAP`, `LMGT3 PRO-AM NEW LEADER`, `GT3 RETIRED`. Any other event is
       overall and its label has no prefix. The prefix is part of the label, not a class tag:
       hiding class tags (rule 60) does not remove it.
-    - **Name** (`data-testid="update-name"`): the event's `driver_name` in the full form of
-      rule 48: `Kevin Estre` → `K. Estre`, `Estre` → `Estre`, `E.Jacobs` → `E.Jacobs`.
+    - **Name** (`data-testid="update-name"`): the event's `driver_name` in the profile's name
+      style (rule 111), whole (rule 112). Full (rule 48): `Kevin Estre` → `K. Estre`, `Estre` →
+      `Estre`, `E.Jacobs` → `E.Jacobs`. Short (rule 47): `Kevin Estre` → `K.EST`, `Estre` →
+      `EST`, `E.Jacobs` → `E.JAC`.
     - **Value** (`data-testid="update-value"`): for `fastest_lap`, `lap_time` formatted exactly
       as the tower's lap-time flash formats a lap (rule 40): `208.977` → `3:28.977`, `58.204`
       → `58.204`. For `penalty`, the `penalty` string trimmed and otherwise verbatim
@@ -1227,7 +1247,8 @@ derives nothing from `vehicles[]` or any other field. Decision record:
     show (rule 64) they group the field by class in class-registry order (the same sequence the
     grouped tower uses), order each group by `position`, and `/results` restarts class positions
     within each group (like the grouped tower). Both honor the `?class=` filter. `/grid` shows the
-    overall position in a staggered two-column rake.
+    overall position in a staggered two-column rake. Each car's name shows in the profile's name
+    style (rule 111), whole (rule 112).
 105. **The takeover slides under `vintage70`.** On top of the base look (`overlay-config.md` rule
     60) `/grid` and `/results` take the 1970s network look. Everything this rule does not name
     renders the base look. Decision record: `docs/decisions/0036-takeover-slides-vintage-pass.md`.
@@ -1384,6 +1405,112 @@ derives nothing from `vehicles[]` or any other field. Decision record:
     profile that says `inline`, says nothing, or has not loaded yet gives the one overall list and
     `data-class-display` reads `inline`. `?class=` narrows the grouped field on `/tower` as it does
     in `/all`. There is no URL knob for the layout.
+
+### Driver names in every widget
+
+These rules cover every place a widget shows a driver's name: the standings tower's rows
+(rules 46–48, 53, 116), the battle box's focus, ahead and behind slots and its idle line
+(rules 65, 68), the driver lower-third's name (#21, rule 18), the qualifying lower-third's head
+row (#22, rule 19), the on-board HUD's identity strip (rule 54), the race update card (rule 70),
+and the `/grid` and `/results` slides (rule 27). Decision record:
+`docs/decisions/0038-profile-wide-driver-name-style.md`.
+
+111. **One name style for every widget.** Every name above shows in the profile's name style
+    (`overlay-config.md` rule 42): in `short`, rule 47's short form (`Erik Jacobs` → `E.JAC`);
+    in `full`, rule 48's full form (`Erik Jacobs` → `E. Jacobs`). The style is the same for
+    every widget, in every mode and under every preset and `textScale`, so in `/all` the tower,
+    the battle box, #21 and the HUD show one car's name as the same string. The routes take the
+    style as `overlay-config.md` rule 42 says: `/all` and the `/config` preview from the profile
+    (the preview from the editor's current value), each standalone route that loads a profile
+    from it, and `/onboard`, which loads none, `short`. Each form is derived from the car's own
+    `driver_name` alone (for the battle box, #21, #22 and the HUD, the name rule 14b picks);
+    no widget compares one car's name with another's to choose a form, and the style changes
+    nothing a widget shows but its names. A missing name renders as each widget's own rule
+    says: an empty tower cell (rule 47), an empty focus slot or `—` in the battle box (rules 65,
+    68), an empty name on #21 and #22 (rule 14b), no name in the HUD strip (rule 54).
+112. **A name is never cut.** In either style every name renders whole, on one line: it never
+    ends in an ellipsis, is never clipped by its own box, its slot, its row or its widget's
+    plate, never wraps, never shows in the other style's form, and never renders smaller than
+    its widget's text size. Its glow, extrusion or outline (the base look and the vintage rules)
+    is not clipped by the name's own box. Where a widget's configured width leaves a name less
+    room than it needs, the widget grows wider instead (rules 114–116; rule 48 for the tower in
+    full style). Only the page cuts a name, and only what lies past the canvas or the Browser
+    Source edge (rule 115).
+113. **Room for any short form.** In short style each **single-name slot** (the battle box's
+    focus, ahead and behind names, #21's name, #22's name, the HUD strip's name and the race
+    update card's name) is never narrower than the **reference short form** `W.WWW`: a capital
+    `W`, `.`, then three capital `W`s, rendered as that name renders (its face, font style,
+    size, weight, letter spacing and case, at its widget's `textScale`, under the current
+    preset). So any short form of letters no wider than `W` fits the slot at the same width,
+    and the widget's width does not change from one car's short form to the next. A short form
+    wider than the reference (rule 47's `ß` → `SS` lengthening, `J.ASSM`, or a letter wider
+    than `W`) still shows whole: the slot is then as wide as the short form, and its widget
+    grows for it as in rule 114. The reference is reserved whatever the slot shows, so a battle
+    slot showing `—`, or an empty focus slot, keeps the reference's room. It draws nothing and
+    adds no height. In full style no reference is reserved. The tower (rule 53) and the slides
+    take no reference, since their name column is sized by the whole field, and the battle box's
+    idle line is a sentence, not a slot, and takes none either.
+114. **How each widget grows.** A widget's **need** is the narrowest width at which every name it
+    shows renders whole (rule 112), with the reserved room of rule 113, and every item named
+    below as whole renders whole. A widget renders as wide as the wider of its configured width
+    and its need, and only its width changes: its height is the same as with a short name. The
+    configured width is the widget's `w` inside `/all` and the `/config` preview; on a
+    standalone route it is the box the route gives the widget (the `--bc-battle-width` token
+    for `/battle`, the page's content box for `/driver`, `/qualifying` and `/updates`, the
+    viewport for `/grid` and `/results`).
+    - **Battle box.** Each of the three slots is at least as wide as its own content: its label,
+      its name (or `—`) and, ahead and behind, its gap, plus the slot's own padding and
+      dividers. Width the box has beyond what the slots need is shared between them in the
+      1 : 1.15 : 1 proportion (ahead : focus : behind), so with names that fit each slot is its
+      share of the box's width. The idle line (`CLEAR AIR — <name>`) is one line, whole, and the idle box is at
+      least as wide as it plus the idle box's padding. The header and the meter span the box's
+      width.
+    - **#21 driver lower-third.** The card is at least as wide as its accent bar, its padding
+      and gaps, and the wider of its top line (the `ON CAMERA` label, the position and the class
+      chip, each whole) and its name. The plate is the card's width.
+    - **#22 qualifying lower-third.** The head row is one line, and its label (`TIMING`, or
+      `CLASS BEST` on the flash), position, name and class chip each render whole on that line:
+      the label never wraps. The card is at least as wide as the head row plus its accent bar,
+      padding and gaps. The timing row below wraps its cells onto further lines at the card's
+      width and never widens the card, so the card's height does not depend on the name.
+    - **On-board HUD.** The identity strip's label, position, car number, name and class chip
+      each render whole. The make-and-model line is not a name: it still shows its beginning cut
+      at the end with an ellipsis, at the HUD's width, and never widens the HUD. The HUD stays as
+      wide as its content up to its slot's width (centred in the slot), and is wider than its slot only by what
+      the strip's whole items need. The telemetry row spans the HUD's width.
+    - **Race update card.** The label line and the line holding the name and the value render
+      whole. The detail line is not a name: it is still cut at the end with an ellipsis at the
+      card's width, and never widens the card.
+    - **`/grid` and `/results`.** On `/grid` each of the two rake columns is at least as wide as
+      its widest cell's content (the class bar, the position, the name and the cell's padding),
+      and the width beyond that is shared equally. On `/results` the name column of each row is
+      at least as wide as that row's name, and the position and best-lap columns keep their
+      widths. A slide wider than the viewport runs past its right edge, where the page cuts it.
+115. **Where a grown widget sits, and when it changes.**
+    - **Place inside `/all` and the preview.** A widget no wider than its slot sits at its slot
+      (the HUD centred in it, every other widget filling it from its left edge). A wider one sits by the info panel's formula (rule 78a), with the slot's left `x`,
+      slot width `w`, canvas width `C`, the widget's width `W`, and its **natural left** `L0`:
+      `x` for every widget but the HUD, and `x + (w − W) / 2` for the HUD, which is centred on
+      its slot. The widget's left edge is `max(min(L0, 0), L0 − max(0, L0 + W − max(C, x + w)))`.
+      So it keeps its natural left edge and grows to the right until its right edge reaches the
+      canvas's right edge; the width the canvas has no room for on the right is taken on the
+      left instead; it never moves left of the canvas's left edge (or of `L0` when that is
+      already left of it); and what still runs past the right edge is cut by the page. In the
+      default layout (`C` 1920): the race update card (`x` 1376, `w` 520) at 600 px starts at
+      1320; a HUD in a slot at `x` 1500, `w` 400, 600 px wide starts at 1320.
+    - **Place on a standalone route.** The widget keeps its left edge and grows to the right;
+      what runs past the viewport is cut by the page.
+    - **When.** The width and place follow the names on screen as they render, with no hold:
+      a name change (a camera cut, a neighbour changing in the battle box, a new update card), a
+      style change, a preset switch, a face finishing loading, a `textScale` change or a geometry
+      change resizes and re-places the widget at once, with no transition and without replaying
+      a lower-third's or the update card's wipe. A widget whose names fit again returns to its configured
+      width. During the battle box's exit grace (rule 37) the held battle's names decide. The
+      tower is outside this rule: it grows only by rules 48 and 116.
+    - **Neighbours and the editor.** A grown widget draws over or under the widgets it overlaps
+      by its `z`; the overlay neither moves another widget nor narrows the grown one to avoid
+      it. The stored geometry does not change, and the `/config` drag box stays on the
+      configured slot.
 
 ## Constraints
 

@@ -98,7 +98,7 @@ describe('/updates standalone route (rule 75)', () => {
     push(withNew())
     expect(card().getAttribute('data-event-id')).toBe('ev-106')
     expect(part('update-label')).toBe('PENALTY')
-    expect(part('update-name')).toBe('M. Conway')
+    expect(part('update-name')).toBe('M.CON')
     expect(part('update-value')).toBe('+5s')
     expect(part('update-detail')).toBe('Track limits')
 

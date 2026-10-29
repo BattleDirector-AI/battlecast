@@ -66,15 +66,15 @@ describe('battle exit grace with junk saved vehicles (rule 21)', () => {
     ['a string', 'car-1'],
   ])('holds the battle with the real neighbours when the saved vehicles carry %s', (_l, junk) => {
     push(activeWithJunk(junk))
-    expect(text()).toContain('Hamilton')
-    expect(text()).toContain('Leclerc')
+    expect(text()).toContain('HAM')
+    expect(text()).toContain('LEC')
 
     push(idleSame())
     vi.advanceTimersByTime(4000)
     flushSync()
     expect(text()).not.toContain('NO ACTIVE BATTLE')
-    expect(text()).toContain('Hamilton')
-    expect(text()).toContain('Leclerc')
+    expect(text()).toContain('HAM')
+    expect(text()).toContain('LEC')
     expect(text()).toContain('+0.4')
     expect(text()).toContain('+1.8')
 
@@ -88,13 +88,13 @@ describe('battle exit grace with junk saved vehicles (rule 21)', () => {
     const s = clone(closeBattle)
     s.vehicles = [decoy, ...s.vehicles]
     push(s)
-    expect(text()).toContain('Hamilton')
-    expect(text()).not.toContain('Junk Ahead')
+    expect(text()).toContain('HAM')
+    expect(text()).not.toContain('J.AHE')
 
     push(idleSame())
     vi.advanceTimersByTime(4000)
     flushSync()
-    expect(text()).toContain('Hamilton')
-    expect(text()).not.toContain('Junk Ahead')
+    expect(text()).toContain('HAM')
+    expect(text()).not.toContain('J.AHE')
   })
 })

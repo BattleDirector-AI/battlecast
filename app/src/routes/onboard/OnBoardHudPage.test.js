@@ -38,7 +38,7 @@ describe('/onboard standalone route — identity strip (#61)', () => {
     ).not.toBeNull()
     expect(text(container, 'onboard-label')).toBe('ON BOARD')
     expect(text(container, 'onboard-driver-position')).toBe('P3')
-    expect(text(container, 'onboard-driver-name')).toBe('C. Leclerc')
+    expect(text(container, 'onboard-driver-name')).toBe('C.LEC')
     expect(container.querySelector('[data-testid="onboard-speed"]')).toBeNull()
   })
 

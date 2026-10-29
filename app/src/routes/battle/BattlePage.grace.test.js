@@ -101,8 +101,8 @@ describe('battle box exit grace (rule 37)', () => {
     advance(900) // t = 4.9s
 
     expect(text()).not.toContain('NO ACTIVE BATTLE')
-    expect(text()).toContain('Hamilton')
-    expect(text()).toContain('Leclerc')
+    expect(text()).toContain('HAM')
+    expect(text()).toContain('LEC')
     expect(text()).toContain('+0.4')
     expect(text()).toContain('+1.8')
     expect(text()).toContain('86')
@@ -161,7 +161,7 @@ describe('the grace never outlives its subject (rule 38)', () => {
 
     push(idleOther())
     expect(text()).toContain('NO ACTIVE BATTLE')
-    expect(text()).toContain('Leclerc')
+    expect(text()).toContain('LEC')
     expect(text()).not.toContain('+0.4')
     expect(text()).not.toContain('+1.8')
   })
@@ -254,20 +254,20 @@ describe('the held name during an exit grace (rule 65)', () => {
     const held = clone(closeBattle)
     held.subject.driver_name = 'Max Verstappen'
     const live = idleSame()
-    live.subject.driver_name = 'Max Verstappen-Live'
+    live.subject.driver_name = 'Lando Norris'
 
     await mountPage()
     push(held)
-    expect(box().querySelector('.bc-battle__focus-name')?.textContent.trim()).toBe('M. Verstappen')
+    expect(box().querySelector('.bc-battle__focus-name')?.textContent.trim()).toBe('M.VER')
 
     push(live)
     advance(2000)
     push(live)
 
-    expect(box().querySelector('.bc-battle__focus-name')?.textContent.trim()).toBe('M. Verstappen')
-    expect(text()).not.toContain('Live') // the live name appears nowhere in the held box
+    expect(box().querySelector('.bc-battle__focus-name')?.textContent.trim()).toBe('M.VER')
+    expect(text()).not.toContain('L.NOR') // the live name appears nowhere in the held box
 
     advance(3100) // grace over
-    expect(box().querySelector('.bc-battle__idle-sub')?.textContent.trim()).toBe('CLEAR AIR — M. Verstappen-Live')
+    expect(box().querySelector('.bc-battle__idle-sub')?.textContent.trim()).toBe('CLEAR AIR — L.NOR')
   })
 })

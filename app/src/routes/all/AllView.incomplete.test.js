@@ -53,8 +53,8 @@ describe('/all — an incomplete vehicles[] entry', () => {
     expect(expectedSlots).toEqual(expect.arrayContaining(['tower', 'battle', 'driver', 'onboard']))
     expect(names(container).slice(0, 3)).toEqual(['HAM', 'VER', 'LEC'])
     expect(Array.from(container.querySelectorAll('[data-testid="tower-row"]'))).toHaveLength(3)
-    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('Verstappen')
-    expect(q(container, 'widget-battle')?.textContent).toContain('Verstappen')
+    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('VER')
+    expect(q(container, 'widget-battle')?.textContent).toContain('VER')
   })
 
   // Subject resolution needs only a usable slot_id (rule 14a): an entry with no usable position
@@ -76,7 +76,7 @@ describe('/all — an incomplete vehicles[] entry', () => {
     expect(card, 'the card renders').not.toBeNull()
     expect(card.textContent).toContain('F1')
     expect(q(container, 'driver-lt-pos')).toBeNull()
-    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('Verstappen')
+    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('VER')
     // The entry is still not a tower row.
     expect(Array.from(container.querySelectorAll('[data-testid="tower-row"]'))).toHaveLength(3)
   })
@@ -90,7 +90,7 @@ describe('/all — an incomplete vehicles[] entry', () => {
     const { container } = render(AllView, { snapshot: snap, config: DWELL })
     await tick()
 
-    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('E. Name')
+    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('E.NAM')
     expect(q(container, 'driver-lt-pos')).toBeNull()
   })
 
@@ -109,7 +109,7 @@ describe('/all — an incomplete vehicles[] entry', () => {
     const { container } = render(AllView, { snapshot: snap, config: DWELL })
     await tick()
 
-    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('N. Driver')
+    expect(q(container, 'driver-lt-name')?.textContent.trim()).toBe('N.DRI')
     expect(q(container, 'driver-lower-third')?.textContent).not.toContain('F1')
     expect(q(container, 'driver-lt-pos')).toBeNull()
   })

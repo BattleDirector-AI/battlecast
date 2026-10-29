@@ -185,8 +185,8 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `dwellSeconds: 8` is the widget literal in `DEFAULT_CONFIG`; `normalizeConfig` applies rule 50's
   `[2, 60]` range to the `updates` key only, every other widget keeping rule 46's `> 0`. The
   editor's dwell input reuses the lower-third dwell field's commit path with rule 50's range.
-  The card's strings come from existing formatters, not new ones: the name from `fmtName` after
-  `presentName` (rule 14b), the lap time from `fmtLapTime`, the same call the tower's lap flash
+  The card's strings come from existing formatters, not new ones: the name from the name-style
+  formatter after `presentName` (rule 14b; see "Driver names in every widget"), the lap time from `fmtLapTime`, the same call the tower's lap flash
   makes. The box's one timer is the card on screen; it reads `dwellSeconds` when a card starts.
 - **Info panel** (`what/widgets.md` rules 76–82, `what/overlay-config.md` rules 52–53): `/info`
   joins `OVERLAY_ROUTES` in `App.svelte`, and `info` joins `DEFAULT_CONFIG.widgets` (so
@@ -264,13 +264,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   and `lowerThirdTrigger.js`'s `sync()`.
 - **#21's name is never clipped on the block axis** (`what/widgets.md` rule 109): the base
   `.bc-lt__name` rule in `DriverLowerThird.svelte`, so it holds under every preset, is `white-space:
-  nowrap`, and its `overflow-y` computes to `visible`. If the rule clips the inline axis, it does
-  so with `overflow: clip visible` (`overflow-x: clip`, `overflow-y: visible`), never `hidden`,
-  `auto` or `scroll`: any axis that is neither `visible` nor `clip` turns the other axis's
-  `visible` into `auto`, which clips at the line box. That line box is the page's inherited
+  nowrap`, and its `overflow-y` computes to `visible`. Its line box is the page's inherited
   `line-height` (app.css's `:root`, 145% of 18px: 26.1px), shorter than the display faces'
-  descenders and accents at 24px, and more so at a larger `textScale`. `overflow: clip` needs
-  Chromium 90+, and the oldest supported engine is OBS 30's CEF 103. No rule on the name, base or
+  descenders and accents at 24px, and more so at a larger `textScale`. No rule on the name, base or
   themed, sets another clipper (`clip-path`, `contain` with `paint`, `content` or `strict`,
   `mask`, `mask-image`). Neither the name nor `.bc-lt`, `.bc-lt__body` or `.bc-lt__meta` sets a
   `line-height` or height, and the name sets no padding or margin, so its line box and the card
@@ -628,19 +624,32 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
   `?metrics=` on the standalone route),
   and `StandingsTower.svelte` suppresses pit/tire-wear/fuel outright in lap-timed modes
   (`hideRaceStrategy`) regardless of the toggles or producer data.
-- **Driver name style** (behavior in `what/widgets.md` rules 46–48, `what/overlay-config.md`
-  rule 42; rationale in `docs/decisions/0018-tower-driver-name-style.md`).
+- **Driver name style** (behavior in `what/widgets.md` rules 46–48 and 116,
+  `what/overlay-config.md` rule 42; rationale in `docs/decisions/0018-tower-driver-name-style.md`
+  and `docs/decisions/0038-profile-wide-driver-name-style.md`). The other widgets' side is
+  "Driver names in every widget" below.
   - **Props.** `StandingsTower.svelte` takes `nameStyle` (`'short'` | `'full'`; the bare
     component's default is `'short'`, the style that never changes width), `configuredWidth`
     (canvas px) and `textScale`. It stamps `data-name-style` on its root. `AllView.svelte`
-    passes `normalized.widgets.tower.nameStyle`, the tower's `w` as `configuredWidth`, and its
+    passes `normalized.theme.nameStyle`, the tower's `w` as `configuredWidth`, and its
     `textScale` (only a reset trigger; the type tokens on the slot already scale the text).
-    `TowerPage.svelte` passes `config.widgets.tower.nameStyle` from the profile it already
+    `TowerPage.svelte` passes `config.theme.nameStyle` from the profile it already
     loads for `maxRows`/`cycle`, and no `configuredWidth`; the component then uses the resolved
     `--bc-tower-width`, and `400` when that does not resolve to a px number (as in `happy-dom`).
-  - **Formatters.** Full is `fmtName` (`design/format.js`), the formatter the battle box,
-    lower-thirds, HUD and grid/results slides use, applied to string names only (a non-string
-    gives `''`). Short is a separate formatter beside it that only the tower calls.
+  - **Formatters.** Full is `fmtName` (`design/format.js`), applied to string names only (a
+    non-string gives `''`). Short is `fmtShortName` beside it. Every widget picks between the
+    two by the one style (see "Driver names in every widget").
+  - **Short-style minimum width** (rule 116). In short style the tower root carries an inline
+    `min-width: <N>px` only when `N = ceil(lead + borderX)` exceeds the configured width, and
+    none otherwise (so at the default width short style still sets no `min-width`). `lead` is
+    the largest `nameCell.offsetLeft + nameCell.offsetWidth` over the rendered rows' name cells
+    (`[data-testid="driver-name"]`); the row is `position: relative`, so that is the name
+    column's right edge measured from the row's left edge, and the rows sit flush with the
+    tower's padding edge, so the row's left edge is the tower's left border. `borderX` is the
+    root's `borderLeftWidth + borderRightWidth`, read as in full style. It is read after every
+    render of the rows and is not a running maximum: the short-style `min-width` follows the
+    current rows, unlike full style's. In `happy-dom` both reads are `0`, so `N` is `0` and no
+    `min-width` is set unless a test stubs them.
   - **The width hook.** In full style the tower root carries an **inline `min-width: <N>px`**,
     `N = max(configuredWidth, ceil(widestName + widestRest + borderX))`, where `borderX` is the
     tower root's `parseFloat(borderLeftWidth) + parseFloat(borderRightWidth)` from its computed
@@ -734,6 +743,111 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `min-width` beating the `/all` slot's `width: 100%`, and the row CSS that makes the rest
     read exact (the shared tracks below; in the flex fallback, non-name cells `flex-shrink: 0`
     and the name cell `flex: 1 0 auto`): `happy-dom` does no layout, so no unit test can see it.
+- **Driver names in every widget** (behavior in `what/widgets.md` rules 111–115 and
+  `what/overlay-config.md` rules 42–43; rationale in
+  `docs/decisions/0038-profile-wide-driver-name-style.md`).
+  - **The setting.** `overlayConfig.js` normalizes `theme.nameStyle` with the theme's other
+    keys: the theme value when it is exactly `'short'` or `'full'`, else the source profile's
+    `widgets.tower.nameStyle` when that is, else `'short'`. `DEFAULT_CONFIG.theme` carries
+    `nameStyle: 'short'`. The widget literals in `DEFAULT_CONFIG`, `TOWER_DEFAULTS` and the
+    per-widget normalization no longer carry `nameStyle`, so a normalized widget has no such
+    key. `configEditor.setNameStyle(config, value)` writes `theme.nameStyle` and nothing else,
+    as `setClassTags` does.
+  - **One formatter.** `fmtDriverName(name, style)` in `design/format.js` returns
+    `fmtShortName(name)` for `'short'` and `fmtName(name)` for `'full'`, and `''` for a
+    non-string. Every widget formats its names through it; the present-name tests (rule 14b,
+    `presentName`) still run first where they run now.
+  - **Props.** Each widget that shows a name takes a `nameStyle` prop: `StandingsTower` (above),
+    `BattleBox`, `DriverLowerThird`, `QualifyingLowerThird`, `RaceUpdateBox`, `GridSlide` and
+    `ResultsSlide`. The HUD's name is formatted where its identity is built:
+    `resolveIdentity(snapshot, cfg, showTags, nameStyle)` (`OnBoardHud.svelte`). A bare
+    component's default is `'short'` for the tower, as before, and `'full'` for the others, the
+    form each rendered before, so their own suites keep testing their own rules; every route
+    passes the style explicitly, so no route ever renders a bare default. `raceEvents.js` keeps
+    `name` as it is and adds the unformatted `driverName` (after `presentName`) to each card, and
+    `RaceUpdateBox` renders `fmtDriverName(card.driverName, nameStyle)`.
+  - **Routes.** `AllView.svelte` passes `normalized.theme.nameStyle` to every widget above and to
+    `resolveIdentity` for the HUD, so the `/config` preview (an `AllView`) follows the editor's
+    value. `TowerPage`, `BattlePage`, `DriverPage`, `QualifyingPage`, `UpdatesPage`, `GridPage`
+    and `ResultsPage` pass `config.theme.nameStyle` from the profile they load, and live reload
+    (`watchConfig`) updates it like their other settings. `OnBoardHudPage` loads no profile and
+    passes `'short'`.
+  - **Name CSS: nothing cuts.** The name elements are `.bc-battle__focus-name`,
+    `.bc-battle__slot-name`, `.bc-battle__idle-sub` (`BattleBox.svelte`), `.bc-lt__name`
+    (`DriverLowerThird.svelte`), `.bc-qt__name` (`QualifyingLowerThird.svelte`),
+    `.bc-onboard__driver` (`OnBoardHud.svelte`), `.bc-ru__name` (`RaceUpdateBox.svelte`),
+    `.cell__name` (`GridSlide.svelte`) and `.row__name` (`ResultsSlide.svelte`). Each is
+    `white-space: nowrap`, and no rule on it, base or under a preset, sets `text-overflow`, an
+    `overflow`, `overflow-x` or `overflow-y` other than `visible`, `max-width`, `min-width: 0`,
+    or `text-wrap`. `.bc-qt__label` is `white-space: nowrap` and `flex-shrink: 0`, so
+    `CLASS BEST` stays one line. A flex item whose `overflow` is `visible` and whose `min-width`
+    is `auto` cannot shrink below its text, so the name's own width becomes part of its widget's
+    min-content width; the widget CSS below turns that into growth.
+  - **Reference short form.** `design/styles.css` defines one global rule:
+    `.bc-name-ref::after { content: 'W.WWW'; display: block; height: 0; overflow: hidden;
+    visibility: hidden; }`. In short style every single-name element (rule 113:
+    `.bc-battle__focus-name`, both `.bc-battle__slot-name`s, `.bc-lt__name`, `.bc-qt__name`,
+    `.bc-onboard__driver`, `.bc-ru__name`) carries the class `bc-name-ref`; in full style none
+    does, and no other element does in either style. The pseudo-element inherits the name's
+    face, size, weight, letter spacing and case, so its block box is `W.WWW` as the name would
+    render it; being a block child of the (blockified) name element, it makes the name box's
+    min-content width at least its own, and with `height: 0` it adds no height. It is not text,
+    so `textContent` reads the name alone.
+  - **Growth CSS.** Each widget's root is never narrower than its min-content width, which the
+    name rules above make the rule 114 need:
+    - `BattleBox`: `.bc-battle` gets `min-width: min-content`; `.bc-battle__body` is
+      `grid-template-columns: minmax(min-content, 1fr) minmax(min-content, 1.15fr)
+      minmax(min-content, 1fr)`, and `.bc-battle__slot` loses `min-width: 0`. The root keeps
+      `overflow: hidden` (it frames the plate and the intensifying ring); since the root is
+      never narrower than its content, that clips nothing of a name.
+    - `DriverLowerThird`, `QualifyingLowerThird`, `RaceUpdateBox`: the plates in
+      `LowerThirdShell` are absolutely positioned (#185) and so give `.lt3-anchor` no width of
+      its own. These three widgets' anchors get `display: grid` and `min-width: min-content`,
+      and their plates take `grid-area: 1 / 1` in place of `position: absolute`, so an exiting
+      and an entering plate still share one box during a re-cut while the anchor takes the
+      card's min-content width. The info panel keeps its own sizing (rule 78a): the anchor
+      change does not apply to it, since its line must not widen it. `.bc-lt__body`,
+      `.bc-ru__body`, `.bc-ru__main`, `.bc-qt__body` and `.bc-qt__head` lose `min-width: 0`. Lines that still
+      cut, `.bc-ru__detail` here and `.bc-onboard__car` in the HUD, add nothing to the
+      min-content width: for example `width: 0; min-width: 100%` (an intrinsic contribution of
+      `0`, then the full line at layout), keeping `overflow: hidden` and `text-overflow:
+      ellipsis`. #22's `.bc-qt__times` keeps `flex-wrap: wrap`, so its min-content is its widest
+      cell and it still wraps rather than widening the card.
+    - `OnBoardHud`: `.bc-onboard` keeps `width: fit-content` and `max-width: 100%` and adds
+      `min-width: min-content`, which wins over `max-width` where they conflict.
+      `.bc-onboard__identity` loses `min-width: 0`.
+    - `GridSlide`: `.group__grid` is `grid-template-columns: repeat(2, minmax(min-content,
+      1fr))`. `ResultsSlide`: the row and column-head grid's middle track is `minmax(min-content,
+      1fr)`. `.cell`'s `overflow: hidden` stays (its corners); the track is never narrower than
+      the cell's content, so it clips no name.
+    - Inside `/all`, `.widget-slot > *` keeps `width: 100%`; the root's `min-width: min-content`
+      beats it, so a grown widget overflows its slot to the right before placement.
+  - **Placement in `/all`** (rule 115). A pure helper beside `infoPanelSpan` (for example
+    `grownLeft({ naturalLeft, slotLeft, slotWidth, width, canvasWidth })` in `lib/`) returns
+    `max(min(L0, 0), L0 − max(0, L0 + W − max(C, x + w)))`; `infoPanelSpan`'s `left` is the same
+    formula with `L0 = x`. For each `battle`, `driver`, `qualifying`, `onboard` and `updates`
+    slot, `AllView` reads the slot's first element child's `offsetWidth` (`W`, layout px, so the
+    preview's `transform: scale(...)` does not change it; `0` or no child means nothing is
+    drawn), takes `L0 = x` (`x + (w − W) / 2` for `onboard`, whose slot centres it), and gives
+    the slot element an inline `transform: translateX(<L − L0>px)` when `L − L0` is not `0`, and
+    no `transform` otherwise. The slot's inline `left`, `top`, `width` and `height` stay the
+    stored geometry, which is what the editor's drag box reads. It measures in an `$effect` after
+    each render and from a `ResizeObserver` on each such child (a font load, a preset switch, a
+    `textScale` change and a name change all resize it), disconnected on unmount. Standalone
+    routes do no placement: the widget overflows its page to the right.
+  - **Tests.** `lib/overlayConfig.nameStyle.test.js` (normalization and migration),
+    `routes/config/ConfigPage.nameStyle.test.js` (the control),
+    `routes/all/AllView.nameStyle.test.js` (the style in every widget of `/all`, the reference
+    class, and the placement with `offsetWidth` stubbed on each slot's child),
+    `routes/nameStyle.routes.test.js` (the standalone routes),
+    `routes/tower/StandingsTower.shortWidth.test.js` (rule 116, with the name cells'
+    `offsetLeft` / `offsetWidth` and the root's borders stubbed) and `routes/nameStyle.css.test.js`
+    (the name CSS above, read from each component's source with `?raw`, and the
+    `.bc-name-ref::after` rule in `styles.css`). What only a real browser shows, and a one-time
+    headless-Chromium check confirms: that each widget's min-content width really is its rule 114
+    need (the grid tracks, the anchor grid, the zero-contribution lines), that a grown widget's
+    `offsetWidth` is its grown width, that `W.WWW` reserves the room it should in each preset's
+    face, and that no glyph or shadow of a long name is cut. `happy-dom` does no layout.
 - **Tower columns** (behavior in `what/widgets.md` rules 49–53; rationale in
   `docs/decisions/0020-tower-table-columns.md`). The columns are **CSS grid tracks shared by
   every row**, with no measuring in JS.

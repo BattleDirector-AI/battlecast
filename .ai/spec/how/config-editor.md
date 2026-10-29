@@ -40,6 +40,12 @@ preview subtree while the editor's own panel, whose root carries no vintage them
 (`what/overlay-config.md` rule 62). The theme select (`data-testid="theme-preset"`) sits beside the
 class-tags select, writes through `configEditor.setThemePreset`, and its help is
 `FIELD_HELP.themePreset`.
+The driver-names select (`data-testid="name-style"`, `what/overlay-config.md` rule 43) sits with
+these overlay-wide selects, not in the tower row, writes through `configEditor.setNameStyle`
+(`theme.nameStyle` only), and its help is `FIELD_HELP.nameStyle` (behind
+`data-testid="help-name-style"`). The tower row's former `name-style-tower` select and its
+`setWidgetField(…, 'nameStyle', …)` path are gone. The preview is an `AllView`, so every widget in
+it re-renders in the chosen style.
 Every widget reaches the preset through the stage (rule 63): `AllView`'s widget slots carry no
 `data-theme` of their own, widget styles key off the bare `[data-theme=…]` ancestor
 (`how/renderer.md`, "Theme presets"), and the tower's theme-switch reset finds its scope with
