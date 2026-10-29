@@ -208,7 +208,11 @@
     color: var(--bc-oncam-text);
     text-shadow: 0 0 12px var(--bc-accent-glow);
     white-space: nowrap;
-    overflow: hidden;
+    /* Clip the inline axis only (widgets rule 109). The line box is the page's inherited line
+       height, shorter than the display faces' descenders, accents and shadow; `hidden` would turn
+       the visible block axis into `auto` and cut them, and `clip` is the one value that leaves it
+       visible. */
+    overflow: clip visible;
     text-overflow: ellipsis;
     max-width: 100%;
   }
