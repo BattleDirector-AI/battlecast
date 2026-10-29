@@ -15,7 +15,7 @@
   // Dumb overlay, smart producer (docs/decisions/0002-lower-third-widgets.md): every
   // value is producer-owned. Inputs may be null/undefined/partial/garbage — these
   // helpers normalize defensively and never throw.
-  import { fmtName, positiveIntOrNull } from '../../design/format.js'
+  import { fmtDriverName, positiveIntOrNull } from '../../design/format.js'
   import { resolveSubject } from '../driver/DriverLowerThird.svelte'
 
   /** Coerce to a finite number, else null. */
@@ -87,8 +87,10 @@
    * can omit the identity strip entirely. Never throws on partial/garbage data.
    * `showClass` is the overlay-wide class-tags answer (`classTagsShown`, rule 63): false makes
    * the class field count as having no value, so a class-only strip resolves to null.
+   * `nameStyle` is the profile's `theme.nameStyle` (widgets.md rule 111); routes always pass it,
+   * and the bare default is the full form the strip showed before the style was overlay-wide.
    */
-  export function resolveIdentity(snapshot, widget = {}, showClass) {
+  export function resolveIdentity(snapshot, widget = {}, showClass, nameStyle = 'full') {
     const info = widget && typeof widget.driverInfo === 'object' && widget.driverInfo ? widget.driverInfo : {}
     const subject = snapshot?.subject ?? null
     if (!subject || typeof subject !== 'object') return null
@@ -96,7 +98,7 @@
     // (widgets.md rules 14a/14b) cannot drift between the HUD and the lower-thirds.
     const { vehicle, name: rawName } = resolveSubject(snapshot)
     const out = {}
-    if (info.name && rawName) out.name = fmtName(rawName)
+    if (info.name && rawName) out.name = fmtDriverName(rawName, nameStyle)
     const number = vehicle?.car_number
     if (info.number && number != null && String(number).trim()) out.number = String(number).trim()
     const position = positiveIntOrNull(vehicle?.position)
@@ -130,6 +132,9 @@
     cardShown = false,
     waitForLowerThird = true,
     classColors = {},
+    // The style `identity.name` was resolved in; short style reserves the reference short form
+    // in the name slot (widgets.md rule 113).
+    nameStyle = 'full',
   } = $props()
 
   const t = $derived(resolveTelemetry(telemetry))
@@ -167,7 +172,9 @@
         <span class="bc-onboard__number" data-testid="onboard-driver-number">{identity.number}</span>
       {/if}
       {#if identity.name}
-        <span class="bc-onboard__driver" data-testid="onboard-driver-name">{identity.name}</span>
+        <span class="bc-onboard__driver" class:bc-name-ref={nameStyle === 'short'} data-testid="onboard-driver-name"
+          >{identity.name}</span
+        >
       {/if}
       {#if identity.class}
         <span class="bc-onboard__class" data-testid="onboard-driver-class">
@@ -175,7 +182,9 @@
         </span>
       {/if}
       {#if carLine}
-        <span class="bc-onboard__car" data-testid="onboard-driver-car">{carLine}</span>
+        <span class="bc-onboard__car" data-testid="onboard-driver-car"
+          ><span class="bc-onboard__car-text">{carLine}</span></span
+        >
       {/if}
     </div>
   {/if}
@@ -239,6 +248,9 @@
     gap: var(--bc-space-2);
     width: fit-content;
     max-width: 100%;
+    /* Never narrower than the strip's whole items, the name above all, which beats the
+       max-width (widgets.md rules 112, 114); the make-and-model line adds nothing to it. */
+    min-width: min-content;
     box-sizing: border-box;
     padding: var(--bc-space-2) var(--bc-space-3);
     background: var(--bc-header);
@@ -256,7 +268,6 @@
     display: flex;
     align-items: center;
     gap: var(--bc-space-2);
-    min-width: 0;
     padding-bottom: var(--bc-space-1);
     border-bottom: 1px solid var(--bc-divider);
   }
@@ -308,9 +319,6 @@
     font-weight: var(--bc-weight-name);
     color: var(--bc-oncam-text);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
   }
 
   .bc-onboard__class {
@@ -318,8 +326,18 @@
     display: inline-flex;
   }
 
+  /* The make-and-model line is not a name: it is cut at the HUD's width and never widens it.
+     A one-track grid of minmax(0, max-content) gives it no min-content width (so the HUD's
+     min-width ignores it) while its max-content still sizes a HUD that has room; the text
+     inside is clipped with the line's ellipsis. The strip's gap before it is moved inside the
+     line (a negative margin, then the text's padding), so a line squeezed to nothing leaves no
+     empty gap behind. */
   .bc-onboard__car {
     flex: 0 1 auto;
+    min-width: 0;
+    margin-left: calc(-1 * var(--bc-space-2));
+    display: grid;
+    grid-template-columns: minmax(0, max-content);
     font-family: var(--bc-font-ui);
     font-size: var(--bc-size-label);
     letter-spacing: var(--bc-track-label);
@@ -328,6 +346,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .bc-onboard__car-text {
+    padding-left: var(--bc-space-2);
+    overflow: hidden;
+    text-overflow: inherit;
   }
 
   /* Telemetry row: bars on the left, SPEED / GEAR readouts on the right. */

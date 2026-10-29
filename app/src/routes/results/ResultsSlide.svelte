@@ -1,7 +1,7 @@
 <script>
   import ClassChip from '../../design/ClassChip.svelte'
   import { classColor, classMeta } from '../../design/classMeta.js'
-  import { fmtName, fmtLapTime } from '../../design/format.js'
+  import { fmtDriverName, fmtLapTime } from '../../design/format.js'
   import { classTagsShown } from '../../lib/classTags.js'
   import { listableVehicles } from '../../lib/vehicles.js'
 
@@ -15,7 +15,16 @@
   // `classTags` (widgets.md rules 60, 64): with the tags hidden the slide renders one list in
   // overall position order, numbered by overall position, with no class group headers and no
   // filter chip.
-  let { snapshot = null, classFilter = null, label = 'RESULTS', classColors = {}, classTags = 'auto' } = $props()
+  // `nameStyle` (widgets.md rule 111): the profile's `theme.nameStyle`; routes always pass it,
+  // and the bare default is the full form the slide showed before the style was overlay-wide.
+  let {
+    snapshot = null,
+    classFilter = null,
+    label = 'RESULTS',
+    classColors = {},
+    classTags = 'auto',
+    nameStyle = 'full',
+  } = $props()
 
   const showTags = $derived(classTagsShown(classTags, snapshot?.session))
 
@@ -123,7 +132,7 @@
                 ></span>
                 <span class="col col--pos row__pos">{showTags ? i + 1 : v.position}</span>
                 <span class="col col--name row__name" data-testid="driver-name"
-                  >{fmtName(v.driver_name)}</span
+                  >{fmtDriverName(v.driver_name, nameStyle)}</span
                 >
                 <span class="col col--lap row__lap" data-testid="best-lap"
                   >{fmtLapTime(v.best_lap)}</span
@@ -219,7 +228,7 @@
   .group__colhead,
   .row {
     display: grid;
-    grid-template-columns: 64px 1fr 160px;
+    grid-template-columns: 64px minmax(min-content, 1fr) 160px;
     align-items: center;
     gap: var(--bc-space-3);
   }
@@ -267,14 +276,12 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* A name is never cut (widgets.md rule 112): its track is never narrower than it. */
   .row__name {
-    min-width: 0;
     font-family: var(--bc-font-display);
     font-size: var(--bc-size-name);
     font-weight: var(--bc-weight-name);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .row__lap {

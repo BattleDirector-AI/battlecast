@@ -30,7 +30,7 @@
 <script>
   import { onDestroy } from 'svelte'
   import ClassChip from '../../design/ClassChip.svelte'
-  import { fmtName, fmtLapTime, fmtSector, fmtDelta } from '../../design/format.js'
+  import { fmtDriverName, fmtLapTime, fmtSector, fmtDelta } from '../../design/format.js'
   import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
   import { QUALIFYING_DEFAULTS } from '../../lib/overlayConfig.js'
   import LowerThirdShell from '../../lib/LowerThirdShell.svelte'
@@ -40,7 +40,9 @@
   // showOnConnect) plus the #22 knobs (`modes`, `fireOnClassBest`).
   // `classTags` (widgets.md rules 60, 62): resolved against the LATEST snapshot's session at
   // render time, so a card on screen (a frozen flash included) gains or loses its chip in place.
-  let { snapshot = null, widget = {}, classColors = {}, classTags = 'auto' } = $props()
+  // `nameStyle`: the profile's `theme.nameStyle` (widgets.md rule 111). Routes always pass it;
+  // the bare default is the full form the card rendered before the style was overlay-wide.
+  let { snapshot = null, widget = {}, classColors = {}, classTags = 'auto', nameStyle = 'full' } = $props()
 
   const showTags = $derived(classTagsShown(classTags, snapshot?.session))
 
@@ -66,7 +68,8 @@
   function cardFrom(res, veh) {
     return {
       state: res.state,
-      name: fmtName(res.name),
+      // Unformatted: the card shows it in the current name style, so a style change re-renders it.
+      name: res.name,
       position: veh?.position,
       carClass: veh?.vehicle_class,
       best: veh?.best_lap,
@@ -195,7 +198,9 @@
               {#if card.position != null}
                 <span class="bc-qt__pos" data-testid="qt-pos">P{card.position}</span>
               {/if}
-              <span class="bc-qt__name" data-testid="qt-name">{card.name}</span>
+              <span class="bc-qt__name" class:bc-name-ref={nameStyle === 'short'} data-testid="qt-name"
+                >{fmtDriverName(card.name, nameStyle)}</span
+              >
               {#if card.carClass && showTags}
                 <ClassChip carClass={card.carClass} size="compact" {classColors} />
               {/if}
@@ -247,8 +252,22 @@
 <style>
   /* The plate chrome and the entrance/exit motion now live in LowerThirdShell;
      this owns only the timing bar's inner layout. */
+  /* One grid cell holds the plate, so the anchor takes the card's min-content width and a
+     name too long for the slot widens the card instead of being cut (widgets.md rules 112,
+     114). An exiting and an entering plate still share the one cell during a re-cut (#185). */
   .lt3-anchor {
     position: relative;
+    display: grid;
+    /* A min-content track: the plate clips (overflow: hidden), which would otherwise give it
+       no minimum in an auto track. */
+    grid-template-columns: minmax(min-content, 1fr);
+    min-width: min-content;
+  }
+  /* .lt3.lt3: outranks LowerThirdShell's own `.lt3 { position: absolute }` whatever the
+     order the two stylesheets land in the bundle. */
+  .lt3-anchor > :global(.lt3.lt3) {
+    position: relative;
+    grid-area: 1 / 1;
   }
 
   .bc-qt {
@@ -280,15 +299,15 @@
     flex-direction: column;
     justify-content: center;
     gap: var(--bc-space-2);
-    min-width: 0;
     width: 100%;
   }
 
+  /* One line: the label, position, name and chip each render whole, and the card widens for
+     the name (widgets.md rule 114, #416). */
   .bc-qt__head {
     display: flex;
     align-items: center;
     gap: var(--bc-space-2);
-    min-width: 0;
   }
 
   .bc-qt__label {
@@ -298,6 +317,8 @@
     letter-spacing: var(--bc-track-label);
     text-transform: uppercase;
     color: var(--bc-text-3);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .bc-qt--flash .bc-qt__label {
@@ -318,9 +339,6 @@
     font-weight: var(--bc-weight-name);
     color: var(--bc-oncam-text);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
   }
 
   .bc-qt__times {

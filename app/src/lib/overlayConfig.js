@@ -86,7 +86,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     battle: {
@@ -97,7 +97,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     logos: {
@@ -108,7 +108,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Driver lower-third (#21): a wide, short identity name-tag near the bottom of
@@ -122,7 +122,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Qualifying / sector lower-third (#22): a wide timing bar for the on-camera
@@ -138,7 +138,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Race Control — flag / FCY / Safety-Car status (#25): a top-of-canvas status
@@ -155,7 +155,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // On-board HUD — the on-camera subject's live inputs (#26): a bottom-centre,
@@ -176,7 +176,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Race update box (#27, overlay-config rule 50): one producer race event at a time,
@@ -191,7 +191,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     // Info panel (#62, overlay-config rule 52): the event header and one rotating line,
@@ -206,7 +206,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       lines: [], weatherCard: false,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
@@ -221,7 +221,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       waitForLowerThird: true,
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
-      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal', nameStyle: 'short',
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
   },
@@ -231,7 +231,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   // no seeded/curated entries. `classTags` (overlay-config rule 47, ADR 0022): `auto` follows
   // the producer's `session.multiclass`; `show` / `hide` override it.
   // `preset` (rule 58, ADR 0026): the overlay-wide look — `modern`, `vintage70` or `vintage80`.
-  theme: { preset: 'modern', classColors: {}, classTags: 'auto' },
+  // `nameStyle` (rule 42, ADR 0038): every widget's driver names, `short` (E.JAC) or `full`.
+  theme: { preset: 'modern', classColors: {}, classTags: 'auto', nameStyle: 'short' },
   // Overlay-wide motion opt-out. The overlay animates by default (see lib/motion.js —
   // OBS/CEF reports reduced-motion, which must NOT silently kill the reveals); set true
   // to turn transitions down. A `?motion=` URL param overrides this per Browser Source.
@@ -266,9 +267,6 @@ export const QUALIFYING_DEFAULTS = Object.freeze({
  *  `configVersion` bump. */
 export const TOWER_DEFAULTS = Object.freeze({
   classDisplay: 'inline',
-  // Driver name style (overlay-config.md rule 42, ADR 0018): 'short' (E.JAC) or 'full'
-  // (E. Jacobs, the tower growing wider to fit). Only the tower reads it.
-  nameStyle: 'short',
 })
 
 /** Battle box exit grace (overlay-config.md rule 36, ADR 0013): how long an ended battle
@@ -596,6 +594,15 @@ export function normalizeClassTags(raw) {
   return CLASS_TAGS_VALUES.includes(raw) ? raw : 'auto'
 }
 
+/** `theme.nameStyle` (overlay-config rule 42, ADR 0038): exactly `short` or `full`, else the
+ *  profile's tower-only `widgets.tower.nameStyle` when that is (a profile saved before the
+ *  style was overlay-wide), else `short`. */
+export const NAME_STYLES = Object.freeze(['short', 'full'])
+export function normalizeNameStyle(raw, towerRaw) {
+  if (NAME_STYLES.includes(raw)) return raw
+  return NAME_STYLES.includes(towerRaw) ? towerRaw : 'short'
+}
+
 /** `theme.preset` (overlay-config rule 58): exactly one of the curated presets, else `modern`.
  *  Exact match, like `classTags`; only the `?theme=` URL knob is case-insensitive. */
 export function normalizeThemePreset(raw) {
@@ -637,6 +644,11 @@ export function normalizeConfig(raw) {
       preset: normalizeThemePreset(src.theme.preset),
     }
   }
+  const srcTower = src.widgets && typeof src.widgets === 'object' ? src.widgets.tower : null
+  out.theme.nameStyle = normalizeNameStyle(
+    src.theme && typeof src.theme === 'object' ? src.theme.nameStyle : undefined,
+    srcTower && typeof srcTower === 'object' ? srcTower.nameStyle : undefined,
+  )
   // Overlay-wide motion opt-out (see lib/motion.js). Defaults false (animate).
   out.reducedMotion = typeof src.reducedMotion === 'boolean' ? src.reducedMotion : false
 
@@ -699,12 +711,6 @@ export function normalizeConfig(raw) {
         w.classDisplay === 'inline' || w.classDisplay === 'grouped'
           ? w.classDisplay
           : d.classDisplay ?? TOWER_DEFAULTS.classDisplay,
-      // Tower driver name style (rule 42) — exactly 'short' or 'full'; anything else
-      // (another case, padding, another type) is the default. Only the tower reads it.
-      nameStyle:
-        w.nameStyle === 'short' || w.nameStyle === 'full'
-          ? w.nameStyle
-          : d.nameStyle ?? TOWER_DEFAULTS.nameStyle,
       // #26 on-board HUD display unit — only the on-board HUD reads it, but it's
       // normalized onto every widget (like classDisplay) for a uniform shape. An
       // unknown value falls back to the default so a stale/typo'd profile still

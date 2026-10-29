@@ -58,7 +58,7 @@
 </script>
 
 <div class="driver-page">
-  <DriverLowerThird {snapshot} {widget} classColors={config.theme.classColors} classTags={config.theme.classTags} />
+  <DriverLowerThird {snapshot} {widget} classColors={config.theme.classColors} classTags={config.theme.classTags} nameStyle={config.theme.nameStyle} />
 </div>
 
 <style>

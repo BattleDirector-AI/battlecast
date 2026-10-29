@@ -1,4 +1,5 @@
 <script>
+  import { untrack } from 'svelte'
   import StandingsTower from '../tower/StandingsTower.svelte'
   import BattleBox from '../battle/BattleBox.svelte'
   import LogoRotation from '../logos/LogoRotation.svelte'
@@ -22,6 +23,7 @@
   import { createBattleGrace } from '../../lib/battleGrace.js'
   import { createLowerThirdTrigger } from '../../lib/lowerThirdTrigger.js'
   import { classTagsShown } from '../../lib/classTags.js'
+  import { grownLeft } from '../../lib/widgetPlacement.js'
 
   // `preview` (the /config editor) disables the on-board HUD's lower-third hand-off so
   // the HUD is always visible for positioning/configuring — the hand-off is a runtime
@@ -73,6 +75,9 @@
   // Overlay-wide class-tag setting (widgets.md rules 60-63, ADR 0022), threaded like
   // classColors; each widget resolves it against the snapshot's `session.multiclass`.
   const classTags = $derived(normalized.theme.classTags)
+  // The overlay-wide driver name style (widgets.md rule 111, overlay-config rule 42), passed to
+  // every widget that shows a name.
+  const nameStyle = $derived(normalized.theme.nameStyle)
   // Battle box exit grace (widgets.md rules 37-39, ADR 0013). Lives here, outside the
   // battle slot, so `hideWhenIdle` unmounting the slot cannot kill a running hold — and
   // both the auto-hide filter and the box read the same post-grace snapshot.
@@ -102,7 +107,7 @@
   const driverCfg = $derived(normalized.widgets.driver)
   // Hidden class tags (rule 63): applied inside resolveIdentity via its showClass argument.
   const onboardIdentity = $derived(
-    resolveIdentity(snapshot, onboardCfg, classTagsShown(classTags, snapshot?.session)),
+    resolveIdentity(snapshot, onboardCfg, classTagsShown(classTags, snapshot?.session), nameStyle),
   )
   // The driver lower-third's one show/hide timer (widgets.md rules 15-17, 24). It lives here,
   // outside the card, and its flag goes to both the card and the HUD, so they cannot drift.
@@ -137,9 +142,69 @@
   // The HUD holds only while the driver card is visible (it passes no gate otherwise, or in
   // the /config preview).
   const onboardGate = $derived(!preview && driverCfg?.visible ? driverCfg : null)
+
+  // A widget grown past its slot to hold a name (widgets.md rules 114-115) is placed by the info
+  // panel's formula: it keeps its natural left edge (the slot's, or the centred HUD's) and takes
+  // on the left only what the canvas has no room for on the right. The slot keeps its stored
+  // geometry (the editor's drag box reads it); the shift is a transform on the slot. The tower
+  // is placed by its own rules (48, 116).
+  const GROWS = new Set(['battle', 'driver', 'qualifying', 'onboard', 'updates'])
+  let stageEl = $state(null)
+  let shifts = $state({})
+  function placeGrown() {
+    if (!stageEl) return
+    const next = {}
+    for (const w of widgets) {
+      if (!GROWS.has(w.key)) continue
+      // offsetWidth is layout px, so the /config preview's scale does not change it.
+      const width = stageEl.querySelector(`[data-widget="${w.key}"]`)?.firstElementChild?.offsetWidth ?? 0
+      if (!(width > w.w)) continue
+      const naturalLeft = w.key === 'onboard' ? w.x + (w.w - width) / 2 : w.x
+      const left = grownLeft({ naturalLeft, slotLeft: w.x, slotWidth: w.w, width, canvasWidth: canvas.w })
+      if (left !== naturalLeft) next[w.key] = left - naturalLeft
+    }
+    const keys = Object.keys(next)
+    if (keys.length !== Object.keys(shifts).length || keys.some((k) => shifts[k] !== next[k])) shifts = next
+  }
+  // Re-place after every render that can change a name (a snapshot, a config change, the
+  // driver card showing), and whenever a widget's size or content changes without one: a font
+  // load, a preset switch, a dwell timer swapping the update card.
+  $effect(() => {
+    void [snapshot, battleSnapshot, widgets, canvas, driverShown]
+    untrack(placeGrown)
+  })
+  $effect(() => {
+    const stage = stageEl
+    if (!stage) return
+    const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(() => placeGrown()) : null
+    const observeChildren = () => {
+      if (!resize) return
+      resize.disconnect()
+      for (const key of GROWS) {
+        const child = stage.querySelector(`[data-widget="${key}"]`)?.firstElementChild
+        if (child) resize.observe(child)
+      }
+    }
+    // A widget mounting or unmounting its root (a card coming up, the HUD revealing) changes a
+    // slot's children; size changes inside a root are the ResizeObserver's.
+    const slotChanged = (records) =>
+      records.some((r) => r.target === stage || r.target.classList?.contains('widget-slot'))
+    const mutations = new MutationObserver((records) => {
+      if (!slotChanged(records)) return
+      observeChildren()
+      placeGrown()
+    })
+    mutations.observe(stage, { childList: true, subtree: true })
+    observeChildren()
+    return () => {
+      mutations.disconnect()
+      resize?.disconnect()
+    }
+  })
 </script>
 
 <div
+  bind:this={stageEl}
   class="overlay-stage"
   data-testid="overlay-stage"
   style="width: {canvas.w}px; height: {canvas.h}px;"
@@ -150,6 +215,7 @@
       data-testid="widget-{w.key}"
       data-widget={w.key}
       style="left: {w.x}px; top: {w.y}px; width: {w.w}px; height: {w.h}px; z-index: {w.z}; {plateVars(w.plateAlpha)}; {textVars(w)}"
+      style:transform={shifts[w.key] ? `translateX(${shifts[w.key]}px)` : undefined}
     >
       {#if w.key === 'tower'}
         <StandingsTower
@@ -160,7 +226,7 @@
           maxRows={normalized.widgets.tower?.maxRows}
           cycle={normalized.widgets.tower?.cycle}
           slotHeight={normalized.widgets.tower?.h}
-          nameStyle={normalized.widgets.tower?.nameStyle}
+          {nameStyle}
           configuredWidth={normalized.widgets.tower?.w}
           textScale={normalized.widgets.tower?.textScale}
           {classColors}
@@ -175,13 +241,14 @@
           session={battleSnapshot?.session ?? null}
           {classColors}
           {classTags}
+          {nameStyle}
         />
       {:else if w.key === 'logos'}
         <LogoRotation rotation={normalized.logoRotation} />
       {:else if w.key === 'driver'}
-        <DriverLowerThird {snapshot} widget={w} {classColors} {classTags} shownOverride={driverShown} />
+        <DriverLowerThird {snapshot} widget={w} {classColors} {classTags} {nameStyle} shownOverride={driverShown} />
       {:else if w.key === 'qualifying'}
-        <QualifyingLowerThird {snapshot} widget={w} {classColors} {classTags} />
+        <QualifyingLowerThird {snapshot} widget={w} {classColors} {classTags} {nameStyle} />
       {:else if w.key === 'racecontrol'}
         <RaceControlStatus session={snapshot?.session ?? null} mode={snapshot?.mode ?? null} />
       {:else if w.key === 'onboard'}
@@ -194,9 +261,10 @@
           cardShown={driverShown}
           waitForLowerThird={onboardCfg?.waitForLowerThird}
           {classColors}
+          {nameStyle}
         />
       {:else if w.key === 'updates'}
-        <RaceUpdateBox {snapshot} dwellSeconds={w.dwellSeconds} {preview} />
+        <RaceUpdateBox {snapshot} dwellSeconds={w.dwellSeconds} {preview} {nameStyle} />
       {:else if w.key === 'info'}
         <InfoPanel
           {snapshot}

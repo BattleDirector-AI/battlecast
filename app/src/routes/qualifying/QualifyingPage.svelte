@@ -57,7 +57,7 @@
 </script>
 
 <div class="qualifying-page">
-  <QualifyingLowerThird {snapshot} {widget} classColors={config.theme.classColors} classTags={config.theme.classTags} />
+  <QualifyingLowerThird {snapshot} {widget} classColors={config.theme.classColors} classTags={config.theme.classTags} nameStyle={config.theme.nameStyle} />
 </div>
 
 <style>

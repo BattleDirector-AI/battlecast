@@ -12,9 +12,9 @@ export function fmtName(name) {
   return `${initial}. ${surname}`
 }
 
-/** Driver name -> the tower's short code: 'Erik Jacobs' -> 'E.JAC', 'Tsunoda' -> 'TSU'
+/** Driver name -> the short code: 'Erik Jacobs' -> 'E.JAC', 'Tsunoda' -> 'TSU'
  *  (widgets.md rule 47). NFC, code points, letters/digits of any script, uppercase last.
- *  Anything but a non-blank string gives ''. Only the standings tower calls this. */
+ *  Anything but a non-blank string gives ''. */
 export function fmtShortName(name) {
   if (typeof name !== 'string') return ''
   const s = name.normalize('NFC').trim()
@@ -30,6 +30,13 @@ export function fmtShortName(name) {
   const code =
     kept.length === 1 ? take(kept[0], 3) : `${take(kept[0], 1)}.${take(kept.slice(1).join(''), 3)}`
   return code.toUpperCase()
+}
+
+/** Driver name in the profile's name style (widgets.md rule 111, overlay-config rule 42):
+ *  the short code for 'short', 'Initial. SURNAME' for 'full'. A non-string gives ''. */
+export function fmtDriverName(name, style) {
+  if (typeof name !== 'string') return ''
+  return style === 'full' ? fmtName(name) : fmtShortName(name)
 }
 
 /** A race position as a positive integer, else null (0, fractions, strings, null).
