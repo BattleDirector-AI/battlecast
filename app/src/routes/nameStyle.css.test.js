@@ -164,6 +164,67 @@ describe('each widget is never narrower than its content (rule 114)', () => {
   })
 })
 
+describe("the HUD's telemetry row is never cut, and the HUD is never narrower than it (rule 114, #428)", () => {
+  // `.bc-onboard`'s `min-width: min-content` (above) takes in the telemetry row only while the
+  // row keeps a min-content width of its own; any of these would give it none, so the bars and
+  // readouts would be cut at the HUD's edge, or stick out past it, instead of widening it. How
+  // wide the row is depends on the preset's face and the text size: a real-browser check.
+  // A fixed `width` or `flex-basis` caps the box's min-content at that width whatever its
+  // content needs, so any is flagged; a `min-width` only raises the floor, so only `0` is.
+  const ROW_ZEROING =
+    /\| ((min-width|min-inline-size): 0(px)?|(width|inline-size|flex-basis|max-width|max-inline-size): .*|overflow(-x)?: (?!visible$).*|text-overflow: .*|contain: .*|grid-template-columns: .*minmax\(\s*0.*)$/
+  const ROW = [
+    'bc-onboard__telemetry',
+    'bc-onboard__bars',
+    'bc-onboard__bar',
+    'bc-onboard__bar-label',
+    'bc-onboard__readouts',
+    'bc-onboard__readout',
+    'bc-onboard__value',
+    'bc-onboard__readout-label',
+  ]
+
+  it.each(ROW)('no rule in any preset lets .%s shrink below its content or clip it', (cls) => {
+    const decls = declsOn(COMPONENTS.OnBoardHud, cls)
+    expect(decls.length, `no .${cls} rule found`).toBeGreaterThan(0)
+    expect(decls.filter((d) => ROW_ZEROING.test(d))).toEqual([])
+  })
+
+  it("each bar's track keeps a minimum width", () => {
+    // A `1fr` track has no width of its own: without a positive floor the bars would add only
+    // their labels to the HUD's min-content width and the tracks would collapse in a narrow
+    // slot. The floor may be a `min-width` on the bars, or a `minmax(<px>, …)` track minimum.
+    const floors = []
+    for (const d of declsOn(COMPONENTS.OnBoardHud, 'bc-onboard__bars')) {
+      const minWidth = /\| min-width: (\d+(?:\.\d+)?)px$/.exec(d)
+      if (minWidth) floors.push(Number(minWidth[1]))
+    }
+    for (const cls of ['bc-onboard__bars', 'bc-onboard__bar']) {
+      for (const d of declsOn(COMPONENTS.OnBoardHud, cls)) {
+        const tracks = /\| grid-template-columns: (.*)$/.exec(d)?.[1] ?? ''
+        for (const m of tracks.matchAll(/minmax\(\s*(\d+(?:\.\d+)?)px/g)) floors.push(Number(m[1]))
+      }
+    }
+    expect(floors.filter((n) => n > 0).length, 'no positive px floor on the bar tracks').toBeGreaterThan(0)
+  })
+})
+
+describe("#22's timing row wraps at the card's width (rule 114, #429)", () => {
+  // A card a long name widens must wrap its timing row onto as many lines or fewer, so it is
+  // never taller than at its configured width. A width of its own would wrap it at that width
+  // instead. Whether a grown card really gets no taller is a real-browser check.
+  const times = declsOn(COMPONENTS.QualifyingLowerThird, 'bc-qt__times')
+
+  it('the row wraps', () => {
+    expect(times).toContain('.bc-qt__times | flex-wrap: wrap')
+  })
+
+  it('no rule in any preset gives the row a width of its own or stops it wrapping', () => {
+    const own = times.filter((d) => /\| ((min-|max-)?width|flex-basis|flex|white-space): |\| flex-wrap: (?!wrap$)/.test(d))
+    expect(own).toEqual([])
+  })
+})
+
 describe('the reference short form (rule 113)', () => {
   const after = declsOn(cssRules(stylesCss), 'bc-name-ref::after')
 
