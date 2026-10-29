@@ -562,6 +562,16 @@ Full rules: `docs/decisions/0002-lower-third-widgets.md`.
     The position renders as `P` plus the vehicle's `position` only when that is a positive integer;
     `0`, a negative or fractional number, a numeric string (`"3"`), null or absent show no position,
     and the rest of the card renders as normal.
+109. **#21's name is never cut at its top or bottom.** The name is one line and never wraps. At its
+    top and bottom the name's own box cuts nothing it draws: every glyph renders whole — the
+    descenders of `g`, `j`, `p`, `q` and `y`, the tops of capitals and accents (`Å`, `É`) — and so
+    does its text shadow (the `modern` glow, and the `vintage70` extrusion and `vintage80` outline
+    of rules 93–94). This holds under every preset and at every `textScale` (`overlay-config.md`
+    rule 39). Showing them whole changes no box size: the name's line keeps the line height the page
+    gives it, so the card is no taller for it, and the plate's edge still bounds everything the card
+    draws. Where the name's glyphs and shadow reach past its line box, they paint over the card's
+    own marks beside them, such as the `vintage80` `ON CAMERA` tag above (rule 94) and, at a larger
+    `textScale`, the `vintage70` red rule below (rule 93); nothing moves or shrinks to avoid them.
 19. **#22 qualifying/sector lower-third** renders timing: best/last lap, per-sector times, and
     target/delta when present. **Mode-gated** by `modes` (default `["qualifying","practice"]`).
     Independently, when the producer flags the subject's `notable.class_best_lap` true, it fires a
