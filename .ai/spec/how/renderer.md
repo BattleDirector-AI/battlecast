@@ -812,10 +812,19 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
       min-content width: for example `width: 0; min-width: 100%` (an intrinsic contribution of
       `0`, then the full line at layout), keeping `overflow: hidden` and `text-overflow:
       ellipsis`. #22's `.bc-qt__times` keeps `flex-wrap: wrap`, so its min-content is its widest
-      cell and it still wraps rather than widening the card.
+      cell and it still wraps rather than widening the card. It has no width, `max-width` or
+      `flex-basis` of its own, so it wraps at the card's width: a card a name widens wraps it
+      onto as many lines or fewer.
     - `OnBoardHud`: `.bc-onboard` keeps `width: fit-content` and `max-width: 100%` and adds
       `min-width: min-content`, which wins over `max-width` where they conflict.
-      `.bc-onboard__identity` loses `min-width: 0`.
+      `.bc-onboard__identity` loses `min-width: 0`. The same `min-width: min-content` takes in
+      the telemetry row, whose min-content is its labels, readouts and values plus a positive
+      px floor on the bar tracks (a `min-width` on `.bc-onboard__bars`, or a `minmax(<px>, …)`
+      track on `.bc-onboard__bars` or `__bar`); nothing in the row (`.bc-onboard__telemetry`,
+      `__bars`, `__bar`, `__bar-label`, `__readouts`, `__readout`, `__value`,
+      `__readout-label`) has a `width`, a `flex-basis`, `min-width: 0`, a clipping `overflow`,
+      `contain` or a `max-width`, so the row is never cut and the HUD is never narrower than
+      it (rule 114).
     - `GridSlide`: `.group__grid` is `grid-template-columns: repeat(2, minmax(min-content,
       1fr))`. `ResultsSlide`: the row and column-head grid's middle track is `minmax(min-content,
       1fr)`. `.cell`'s `overflow: hidden` stays (its corners); the track is never narrower than
@@ -845,7 +854,8 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     (the name CSS above, read from each component's source with `?raw`, and the
     `.bc-name-ref::after` rule in `styles.css`). What only a real browser shows, and a one-time
     headless-Chromium check confirms: that each widget's min-content width really is its rule 114
-    need (the grid tracks, the anchor grid, the zero-contribution lines), that a grown widget's
+    need (the grid tracks, the anchor grid, the zero-contribution lines, the HUD's telemetry
+    row), that a grown #22 card is never taller than at its configured width, that a grown widget's
     `offsetWidth` is its grown width, that `W.WWW` reserves the room it should in each preset's
     face, and that no glyph or shadow of a long name is cut. `happy-dom` does no layout.
 - **Tower columns** (behavior in `what/widgets.md` rules 49–53; rationale in

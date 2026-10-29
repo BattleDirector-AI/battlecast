@@ -123,3 +123,26 @@ the end of the ellipsis.
 - **A fixed reserved width sized to the longest plausible short form** (`W.WSSSSSS` and the like).
   It would widen every widget for a case that almost never happens; growing for that case is
   cheaper and still never cuts.
+
+## Amendment (#428, #429)
+
+The #427 code review (F11, F12) found two places where decision 5's "a grown
+widget keeps its height" and rule 114's HUD wording did not match what the overlay does, and in
+both the shipped behaviour is the one kept (`what/widgets.md` rules 114 and 115).
+
+- **The HUD is never narrower than its telemetry row.** The HUD's minimum width takes in the
+  telemetry row as well as the identity strip, so in a slot narrower than the row (about 350 px
+  at the default text size; the exact width follows the preset's face and the text size) the HUD
+  is that wide whatever the name. Before #427
+  the row overflowed such a slot and was cut. Rejected: letting the row's minimum count
+  for nothing, as the make-and-model line's does. That would keep only the strip able to widen
+  the HUD, but the throttle and brake bars and the SPEED and GEAR readouts would again be cut at
+  the HUD's edge. They are live data, not a caption, and a cut readout is worse than a HUD wider
+  than its slot. The default slot (400 px) is wider than the row, so the default layout does not
+  change.
+- **A name can make #22 shorter, never taller.** The timing row wraps at the card's width, so a
+  card that a long name widens can fit the row on fewer lines (`w` 300 under `vintage80`: 300×184
+  with a short name, 325×116 with a long full one). The guarantee is that a name never makes a
+  widget taller, which is what #416 was about. Rejected: wrapping the timing row at the configured
+  width whatever the card's width. The height would then not depend on the name, but a grown card
+  would show an empty band to the right of a wrapped row, for no gain to the viewer.
