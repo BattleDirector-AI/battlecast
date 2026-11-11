@@ -13,7 +13,7 @@ Behavioral rules: `what/companion-server.md`.
 | `lib/logos.js` | — | List/store/delete/serve logo images under `data/logos/`. |
 | `lib/multipart.js` | — | Minimal multipart/form-data parser for uploads (no deps). |
 | `lib/validation.js` | — | Filename/profile-name sanitization, image-type + size caps. |
-| `lib/static.js` | `createStaticHandler(distDir, embedded)` | Serve `app/dist` with SPA fallback; optional embedded asset map as the second source. |
+| `lib/static.js` | `createStaticHandler(distDir, embedded)` | Serves `app/dist` with an SPA fallback. An optional embedded asset map is the second source. |
 | `lib/respond.js` | — | Shared HTTP response helpers. |
 | `data/profiles/`, `data/logos/` | — | On-disk persistence (file-per-profile; committed for static mode). |
 | `test/*.test.js` | — | Node test-runner suites incl. `security.test.js` (traversal/upload abuse). |

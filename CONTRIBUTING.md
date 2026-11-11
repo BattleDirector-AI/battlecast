@@ -40,6 +40,12 @@ The producer ↔ renderer contract lives in `spec/v1/`. Changes to the contract 
 update `spec/v1/SPEC.md`, `spec/v1/schema.json`, and the affected fixtures together,
 and must keep the compliance harness (`spec/v1/compliance/`) passing.
 
+## Writing specs
+
+Specs in `.ai/spec/` and `spec/v1/SPEC.md` are written in plain English, to ASD-STE100
+(Simplified Technical English). See `.ai/spec/README.md`, "Plain English". When you edit a rule,
+rewrite that whole rule in STE. `make spec-lint` checks it, and CI runs the same check.
+
 ## Pull requests
 
 Keep PRs focused. Include or update the fixtures your change is tested against, and
