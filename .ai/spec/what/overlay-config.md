@@ -132,19 +132,20 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
     widgets that render a background plate.
 
-23. **Plate opacity is tunable from the editor.** The `/config` editor exposes a
-    plate-opacity control in the widget row — rule 14's control surface — for each widget that
-    renders a background plate, so rule 15's broadcaster judgement call ("a more see-through plate
-    over busy footage") never requires hand-editing a profile JSON or a round-trip through
-    Export/Import. The **plate-rendering widgets** are the nine that paint one of the plate tokens:
-    `tower` and `battle` (panel + header bar), `driver`, `qualifying`, `updates` and `info` (the
-    shared lower-third card), `racecontrol`, `onboard` and `weather` (header-bar plate). `logos` composites its images straight
-    over the video with no panel behind them, so it gets **no** control — gated the same way
-    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all ten. The
-    control spans the full `[0,1]` range in steps of `0.01`, starts at the `0.82` default, and
-    renders its current value as text beside it — two decimals, matching the step — so the setting is
-    readable at a glance instead of inferred from a slider position. Per rule 16 it carries its own
-    help copy, and per rule 19 the coverage tests then require it.
+23. **Plate opacity is tunable from the editor.** The `/config` editor gives a plate-opacity
+    control in the widget row (rule 14) for each widget that renders a background plate. So a
+    broadcaster can make a plate more transparent over busy footage (rule 15). This needs no edit
+    of the profile JSON and no round trip through Export and Import. The **plate-rendering
+    widgets** are the ten widgets that paint a plate token:
+    - `tower` and `battle` (panel and header bar),
+    - `driver`, `qualifying`, `updates`, `info` and `replay` (the shared lower-third card),
+    - `racecontrol`, `onboard` and `weather` (header-bar plate).
+
+    `logos` puts its images directly over the video, with no panel behind them. So it gets no
+    control, as the editor gives `hideWhenIdle` only to widgets that can be idle. The control
+    covers the full range `[0,1]` in steps of `0.01`, and it starts at the default `0.82`. It
+    shows its current value as text next to it, with two decimals, as the step has. The control
+    has its own help copy (rule 16), and the coverage tests require it (rule 19).
 
 24. **Withholding the control does not change the config.** `plateAlpha` stays
     normalized onto every widget (rule 11) whether or not the editor offers a control for it. A
@@ -290,6 +291,24 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     producer sends weather. Every change reaches the live preview at once and is what Save
     writes.
 
+### Replay badge
+
+70. **Replay badge defaults.** The `replay` widget (`widgets.md` rules 117–121) has these defaults:
+    `visible: true`, `x: 1656`, `y: 168`, `w: 240`, `h: 56`, `z: 11`. This puts it in the top
+    right corner, under the race update box, which ends at `y` 144. Its right edge aligns with
+    the right edge of the race update box. It overlaps no other default widget, hidden ones
+    included. Its handle label (rule 65) sits above it, at `y` 144 to 168, so the label overlaps
+    no widget either. A profile saved before the widget existed has no `replay` entry. That
+    profile gets these defaults, and `configVersion` stays `"1"`.
+
+71. **The editor's `replay` row** is part of the control surface of rule 14. The row shows the
+    widget's title and summary (rule 17). The summary says that the badge shows only while the
+    producer says that a replay is on screen, and that it draws nothing at other times (rule 21).
+    The row gives geometry, visibility, plate opacity (rule 23) and text size (rule 40). It gives
+    no trigger, dwell or hide-when-idle control. In the editor preview, the badge always
+    shows, whatever the `mode` of the preview sample. So the broadcaster can see the badge while
+    they place it.
+
 ### Tower lap-time flash toggle
 
 38. **`towerMetrics.lapFlash`** (default `true`) turns the tower's lap-time flash
@@ -325,11 +344,12 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     plate, and the widget's configured geometry are untouched, and `normal` renders exactly as a
     profile without the knob. Like `plateAlpha`, it is applied by `/all` only; standalone routes
     render at `normal` size.
-40. **The editor exposes it in the widget row** — rule 14's control surface — as a select of the
-    three presets, for each text-rendering widget: `tower`, `battle`, `driver`, `qualifying`,
-    `racecontrol`, `onboard`, `updates`, `info`, `weather`. `logos` renders no text and gets no control. Per rule 16 it carries
-    help copy, per rule 19 the coverage tests require it, and like `plateAlpha` (rule 24)
-    withholding the control never rewrites a stored value.
+40. **The editor exposes it in the widget row** (rule 14) as a select of the three presets.
+    Each text-rendering widget has the select: `tower`, `battle`, `driver`, `qualifying`,
+    `racecontrol`, `onboard`, `updates`, `info`, `weather` and `replay`. `logos` renders no text
+    and gets no control. The select has help copy (rule 16), and the coverage tests require it
+    (rule 19). As for `plateAlpha` (rule 24), the editor never changes a stored value when it does
+    not show the control.
 41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
     widget leaves `normal`, the editor records its `normal` `x` and `w` on the widget as
     `textScaleOrigin: { x, w }`. At a bigger preset the widget's `x` is the origin's `x` and its
@@ -557,20 +577,25 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     renders `modern`. Normalizing `theme.preset` never changes `theme.classColors` (rule 32) or
     `theme.classTags` (rule 47), and it is not normalized onto widgets. `configVersion` stays
     `"1"` (rule 2). Decision record: `docs/decisions/0026-theme-presets.md`.
-59. **Resolution and the root attribute.** A render page resolves the theme with the precedence
-    `?theme=` URL param → the profile's `theme.preset` → `modern`. A `?theme=` value is read
-    trimmed and case-insensitively (`?theme=Vintage80` is `vintage80`); a value that is not one of
-    the three names after that is ignored, and the profile (or the default) decides. The resolved
-    preset is written to `<html data-theme="modern"|"vintage70"|"vintage80">`, always present on a
-    render page, `modern` included. Every render page writes it: `/all`, and the standalone
-    `/tower`, `/battle`, `/driver`, `/qualifying`, `/grid`, `/results`, `/logos`, `/updates`,
-    `/info`, `/weather` and `/racecontrol`, each from the URL and its profile on the initial load and again on every live reload
-    (rule 22), where a changed preset applies at once, with no transition. A preset chosen in the
-    profile applies once the profile has loaded: until then a page without `?theme=` shows the
-    `modern` look, exactly as `data-motion` waits for the profile (rule 10). `/onboard` loads
-    no profile, so it renders the `?theme=` value or `modern`. The `/config`
-    editor is not a render page: its document root never carries `vintage70` or `vintage80`,
-    whatever the profile or a `?theme=` param says (rule 62 covers its preview).
+59. **Resolution and the root attribute.** A render page resolves the theme in this order: the
+    `?theme=` URL parameter, then the profile's `theme.preset`, then `modern`.
+    - The page reads a `?theme=` value with the whitespace at the two ends removed, and with no
+      difference between upper and lower case. So `?theme=Vintage80` is `vintage80`. When the
+      value is not one of the three names, the page ignores it, and the profile or the default
+      decides.
+    - The page writes the resolved preset to
+      `<html data-theme="modern"|"vintage70"|"vintage80">`. The attribute is always present on a
+      render page, `modern` included.
+    - Every render page writes the attribute: `/all`, and the standalone `/tower`, `/battle`,
+      `/driver`, `/qualifying`, `/grid`, `/results`, `/logos`, `/updates`, `/info`, `/weather`,
+      `/racecontrol` and `/replay`. Each page uses the URL and its profile on the first load, and
+      again on each live reload (rule 22). A changed preset applies at once, with no transition.
+    - A preset from the profile applies when the profile has loaded. Until then, a page without
+      `?theme=` shows the `modern` look, as `data-motion` waits for the profile (rule 10).
+    - `/onboard` loads no profile, so it renders the `?theme=` value or `modern`.
+    - The `/config` editor is not a render page. Its document root never has `vintage70` or
+      `vintage80`, whatever the profile or a `?theme=` parameter says. Rule 62 covers its
+      preview.
 60. **A preset changes the look only.** Under every preset each widget shows the same content
     (rows, fields, text, values, order) at the same times (triggers, dwell, cycling, hide-when-idle,
     exit grace) at the same geometry (position, size, row heights, widget dimensions) as under
@@ -718,14 +743,18 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     what "Reduced motion" does must not switch reduced motion on. The popover dismisses on `Escape`
     and on a click outside, and anchors itself inside the viewport rather than overflowing the panel.
 
-21. **Behaviors that read as bugs MUST be called out** where the broadcaster meets them: the
-    qualifying/practice suppression of pit / tire-wear / fuel (`widgets.md` rule 8), and that the
-    lower-thirds hide themselves between camera cuts (rules 13-19), and that a tower in `full`
-    name style grows wider than its set width and can be cut off at the edge of the canvas or
-    the Browser Source (rule 43, `widgets.md` rule 48), and that the info panel draws nothing
-    while it has no event and no lines to show (rule 53, `widgets.md` rule 78), and that the
-    weather box draws nothing while the producer sends no weather (rule 56, `widgets.md` rule 85) — each otherwise looks like a broken
-    overlay rather than a deliberate rule.
+21. **Behaviors that look like faults MUST be explained** where the broadcaster meets them.
+    Without the explanation, each one looks like a broken overlay, not a deliberate rule. The
+    behaviors are:
+    - The tower hides pit, tire wear and fuel in qualifying and practice (`widgets.md` rule 8).
+    - The lower-thirds hide themselves between camera cuts (rules 13-19).
+    - A tower in `full` name style grows wider than its set width. The edge of the canvas or the
+      Browser Source can then cut it (rule 43, `widgets.md` rule 48).
+    - The info panel draws nothing while it has no event and no lines to show (rule 53,
+      `widgets.md` rule 78).
+    - The weather box draws nothing while the producer sends no weather (rule 56, `widgets.md`
+      rule 85).
+    - The replay badge draws nothing outside a replay (rule 71, `widgets.md` rule 118).
 
 ### Unsaved changes and the open profile
 
@@ -928,7 +957,7 @@ Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 `widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags,preset,nameStyle}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
-`qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`. Each widget carries the full normalized knob set (geometry +
+`qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`, `replay`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
 `classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `speedUnit`/`driverInfo`/`waitForLowerThird` +
 `tempUnit`), but only the widget noted in the rule-11 table actually reads each. The `info`

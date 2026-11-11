@@ -29,6 +29,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/weather.js` | `weatherParts`, `formatTemp`, `weatherCardText` | Weather logic, pure and DOM-free (`what/widgets.md` rules 83–84, 88). `weatherParts(weather)` returns `{ air, track, conditions }` (`air`/`track` the °C number or `null`, `conditions` the trimmed string or `null`). `formatTemp(celsius, unit)` returns the shown value (`22°C`, `88°F`). `weatherCardText(weather, unit)` returns the info panel card's text (`AIR 22°C · TRACK 31°C · LIGHT RAIN`), or `null` when no part holds. |
 | `src/routes/weather/WeatherBox.svelte` | props `snapshot`, `tempUnit` | The weather box: one row of the parts that hold, drawn only while one does, no transition (rule 86). |
 | `src/routes/weather/WeatherPage.svelte` | — | Standalone `/weather` route: `sseClient.connect` + `loadConfig(location.search)` + `watchConfig` for the `weather` widget's `tempUnit`. |
+| `src/lib/replay.js` | `isReplay` | `isReplay(mode)`: true only when `mode` is a string that is `replay` after trim, with no case difference (`what/widgets.md` rule 117). Pure and DOM-free. |
+| `src/routes/replay/ReplayBadge.svelte` | prop `mode` | The replay badge: `REPLAY` in `LowerThirdShell`, drawn only while `isReplay(mode)` (rules 117–119). |
+| `src/routes/replay/ReplayPage.svelte` | — | Standalone `/replay` route: `sseClient.connect` + `loadConfig(location.search)` + `watchConfig`, for motion and the theme preset only. |
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
 | `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. Each token file holds the `modern` values on `:root` and, after them, one `[data-theme="vintage70"]` and one `[data-theme="vintage80"]` block overriding them (ADR 0026). |
@@ -257,6 +260,21 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     none re-declares a `--bc-size-*` token (which would hide `/all`'s per-slot `textScale`
     values). `WeatherBox.vintage.test.js` reads these rules from the component source (`?raw`),
     since `happy-dom` applies no CSS, and checks the themed declarations as that closed set.
+- **Replay badge** (`what/widgets.md` rules 117–121, `what/overlay-config.md` rules 70–71,
+  `docs/decisions/0039-replay-badge.md`):
+  - `/replay` joins `OVERLAY_ROUTES` in `App.svelte`. `ReplayPage.svelte` in
+    `src/routes/replay/` loads the profile for motion and theme, as `WeatherPage.svelte` does.
+  - `replay` joins `DEFAULT_CONFIG.widgets`, `RENDERABLE`, `PLATE_WIDGET_KEYS` and
+    `TEXT_WIDGET_KEYS`. It gets no `IDLE_PREDICATES` entry and is not in `LOWER_THIRD_KEYS`. It
+    has no trigger.
+  - `ReplayBadge.svelte` takes the snapshot `mode`. It wraps its label in `LowerThirdShell` inside
+    `{#if isReplay(mode)}`, so the shell's `in:`/`out:` transitions give the wipe, and under
+    reduced motion the plain fade-in and the instant exit. `isReplay` is exported from
+    `src/lib/replay.js`: `typeof mode === 'string' && mode.trim().toLowerCase() === 'replay'`.
+  - The component's `<style>` has no `data-theme` selector. `ReplayBadge.test.js` reads the
+    source with `readFileSync` and checks that.
+  - The `/config` preview passes `mode: 'replay'` to the `replay` widget only, so the badge shows
+    there whatever the sample snapshot says.
 - **Lower-third dwell default** (`what/overlay-config.md` rule 46): the default `6` lives in three
   places that must agree: the per-widget `dwellSeconds` literals in `DEFAULT_CONFIG`,
   `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).
