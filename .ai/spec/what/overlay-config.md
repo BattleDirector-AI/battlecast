@@ -727,6 +727,56 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     weather box draws nothing while the producer sends no weather (rule 56, `widgets.md` rule 85) — each otherwise looks like a broken
     overlay rather than a deliberate rule.
 
+### Unsaved changes and the open profile
+
+A render page shows only a saved profile (rule 4). These rules make the editor show what is not
+saved yet. They also make the editor open the profile that the broadcaster works on.
+
+67. **The editor marks unsaved changes.** The saved state is a record of a config and a profile
+    name. The editor sets the saved state at these times:
+    1. when the editor opens: the default layout under the profile name that rule 69 selects,
+    2. when a save to the companion server succeeds: the saved config and name,
+    3. when a profile load succeeds: the loaded profile.
+
+    A save or a load that fails does not change the saved state. Export JSON does not change it.
+    When the editor deletes the profile that has its current name, the editor clears the saved
+    state. When the config and the profile name are the same as the saved state, the editor shows
+    `No unsaved changes` next to Save. In all other cases, including no saved state, it shows
+    `Unsaved changes`. An edit that the broadcaster changes back to the saved value gives
+    `No unsaved changes` again.
+
+68. **The editor asks before it goes away with unsaved changes.** While the editor shows
+    `Unsaved changes`, it tells the browser to ask the broadcaster before the browser closes,
+    reloads, or leaves the editor. The browser shows its own prompt. While the editor shows
+    `No unsaved changes`, the browser does not ask. A profile load from the Load list does not ask.
+    The load replaces the unsaved changes.
+
+69. **The editor opens the last profile.** When the editor opens, it selects a profile name in
+    this order:
+    1. the `profile` parameter of the editor URL (`/config?profile=race`),
+    2. the stored name: the name of the last successful save or load in the editor in this
+       browser,
+    3. the name `default`.
+
+    The editor shows the default layout under the selected name. Then it loads that profile from
+    the companion server. Until the load answers, the saved state is the default layout under the
+    selected name (rule 67), so the editor shows `No unsaved changes`. The result of the load sets
+    what the editor shows:
+
+    - **The load succeeds.** The editor shows that profile. The saved state is that profile.
+    - **The server does not have the profile.** The editor keeps the default layout and the saved
+      state. A render page with this name also shows the default layout (rule 4).
+    - **The load fails for a different reason.** The editor keeps the default layout and clears the
+      saved state. The companion-server status line names the profile (rule 29).
+    - **No companion server answers.** The editor does not load. It keeps the default layout and
+      the saved state.
+
+    The load result replaces the config of the editor, as a load from the Load list does. It also
+    replaces edits that the broadcaster made while the load was in progress. When the browser
+    cannot store the name, the editor skips step 2. A failed save or load does not change the
+    stored name. When the editor deletes the profile with the stored name, it also deletes the stored
+    name.
+
 ### Live reload
 
 22. **Live config reload.** A render page re-reads its profile at runtime and applies a change
