@@ -76,8 +76,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 
 ### Per-widget knob applicability
 
-11. Knobs are normalized onto every widget for a uniform shape, but only certain widgets **read**
-    each one:
+11. Normalization puts most knobs on every widget, so all widgets have the same shape. A knob that
+    the table says one widget carries is on that widget only. Only some widgets **read** each knob:
 
     | Knob | Read by | Meaning |
     |---|---|---|
@@ -86,6 +86,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `textScale` | text-rendering widgets (all but logos) | `normal` / `large` / `larger` text size preset (rules 39–41) |
     | `hideWhenIdle` | supporting widgets (battle, logos, driver, qualifying) | auto-hide when idle |
     | `idleGraceSeconds` | battle | exit grace before an ended battle goes idle (rule 36) |
+    | `hideDuringReplay` | battle | hide the battle box while `mode` is a replay (rule 72, `widgets.md` rule 122). Only the `battle` widget carries it |
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
     | `dwellSeconds` | updates | how long each race update card stays up (rule 50) |
     | `dwellSeconds`, `lines` | info | how long each info line stays up, and the broadcaster's own lines (rule 52; `lines` is carried by the `info` widget only) |
@@ -164,6 +165,29 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     (`0`–`30`, step `1`) showing the current value, offered for `battle` only. Per rule 16 it carries
     its own help copy, and per rule 19 the coverage tests then require it. Like `plateAlpha`
     (rule 24), withholding the control from the other widgets never rewrites a stored value.
+
+### Battle box during a replay
+
+72. **`hideDuringReplay`** (battle, default `false`) hides the battle box while `mode` is a replay
+    (`widgets.md` rule 122).
+    1. Normalization keeps a boolean. It replaces all other values with `false`. So `"true"`, `1`,
+       `null` and an absent key all give `false`.
+    2. The `battle` widget carries the key. No other widget has a `hideDuringReplay` key after
+       normalization, and an unknown widget key also has none.
+    3. `/all` and the standalone `/battle` route read the key from the loaded profile. A live
+       reload applies a change at once (rule 22).
+    4. The editor's `battle` row (rule 14) has a **Hide during replay** checkbox
+       (`data-testid="hide-replay-battle"`). The checkbox is immediately after the
+       `exit grace secs` field. It shows a check only when the stored value is `true`, so it shows no
+       check by default. Checking it writes `true`. Clearing it writes `false`. The editor
+       gives the checkbox to the `battle` row only.
+    5. The checkbox has its own help behind an ⓘ (`data-testid="help-hide-replay-battle"`, rules
+       16 and 19). The help text is: "Hide the battle box while your producer shows a replay. The
+       box comes back when the replay ends. Off by default: the box then stays up during a replay
+       and shows the live gaps."
+    6. Save writes the value of the checkbox. The preview's sample snapshot is not a replay
+       (rule 71 gives the replay mode to the `replay` widget only). So the preview battle box
+       shows with the setting on or off.
 
 ### Race update box
 
@@ -965,7 +989,8 @@ Widget keys: `tower`, `battle`, `logos`, `driver`,
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
 `classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `speedUnit`/`driverInfo`/`waitForLowerThird` +
 `tempUnit`), but only the widget noted in the rule-11 table actually reads each. The `info`
-widget also carries `lines` and `weatherCard`, which no other widget has (rules 52, 57).
+widget also carries `lines` and `weatherCard`, which no other widget has (rules 52, 57). The
+`battle` widget also carries `hideDuringReplay`, which no other widget has (rule 72).
 
 URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,
 `?hide=`, `?motion=`, `?theme=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),
