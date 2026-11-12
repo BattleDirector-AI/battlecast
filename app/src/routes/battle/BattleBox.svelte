@@ -55,6 +55,7 @@
   import { classTagsShown } from '../../lib/classTags.js'
   import { presentName, resolveSubject } from '../driver/DriverLowerThird.svelte'
   import { listableVehicleList, isListable } from '../../lib/vehicles.js'
+  import { isReplay } from '../../lib/replay.js'
 
   let {
     subject = {},
@@ -68,6 +69,8 @@
     // The profile's `theme.nameStyle` (widgets.md rule 111). Routes always pass it; the bare
     // component's default is the full form it rendered before the style was overlay-wide.
     nameStyle = 'full',
+    // The battle widget's `hideDuringReplay` (widgets.md rule 122): a replay then hides the box.
+    hideDuringReplay = false,
   } = $props()
 
   const fmt = (name) => fmtDriverName(name, nameStyle)
@@ -76,7 +79,7 @@
 
   const showTags = $derived(classTagsShown(classTags, session))
 
-  const racing = $derived(isRacingMode(mode) && !isCaution(session))
+  const racing = $derived(isRacingMode(mode) && !isCaution(session) && !(hideDuringReplay && isReplay(mode)))
   const active = $derived(isActiveBattle(relationship))
   const intensity = $derived(
     typeof relationship?.battle_intensity === 'number' ? relationship.battle_intensity : 0

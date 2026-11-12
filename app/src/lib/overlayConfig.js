@@ -98,6 +98,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      hideDuringReplay: false,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     logos: {
@@ -780,6 +781,11 @@ export function normalizeConfig(raw) {
     // #208 whether the weather card joins the info panel's rotation (rule 57) — the info
     // widget only, like `lines`; a boolean, else off.
     if (key === 'info') normalizedWidgets[key].weatherCard = typeof w.weatherCard === 'boolean' ? w.weatherCard : false
+    // #447 whether the battle box hides during a replay (rule 72) — the battle widget only, like
+    // `weatherCard`; a boolean, else off.
+    if (key === 'battle') {
+      normalizedWidgets[key].hideDuringReplay = typeof w.hideDuringReplay === 'boolean' ? w.hideDuringReplay : false
+    }
     // #215 editor bookkeeping (overlay-config.md rule 41b): the widget's `normal` x/w while it
     // sits at a bigger preset. Kept only on a text widget off `normal`, with both parts finite
     // numbers or non-blank numeric strings (stored as numbers); never rendered.

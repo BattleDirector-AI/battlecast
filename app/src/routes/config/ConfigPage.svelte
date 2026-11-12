@@ -1046,6 +1046,17 @@
                   )}
                 />
               </label>
+              <!-- #447: hide the battle box while the producer shows a replay (rule 72). -->
+              <label class="checkline">
+                <input
+                  type="checkbox"
+                  data-testid="hide-replay-{key}"
+                  checked={w.hideDuringReplay === true}
+                  onchange={(e) => setField(key, 'hideDuringReplay', e.currentTarget.checked)}
+                />
+                Hide during replay
+                <HelpTip text={FIELD_HELP.hideDuringReplay} label="hide during replay" testid="help-hide-replay-{key}" />
+              </label>
             {/if}
             {#if isLowerThird(key)}
               <!-- Lower-third fire behavior: `dwell` shows on each camera cut then
