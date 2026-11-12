@@ -23,6 +23,8 @@
     INFO_LINES_MAX,
     INFO_LINE_MAX_LENGTH,
     NAME_STYLES,
+    normalizeSlidesText,
+    SLIDES_TEXT_MAX_LENGTH,
   } from '../../lib/overlayConfig.js'
   import { widgetSupportsAutoHide } from '../../lib/widgetIdle.js'
   import HelpTip from '../../lib/HelpTip.svelte'
@@ -505,6 +507,56 @@
     }
   }
 
+  // ---- the Event section (overlay-config rules 73-75) -------------------------
+  // Each text input commits like an info line: Enter (not mid-IME) or `change`, never per
+  // keystroke; Escape, or a commit that normalizes to the stored text, shows the stored text.
+  function slidesTextField(field) {
+    return (el) => {
+      const shown = () => config.slides[field] ?? ''
+      const commit = () => {
+        if (normalizeSlidesText(el.value) !== shown()) config = editor.setSlidesField(config, field, el.value)
+        el.value = shown()
+      }
+      const onkeydown = (e) => {
+        if (e.key === 'Enter' && !e.isComposing) commit()
+        else if (e.key === 'Escape') el.value = shown()
+      }
+      el.addEventListener('change', commit)
+      el.addEventListener('keydown', onkeydown)
+      return () => {
+        el.removeEventListener('change', commit)
+        el.removeEventListener('keydown', onkeydown)
+      }
+    }
+  }
+  const setSlidesLogo = (url) => (config = editor.setSlidesField(config, 'logo', url))
+  // The stored series logo keeps its own option when no server image has its URL (rule 75), so a
+  // profile from a static host keeps its logo.
+  const storedLogoMissing = $derived(
+    !!config.slides.logo && !serverLogos.some((logo) => logo.url === config.slides.logo),
+  )
+
+  // The series-logo upload goes to the same store as the rotation upload, but sets only
+  // `slides.logo`: it never adds the image to `logoRotation` (rule 75, ADR 0041).
+  async function onEventLogoUpload(event) {
+    const input = event.currentTarget
+    const file = input.files?.[0]
+    if (!file) return
+    if (!serverUp) {
+      status = 'Upload needs the companion server. Start `battlecast serve`.'
+      return
+    }
+    try {
+      const { url } = await api.uploadLogo(file)
+      setSlidesLogo(url)
+      serverLogos = await api.listLogos()
+    } catch (err) {
+      status = `Upload failed: ${err.message}`
+    } finally {
+      input.value = ''
+    }
+  }
+
   // ---- canvas ---------------------------------------------------------------
   const setCanvas = (patch) => (config = editor.setCanvas(config, patch))
 
@@ -590,16 +642,21 @@
       status = 'Upload needs the companion server. Start `battlecast serve`.'
       return
     }
-    for (const file of files) {
-      try {
-        const { url } = await api.uploadLogo(file)
-        config = editor.addLogoImage(config, url)
-      } catch (err) {
-        status = `Upload failed: ${err.message}`
+    try {
+      for (const file of files) {
+        try {
+          const { url } = await api.uploadLogo(file)
+          config = editor.addLogoImage(config, url)
+        } catch (err) {
+          status = `Upload failed: ${err.message}`
+        }
       }
+      serverLogos = await api.listLogos()
+    } catch (err) {
+      status = `Server error: ${err.message}`
+    } finally {
+      input.value = ''
     }
-    serverLogos = await api.listLogos()
-    input.value = ''
   }
   const addLogoToRotation = (url) => (config = editor.addLogoImage(config, url))
   const removeFromRotation = (url) => (config = editor.removeLogoImage(config, url))
@@ -628,13 +685,15 @@
   }
 
   // Delete a logo from the server entirely (not just this rotation), then drop it
-  // from the rotation too so we don't point at a now-missing asset.
+  // from the rotation and the series logo too so we don't point at a now-missing asset.
   async function deleteServerLogo(logo) {
     if (!serverUp) return
     if (typeof window !== 'undefined' && !window.confirm(`Delete "${logo.name}" from the server?`)) return
     try {
       await api.deleteLogo(logo.name)
       config = editor.removeLogoImage(config, logo.url)
+      // The series logo must not name the deleted file either (rule 75).
+      if (config.slides.logo === logo.url) setSlidesLogo('')
       serverLogos = await api.listLogos()
       status = `Deleted "${logo.name}".`
     } catch (err) {
@@ -1588,6 +1647,71 @@
             </select>
           </label>
         </div>
+      </section>
+
+      <section class="panel__group" data-testid="event-section">
+        <h2>Event<HelpTip text={FIELD_HELP.eventSection} label="the Event slide" testid="help-event" /></h2>
+        <label>
+          series name
+          <HelpTip text={FIELD_HELP.eventSeries} label="series name" testid="help-event-series" />
+          <input
+            type="text"
+            maxlength={SLIDES_TEXT_MAX_LENGTH}
+            data-testid="event-series"
+            value={config.slides.series}
+            {@attach slidesTextField('series')}
+          />
+        </label>
+        <label>
+          round
+          <HelpTip text={FIELD_HELP.eventRound} label="round" testid="help-event-round" />
+          <input
+            type="text"
+            maxlength={SLIDES_TEXT_MAX_LENGTH}
+            data-testid="event-round"
+            value={config.slides.round}
+            {@attach slidesTextField('round')}
+          />
+        </label>
+        <label>
+          track
+          <HelpTip text={FIELD_HELP.eventTrack} label="track" testid="help-event-track" />
+          <input
+            type="text"
+            maxlength={SLIDES_TEXT_MAX_LENGTH}
+            data-testid="event-track"
+            value={config.slides.track}
+            {@attach slidesTextField('track')}
+          />
+        </label>
+        <label>
+          series logo
+          <HelpTip text={FIELD_HELP.eventLogo} label="series logo" testid="help-event-logo" />
+          <select
+            data-testid="event-logo"
+            value={config.slides.logo}
+            onchange={(e) => setSlidesLogo(e.currentTarget.value)}
+          >
+            <option value="">none</option>
+            {#each serverLogos as logo (logo.name)}
+              <option value={logo.url}>{logo.name}</option>
+            {/each}
+            {#if storedLogoMissing}
+              <option value={config.slides.logo}>{config.slides.logo}</option>
+            {/if}
+          </select>
+        </label>
+        <label title={serverUp ? undefined : 'Start the companion server (make dev) to upload logos'}>
+          upload logo
+          <HelpTip text={FIELD_HELP.eventLogoUpload} label="upload logo" testid="help-event-logo-upload" />
+          <input
+            type="file"
+            accept="image/*"
+            data-testid="event-logo-upload"
+            onchange={onEventLogoUpload}
+            disabled={!serverUp}
+          />
+        </label>
       </section>
 
       <section class="panel__group">

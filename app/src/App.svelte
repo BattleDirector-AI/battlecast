@@ -12,6 +12,7 @@
   import QualifyingPage from './routes/qualifying/QualifyingPage.svelte'
   import ResultsPage from './routes/results/ResultsPage.svelte'
   import GridPage from './routes/grid/GridPage.svelte'
+  import EventPage from './routes/event/EventPage.svelte'
   import ConfigPage from './routes/config/ConfigPage.svelte'
   import RaceControlPage from './routes/racecontrol/RaceControlPage.svelte'
   import OnBoardHudPage from './routes/onboard/OnBoardHudPage.svelte'
@@ -31,8 +32,9 @@
   // branch) keeps the constrained column. `/results` is a full-screen takeover
   // slide with an opaque board background, so it is full-bleed but NOT an overlay
   // route (it must not force a transparent page background). `/grid` is the same
-  // kind of opaque takeover slide (the pre-race starting grid).
-  const FULL_BLEED_ROUTES = [...OVERLAY_ROUTES, '/config', '/results', '/grid']
+  // kind of opaque takeover slide (the pre-race starting grid), and so is `/event` (the
+  // Event title card).
+  const FULL_BLEED_ROUTES = [...OVERLAY_ROUTES, '/config', '/results', '/grid', '/event']
 
   onMount(() => {
     if (typeof document === 'undefined') return
@@ -109,6 +111,8 @@
   <ResultsPage />
 {:else if path === '/grid'}
   <GridPage />
+{:else if path === '/event'}
+  <EventPage />
 {:else if path === '/config'}
   <ConfigPage />
 {:else}

@@ -274,6 +274,81 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     the new line follows it (`widgets.md` rules 80, 88). Removing the last line brings the sample
     lines back.
 
+### Event slide content
+
+The profile's `slides` section holds the slide content that the broadcaster types. The Event
+slide (`widgets.md` rules 123–130) shows it. The section is one place for the content of the
+event slides, so other event slides can read the same series name and logo. The producer's
+`event` object (`protocol-contract.md` rule 23) is a different thing. No rule in this section
+reads it. Decision record:
+`docs/decisions/0041-event-slide-shared-slides-section.md`.
+
+73. **`slides`** is one profile section at the top level of the profile, not a widget and not a
+    per-widget knob. Its default is `{ series: '', round: '', track: '', logo: '' }`.
+    Normalization does these steps:
+    1. A `slides` that is absent, null, an array, or not an object gives the default.
+    2. `series`, `round` and `track` are each text. A string is trimmed, then cut to its first 80
+       characters (JavaScript string length), then trimmed again. A value that is not a string
+       gives `''`. So `'  GT World Cup  '` gives `'GT World Cup'`, and `3` gives `''`.
+    3. `logo` is the URL of an image. A string is trimmed. A value that is not a string gives
+       `''`. Normalization does not check that the URL loads.
+    4. Normalization keeps every other key of an object `slides` with its value unchanged, except
+       `__proto__`, `constructor` and `prototype`, which it drops. So a profile that a later
+       version saved keeps its other slide content through a load, an edit and a save.
+
+    Normalizing `slides` changes no other part of the profile. A profile without `slides` renders
+    at its saved geometry, and `configVersion` stays `"1"` (rule 2). The standalone `/event` route
+    reads `slides` from the loaded profile. `/event` also writes `data-motion` (rule 10) and
+    `data-theme` (rule 59) from the URL and its profile, as the other render pages do. A live
+    reload (rule 22) applies a changed `slides`, motion or preset at once.
+74. **The editor's Event section** is part of rule 14's control surface. It is a section of its
+    own (`data-testid="event-section"`), in no widget row, with the heading **Event**. The heading
+    carries help behind an ⓘ (`data-testid="help-event"`). The section holds these controls, in
+    this order:
+    1. **series name**, a text input (`data-testid="event-series"`, `maxlength` 80),
+    2. **round**, a text input (`data-testid="event-round"`, `maxlength` 80),
+    3. **track**, a text input (`data-testid="event-track"`, `maxlength` 80),
+    4. **series logo**, a select (`data-testid="event-logo"`, rule 75),
+    5. **upload logo**, a file input (`data-testid="event-logo-upload"`, rule 75).
+
+    Each text input shows the stored value. A text input commits on Enter or when focus leaves
+    it, as rule 44's typed fields do. Keystrokes before the commit change nothing. The commit
+    writes the text normalized as rule 73 says, and the input then shows the stored value. So
+    `'  Endurance Cup  '` commits as `'Endurance Cup'`. A blank commit writes `''`, which clears
+    the field. Save writes the stored `slides`. The editor never changes another key of `slides`
+    (rule 73, step 4). Each control has its own help
+    behind an ⓘ: `help-event-series`, `help-event-round`, `help-event-track`, `help-event-logo` and
+    `help-event-logo-upload` (rules 16, 19). The `/config` preview does not show the Event slide.
+    So the help behind `help-event` says these things (rule 21):
+    - The Event slide is its own Browser Source, at `/event` with the profile's `?profile=`.
+    - It fills the screen on a solid board.
+    - The editor preview does not show it.
+    - An empty field shows nothing on the slide, and with all fields empty the slide is a blank
+      board.
+75. **The series logo uses the logo store.** The logo images are the images on the companion
+    server (`companion-server.md` rule 5), the same images that the Logo rotation section uses.
+    The Event slide has no store of its own.
+    - **The select.** The first option is **none**, with the value `''`. Then there is one option
+      for each image on the server, in the server's list order. Its text is the file name and its
+      value is the image URL. The stored `logo` can be a URL that no server image has. Then the
+      select also has an option for the stored URL, after the server images, with the URL as its
+      text. So a profile from a static host keeps its logo. The select shows the stored value.
+      Choosing an option writes its value to `slides.logo`. It does not change `logoRotation`.
+    - **The upload.** The file input takes one image. It uploads the file to the server as the Logo
+      rotation upload does. When the upload succeeds, the editor writes the URL of the new image to
+      `slides.logo`. The editor also adds the image to the select. The upload does not add the
+      image to `logoRotation`. When the upload fails, `slides.logo` does not change, and the status
+      line gives the error. The help behind `help-event-logo-upload` says two things. The image
+      goes to the companion server with the other logos. The upload does not add the image to the
+      logo rotation.
+    - **A deleted image.** The Logo rotation section can delete an image from the server. When
+      the deleted image has the URL that `slides.logo` holds, the editor sets `slides.logo` to
+      `''`. The select then shows **none**. A deleted image with a different URL does not change
+      `slides.logo`.
+    - **No server.** While no companion server answers, the file input is disabled. The select
+      has no server images. It has the **none** option and, when `logo` is not empty, the option
+      for the stored URL.
+
 ### Weather
 
 54. **`tempUnit`** (default `c`) is the temperature display unit: `c` for °C, `f` for °F
@@ -611,8 +686,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
       `<html data-theme="modern"|"vintage70"|"vintage80">`. The attribute is always present on a
       render page, `modern` included.
     - Every render page writes the attribute: `/all`, and the standalone `/tower`, `/battle`,
-      `/driver`, `/qualifying`, `/grid`, `/results`, `/logos`, `/updates`, `/info`, `/weather`,
-      `/racecontrol` and `/replay`. Each page uses the URL and its profile on the first load, and
+      `/driver`, `/qualifying`, `/grid`, `/results`, `/event`, `/logos`, `/updates`, `/info`,
+      `/weather`, `/racecontrol` and `/replay`. Each page uses the URL and its profile on the first load, and
       again on each live reload (rule 22). A changed preset applies at once, with no transition.
     - A preset from the profile applies when the profile has loaded. Until then, a page without
       `?theme=` shows the `modern` look, as `data-motion` waits for the profile (rule 10).
@@ -983,7 +1058,7 @@ Decision record: `docs/decisions/0011-feed-status-accessibility.md`.
 
 Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 `widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags,preset,nameStyle}`,
-`reducedMotion`.
+`slides{series,round,track,logo}` (rule 73, which keeps any other key), `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
 `qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`, `replay`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
