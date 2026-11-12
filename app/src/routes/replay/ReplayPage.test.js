@@ -10,7 +10,7 @@ import { flushSync, tick } from 'svelte'
 import { render, cleanup } from '@testing-library/svelte'
 import base from '../../../../spec/v1/fixtures/race-close-battle.json'
 
-const sse = vi.hoisted(() => ({ emit: null, connects: 0, url: null }))
+const sse = vi.hoisted(() => ({ emit: null, connects: 0, url: null, disconnects: 0 }))
 vi.mock('../../lib/sseClient.js', () => ({
   DEFAULT_SRC: 'http://localhost:8080/events',
   resolveSrc: () => 'http://producer.test/events',
@@ -18,7 +18,9 @@ vi.mock('../../lib/sseClient.js', () => ({
     sse.connects += 1
     sse.url = url
     sse.emit = onState
-    return () => {}
+    return () => {
+      sse.disconnects += 1
+    }
   },
 }))
 
@@ -67,6 +69,7 @@ beforeEach(() => {
   sse.emit = null
   sse.connects = 0
   sse.url = null
+  sse.disconnects = 0
   delete document.documentElement.dataset.theme
   vi.useFakeTimers()
 })
@@ -116,5 +119,58 @@ describe('/replay standalone route (rule 120)', () => {
     cleanup()
     await mountPage({ reducedMotion: true })
     expect(root().motion).toBe('reduced')
+  })
+})
+
+// #453: teardown. The page closes the feed, stops the config watch, and ignores a profile that
+// arrives after unmount.
+describe('/replay teardown', () => {
+  it('closes the producer feed on unmount', async () => {
+    await mountPage({ reducedMotion: true })
+    push(withMode('replay'))
+    expect(badge(), 'no badge during a replay').not.toBeNull()
+
+    cleanup()
+    expect(sse.disconnects, 'the feed stayed open after unmount').toBe(1)
+  })
+
+  it('stops following the profile on unmount', async () => {
+    await mountPage({ theme: { preset: 'vintage70' } })
+    expect(root().theme).toBe('vintage70')
+
+    cleanup()
+    const loads = fetch.mock.calls.length
+    served = { theme: { preset: 'vintage80' } }
+    await vi.advanceTimersByTimeAsync(15000) // three reload intervals
+    await settle()
+    expect(root().theme, 'a reload after unmount applied the new preset').toBe('vintage70')
+    expect(fetch.mock.calls.length, 'the reload poll ran after unmount').toBe(loads)
+  })
+
+  it('applies nothing, opens no feed and starts no reload poll when unmounted before the profile arrives', async () => {
+    const Page = await loadPage()
+    window.history.replaceState({}, '', '/replay?profile=p')
+    let release
+    const gate = new Promise((resolve) => (release = resolve))
+    const fetchMock = vi.fn(async () => {
+      await gate
+      return { ok: true, status: 200, json: async () => ({ theme: { preset: 'vintage70' } }) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(Page)
+    await tick()
+    expect(fetchMock, 'the page must start loading the named profile').toHaveBeenCalled()
+
+    cleanup() // unmount while the profile load is still in flight
+    release()
+    await settle()
+    const loads = fetchMock.mock.calls.length
+
+    await vi.advanceTimersByTimeAsync(15000) // three reload intervals
+    await settle()
+    expect(root().theme, 'a late profile applied its preset').toBeUndefined()
+    expect(sse.connects, 'a late profile opened the feed').toBe(0)
+    expect(fetchMock.mock.calls.length, 'a late profile started the reload poll').toBe(loads)
+    expect(badge()).toBeNull()
   })
 })
