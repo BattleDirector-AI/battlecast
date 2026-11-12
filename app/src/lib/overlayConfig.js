@@ -224,6 +224,20 @@ export const DEFAULT_CONFIG = Object.freeze({
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
+    // Replay badge (#60, overlay-config rule 70): `REPLAY` while the producer's `mode` is
+    // `replay`, top right under the race update box. Reads plate opacity and text size; the
+    // other knobs are inert. Draws nothing outside a replay.
+    replay: {
+      visible: true, x: 1656, y: 168, w: 240, h: 56, z: 11, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
+      waitForLowerThird: true,
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
+    },
   },
   logoRotation: { images: [], perSlotSeconds: 8, order: 'sequential' },
   // `classColors` (rule 32, ADR 0010): a freeform broadcaster override map, class-name key
@@ -438,6 +452,7 @@ export const PLATE_WIDGET_KEYS = Object.freeze([
   'updates',
   'info',
   'weather',
+  'replay',
 ])
 
 /** Per-widget text size presets (overlay-config.md rules 39-41, ADR 0015): the factor
@@ -456,6 +471,7 @@ export const TEXT_WIDGET_KEYS = Object.freeze([
   'updates',
   'info',
   'weather',
+  'replay',
 ])
 
 /** Whether the config UI offers a text-size control for this widget. Withholding it is a
