@@ -91,8 +91,10 @@
   const hasOwnInfoLines = $derived((config.widgets.info?.lines?.length ?? 0) > 0)
   const previewSnapshot = $derived(hasOwnInfoLines ? sampleSnapshot : sampleWithInfoLines)
 
+  // localStorage key for the last saved or loaded profile name (rule 69 step 2).
+  const STORED_NAME_KEY = 'battlecast.config.profile'
   let config = $state(normalizeConfig(DEFAULT_CONFIG))
-  let profileName = $state('default')
+  let profileName = $state(initialProfileName())
   let profiles = $state([])
   let serverLogos = $state([])
   let serverUp = $state(false)
@@ -116,13 +118,79 @@
     editor.buildObsUrl({ origin, profileName, producerSrc: config.producer?.src || '' }),
   )
 
+  // ---- unsaved changes and the open profile (rules 67-69) -------------------
+  // The saved state is one string for a config and a name, or `null` for no saved state.
+  function serializeState(cfg, name) {
+    return JSON.stringify({ config: $state.snapshot(cfg), name })
+  }
+  let savedState = $state(serializeState(config, profileName))
+  const unsaved = $derived(savedState === null || savedState !== serializeState(config, profileName))
+  function markSaved() {
+    savedState = serializeState(config, profileName)
+  }
+  // Blocked storage throws on the read of `window.localStorage` itself, so every access is guarded.
+  function readStoredName() {
+    try {
+      return window.localStorage.getItem(STORED_NAME_KEY) || null
+    } catch {
+      return null
+    }
+  }
+  function writeStoredName(name) {
+    try {
+      window.localStorage.setItem(STORED_NAME_KEY, name)
+    } catch {
+      // Storage blocked: rule 69 step 2 is skipped next time.
+    }
+  }
+  function forgetStoredName(name) {
+    try {
+      if (window.localStorage.getItem(STORED_NAME_KEY) === name) {
+        window.localStorage.removeItem(STORED_NAME_KEY)
+      }
+    } catch {
+      // Storage blocked: nothing is stored.
+    }
+  }
+  function initialProfileName() {
+    if (typeof window === 'undefined') return 'default'
+    const fromUrl = new URLSearchParams(window.location.search).get('profile')?.trim()
+    return fromUrl || readStoredName() || 'default'
+  }
+  function onBeforeUnload(event) {
+    if (!unsaved) return
+    event.preventDefault()
+    event.returnValue = ''
+  }
+  let destroyed = false
+  // Counts saves, Load-list loads and deletes. A later one of these stops the opening load.
+  let profileActions = 0
+  // Counts the profile lists that a save or delete wrote (see refreshFromServer).
+  let listWrites = 0
+  // True until the saved state matches the server: the opening load answered, or a newer
+  // action succeeded. A failed action that stopped the opening load leaves the saved state
+  // unknown, so it clears it (no saved state).
+  let openingUnresolved = true
+  function actionSucceeded() {
+    openingUnresolved = false
+  }
+  function actionFailed() {
+    if (openingUnresolved) savedState = null
+  }
+
   onMount(() => {
+    // Until the opening load answers, the default layout under the selected name is saved.
+    markSaved()
     refreshFromServer()
     openFeed(feedUrl)
     feedStarted = true
     fitPreview()
-    if (typeof window !== 'undefined') window.addEventListener('resize', fitPreview)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', fitPreview)
+      window.addEventListener('beforeunload', onBeforeUnload)
+    }
     return () => {
+      destroyed = true
       // The feed goes first: it is the one thing here that outlives the DOM if left alone.
       // Both the live connection AND a debounce still counting down — an edit that had not
       // settled by unmount must not open a connection from an editor that no longer exists.
@@ -130,6 +198,7 @@
       closeFeed()
       if (typeof window === 'undefined') return
       window.removeEventListener('resize', fitPreview)
+      window.removeEventListener('beforeunload', onBeforeUnload)
       // Also drop any in-flight drag listeners so unmounting mid-drag can't leak them.
       endDrag()
       clearTimeout(copyResetTimer)
@@ -138,14 +207,46 @@
 
   async function refreshFromServer() {
     serverUp = await api.serverAvailable()
-    if (!serverUp) return
+    if (!serverUp) {
+      openingUnresolved = false
+      return
+    }
     status = 'Profile server connected.'
+    // Read the count now: a save or delete is possible from here on, also while the lists load.
+    const actionsBefore = profileActions
     try {
-      profiles = await api.listProfiles()
+      const listsBefore = listWrites
+      const list = await api.listProfiles()
+      // A save or delete that wrote a list while this one loaded wrote a newer list.
+      if (listWrites === listsBefore) profiles = list
       serverLogos = await api.listLogos()
     } catch (err) {
       status = `Server error: ${err.message}`
     }
+    await openProfile(profileName, actionsBefore)
+  }
+
+  // The opening load (rule 69). Its result replaces the config, edits made meanwhile included.
+  async function openProfile(name, actionsBefore) {
+    const superseded = () => destroyed || profileActions !== actionsBefore
+    let loaded
+    try {
+      loaded = await api.getProfile(name)
+    } catch (err) {
+      if (superseded()) return
+      openingUnresolved = false
+      savedState = null
+      status = `Could not load profile "${name}": ${err.message}`
+      return
+    }
+    if (superseded()) return
+    openingUnresolved = false
+    if (!loaded) return // not on the server: keep the default layout, saved
+    config = normalizeConfig(loaded)
+    endDrag()
+    profileName = name
+    markSaved()
+    writeStoredName(name)
   }
 
   // ---- producer feed status (rules 25-30) ----------------------------------
@@ -547,19 +648,35 @@
       status = 'No server — use Export to download config.json instead.'
       return
     }
+    profileActions++
+    const name = profileName
+    const sent = serializeState(config, name)
     try {
-      await api.saveProfile(profileName, { ...config, name: profileName })
-      profiles = await api.listProfiles()
-      status = `Saved profile "${profileName}".`
+      await api.saveProfile(name, { ...config, name })
+      savedState = sent
+      actionSucceeded()
+      writeStoredName(name)
     } catch (err) {
+      actionFailed()
       status = `Save failed: ${err.message}`
+      return
+    }
+    // The save is done: a failed list refresh does not make it a failed save.
+    try {
+      profiles = await api.listProfiles()
+      listWrites++
+      status = `Saved profile "${name}".`
+    } catch (err) {
+      status = `Saved profile "${name}". The profile list did not refresh: ${err.message}`
     }
   }
   async function loadProfile(name) {
     if (!name) return
+    profileActions++
     try {
       const loaded = await api.getProfile(name)
       if (!loaded) {
+        actionFailed()
         status = `Profile "${name}" not found.`
         return
       }
@@ -567,8 +684,12 @@
       // The whole config was replaced: a live drag's drag-start copy is stale (rule 41d).
       endDrag()
       profileName = name
+      markSaved()
+      actionSucceeded()
+      writeStoredName(name)
       status = `Loaded profile "${name}".`
     } catch (err) {
+      actionFailed()
       status = `Load failed: ${err.message}`
     }
   }
@@ -576,12 +697,26 @@
     const name = profileName
     if (!serverUp || !name) return
     if (typeof window !== 'undefined' && !window.confirm(`Delete profile "${name}"?`)) return
+    profileActions++
+    let deleted
     try {
-      const deleted = await api.deleteProfile(name)
-      profiles = await api.listProfiles()
-      status = deleted ? `Deleted profile "${name}".` : `Profile "${name}" was not on the server.`
+      deleted = await api.deleteProfile(name)
+      if (profileName === name) savedState = null
+      actionSucceeded()
+      forgetStoredName(name)
     } catch (err) {
+      actionFailed()
       status = `Delete failed: ${err.message}`
+      return
+    }
+    // The delete is done: a failed list refresh does not make it a failed delete.
+    const done = deleted ? `Deleted profile "${name}".` : `Profile "${name}" was not on the server.`
+    try {
+      profiles = await api.listProfiles()
+      listWrites++
+      status = done
+    } catch (err) {
+      status = `${done} The profile list did not refresh: ${err.message}`
     }
   }
 
@@ -707,6 +842,9 @@
             <button data-testid="save" onclick={saveProfile} disabled={!serverUp}>Save</button>
           </span>
           <button data-testid="export" onclick={exportJson}>Export JSON</button>
+          <span class="save-state" class:save-state--unsaved={unsaved} data-testid="save-state"
+            >{unsaved ? 'Unsaved changes' : 'No unsaved changes'}</span
+          >
         </div>
         <label>
           Load
@@ -921,6 +1059,17 @@
                     () => config.widgets[key].idleGraceSeconds,
                   )}
                 />
+              </label>
+              <!-- #447: hide the battle box while the producer shows a replay (rule 72). -->
+              <label class="checkline">
+                <input
+                  type="checkbox"
+                  data-testid="hide-replay-{key}"
+                  checked={w.hideDuringReplay === true}
+                  onchange={(e) => setField(key, 'hideDuringReplay', e.currentTarget.checked)}
+                />
+                Hide during replay
+                <HelpTip text={FIELD_HELP.hideDuringReplay} label="hide during replay" testid="help-hide-replay-{key}" />
               </label>
             {/if}
             {#if isLowerThird(key)}
@@ -1561,6 +1710,15 @@
   }
   .config__status--up {
     color: #2ed9a6;
+  }
+  /* Rule 67: the saved-or-not marker beside Save. */
+  .save-state {
+    align-self: center;
+    font-size: 0.75rem;
+    color: #9aa7ba;
+  }
+  .save-state--unsaved {
+    color: #f5b041;
   }
   .config__body {
     display: grid;

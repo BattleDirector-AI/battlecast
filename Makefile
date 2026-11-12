@@ -4,7 +4,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev dev-live dev-app dev-mock dev-server build exe test lint
+.PHONY: help install dev dev-live dev-app dev-mock dev-server build exe test lint spec-lint spec-lint-update
 
 # Optional single-phase lock for the mock producer, for eye-testing one session type:
 #   make dev PHASE=race        (full stack, mock locked to the race)
@@ -45,3 +45,9 @@ test: ## Run the app test suite
 
 lint: ## Lint the app
 	npm --prefix app run lint
+
+spec-lint: ## Check specs are plain English (ASD-STE100); counts may only go down
+	node scripts/spec-lint.mjs
+
+spec-lint-update: ## Record lower spec-lint counts in .ai/spec/ste-baseline.json
+	node scripts/spec-lint.mjs --update

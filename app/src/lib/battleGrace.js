@@ -5,13 +5,15 @@
  * idle, so a battle that comes straight back never blinks out. Only the exit is delayed.
  *
  * The hold is presentation timing, keyed to the on-camera `subject.slot_id`: a camera cut,
- * caution, or leaving a racing mode ends it at once, so the box never shows one car's
- * numbers against another. The grace needs time, so it cannot be a stateless snapshot
- * predicate; instead each render page runs one of these and hands BOTH the battle box and
- * the `/all` auto-hide filter the same effective snapshot, so the two still agree.
+ * caution, leaving a racing mode, or a replay while `hideDuringReplay` is on (widgets.md
+ * rule 122) ends it at once, so the box never shows one car's numbers against another.
+ * The grace needs time, so it cannot be a stateless snapshot predicate; instead each render
+ * page runs one of these and hands BOTH the battle box and the `/all` auto-hide filter the
+ * same effective snapshot, so the two still agree.
  */
 
 import { isActiveBattle, isRacingMode, isCaution } from '../routes/battle/BattleBox.svelte'
+import { isReplay } from './replay.js'
 
 /**
  * @param {{ onExpire?: () => void }} [opts] `onExpire` fires when a grace runs out with no
@@ -34,10 +36,15 @@ export function createBattleGrace({ onExpire } = {}) {
     /**
      * Feed the latest producer snapshot; returns the snapshot the battle box should render
      * from — the live one, or the frozen last active one while a hold runs.
+     * `hideDuringReplay` (widgets.md rule 122): a replay then ends the hold as caution does.
      */
-    resolve(snapshot, graceSeconds) {
+    resolve(snapshot, graceSeconds, hideDuringReplay = false) {
       const slot = snapshot?.subject?.slot_id ?? null
-      if (!isRacingMode(snapshot?.mode) || isCaution(snapshot?.session)) {
+      if (
+        !isRacingMode(snapshot?.mode) ||
+        isCaution(snapshot?.session) ||
+        (hideDuringReplay && isReplay(snapshot?.mode))
+      ) {
         endHold()
         lastActive = null
         return snapshot

@@ -76,8 +76,8 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 
 ### Per-widget knob applicability
 
-11. Knobs are normalized onto every widget for a uniform shape, but only certain widgets **read**
-    each one:
+11. Normalization puts most knobs on every widget, so all widgets have the same shape. A knob that
+    the table says one widget carries is on that widget only. Only some widgets **read** each knob:
 
     | Knob | Read by | Meaning |
     |---|---|---|
@@ -86,6 +86,7 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     | `textScale` | text-rendering widgets (all but logos) | `normal` / `large` / `larger` text size preset (rules 39–41) |
     | `hideWhenIdle` | supporting widgets (battle, logos, driver, qualifying) | auto-hide when idle |
     | `idleGraceSeconds` | battle | exit grace before an ended battle goes idle (rule 36) |
+    | `hideDuringReplay` | battle | hide the battle box while `mode` is a replay (rule 72, `widgets.md` rule 122). Only the `battle` widget carries it |
     | `trigger`, `dwellSeconds`, `showOnConnect` | lower-thirds (driver, qualifying) | fire/dwell timing |
     | `dwellSeconds` | updates | how long each race update card stays up (rule 50) |
     | `dwellSeconds`, `lines` | info | how long each info line stays up, and the broadcaster's own lines (rule 52; `lines` is carried by the `info` widget only) |
@@ -132,19 +133,20 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     identically; a broadcaster lowers it for a more see-through plate over busy footage. Read by the
     widgets that render a background plate.
 
-23. **Plate opacity is tunable from the editor.** The `/config` editor exposes a
-    plate-opacity control in the widget row — rule 14's control surface — for each widget that
-    renders a background plate, so rule 15's broadcaster judgement call ("a more see-through plate
-    over busy footage") never requires hand-editing a profile JSON or a round-trip through
-    Export/Import. The **plate-rendering widgets** are the nine that paint one of the plate tokens:
-    `tower` and `battle` (panel + header bar), `driver`, `qualifying`, `updates` and `info` (the
-    shared lower-third card), `racecontrol`, `onboard` and `weather` (header-bar plate). `logos` composites its images straight
-    over the video with no panel behind them, so it gets **no** control — gated the same way
-    `hideWhenIdle` is offered only to widgets that can be idle, rather than shown on all ten. The
-    control spans the full `[0,1]` range in steps of `0.01`, starts at the `0.82` default, and
-    renders its current value as text beside it — two decimals, matching the step — so the setting is
-    readable at a glance instead of inferred from a slider position. Per rule 16 it carries its own
-    help copy, and per rule 19 the coverage tests then require it.
+23. **Plate opacity is tunable from the editor.** The `/config` editor gives a plate-opacity
+    control in the widget row (rule 14) for each widget that renders a background plate. So a
+    broadcaster can make a plate more transparent over busy footage (rule 15). This needs no edit
+    of the profile JSON and no round trip through Export and Import. The **plate-rendering
+    widgets** are the ten widgets that paint a plate token:
+    - `tower` and `battle` (panel and header bar),
+    - `driver`, `qualifying`, `updates`, `info` and `replay` (the shared lower-third card),
+    - `racecontrol`, `onboard` and `weather` (header-bar plate).
+
+    `logos` puts its images directly over the video, with no panel behind them. So it gets no
+    control, as the editor gives `hideWhenIdle` only to widgets that can be idle. The control
+    covers the full range `[0,1]` in steps of `0.01`, and it starts at the default `0.82`. It
+    shows its current value as text next to it, with two decimals, as the step has. The control
+    has its own help copy (rule 16), and the coverage tests require it (rule 19).
 
 24. **Withholding the control does not change the config.** `plateAlpha` stays
     normalized onto every widget (rule 11) whether or not the editor offers a control for it. A
@@ -163,6 +165,29 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     (`0`–`30`, step `1`) showing the current value, offered for `battle` only. Per rule 16 it carries
     its own help copy, and per rule 19 the coverage tests then require it. Like `plateAlpha`
     (rule 24), withholding the control from the other widgets never rewrites a stored value.
+
+### Battle box during a replay
+
+72. **`hideDuringReplay`** (battle, default `false`) hides the battle box while `mode` is a replay
+    (`widgets.md` rule 122).
+    1. Normalization keeps a boolean. It replaces all other values with `false`. So `"true"`, `1`,
+       `null` and an absent key all give `false`.
+    2. The `battle` widget carries the key. No other widget has a `hideDuringReplay` key after
+       normalization, and an unknown widget key also has none.
+    3. `/all` and the standalone `/battle` route read the key from the loaded profile. A live
+       reload applies a change at once (rule 22).
+    4. The editor's `battle` row (rule 14) has a **Hide during replay** checkbox
+       (`data-testid="hide-replay-battle"`). The checkbox is immediately after the
+       `exit grace secs` field. It shows a check only when the stored value is `true`, so it shows no
+       check by default. Checking it writes `true`. Clearing it writes `false`. The editor
+       gives the checkbox to the `battle` row only.
+    5. The checkbox has its own help behind an ⓘ (`data-testid="help-hide-replay-battle"`, rules
+       16 and 19). The help text is: "Hide the battle box while your producer shows a replay. The
+       box comes back when the replay ends. Off by default: the box then stays up during a replay
+       and shows the live gaps."
+    6. Save writes the value of the checkbox. The preview's sample snapshot is not a replay
+       (rule 71 gives the replay mode to the `replay` widget only). So the preview battle box
+       shows with the setting on or off.
 
 ### Race update box
 
@@ -290,6 +315,24 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     producer sends weather. Every change reaches the live preview at once and is what Save
     writes.
 
+### Replay badge
+
+70. **Replay badge defaults.** The `replay` widget (`widgets.md` rules 117–121) has these defaults:
+    `visible: true`, `x: 1656`, `y: 168`, `w: 240`, `h: 56`, `z: 11`. This puts it in the top
+    right corner, under the race update box, which ends at `y` 144. Its right edge aligns with
+    the right edge of the race update box. It overlaps no other default widget, hidden ones
+    included. Its handle label (rule 65) sits above it, at `y` 144 to 168, so the label overlaps
+    no widget either. A profile saved before the widget existed has no `replay` entry. That
+    profile gets these defaults, and `configVersion` stays `"1"`.
+
+71. **The editor's `replay` row** is part of the control surface of rule 14. The row shows the
+    widget's title and summary (rule 17). The summary says that the badge shows only while the
+    producer says that a replay is on screen, and that it draws nothing at other times (rule 21).
+    The row gives geometry, visibility, plate opacity (rule 23) and text size (rule 40). It gives
+    no trigger, dwell or hide-when-idle control. In the editor preview, the badge always
+    shows, whatever the `mode` of the preview sample. So the broadcaster can see the badge while
+    they place it.
+
 ### Tower lap-time flash toggle
 
 38. **`towerMetrics.lapFlash`** (default `true`) turns the tower's lap-time flash
@@ -325,11 +368,12 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     plate, and the widget's configured geometry are untouched, and `normal` renders exactly as a
     profile without the knob. Like `plateAlpha`, it is applied by `/all` only; standalone routes
     render at `normal` size.
-40. **The editor exposes it in the widget row** — rule 14's control surface — as a select of the
-    three presets, for each text-rendering widget: `tower`, `battle`, `driver`, `qualifying`,
-    `racecontrol`, `onboard`, `updates`, `info`, `weather`. `logos` renders no text and gets no control. Per rule 16 it carries
-    help copy, per rule 19 the coverage tests require it, and like `plateAlpha` (rule 24)
-    withholding the control never rewrites a stored value.
+40. **The editor exposes it in the widget row** (rule 14) as a select of the three presets.
+    Each text-rendering widget has the select: `tower`, `battle`, `driver`, `qualifying`,
+    `racecontrol`, `onboard`, `updates`, `info`, `weather` and `replay`. `logos` renders no text
+    and gets no control. The select has help copy (rule 16), and the coverage tests require it
+    (rule 19). As for `plateAlpha` (rule 24), the editor never changes a stored value when it does
+    not show the control.
 41. **Changing the preset in the editor widens the widget from its `normal` geometry.** When a
     widget leaves `normal`, the editor records its `normal` `x` and `w` on the widget as
     `textScaleOrigin: { x, w }`. At a bigger preset the widget's `x` is the origin's `x` and its
@@ -557,20 +601,25 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     renders `modern`. Normalizing `theme.preset` never changes `theme.classColors` (rule 32) or
     `theme.classTags` (rule 47), and it is not normalized onto widgets. `configVersion` stays
     `"1"` (rule 2). Decision record: `docs/decisions/0026-theme-presets.md`.
-59. **Resolution and the root attribute.** A render page resolves the theme with the precedence
-    `?theme=` URL param → the profile's `theme.preset` → `modern`. A `?theme=` value is read
-    trimmed and case-insensitively (`?theme=Vintage80` is `vintage80`); a value that is not one of
-    the three names after that is ignored, and the profile (or the default) decides. The resolved
-    preset is written to `<html data-theme="modern"|"vintage70"|"vintage80">`, always present on a
-    render page, `modern` included. Every render page writes it: `/all`, and the standalone
-    `/tower`, `/battle`, `/driver`, `/qualifying`, `/grid`, `/results`, `/logos`, `/updates`,
-    `/info`, `/weather` and `/racecontrol`, each from the URL and its profile on the initial load and again on every live reload
-    (rule 22), where a changed preset applies at once, with no transition. A preset chosen in the
-    profile applies once the profile has loaded: until then a page without `?theme=` shows the
-    `modern` look, exactly as `data-motion` waits for the profile (rule 10). `/onboard` loads
-    no profile, so it renders the `?theme=` value or `modern`. The `/config`
-    editor is not a render page: its document root never carries `vintage70` or `vintage80`,
-    whatever the profile or a `?theme=` param says (rule 62 covers its preview).
+59. **Resolution and the root attribute.** A render page resolves the theme in this order: the
+    `?theme=` URL parameter, then the profile's `theme.preset`, then `modern`.
+    - The page reads a `?theme=` value with the whitespace at the two ends removed, and with no
+      difference between upper and lower case. So `?theme=Vintage80` is `vintage80`. When the
+      value is not one of the three names, the page ignores it, and the profile or the default
+      decides.
+    - The page writes the resolved preset to
+      `<html data-theme="modern"|"vintage70"|"vintage80">`. The attribute is always present on a
+      render page, `modern` included.
+    - Every render page writes the attribute: `/all`, and the standalone `/tower`, `/battle`,
+      `/driver`, `/qualifying`, `/grid`, `/results`, `/logos`, `/updates`, `/info`, `/weather`,
+      `/racecontrol` and `/replay`. Each page uses the URL and its profile on the first load, and
+      again on each live reload (rule 22). A changed preset applies at once, with no transition.
+    - A preset from the profile applies when the profile has loaded. Until then, a page without
+      `?theme=` shows the `modern` look, as `data-motion` waits for the profile (rule 10).
+    - `/onboard` loads no profile, so it renders the `?theme=` value or `modern`.
+    - The `/config` editor is not a render page. Its document root never has `vintage70` or
+      `vintage80`, whatever the profile or a `?theme=` parameter says. Rule 62 covers its
+      preview.
 60. **A preset changes the look only.** Under every preset each widget shows the same content
     (rows, fields, text, values, order) at the same times (triggers, dwell, cycling, hide-when-idle,
     exit grace) at the same geometry (position, size, row heights, widget dimensions) as under
@@ -718,14 +767,72 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
     what "Reduced motion" does must not switch reduced motion on. The popover dismisses on `Escape`
     and on a click outside, and anchors itself inside the viewport rather than overflowing the panel.
 
-21. **Behaviors that read as bugs MUST be called out** where the broadcaster meets them: the
-    qualifying/practice suppression of pit / tire-wear / fuel (`widgets.md` rule 8), and that the
-    lower-thirds hide themselves between camera cuts (rules 13-19), and that a tower in `full`
-    name style grows wider than its set width and can be cut off at the edge of the canvas or
-    the Browser Source (rule 43, `widgets.md` rule 48), and that the info panel draws nothing
-    while it has no event and no lines to show (rule 53, `widgets.md` rule 78), and that the
-    weather box draws nothing while the producer sends no weather (rule 56, `widgets.md` rule 85) — each otherwise looks like a broken
-    overlay rather than a deliberate rule.
+21. **Behaviors that look like faults MUST be explained** where the broadcaster meets them.
+    Without the explanation, each one looks like a broken overlay, not a deliberate rule. The
+    behaviors are:
+    - The tower hides pit, tire wear and fuel in qualifying and practice (`widgets.md` rule 8).
+    - The lower-thirds hide themselves between camera cuts (rules 13-19).
+    - A tower in `full` name style grows wider than its set width. The edge of the canvas or the
+      Browser Source can then cut it (rule 43, `widgets.md` rule 48).
+    - The info panel draws nothing while it has no event and no lines to show (rule 53,
+      `widgets.md` rule 78).
+    - The weather box draws nothing while the producer sends no weather (rule 56, `widgets.md`
+      rule 85).
+    - The replay badge draws nothing outside a replay (rule 71, `widgets.md` rule 118).
+
+### Unsaved changes and the open profile
+
+A render page shows only a saved profile (rule 4). These rules make the editor show what is not
+saved yet. They also make the editor open the profile that the broadcaster works on.
+
+67. **The editor marks unsaved changes.** The saved state is a record of a config and a profile
+    name. The editor sets the saved state at these times:
+    1. when the editor opens: the default layout under the profile name that rule 69 selects,
+    2. when a save to the companion server succeeds: the saved config and name,
+    3. when a profile load succeeds: the loaded profile.
+
+    A save or a load that fails does not change the saved state. Export JSON does not change it.
+    When the editor deletes the profile that has its current name, the editor clears the saved
+    state. When the config and the profile name are the same as the saved state, the editor shows
+    `No unsaved changes` next to Save. In all other cases, including no saved state, it shows
+    `Unsaved changes`. An edit that the broadcaster changes back to the saved value gives
+    `No unsaved changes` again.
+
+68. **The editor asks before it goes away with unsaved changes.** While the editor shows
+    `Unsaved changes`, it tells the browser to ask the broadcaster before the browser closes,
+    reloads, or leaves the editor. The browser shows its own prompt. While the editor shows
+    `No unsaved changes`, the browser does not ask. A profile load from the Load list does not ask.
+    The load replaces the unsaved changes.
+
+69. **The editor opens the last profile.** When the editor opens, it selects a profile name in
+    this order:
+    1. the `profile` parameter of the editor URL (`/config?profile=race`),
+    2. the stored name: the name of the last successful save or load in the editor in this
+       browser,
+    3. the name `default`.
+
+    The editor shows the default layout under the selected name. Then it loads that profile from
+    the companion server. Until the load answers, the saved state is the default layout under the
+    selected name (rule 67), so the editor shows `No unsaved changes`. The result of the load sets
+    what the editor shows:
+
+    - **The load succeeds.** The editor shows that profile. The saved state is that profile.
+    - **The server does not have the profile.** The editor keeps the default layout and the saved
+      state. A render page with this name also shows the default layout (rule 4).
+    - **The load fails for a different reason.** The editor keeps the default layout and clears the
+      saved state. The companion-server status line names the profile (rule 29).
+    - **No companion server answers.** The editor does not load. It keeps the default layout and
+      the saved state.
+
+    The load result replaces the config of the editor, as a Load-list load does. It also
+    replaces edits that the broadcaster made while the load was in progress. But when a save, a
+    Load-list load or a delete starts before the load answers, the editor does not use the result
+    of the load. If that save, Load-list load or delete fails, and no save, Load-list load or delete
+    succeeded before it, the editor clears the saved state.
+
+    When the browser cannot store the name, the editor skips step 2. A failed save or load does not
+    change the stored name. When the editor deletes the profile with the stored name, it also
+    deletes the stored name.
 
 ### Live reload
 
@@ -878,11 +985,12 @@ Profile shape: `configVersion`, `name`, `producer.src`, `canvas{w,h}`,
 `widgets.<key>{…}`, `logoRotation{images,perSlotSeconds,order}`, `theme{classColors,classTags,preset,nameStyle}`,
 `reducedMotion`.
 Widget keys: `tower`, `battle`, `logos`, `driver`,
-`qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`. Each widget carries the full normalized knob set (geometry +
+`qualifying`, `racecontrol`, `onboard`, `updates`, `info`, `weather`, `replay`. Each widget carries the full normalized knob set (geometry +
 `plateAlpha` + `hideWhenIdle` + `trigger`/`dwellSeconds`/`showOnConnect` + `modes`/`fireOnClassBest` +
 `classDisplay` + `towerMetrics` + `maxRows`/`cycle` + `speedUnit`/`driverInfo`/`waitForLowerThird` +
 `tempUnit`), but only the widget noted in the rule-11 table actually reads each. The `info`
-widget also carries `lines` and `weatherCard`, which no other widget has (rules 52, 57).
+widget also carries `lines` and `weatherCard`, which no other widget has (rules 52, 57). The
+`battle` widget also carries `hideDuringReplay`, which no other widget has (rule 72).
 
 URL-only knobs (per Browser Source, not stored in a profile): `?src=`, `?profile=`, `?show=`,
 `?hide=`, `?motion=`, `?theme=`, `?class=` (cross-route field filter), `?unit=mph` (standalone `/onboard`),

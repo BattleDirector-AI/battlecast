@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-12
+
+### Added
+
+- **A REPLAY badge (#60, ADR 0039).** While BattleDirector shows a replay, a small `REPLAY` card
+  wipes in at the top right, under the race update box, and wipes out when the replay ends. It is
+  a widget in `/all` and has its own `/replay` page. Move it, size it and set its plate and text
+  size in `/config`. It draws nothing outside a replay.
+- **Hide the battle box during a replay (#447, ADR 0040).** A new **Hide during replay** checkbox
+  on the battle row in `/config`. With it on, the battle box goes away while a replay is on
+  screen, the same way it does under caution, and comes back with the live battle when the replay
+  ends. It is off by default, so nothing changes until you turn it on.
+- **`/config` shows when you have unsaved changes (#440).** `Unsaved changes` or
+  `No unsaved changes` sits next to Save. If you close, reload or leave `/config` with unsaved
+  changes, the browser asks first.
+- **`/config` reopens your last profile (#440).** It opens the profile in the URL
+  (`/config?profile=race`), else the last profile you saved or loaded in this browser, else
+  `default`. Before, it always opened the default layout, so edits looked lost after a reload.
+
+### Fixed
+
+- **A save, load or delete made while `/config` is still opening your profile is no longer
+  overwritten by that late load (#448, #452).** If that save, load or delete fails, `/config`
+  shows `Unsaved changes`.
+- **A save or delete that worked no longer says "Save failed" when only the profile list failed to
+  refresh (#450).**
+
+### Internal
+
+- Specs are written in plain English (ASD-STE100), and `make spec-lint` keeps them that way with a
+  per-file ratchet (#441, #443).
+- More tests for `/config` opening a profile and for `/replay` teardown (#449, #453, #456).
+
 ## [0.16.0] - 2026-10-29
 
 ### Added

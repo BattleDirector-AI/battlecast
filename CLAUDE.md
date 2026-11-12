@@ -11,6 +11,10 @@ All agent-facing specifications live in `.ai/spec/`. Start with `.ai/spec/README
 project overview, reading order, and structure guide (what/ = behavioral rules, how/ = codebase
 navigation).
 
+**Specs are plain English (ASD-STE100).** Write new and edited spec text with the `asd-ste100`
+skill. When you edit a rule, rewrite that whole rule in STE. `make spec-lint` enforces a
+per-file ratchet. See `.ai/spec/README.md`, "Plain English".
+
 The producer↔battlecast **protocol** is a shipped deliverable at `spec/v1/` (`SPEC.md`,
 `schema.json`, fixtures) — `schema.json` is the literal source of truth for payload shape.
 `.ai/spec/what/protocol-contract.md` describes how battlecast consumes it.
@@ -33,6 +37,7 @@ Node ≥ 22. The `server/` and `producers/mock/` are zero-dependency (Node built
 | `make build` | Build the production app bundle (`app/dist`). |
 | `make test` | Run the app test suite (Vitest). |
 | `make lint` | Lint the app (ESLint). |
+| `make spec-lint` | Check specs are plain English (ASD-STE100). Counts may only go down. |
 | `make dev-app` / `dev-mock` / `dev-server` | Run one piece on its own. |
 
 Agents act on GitHub as the `battledirector-agent` App: `alias gh='bash scripts/agent-gh.sh'`

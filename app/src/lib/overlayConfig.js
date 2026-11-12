@@ -98,6 +98,7 @@ export const DEFAULT_CONFIG = Object.freeze({
       driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
       towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
       maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      hideDuringReplay: false,
       cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
     },
     logos: {
@@ -215,6 +216,20 @@ export const DEFAULT_CONFIG = Object.freeze({
     // size; the other knobs are inert. Draws nothing without weather.
     weather: {
       visible: true, x: 900, y: 80, w: 360, h: 44, z: 10, hideWhenIdle: false,
+      trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
+      modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
+      classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
+      waitForLowerThird: true,
+      driverInfo: { ...ONBOARD_DEFAULTS.driverInfo },
+      towerMetrics: { interval: true, pit: false, tire: false, fuel: false, lapFlash: true },
+      maxRows: 'auto', plateAlpha: 0.82, idleGraceSeconds: 5, textScale: 'normal',
+      cycle: { enabled: true, perPageSeconds: 8, pinTop: 3, pinScope: 'overall', pinSubject: true },
+    },
+    // Replay badge (#60, overlay-config rule 70): `REPLAY` while the producer's `mode` is
+    // `replay`, top right under the race update box. Reads plate opacity and text size; the
+    // other knobs are inert. Draws nothing outside a replay.
+    replay: {
+      visible: true, x: 1656, y: 168, w: 240, h: 56, z: 11, hideWhenIdle: false,
       trigger: 'dwell', dwellSeconds: 8, showOnConnect: true,
       modes: ['race', 'qualifying', 'practice'], fireOnClassBest: true,
       classDisplay: 'inline', speedUnit: 'kmh', tempUnit: 'c',
@@ -438,6 +453,7 @@ export const PLATE_WIDGET_KEYS = Object.freeze([
   'updates',
   'info',
   'weather',
+  'replay',
 ])
 
 /** Per-widget text size presets (overlay-config.md rules 39-41, ADR 0015): the factor
@@ -456,6 +472,7 @@ export const TEXT_WIDGET_KEYS = Object.freeze([
   'updates',
   'info',
   'weather',
+  'replay',
 ])
 
 /** Whether the config UI offers a text-size control for this widget. Withholding it is a
@@ -764,6 +781,11 @@ export function normalizeConfig(raw) {
     // #208 whether the weather card joins the info panel's rotation (rule 57) — the info
     // widget only, like `lines`; a boolean, else off.
     if (key === 'info') normalizedWidgets[key].weatherCard = typeof w.weatherCard === 'boolean' ? w.weatherCard : false
+    // #447 whether the battle box hides during a replay (rule 72) — the battle widget only, like
+    // `weatherCard`; a boolean, else off.
+    if (key === 'battle') {
+      normalizedWidgets[key].hideDuringReplay = typeof w.hideDuringReplay === 'boolean' ? w.hideDuringReplay : false
+    }
     // #215 editor bookkeeping (overlay-config.md rule 41b): the widget's `normal` x/w while it
     // sits at a bigger preset. Kept only on a text widget off `normal`, with both parts finite
     // numbers or non-blank numeric strings (stored as numbers); never rendered.

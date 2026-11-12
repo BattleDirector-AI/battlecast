@@ -81,6 +81,13 @@ export const WIDGET_HELP = Object.freeze({
       'as your producer reports them, updated live. It shows only what the producer sends and ' +
       'draws nothing while no weather is sent, so an empty box is not a fault.',
   },
+  replay: {
+    title: 'Replay badge',
+    summary:
+      'A small REPLAY tag that tells viewers the action on screen is not live. It shows only ' +
+      'while your producer says a replay is on screen, and draws nothing at other times, so an ' +
+      'empty badge is not a fault. The preview here always shows it, so you can place it.',
+  },
   info: {
     title: 'Info panel',
     summary:
@@ -113,6 +120,9 @@ export const FIELD_HELP = Object.freeze({
     'When a battle ends, keep showing it for this many seconds before the box switches to clear ' +
     'air, so a fight that drifts in and out of range doesn’t make the box flicker. A camera cut ' +
     'to another car always updates it at once. 0 turns the hold off.',
+  hideDuringReplay:
+    'Hide the battle box while your producer shows a replay. The box comes back when the replay ' +
+    'ends. Off by default: the box then stays up during a replay and shows the live gaps.',
   textScale:
     'Make this widget’s text bigger: normal, large (115%) or larger (130%). Picking a size also ' +
     'widens the widget by the same amount, so its columns keep their room — check it still fits ' +
