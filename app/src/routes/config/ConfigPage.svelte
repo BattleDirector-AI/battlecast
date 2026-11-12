@@ -656,12 +656,18 @@
       savedState = sent
       actionSucceeded()
       writeStoredName(name)
+    } catch (err) {
+      actionFailed()
+      status = `Save failed: ${err.message}`
+      return
+    }
+    // The save is done: a failed list refresh does not make it a failed save.
+    try {
       profiles = await api.listProfiles()
       listWrites++
       status = `Saved profile "${name}".`
     } catch (err) {
-      actionFailed()
-      status = `Save failed: ${err.message}`
+      status = `Saved profile "${name}". The profile list did not refresh: ${err.message}`
     }
   }
   async function loadProfile(name) {
@@ -692,17 +698,25 @@
     if (!serverUp || !name) return
     if (typeof window !== 'undefined' && !window.confirm(`Delete profile "${name}"?`)) return
     profileActions++
+    let deleted
     try {
-      const deleted = await api.deleteProfile(name)
+      deleted = await api.deleteProfile(name)
       if (profileName === name) savedState = null
       actionSucceeded()
       forgetStoredName(name)
-      profiles = await api.listProfiles()
-      listWrites++
-      status = deleted ? `Deleted profile "${name}".` : `Profile "${name}" was not on the server.`
     } catch (err) {
       actionFailed()
       status = `Delete failed: ${err.message}`
+      return
+    }
+    // The delete is done: a failed list refresh does not make it a failed delete.
+    const done = deleted ? `Deleted profile "${name}".` : `Profile "${name}" was not on the server.`
+    try {
+      profiles = await api.listProfiles()
+      listWrites++
+      status = done
+    } catch (err) {
+      status = `${done} The profile list did not refresh: ${err.message}`
     }
   }
 

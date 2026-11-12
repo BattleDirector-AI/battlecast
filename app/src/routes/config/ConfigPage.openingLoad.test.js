@@ -413,3 +413,84 @@ describe('config editor: a failed save while the profile list loads', () => {
     expect(options, 'the failed save threw away the opening list').toEqual(['', 'race', 'quali'])
   })
 })
+
+// #450: the list refresh after a good save or delete has its own failure. It does not make the
+// save or delete a failure.
+describe('config editor: a failed list refresh after a good save or delete', () => {
+  const status = (c) => $(c, 'status').textContent.trim()
+
+  it('a good save whose list refresh fails still reports the save', async () => {
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    api.listProfiles.mockRejectedValueOnce(new Error('list gone'))
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    expect(api.saveProfile).toHaveBeenCalledTimes(1)
+    expect(status(container)).toBe('Saved profile "race". The profile list did not refresh: list gone')
+    expect(marker(container), 'the good save is not saved').toBe('No unsaved changes')
+  })
+
+  it('a good delete whose list refresh fails still reports the delete', async () => {
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    api.listProfiles.mockRejectedValueOnce(new Error('list gone'))
+    await fireEvent.click($(container, 'delete-profile'))
+    await settle()
+    expect(api.deleteProfile).toHaveBeenCalledWith('race')
+    expect(status(container)).toBe('Deleted profile "race". The profile list did not refresh: list gone')
+    expect(marker(container), 'the deleted profile still shows as saved').toBe('Unsaved changes')
+  })
+})
+
+// #456: a good save whose own list request fails wrote no list, so the late opening list applies.
+describe('config editor: a good save whose list request fails while the opening list loads', () => {
+  it('keeps the opening profile list', async () => {
+    let listAnswer
+    api.listProfiles.mockImplementationOnce(() => new Promise((r) => (listAnswer = r)))
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    api.listProfiles.mockRejectedValueOnce(new Error('list gone'))
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    expect(api.saveProfile).toHaveBeenCalledTimes(1)
+    expect($(container, 'status').textContent.trim()).toBe(
+      'Saved profile "race". The profile list did not refresh: list gone',
+    )
+
+    listAnswer(['race', 'quali'])
+    await settle()
+    const options = [...$(container, 'load').querySelectorAll('option')].map((o) => o.value)
+    expect(options, 'the good save threw away the opening list').toEqual(['', 'race', 'quali'])
+  })
+})
+
+// #458 review: a failed save or delete says so, and never reports success.
+describe('config editor: the status line of a failed save or delete', () => {
+  it('a failed save says "Save failed"', async () => {
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    api.saveProfile.mockRejectedValueOnce(new Error('disk full'))
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    expect($(container, 'status').textContent.trim()).toBe('Save failed: disk full')
+  })
+
+  it('a failed delete says "Delete failed"', async () => {
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    api.deleteProfile.mockRejectedValueOnce(new Error('locked'))
+    await fireEvent.click($(container, 'delete-profile'))
+    await settle()
+    expect($(container, 'status').textContent.trim()).toBe('Delete failed: locked')
+  })
+})
