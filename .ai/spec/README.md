@@ -124,6 +124,8 @@ delete a legacy `[PLANNED]` marker, you do not edit the rule. Do not rewrite it.
 - When a file has fewer violations, run `make spec-lint-update` to record the lower number. The
   check fails until you do this, so each improvement stays.
 - CI runs the same check.
+- An update of the vendored linter can change every count. `.claude/skills/asd-ste100/UPSTREAM.md`
+  gives the steps for that update.
 
 The linter checks sentence length, semicolons, phrasal verbs, and other sentence-structure rules.
 It cannot check word choice. The reviewer checks word choice.
