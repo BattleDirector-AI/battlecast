@@ -234,6 +234,30 @@ export const FIELD_HELP = Object.freeze({
   logoUpload:
     'Upload the sponsor images the logo widget cycles through. Needs the companion server running ' +
     '— without it you can still arrange everything and use Export JSON.',
+  eventSection:
+    'The Event slide: a full screen title card with the series name, the round, the track and ' +
+    'the series logo. It is its own Browser Source: add /event?profile= followed by this ' +
+    "profile's name to OBS. It fills the screen on a solid board, so give it a scene of its own. " +
+    'The editor preview does not show it. An empty field shows nothing on the slide, and with ' +
+    'every field empty the slide is a blank board.',
+  eventSeries:
+    'The name of the series, in large letters on the Event slide (e.g. "GT World Cup"). Up to 80 ' +
+    'characters. It applies when you press Enter or leave the field. Leave it empty for no ' +
+    'series name.',
+  eventRound:
+    'The round, written the way your series calls it (e.g. "Round 3", "Round 3 of 8" or ' +
+    '"Finale"). It shows under the series name, before the track. Leave it empty for no round.',
+  eventTrack:
+    'The track of this event (e.g. "Spa-Francorchamps"). It shows under the series name, after ' +
+    'the round. Leave it empty for no track.',
+  eventLogo:
+    'The series logo at the top of the Event slide. Pick one of the images on the companion ' +
+    'server (the same images the logo rotation uses), or "none" for no logo. Picking an image ' +
+    'here leaves the logo rotation as it is.',
+  eventLogoUpload:
+    'Upload a series logo and use it on the Event slide. The image goes to the companion server ' +
+    'with the other logos, so you can pick it again later. The upload does not add the image to ' +
+    'the logo rotation.',
   logoPerSlot: 'How long each logo stays on screen before the next one takes its place.',
   logoOrder:
     '"sequential" plays the logos in the order listed above. "shuffle" mixes them up, so the same ' +

@@ -252,6 +252,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   // OBS/CEF reports reduced-motion, which must NOT silently kill the reveals); set true
   // to turn transitions down. A `?motion=` URL param overrides this per Browser Source.
   reducedMotion: false,
+  // The broadcaster's slide content (overlay-config rule 73, ADR 0041): one top-level section,
+  // not a widget, that the Event slide (`/event`) reads. Later slides add their own keys here.
+  slides: { series: '', round: '', track: '', logo: '' },
 })
 
 /** Lower-third trigger defaults (see docs/decisions/0002-lower-third-widgets.md).
@@ -580,6 +583,32 @@ export function normalizeInfoLines(value) {
 // a JSON-parsed profile can carry these as OWN keys.
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
+/** The longest `slides` text field (overlay-config rule 73). */
+export const SLIDES_TEXT_MAX_LENGTH = 80
+
+/** One `slides` text field as rule 73 stores it: trimmed, cut to 80 characters, trimmed again;
+ *  '' for a non-string. */
+export function normalizeSlidesText(value) {
+  return typeof value === 'string' ? value.trim().slice(0, SLIDES_TEXT_MAX_LENGTH).trim() : ''
+}
+
+/** The profile's `slides` section (overlay-config rule 73): the default for a non-object;
+ *  series/round/track through `normalizeSlidesText`, `logo` trimmed; every other key kept
+ *  unchanged (forward compatibility), except the prototype-polluting ones. */
+export function normalizeSlides(raw) {
+  const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  const out = {
+    series: normalizeSlidesText(src.series),
+    round: normalizeSlidesText(src.round),
+    track: normalizeSlidesText(src.track),
+    logo: typeof src.logo === 'string' ? src.logo.trim() : '',
+  }
+  for (const key of Object.keys(src)) {
+    if (!Object.hasOwn(out, key) && !UNSAFE_KEYS.has(key)) out[key] = src[key]
+  }
+  return out
+}
+
 /** A well-formed 6-digit hex color: no shorthand 3-digit form, no alpha channel — the
  *  shape a native `<input type="color">` always emits. */
 const HEX_COLOR = /^#[0-9a-f]{6}$/i
@@ -668,6 +697,7 @@ export function normalizeConfig(raw) {
   )
   // Overlay-wide motion opt-out (see lib/motion.js). Defaults false (animate).
   out.reducedMotion = typeof src.reducedMotion === 'boolean' ? src.reducedMotion : false
+  out.slides = normalizeSlides(src.slides)
 
   const canvasSrc = src.canvas && typeof src.canvas === 'object' ? src.canvas : {}
   out.canvas = {

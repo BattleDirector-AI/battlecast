@@ -16,6 +16,7 @@ import {
   rendersText,
   normalizeInfoLine,
   INFO_LINES_MAX,
+  normalizeSlides,
 } from './overlayConfig.js'
 
 /** Clamp a widget's geometry so it stays a sane box within the given canvas. */
@@ -253,6 +254,14 @@ export function setClassTags(config, value) {
 export function setNameStyle(config, value) {
   const next = normalizeConfig(config)
   next.theme = { ...next.theme, nameStyle: normalizeNameStyle(value) }
+  return next
+}
+
+/** Set one field of the profile's `slides` section (overlay-config.md rules 73-75): `series`,
+ *  `round`, `track` or `logo`, normalized as rule 73 says. Every other key of `slides` is kept. */
+export function setSlidesField(config, field, text) {
+  const next = normalizeConfig(config)
+  next.slides = normalizeSlides({ ...next.slides, [field]: text })
   return next
 }
 
