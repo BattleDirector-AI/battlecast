@@ -248,3 +248,168 @@ describe('config editor: a failed action during the opening load', () => {
     expect(marker(container), 'the stopped opening load cleared the saved state').toBe('No unsaved changes')
   })
 })
+
+// #449: guards for the rule that a failed action clears the saved state only while the opening
+// load has not answered and no action succeeded (rule 69, last sentence of the load paragraph).
+describe('config editor: a failed action after the opening load answered', () => {
+  it('a failed save with no edits keeps "No unsaved changes"', async () => {
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+    expect(nameStyle(container)).toBe('full')
+
+    api.saveProfile.mockRejectedValueOnce(new Error('disk full'))
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    expect(marker(container), 'a failed save cleared a known saved state').toBe('No unsaved changes')
+  })
+
+  it('a failed Load-list load with no edits keeps "No unsaved changes"', async () => {
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    api.getProfile.mockRejectedValueOnce(new Error('server gone'))
+    await load(container, 'quali')
+    expect(profileName(container)).toBe('race')
+    expect(marker(container), 'a failed load cleared a known saved state').toBe('No unsaved changes')
+  })
+
+  it('a failed save after a good save, both during the opening load, keeps "No unsaved changes"', async () => {
+    const answer = holdNextLoad()
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    await setNameStyle(container, 'full')
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    api.saveProfile.mockRejectedValueOnce(new Error('disk full'))
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    answer(STALE_RACE)
+    await settle()
+    expect(nameStyle(container)).toBe('full')
+    expect(marker(container), 'the failed save cleared the state of the good save').toBe('No unsaved changes')
+  })
+
+  it('a Load-list load the server does not have, during the opening load, leaves no saved state', async () => {
+    const answer = holdNextLoad()
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    api.getProfile.mockResolvedValueOnce(null)
+    await load(container, 'quali')
+    answer(SERVER.race)
+    await settle()
+    expect(nameStyle(container)).toBe('short')
+    expect(marker(container), 'claims the default layout is what the server has').toBe('Unsaved changes')
+  })
+
+  it('a failed delete that stops the opening load leaves no saved state', async () => {
+    const answer = holdNextLoad()
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    api.deleteProfile.mockRejectedValueOnce(new Error('locked'))
+    await fireEvent.click($(container, 'delete-profile'))
+    await settle()
+    expect(api.deleteProfile).toHaveBeenCalledWith('race')
+    answer(SERVER.race)
+    await settle()
+    expect(nameStyle(container)).toBe('short')
+    expect(marker(container), 'claims the default layout is what the server has').toBe('Unsaved changes')
+  })
+})
+
+// #452: the count is read before the profile list loads, so a save made while the list loads
+// also stops the opening load.
+describe('config editor: a save while the profile list loads', () => {
+  it('stops the opening load', async () => {
+    let listAnswer
+    api.listProfiles.mockImplementationOnce(() => new Promise((r) => (listAnswer = r)))
+    const answer = holdNextLoad()
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+    expect(api.getProfile, 'the opening load started before the list answered').not.toHaveBeenCalled()
+
+    await setNameStyle(container, 'full')
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    expect(api.saveProfile).toHaveBeenCalledTimes(1)
+
+    listAnswer(['race', 'quali'])
+    await settle()
+    answer(STALE_RACE)
+    await settle()
+    expect(nameStyle(container), 'the late opening load replaced the saved config').toBe('full')
+    expect(marker(container)).toBe('No unsaved changes')
+  })
+})
+
+describe('config editor: review guards for #451', () => {
+  it('a good Load-list load, then a failed save, both during the opening load, keeps "No unsaved changes"', async () => {
+    const answer = holdNextLoad()
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    await load(container, 'quali')
+    expect(profileName(container)).toBe('quali')
+    api.saveProfile.mockRejectedValueOnce(new Error('disk full'))
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    answer(STALE_RACE)
+    await settle()
+    expect(profileName(container)).toBe('quali')
+    expect(marker(container), 'the failed save cleared the state of the good load').toBe('No unsaved changes')
+  })
+
+  it('a failed save with no edits, after an opening load the server did not have, keeps "No unsaved changes"', async () => {
+    window.history.replaceState({}, '', '/config?profile=new-show')
+    const { container } = render(ConfigPage)
+    await settle()
+    expect(api.getProfile).toHaveBeenCalledWith('new-show')
+
+    api.saveProfile.mockRejectedValueOnce(new Error('disk full'))
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    expect(marker(container), 'a failed save cleared a known saved state').toBe('No unsaved changes')
+  })
+
+  it('a late profile list from the opening does not replace the list a save wrote', async () => {
+    let listAnswer
+    api.listProfiles.mockImplementationOnce(() => new Promise((r) => (listAnswer = r)))
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    listAnswer(['quali'])
+    await settle()
+    const options = [...$(container, 'load').querySelectorAll('option')].map((o) => o.value)
+    expect(options, 'the late opening list dropped the saved profile').toContain('race')
+  })
+})
+
+describe('config editor: a failed save while the profile list loads', () => {
+  it('keeps the opening profile list', async () => {
+    let listAnswer
+    api.listProfiles.mockImplementationOnce(() => new Promise((r) => (listAnswer = r)))
+    window.history.replaceState({}, '', '/config?profile=race')
+    const { container } = render(ConfigPage)
+    await settle()
+
+    api.saveProfile.mockRejectedValueOnce(new Error('disk full'))
+    await fireEvent.click($(container, 'save'))
+    await settle()
+    listAnswer(['race', 'quali'])
+    await settle()
+    const options = [...$(container, 'load').querySelectorAll('option')].map((o) => o.value)
+    expect(options, 'the failed save threw away the opening list').toEqual(['', 'race', 'quali'])
+  })
+})
