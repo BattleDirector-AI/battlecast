@@ -165,6 +165,14 @@ logo list load and the write controls are live. False ⇒ the editor degrades to
 - On mount, set the saved state to the default layout under the selected name, before any load.
   `refreshFromServer()` then loads that name after `serverAvailable()` returns true. The load
   also calls `endDrag()`, as `loadProfile()` does. A non-404 failure sets the saved state to `null`.
+- `profileActions` counts saves, Load-list loads and deletes. `refreshFromServer()` reads it after
+  `serverAvailable()` returns true and before `listProfiles()`, and gives it to `openProfile()`. If
+  the count changed when the request answers, the opening load does nothing.
+- `listWrites` counts the profile lists that a save or delete wrote. The opening profile list sets
+  `profiles` only if `listWrites` did not change while it loaded.
+- `openingUnresolved` starts true. It goes false when the opening load answers and the count did
+  not stop it. It also goes false when no companion server answers, or a save, load or delete
+  succeeds. While it is true, a failed save, load or delete sets the saved state to `null`.
 
 **Producer feed status (rules 25–30).** `onMount` also calls
 `sseClient.connect(feedUrl, () => {}, { onOpen, onError })` — an `onState` that throws the snapshot

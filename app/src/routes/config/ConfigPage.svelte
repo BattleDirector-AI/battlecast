@@ -165,6 +165,8 @@
   let destroyed = false
   // Counts saves, Load-list loads and deletes. A later one of these stops the opening load.
   let profileActions = 0
+  // Counts the profile lists that a save or delete wrote (see refreshFromServer).
+  let listWrites = 0
   // True until the saved state matches the server: the opening load answered, or a newer
   // action succeeded. A failed action that stopped the opening load leaves the saved state
   // unknown, so it clears it (no saved state).
@@ -210,18 +212,22 @@
       return
     }
     status = 'Profile server connected.'
+    // Read the count now: a save or delete is possible from here on, also while the lists load.
+    const actionsBefore = profileActions
     try {
-      profiles = await api.listProfiles()
+      const listsBefore = listWrites
+      const list = await api.listProfiles()
+      // A save or delete that wrote a list while this one loaded wrote a newer list.
+      if (listWrites === listsBefore) profiles = list
       serverLogos = await api.listLogos()
     } catch (err) {
       status = `Server error: ${err.message}`
     }
-    await openProfile(profileName)
+    await openProfile(profileName, actionsBefore)
   }
 
   // The opening load (rule 69). Its result replaces the config, edits made meanwhile included.
-  async function openProfile(name) {
-    const actionsBefore = profileActions
+  async function openProfile(name, actionsBefore) {
     const superseded = () => destroyed || profileActions !== actionsBefore
     let loaded
     try {
@@ -651,6 +657,7 @@
       actionSucceeded()
       writeStoredName(name)
       profiles = await api.listProfiles()
+      listWrites++
       status = `Saved profile "${name}".`
     } catch (err) {
       actionFailed()
@@ -691,6 +698,7 @@
       actionSucceeded()
       forgetStoredName(name)
       profiles = await api.listProfiles()
+      listWrites++
       status = deleted ? `Deleted profile "${name}".` : `Profile "${name}" was not on the server.`
     } catch (err) {
       actionFailed()
