@@ -800,11 +800,15 @@ saved yet. They also make the editor open the profile that the broadcaster works
     - **No companion server answers.** The editor does not load. It keeps the default layout and
       the saved state.
 
-    The load result replaces the config of the editor, as a load from the Load list does. It also
-    replaces edits that the broadcaster made while the load was in progress. When the browser
-    cannot store the name, the editor skips step 2. A failed save or load does not change the
-    stored name. When the editor deletes the profile with the stored name, it also deletes the stored
-    name.
+    The load result replaces the config of the editor, as a Load-list load does. It also
+    replaces edits that the broadcaster made while the load was in progress. But when a save, a
+    Load-list load or a delete starts before the load answers, the editor does not use the result
+    of the load. If that save, Load-list load or delete fails, and no save, Load-list load or delete
+    succeeded before it, the editor clears the saved state.
+
+    When the browser cannot store the name, the editor skips step 2. A failed save or load does not
+    change the stored name. When the editor deletes the profile with the stored name, it also
+    deletes the stored name.
 
 ### Live reload
 
