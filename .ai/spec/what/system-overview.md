@@ -29,8 +29,8 @@ producer hands it.
    (`/battle`). Later minor revisions added, without breaking the contract: **driver lower-third**
    (`/driver`), **qualifying/sector lower-third** (`/qualifying`), **Race Control** session status
    (`/racecontrol`), and the **on-board HUD** (`/onboard`). Composite `/all` composes configured
-   widgets onto one canvas. `/grid`, `/results` and `/event` are full-screen takeover slides.
-   `/logos` is a sponsor-logo carousel. `/config` is the layout editor.
+   widgets onto one canvas. `/grid`, `/results`, `/event` and `/countdown` are full-screen takeover
+   slides. `/logos` is a sponsor-logo carousel. `/config` is the layout editor.
 6. Widgets are selected by **URL pathname**, because OBS Browser Sources are launched by URL — there
    is no in-app navigation.
 
@@ -44,7 +44,7 @@ producer hands it.
    `subject.telemetry`, and none of the optional per-vehicle fields still validates and every
    existing widget still renders.
 9. Overlay pages composite over live video, so overlay routes render on a **transparent** page
-   background. Takeover slides (`/results`, `/grid`, `/event`) are opaque.
+   background. Takeover slides (`/results`, `/grid`, `/event`, `/countdown`) are opaque.
 
 ### Motion
 
