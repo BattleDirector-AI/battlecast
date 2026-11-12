@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-12
+
 ### Added
 
 - **A REPLAY badge (#60, ADR 0039).** While BattleDirector shows a replay, a small `REPLAY` card
