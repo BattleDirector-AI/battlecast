@@ -313,6 +313,16 @@ instead of snapping to the default layout (#353). The first failed tick after a 
   when `config.slides.logo` is that URL (rule 75). The help copy keys in
   `configHelp.js` `FIELD_HELP` are `eventSection`, `eventSeries`, `eventRound`, `eventTrack`,
   `eventLogo` and `eventLogoUpload`.
+- **The Countdown section** (`what/overlay-config.md` rules 73 and 76) sits directly after the
+  Event section and uses the same helper. The start input is a plain
+  `<input type="datetime-local" step="60">`. Its `onchange` calls
+  `setSlidesField(config, 'start', value)` only when `!e.currentTarget.validity.badInput`. A
+  partly typed value is `''` with `badInput` true, so it commits nothing (rule 76). The **clear**
+  button (`disabled={!config.slides.start}`) calls `setSlidesField(config, 'start', '')`. The
+  starting text input uses the Event section's draft-and-commit
+  attachment (`slidesTextField('startedText')`). `setSlidesField` normalizes through
+  `normalizeSlides`, so rule 73's steps 5 and 6 apply on each commit. The help copy keys in
+  `FIELD_HELP` are `countdownSection`, `countdownStart`, `countdownStartClear` and `countdownStartedText`.
 - **Drag listeners live on `window`,** attached in `startDrag` and removed in `endDrag`, so a pointer
   that leaves the preview box still tracks and still releases. There are four — `pointermove` →
   `onDrag`, `pointerup` → `onPointerEnd`, `pointercancel` → `onPointerEnd`, `blur` → `endDrag` —
