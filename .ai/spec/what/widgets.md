@@ -1353,6 +1353,74 @@ other field. Decision record: `docs/decisions/0039-replay-badge.md`.
     - **Class chips.** Unchanged from the base look.
     - **Type.** Every text keeps the base look's 1px outline; none takes the mock's 2px one.
 
+### Event slide (`/event`, #463)
+
+The Event slide is a title card for the event: the series name, the round, the track and the
+series logo. The broadcaster types this content in `/config`. The slide reads it from the
+profile's `slides` section (`overlay-config.md` rule 73). Decision record:
+`docs/decisions/0041-event-slide-shared-slides-section.md`.
+
+123. **The route.** `/event` is a full-screen **opaque takeover** slide, as `/grid` and
+     `/results` are (rule 27).
+     - The page fills the window. Its background is not transparent.
+     - The page loads the profile that `?profile=` names (`overlay-config.md` rules 4–5). It reads
+       only the profile's `slides` section. It does not read a profile key named `event`.
+     - The page opens no producer connection. It shows the same slide when no producer runs.
+     - The slide is not a widget. `/all` does not show it, and `widgets` has no `event` key
+       and no `slides` key.
+     - The page ignores `?class=`, `?show=`, `?hide=` and `?src=`.
+124. **The content.** The slide (`data-testid="event-slide"`) draws its board on the full page. On
+     the board it shows these parts, in this order, from top to bottom:
+     1. the logo (`data-testid="event-logo"`), an image of the `slides.logo` URL,
+     2. the series name (`data-testid="event-series"`),
+     3. the meta line (`data-testid="event-meta"`), which holds the round
+        (`data-testid="event-round"`) and the track (`data-testid="event-track"`).
+
+     Each text part shows its field as the profile stores it after normalization. The part keeps
+     the case of the text. The slide's type style shows all text in capitals. When the round and
+     the track both show, ` · ` (a space, U+00B7 MIDDLE DOT, a space) separates them. The meta line
+     has no other text. Example: round `Round 3` and track `Spa-Francorchamps` give the meta line
+     `Round 3 · Spa-Francorchamps`.
+125. **Empty fields.** A field that is an empty string has no part.
+     - An empty `logo` gives no image element. An empty `series` gives no series element.
+     - An empty `round` gives no round element and no separator. An empty `track` does the same.
+     - When `round` and `track` are both empty, the slide has no meta line.
+     - The parts that show keep their order and stay centred. Nothing holds the place of a
+       missing part.
+     - When all four fields are empty, the slide shows only its board. It shows no text, no image
+       and no placeholder, so the slide is safe on air before the broadcaster fills it.
+126. **A logo that does not load.** When the logo image fails to load, the slide removes the image
+     element. The slide then shows as if `logo` were empty. When a live reload gives a different
+     `logo`, the slide tries the new URL.
+127. **No entrance.** The slide has no entrance and no exit of its own. It shows its content at
+     once when the profile loads, under every motion mode. A live reload that changes the content
+     changes it at once, with no transition (`overlay-config.md` rule 22). The OBS scene transition
+     brings the slide on air, as for `/grid` and `/results`.
+128. **The look under `modern`.** The board is the opaque board colour (`--bc-board`). The board is
+     at least as tall as the page (`100vh`), so no page background shows below it. The parts are
+     a column, centred on both axes, inside the page's safe inset. Each text part is centred on
+     its line. The slide shows all text in capitals.
+     - The logo keeps its aspect ratio. It is at most 40% of the page height and at most 60% of the
+       page width. A smaller image is not enlarged.
+     - The series name is in the display face, at the title size of `/grid` and `/results`.
+     - The meta line is in the label style, in the third text colour (`--bc-text-3`).
+     - A text part that is wider than the page wraps onto more lines. The slide does not cut text.
+129. **The look under `vintage70`.** On top of the base look (`overlay-config.md` rule 60) the
+     slide takes the 1970s network look of rule 105. Everything this rule does not name renders
+     the base look. Decision record: `docs/decisions/0041-event-slide-shared-slides-section.md`.
+     - **Board.** The board is solid black (`--bc-plate-solid`).
+     - **Series rule.** A solid rule, 4px high and in the preset's accent colour, runs along the
+       bottom edge of the series name, inside it. The series name is no taller.
+     - **Meta line in teal.** The meta line is the subhead colour (`--bc-subhead`).
+     - **The red marks nothing else.** The series rule is the only element in the accent colour.
+130. **The look under `vintage80`.** On top of the base look the slide takes the 1980s timing page
+     look of rule 106. Everything this rule does not name renders the base look.
+     - **Board.** The board is solid black (`--bc-plate-solid`).
+     - **Series name on a Scoreboard plate.** The series name sits on a block in the preset's header
+       red (`--bc-header`). The block extends 6px past the text on every side and has no shadow.
+       The series name is the preset's white (`--bc-text-2`). The block changes no box size.
+     - **Meta line in white.** The meta line is the preset's white (`--bc-text-2`).
+
 ### Field filter & auto-hide
 
 28. **`?class=`** is a **cross-route** field filter, not a per-widget knob: `/tower`, `/all`,

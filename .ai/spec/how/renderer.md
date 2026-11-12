@@ -32,6 +32,8 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/lib/replay.js` | `isReplay` | `isReplay(mode)`: true only when `mode` is a string that is `replay` after trim, with no case difference (`what/widgets.md` rule 117). Pure and DOM-free. |
 | `src/routes/replay/ReplayBadge.svelte` | prop `mode` | The replay badge: `REPLAY` in `LowerThirdShell`, drawn only while `isReplay(mode)` (rules 117–119). |
 | `src/routes/replay/ReplayPage.svelte` | — | Standalone `/replay` route: `sseClient.connect` + `loadConfig(location.search)` + `watchConfig`, for motion and the theme preset only. |
+| `src/routes/event/EventSlide.svelte` | prop `slides` (the normalized profile `slides` section) | The Event slide (`what/widgets.md` rules 123–130): root `.event` (`data-testid="event-slide"`), then `.event__logo` (`img`), `.event__series`, and `.event__meta` holding `.event__round` and `.event__track`. Each element renders only when its field is not empty. The logo's `error` event clears a local "failed" flag keyed on the URL, so a new URL tries again. No Svelte transition, no CSS `transition` or `animation`. |
+| `src/routes/event/EventPage.svelte` | — | Standalone `/event` route: `loadConfig(location.search)` + `watchConfig`, then `applyMotion` and `applyTheme` from the profile, as `LogosPage` does. It imports no `sseClient`. |
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
 | `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. Each token file holds the `modern` values on `:root` and, after them, one `[data-theme="vintage70"]` and one `[data-theme="vintage80"]` block overriding them (ADR 0026). |
@@ -61,8 +63,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 ## Key Abstractions
 
 - **Pathname routing, not a router.** OBS launches each widget by URL, so `App.svelte` is a manual
-  `{#if path === …}` dispatch. `/results` and `/grid` are full-bleed but opaque (takeover slides),
-  so they are in `FULL_BLEED_ROUTES` but NOT `OVERLAY_ROUTES` (which forces transparency).
+  `{#if path === …}` dispatch. `/results`, `/grid` and `/event` are full-bleed but opaque
+  (takeover slides). So they are in `FULL_BLEED_ROUTES` but not in `OVERLAY_ROUTES`, which forces
+  transparency.
 - **One motion source of truth.** `data-motion` on `<html>` is read identically by CSS
   (`:root[data-motion=reduced]`) and JS (`prefersReducedMotion()`). The OS media query is never
   consulted — the historical bug (0.6.0) was gating reveals on `prefers-reduced-motion`, which OBS
@@ -580,6 +583,29 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `…'vintage80'])`, each preset's sorted `selector | prop: value` list equals the one listed
     here, and a render of the slide checks every themed selector names an element it draws. The
     `vintage70` chips' face is checked with `lib/testing/chipFace.js`, as the tower's is.
+  - **Event slide** (`what/widgets.md` rules 128–130,
+    `docs/decisions/0041-event-slide-shared-slides-section.md`), in the `<style>` of `EventSlide.svelte`.
+    Each preset scope is the exact quoted `:global([data-theme='vintage70'])` or
+    `:global([data-theme='vintage80'])` on an ancestor, as for the other slides.
+    - Base (`modern`) rules: `.event` is `background: var(--bc-board)`, `min-height: 100vh`,
+      `display: flex`, `flex-direction: column`, `align-items: center`, `justify-content: center`,
+      `text-align: center` and `text-transform: uppercase`, as `GridSlide.svelte`'s root fills
+      the page. `.event__logo` is
+      `max-height: 40vh`, `max-width: 60vw`, `width: auto`, `height: auto` and
+      `object-fit: contain`. `.event__meta` is `color: var(--bc-text-3)`.
+    - `vintage70`, exactly: `.event` is `background: var(--bc-plate-solid)`. `.event__series` is
+      `box-shadow: inset 0 -4px 0 var(--bc-accent)`. `.event__meta` is
+      `color: var(--bc-subhead)`. No other rule in the component names `--bc-accent`.
+    - `vintage80`, exactly: `.event` is `background: var(--bc-plate-solid)`. `.event__series` is
+      `background: var(--bc-header)`, `box-shadow: 0 0 0 6px var(--bc-header)` and
+      `color: var(--bc-text-2)`. `.event__meta` is `color: var(--bc-text-2)`.
+    - The component has no `transition` or `animation` property, no `@keyframes`, and no Svelte
+      `transition:`, `in:` or `out:` directive (rule 127).
+
+    `EventSlide.vintage.test.js` reads these rules from the component source (`?raw`, through
+    `import.meta.glob`). It holds each preset's sorted `selector | prop: value` list to the one
+    listed here. A render of `/event` checks that every themed selector names an element the slide
+    draws.
   - **Info panel** (`what/widgets.md` rules 101–102, `docs/decisions/0034-info-panel-vintage-pass.md`),
     in `InfoPanel.svelte`'s `<style>`, exactly these themed declarations and no others, every
     one under the `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`

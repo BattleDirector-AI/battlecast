@@ -301,6 +301,18 @@ instead of snapping to the default layout (#353). The first failed tick after a 
   then re-shows the stored line, as the typed number fields do. The add/edit/remove helpers apply
   rule 52's trimming, 120-character cut, duplicate and 10-line limits, so the editor can never
   hold a `lines` value normalization would change.
+- **The Event section** (`what/overlay-config.md` rules 73–75) follows the info lines pattern. Each
+  text input holds a local draft. The draft goes through a `configEditor.js` helper
+  (`setSlidesField(config, field, text)`) only on commit, Enter or `change`. The helper applies
+  rule 73's trim and 80-character cut. It keeps every other key of `config.slides`. The normalizer
+  for the section is `normalizeSlides` in `overlayConfig.js`, which `normalizeConfig` calls.
+  The logo select lists `serverLogos`, the same list the Logo rotation section shows. Its upload
+  calls `api.uploadLogo` and then `setSlidesField(config, 'logo', url)`. It never calls
+  `addLogoImage`, so the upload does not change `logoRotation`. `deleteServerLogo` already
+  removes the deleted URL from `logoRotation`. It also calls `setSlidesField(config, 'logo', '')`
+  when `config.slides.logo` is that URL (rule 75). The help copy keys in
+  `configHelp.js` `FIELD_HELP` are `eventSection`, `eventSeries`, `eventRound`, `eventTrack`,
+  `eventLogo` and `eventLogoUpload`.
 - **Drag listeners live on `window`,** attached in `startDrag` and removed in `endDrag`, so a pointer
   that leaves the preview box still tracks and still releases. There are four — `pointermove` →
   `onDrag`, `pointerup` → `onPointerEnd`, `pointercancel` → `onPointerEnd`, `blur` → `endDrag` —
