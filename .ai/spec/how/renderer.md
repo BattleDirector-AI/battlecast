@@ -275,6 +275,27 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     source with `readFileSync` and checks that.
   - The `/config` preview passes `mode: 'replay'` to the `replay` widget only, so the badge shows
     there whatever the sample snapshot says.
+- **Battle box during a replay** (`what/widgets.md` rules 38, 39 and 122, `what/overlay-config.md`
+  rule 72, `docs/decisions/0040-battle-box-hide-during-replay.md`). One test,
+  `hideDuringReplay && isReplay(mode)` with `isReplay` from `src/lib/replay.js`, joins the three
+  places that already gate on `isRacingMode` and `isCaution`. Each place must use the same test:
+  - `BattleBox.svelte` takes a prop `hideDuringReplay` (default `false`). Its `racing` derived is
+    false while the test is true, so the box renders nothing.
+  - `createBattleGrace().resolve(snapshot, graceSeconds, hideDuringReplay)` takes the setting as a
+    third argument. While the test is true, it ends the hold and clears `lastActive`, as for a
+    non-racing mode. So the end of a replay starts with no hold.
+  - `IDLE_PREDICATES.battle` in `src/lib/widgetIdle.js` reads
+    `config.widgets.battle.hideDuringReplay` and reports idle while the test is true.
+  - `AllView.svelte` and `BattlePage.svelte` read the value from the normalized profile, pass it
+    to `resolve` and to `BattleBox`. Both re-resolve when the profile reloads, so a change applies
+    at once.
+  - `normalizeConfig` adds `hideDuringReplay` to the `battle` entry only, as `weatherCard` is added
+    to `info`: a boolean, else `false`. `DEFAULT_CONFIG.widgets.battle` carries
+    `hideDuringReplay: false`, because `overlayConfig.test.js` compares the normalized `battle`
+    entry with it.
+  - The editor's checkbox sits in the `key === 'battle'` block of `ConfigPage.svelte`, after the
+    exit grace field, and writes through `setField(key, 'hideDuringReplay', checked)`. Its help is
+    `FIELD_HELP.hideDuringReplay` in `src/lib/configHelp.js`.
 - **Lower-third dwell default** (`what/overlay-config.md` rule 46): the default `6` lives in three
   places that must agree: the per-widget `dwellSeconds` literals in `DEFAULT_CONFIG`,
   `LOWER_THIRD_DEFAULTS` (`overlayConfig.js`), and `DEFAULT_DWELL_SECONDS` (`lowerThirdTrigger.js`).

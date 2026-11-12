@@ -11,6 +11,7 @@
  * decision can never disagree with what the widget would draw. */
 
 import { isActiveBattle, isRacingMode, isCaution } from '../routes/battle/BattleBox.svelte'
+import { isReplay } from './replay.js'
 import { isDriverSubjectIdle } from '../routes/driver/DriverLowerThird.svelte'
 import { isQualifyingIdle } from '../routes/qualifying/QualifyingLowerThird.svelte'
 
@@ -25,10 +26,12 @@ export const IDLE_PREDICATES = Object.freeze({
   // Idle outside a racing mode or under caution (the battle box renders nothing there)
   // OR when the on-camera car has no adjacent car to fight — so `hideWhenIdle` agrees
   // with what BattleBox draws. `/all` passes the snapshot AFTER the exit grace
-  // (battleGrace.js), so a held battle is not idle.
-  battle: ({ snapshot }) =>
+  // (battleGrace.js), so a held battle is not idle. Also idle during a replay while the
+  // battle widget's `hideDuringReplay` is on (widgets.md rule 122).
+  battle: ({ snapshot, config }) =>
     !isRacingMode(snapshot?.mode) ||
     isCaution(snapshot?.session) ||
+    (config?.widgets?.battle?.hideDuringReplay === true && isReplay(snapshot?.mode)) ||
     !isActiveBattle(snapshot?.relationship),
   logos: ({ config }) => validLogoImages(config).length === 0,
   // Driver lower-third is idle when there's no valid/degraded subject to show. This

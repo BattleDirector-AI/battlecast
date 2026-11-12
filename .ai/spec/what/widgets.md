@@ -407,14 +407,41 @@ never derive semantic facts. See `how/renderer.md` for how the routes are wired.
 37b. **A subject without a `slot_id` gets no hold.** The grace is keyed to `subject.slot_id`
     (rule 38), so when the subject has none, an active → idle transition renders the placeholder at
     once.
-38. **The grace never outlives its subject.** A change of `subject.slot_id` ends any running grace
-    at once: the box renders the new subject's own snapshot — its battle if active, the placeholder
-    if not — and never shows the previous subject's frozen numbers against the new subject. Caution
-    (rule 36) and leaving a racing mode (rule 12) likewise end the grace at once.
+38. **The grace never outlives its subject.** A change of `subject.slot_id` ends a running grace at
+    once. The box then renders the snapshot of the new subject: its battle if active, the
+    placeholder if not. The box never shows the frozen numbers of the old subject with the new
+    subject. A running grace also ends at once in these cases:
+    - caution starts (rule 36),
+    - `mode` changes to a mode that is not a racing mode (rule 12),
+    - the box is in a replay while `hideDuringReplay` is on (rule 122).
 39. **Auto-hide follows the grace.** With `hideWhenIdle` on, the battle box stays rendered through
-    the grace (rule 37) and drops out only when the grace runs out, the subject changes to an idle
-    one (rule 38), or caution or a non-racing mode begins. Decision record:
-    `docs/decisions/0013-battle-box-exit-grace.md`.
+    the grace (rule 37). The box drops out only in these cases:
+    - the grace runs out,
+    - the subject changes to an idle subject (rule 38),
+    - caution starts, or a mode that is not a racing mode starts,
+    - the box is in a replay while `hideDuringReplay` is on (rule 122).
+
+    Decision record: `docs/decisions/0013-battle-box-exit-grace.md`.
+122. **Hide during a replay.** The `battle` widget's `hideDuringReplay` setting (`overlay-config.md`
+    rule 72) is `false` by default. A *replay* is a `mode` that rule 117 reads as `replay`: the
+    match ignores whitespace at the two ends and the case.
+    1. With the setting `false`, a replay does not change the battle box. A replay is a racing
+       mode (rule 12), so the box follows rules 11–12 and 36–39.
+    2. With the setting `true`, the box renders nothing during a replay, as outside a racing mode
+       (rule 12). This is true for all values of `relationship`. The box counts as idle for
+       `hideWhenIdle`.
+    3. When a replay starts, the box renders nothing at once, with no animation. With
+       `hideWhenIdle` on, it drops out at once. A running exit grace (rule 37) ends at once
+       (rule 38).
+    4. When the replay ends, the box renders the current snapshot at once, as when caution ends
+       (rule 36). An active battle shows its live numbers. An idle battle shows the clear-air
+       placeholder, with no exit grace. With `hideWhenIdle` on, an idle battle drops out.
+    5. A change of the setting during a replay applies at once. Turning the setting on ends a
+       running exit grace at once (rule 38).
+
+    The rule applies to the battle box in `/all` and on the standalone `/battle` route. Each reads
+    the setting from the loaded profile. The replay badge (rules 117–121) does not read the
+    setting. Decision record: `docs/decisions/0040-battle-box-hide-during-replay.md`.
 59. **Malformed `vehicles[]` entries are skipped.** The battle box treats a `vehicles[]` entry that
     is not an object — `null`, a number, a string, an array — or is an object without a usable
     `slot_id` as absent, as rule 14a does: it never matches the subject. An entry without a usable
