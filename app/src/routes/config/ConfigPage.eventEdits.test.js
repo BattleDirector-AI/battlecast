@@ -142,8 +142,36 @@ describe('config editor: Event upload when the logo list cannot refresh (rule 75
     await fireEvent.change(input)
     await settle()
 
-    expect(q(container, 'status').textContent).toContain('server went away')
+    expect(q(container, 'status').textContent).toBe('Server error: server went away')
     expect(writes, 'the file input was not cleared').toContain('')
     expect(q(container, 'event-logo').value).toBe('/logos/new-series.png')
+  })
+})
+
+describe('config editor: a failed Event upload (rule 75)', () => {
+  it('says "Upload failed", keeps the series logo and clears the file input', async () => {
+    vi.mocked(api.uploadLogo).mockRejectedValue(new Error('too large'))
+    const container = await mountEditor({ logos: SERVER_LOGOS })
+    const before = q(container, 'event-logo').value
+
+    const input = q(container, 'event-logo-upload')
+    Object.defineProperty(input, 'files', {
+      value: [new File(['png'], 'huge.png', { type: 'image/png' })],
+      configurable: true,
+    })
+    const writes = []
+    Object.defineProperty(input, 'value', {
+      configurable: true,
+      get: () => '',
+      set: (v) => {
+        writes.push(v)
+      },
+    })
+    await fireEvent.change(input)
+    await settle()
+
+    expect(q(container, 'status').textContent).toBe('Upload failed: too large')
+    expect(writes, 'the file input was not cleared').toContain('')
+    expect(q(container, 'event-logo').value).toBe(before)
   })
 })

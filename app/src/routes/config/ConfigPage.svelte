@@ -549,7 +549,11 @@
     try {
       const { url } = await api.uploadLogo(file)
       setSlidesLogo(url)
-      serverLogos = await api.listLogos()
+      try {
+        serverLogos = await api.listLogos()
+      } catch (err) {
+        status = `Server error: ${err.message}`
+      }
     } catch (err) {
       status = `Upload failed: ${err.message}`
     } finally {
