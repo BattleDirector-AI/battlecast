@@ -16,13 +16,15 @@
 
   // Exit grace (widgets.md rules 37-38, ADR 0013), its length from the same profile.
   const graceSeconds = $derived(config.widgets.battle?.idleGraceSeconds)
+  // widgets.md rule 122: a replay hides the box (and ends a hold) while this is on.
+  const hideDuringReplay = $derived(config.widgets.battle?.hideDuringReplay === true)
   const grace = createBattleGrace({
     onExpire: () => {
-      shown = grace.resolve(snapshot, graceSeconds)
+      shown = grace.resolve(snapshot, graceSeconds, hideDuringReplay)
     },
   })
   // Writable so a grace that runs out with no new snapshot can re-render from the latest.
-  let shown = $derived(grace.resolve(snapshot, graceSeconds))
+  let shown = $derived(grace.resolve(snapshot, graceSeconds, hideDuringReplay))
 
   onMount(() => {
     let cancelled = false
@@ -71,6 +73,7 @@
     vehicles={shown.vehicles ?? []}
     mode={shown.mode ?? null}
     session={shown.session ?? null}
+    {hideDuringReplay}
     classColors={config.theme.classColors}
     classTags={config.theme.classTags}
     nameStyle={config.theme.nameStyle}

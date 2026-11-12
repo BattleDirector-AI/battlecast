@@ -81,6 +81,13 @@ Rules live in `.ai/spec/what/<area>.md`. The conventions are non-negotiable:
   is unchanged and only the mechanism is wrong, this is a `how/`-only change with **no new
   `what/` rule** — say so explicitly rather than inventing a rule to look thorough.
 - Reference ADRs, don't restate them. One line: `Decision record: docs/decisions/…`.
+- **Write in plain English (ASD-STE100).** People read these specs, not only agents. Load the
+  `asd-ste100` skill and follow `.ai/spec/README.md`, "Plain English". Every rule you add or edit is
+  short, active sentences, 25 words or fewer, with no semicolons.
+- **Touch it, simplify it.** When you edit a rule, rewrite that whole rule in STE, not only the
+  words you changed. Keep its number and its meaning. Do not rewrite rules this change does not
+  touch. A rewrite that changes behavior is a spec change, so it needs tests like any other.
+  Deleting a legacy `[PLANNED]` marker (what `implement-spec` does) is not an edit of the rule.
 - Answer the questions a reviewer will ask. Ambiguity is the defect you are here to remove:
   a rule saying something "may" happen lets two implementers build opposite things and both
   comply. Use MUST/does, not may.
@@ -135,6 +142,8 @@ cd app && npx vitest run          # any new test meant to be RED fails for the r
                                   # result when the rule was already satisfied, or when the pass
                                   # adds no tests at all — not a mistake.
 npm run lint                      # must be clean — CI gates on it
+cd .. && make spec-lint           # spec text is plain English; counts only go down. If a file
+                                  # improved, run `make spec-lint-update` and commit the baseline.
 ```
 
 Record the exact counts. Then:
@@ -190,7 +199,9 @@ correct — say so in the body so nobody "fixes" it.
 
 Dispatch a fresh reviewer (never review your own pass in the same context). It posts a formal
 GitHub review that opens with the header in `.claude/skills/_shared/review-header.md`, an ID on
-every finding (`gh pr review <pr> --comment --body-file <file>`). Answer each finding with a disposition comment (`fixed`, `wrong`, `intentional`
+every finding (`gh pr review <pr> --comment --body-file <file>`). The reviewer also checks the
+spec text against `.ai/spec/README.md`, "Plain English": the linter cannot check word choice
+(one name for one thing, no phrasal verbs it missed), and a simplified rule must keep its meaning. Answer each finding with a disposition comment (`fixed`, `wrong`, `intentional`
 or `not-worth-it`, per that file), apply the fixes by amending the one commit, and re-review
 until it approves. Then:
 

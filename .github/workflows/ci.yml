@@ -67,6 +67,10 @@ jobs:
       # node:test files under scripts/test/, run here rather than as a sixth required job.
       - run: node --test 'scripts/test/*.test.mjs'
         working-directory: .
+      # Specs are plain English (ASD-STE100, #441): a spec file's violation count may only
+      # go down. Python 3 is on the runner. See .ai/spec/README.md, "Plain English".
+      - run: node scripts/spec-lint.mjs
+        working-directory: .
 
   mock:
     runs-on: ubuntu-latest

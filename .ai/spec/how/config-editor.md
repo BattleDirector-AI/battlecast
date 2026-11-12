@@ -148,6 +148,32 @@ so a blank seconds per page or pin top N writes `0` until the next load.
 logo list load and the write controls are live. False ⇒ the editor degrades to client-only authoring
 (`exportJson()` downloads a `config.json` to commit for static mode); the status line says so.
 
+**Unsaved changes and the open profile (rules 67–69).**
+
+- The saved state is one string: `JSON.stringify({ config, name: profileName })`, or `null` for
+  no saved state. A `$derived` compares it with the same string for the current state. The marker
+  is `<span data-testid="save-state">` in the same `.row` as Save.
+- `saveProfile()` and `loadProfile()` set the saved state and the stored name only after their
+  API call succeeds. `exportJson()` sets neither. `deleteProfile()` sets the saved state to `null`
+  when it deletes `profileName`, and removes the stored name when it deletes that name.
+- `api.getProfile()` returns `null` when the server does not have the profile, and throws on
+  other failures. Rule 69 gives these two results different outcomes.
+- A `beforeunload` listener calls `event.preventDefault()` only while the state is unsaved.
+  Remove the listener in the `onMount` cleanup.
+- The stored name is in `localStorage` under one key. Put every access in `try`/`catch`,
+  including the read of `window.localStorage` itself. A storage error skips rule 69 step 2.
+- On mount, set the saved state to the default layout under the selected name, before any load.
+  `refreshFromServer()` then loads that name after `serverAvailable()` returns true. The load
+  also calls `endDrag()`, as `loadProfile()` does. A non-404 failure sets the saved state to `null`.
+- `profileActions` counts saves, Load-list loads and deletes. `refreshFromServer()` reads it after
+  `serverAvailable()` returns true and before `listProfiles()`, and gives it to `openProfile()`. If
+  the count changed when the request answers, the opening load does nothing.
+- `listWrites` counts the profile lists that a save or delete wrote. The opening profile list sets
+  `profiles` only if `listWrites` did not change while it loaded.
+- `openingUnresolved` starts true. It goes false when the opening load answers and the count did
+  not stop it. It also goes false when no companion server answers, or a save, load or delete
+  succeeds. While it is true, a failed save, load or delete sets the saved state to `null`.
+
 **Producer feed status (rules 25–30).** `onMount` also calls
 `sseClient.connect(feedUrl, () => {}, { onOpen, onError })` — an `onState` that throws the snapshot
 away, because the editor renders the *connection*, not the data. `feedStatus` is a four-valued

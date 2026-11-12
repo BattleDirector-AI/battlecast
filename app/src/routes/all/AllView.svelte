@@ -10,6 +10,7 @@
   import RaceUpdateBox from '../updates/RaceUpdateBox.svelte'
   import InfoPanel from '../info/InfoPanel.svelte'
   import WeatherBox from '../weather/WeatherBox.svelte'
+  import ReplayBadge from '../replay/ReplayBadge.svelte'
   import { resolveSubject } from '../driver/DriverLowerThird.svelte'
   import {
     DEFAULT_CONFIG,
@@ -82,18 +83,20 @@
   // battle slot, so `hideWhenIdle` unmounting the slot cannot kill a running hold — and
   // both the auto-hide filter and the box read the same post-grace snapshot.
   const graceSeconds = $derived(normalized.widgets.battle?.idleGraceSeconds)
+  // widgets.md rule 122: a replay hides the box (and ends a hold) while this is on.
+  const hideDuringReplay = $derived(normalized.widgets.battle?.hideDuringReplay === true)
   const battleGrace = createBattleGrace({
     onExpire: () => {
-      battleSnapshot = battleGrace.resolve(snapshot, graceSeconds)
+      battleSnapshot = battleGrace.resolve(snapshot, graceSeconds, hideDuringReplay)
     },
   })
   // Re-resolves on every snapshot; writable so a grace that runs out with no new snapshot
   // can re-render from the latest one.
-  let battleSnapshot = $derived(battleGrace.resolve(snapshot, graceSeconds))
+  let battleSnapshot = $derived(battleGrace.resolve(snapshot, graceSeconds, hideDuringReplay))
   $effect(() => () => battleGrace.destroy())
 
   const idleCtx = (key) => ({ snapshot: key === 'battle' ? battleSnapshot : snapshot, config: normalized })
-  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates', 'info', 'weather'])
+  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates', 'info', 'weather', 'replay'])
   const widgets = $derived(
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
@@ -239,6 +242,7 @@
           vehicles={battleSnapshot?.vehicles ?? []}
           mode={battleSnapshot?.mode ?? null}
           session={battleSnapshot?.session ?? null}
+          {hideDuringReplay}
           {classColors}
           {classTags}
           {nameStyle}
@@ -278,6 +282,10 @@
         />
       {:else if w.key === 'weather'}
         <WeatherBox {snapshot} tempUnit={w.tempUnit} />
+      {:else if w.key === 'replay'}
+        <!-- The /config preview always shows the badge, so it can be placed (overlay-config
+             rule 71); only this widget sees the replay, the rest keep the sample's mode. -->
+        <ReplayBadge mode={preview ? 'replay' : (snapshot?.mode ?? null)} />
       {/if}
     </div>
   {/each}

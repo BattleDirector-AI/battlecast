@@ -85,6 +85,47 @@ lives in the repo-root `ARCHITECTURE.md`, `README.md`, and `docs/`.
   addition; it bumps only on a breaking change.
 - **Accepted decisions** live in `docs/decisions/` (ADRs). These specs reference them rather than
   restating them.
+- **Plain English (ASD-STE100):** see the next section.
 - **When to create a new file vs. extend one:** a concern with its own lifecycle and
   configuration surface that can be understood independently gets its own file; a capability
   added to an existing component goes in that component's file.
+
+## Plain English (ASD-STE100)
+
+People read these specs, not only agents. Write them in simple English. Use the ASD-STE100
+(Simplified Technical English) skill in `.claude/skills/asd-ste100/`.
+
+**What to write:**
+
+1. Write each rule as short, active sentences in the simple present tense. Example: "The tower
+   shows `+1 LAP`."
+2. Keep each sentence at 25 words or fewer. Give a rule one idea per sentence.
+3. Do not use semicolons. Make two sentences.
+4. Use a numbered list for three or more steps or conditions.
+5. Use one name for one thing in a file. If the spec calls it "the subject", do not also call it
+   "the focused car".
+6. Use the verb, not a noun made from it. Write `the tower measures the row`, not `the tower
+   performs a measurement of the row`.
+7. Do not use phrasal verbs (`set up`, `run out`). Use one verb (`configure`, `overflow`).
+8. Keep field names, routes, and code in backticks. They are not words, so the rules do not apply
+   to them.
+9. Keep every condition, number, and hedge. A shorter sentence that drops a condition is a
+   different rule.
+
+**Touch it, simplify it.** We do not rewrite all specs at once. When a change edits a rule, rewrite
+that whole rule in STE. Rule numbers stay the same. Each rewrite keeps the meaning of the rule
+unchanged. If a rewrite changes behavior, it is a spec change and needs tests. When you only
+delete a legacy `[PLANNED]` marker, you do not edit the rule. Do not rewrite it.
+
+**The check.** `make spec-lint` runs the STE linter on each spec file. It compares the result with
+`.ai/spec/ste-baseline.json`.
+
+- The number of violations in a file must not go up. A new spec file starts at 0.
+- When a file has fewer violations, run `make spec-lint-update` to record the lower number. The
+  check fails until you do this, so each improvement stays.
+- CI runs the same check.
+- An update of the vendored linter can change every count. `.claude/skills/asd-ste100/UPSTREAM.md`
+  gives the steps for that update.
+
+The linter checks sentence length, semicolons, phrasal verbs, and other sentence-structure rules.
+It cannot check word choice. The reviewer checks word choice.
