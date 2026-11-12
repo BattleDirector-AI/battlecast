@@ -81,6 +81,13 @@ export const WIDGET_HELP = Object.freeze({
       'as your producer reports them, updated live. It shows only what the producer sends and ' +
       'draws nothing while no weather is sent, so an empty box is not a fault.',
   },
+  replay: {
+    title: 'Replay badge',
+    summary:
+      'A small REPLAY tag that tells viewers the action on screen is not live. It shows only ' +
+      'while your producer says a replay is on screen, and draws nothing at other times, so an ' +
+      'empty badge is not a fault. The preview here always shows it, so you can place it.',
+  },
   info: {
     title: 'Info panel',
     summary:

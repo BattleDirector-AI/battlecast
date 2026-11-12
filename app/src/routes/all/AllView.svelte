@@ -10,6 +10,7 @@
   import RaceUpdateBox from '../updates/RaceUpdateBox.svelte'
   import InfoPanel from '../info/InfoPanel.svelte'
   import WeatherBox from '../weather/WeatherBox.svelte'
+  import ReplayBadge from '../replay/ReplayBadge.svelte'
   import { resolveSubject } from '../driver/DriverLowerThird.svelte'
   import {
     DEFAULT_CONFIG,
@@ -93,7 +94,7 @@
   $effect(() => () => battleGrace.destroy())
 
   const idleCtx = (key) => ({ snapshot: key === 'battle' ? battleSnapshot : snapshot, config: normalized })
-  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates', 'info', 'weather'])
+  const RENDERABLE = new Set(['tower', 'battle', 'logos', 'driver', 'qualifying', 'racecontrol', 'onboard', 'updates', 'info', 'weather', 'replay'])
   const widgets = $derived(
     resolveWidgets(normalized)
       .filter((w) => w.visible && RENDERABLE.has(w.key))
@@ -278,6 +279,10 @@
         />
       {:else if w.key === 'weather'}
         <WeatherBox {snapshot} tempUnit={w.tempUnit} />
+      {:else if w.key === 'replay'}
+        <!-- The /config preview always shows the badge, so it can be placed (overlay-config
+             rule 71); only this widget sees the replay, the rest keep the sample's mode. -->
+        <ReplayBadge mode={preview ? 'replay' : (snapshot?.mode ?? null)} />
       {/if}
     </div>
   {/each}

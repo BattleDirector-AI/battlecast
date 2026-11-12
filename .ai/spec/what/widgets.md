@@ -1236,6 +1236,49 @@ derives nothing from `vehicles[]` or any other field. Decision record:
        `--bc-font-display`) instead of VT323, at their usual label size and weight, and are CG
        white (`--bc-text-2`).
 
+### Replay badge (`/replay`, #60)
+
+The replay badge is a small `REPLAY` tag. It tells viewers that the action on screen is not live.
+It reads only the top-level `mode` of the snapshot. It derives nothing from `vehicles[]` or any
+other field. Decision record: `docs/decisions/0039-replay-badge.md`.
+
+117. **When the badge shows.** The badge shows while `mode` is the word `replay`. The badge reads `mode`
+     with the whitespace at the two ends removed, and with no difference between upper and lower
+     case. So `replay`, `Replay` and ` REPLAY ` show the badge. All other values do not show the
+     badge:
+     - another word, such as `race`, `qualifying` or `replays`,
+     - an empty string,
+     - a value that is not a string, or no `mode`.
+
+118. **The badge.** The badge (`data-testid="replay-badge"`) is a lower-third card, inside the shared
+     lower-third shell (`.lt3`). The card holds one label, `REPLAY`
+     (`data-testid="replay-label"`), in capital letters. It holds no other text. While the badge does
+     not show, it draws nothing: no card, no plate, and no empty element. The badge has no trigger,
+     no dwell and no class awareness.
+
+119. **Motion.** The badge enters and leaves with the shell's skewed bar-wipe (rule 107 and
+     `overlay-config.md` rule 10):
+     1. When `mode` changes to `replay`, the badge plays the wipe-in.
+     2. When `mode` changes from `replay`, the badge plays the wipe-out. Then it draws nothing.
+     3. When `mode` changes back to `replay` during the wipe-out, the badge shows again at once.
+
+     Under reduced motion, the badge does not wipe. It fades in, with the plain fade of rule 107.
+     It disappears at once, with no exit.
+
+120. **Routes and composition.** The standalone `/replay` route is a transparent overlay route.
+     It connects to the producer as every render page does (`?src=`, then the default). It loads
+     the profile in `?profile=` for motion and the theme preset, and it reloads that profile live
+     (`overlay-config.md` rules 10, 22 and 59). In `/all`, the badge is the `replay` widget. While
+     the widget is `visible`, `/all` mounts it at its geometry. While it is not `visible`, `/all`
+     does not mount it. The badge has no idle predicate. When the badge does not show, it draws
+     nothing. So `/config` gives no "Hide when idle" control for it, and a saved
+     `hideWhenIdle: true` changes nothing.
+
+121. **The badge under each preset.** Under `modern`, `vintage70` and `vintage80`, the badge takes the
+     look of the shared lower-third shell under that preset (rule 107). The badge adds no style of
+     its own for a preset: the component source has no preset selector. The label text takes
+     the preset's typeface and text colour from the design tokens, as all shell text does.
+
 ### Composite & takeover routes
 
 25. **`/all`** composes configured widgets onto the fixed canvas by `z` order (see
