@@ -277,14 +277,16 @@ Decision record: `docs/decisions/0001-overlay-config-and-asset-persistence.md`; 
 ### Event slide content
 
 The profile's `slides` section holds the slide content that the broadcaster types. The Event
-slide (`widgets.md` rules 123–130) shows it. The section is one place for the content of the
-event slides, so other event slides can read the same series name and logo. The producer's
-`event` object (`protocol-contract.md` rule 23) is a different thing. No rule in this section
-reads it. Decision record:
-`docs/decisions/0041-event-slide-shared-slides-section.md`.
+slide (`widgets.md` rules 123–130) and the Countdown slide (`widgets.md` rules 131–141) show it.
+The section is one place for the content of the event slides, so each event slide reads the same
+series name and logo. The producer's `event` object (`protocol-contract.md` rule 23) is a
+different thing. No rule in this section reads it. Decision records:
+`docs/decisions/0041-event-slide-shared-slides-section.md`,
+`docs/decisions/0042-countdown-slide-local-start-and-zero.md`.
 
 73. **`slides`** is one profile section at the top level of the profile, not a widget and not a
-    per-widget knob. Its default is `{ series: '', round: '', track: '', logo: '' }`.
+    per-widget knob. Its default is
+    `{ series: '', round: '', track: '', logo: '', start: '', startedText: 'STARTING NOW' }`.
     Normalization does these steps:
     1. A `slides` that is absent, null, an array, or not an object gives the default.
     2. `series`, `round` and `track` are each text. A string is trimmed, then cut to its first 80
@@ -292,15 +294,31 @@ reads it. Decision record:
        gives `''`. So `'  GT World Cup  '` gives `'GT World Cup'`, and `3` gives `''`.
     3. `logo` is the URL of an image. A string is trimmed. A value that is not a string gives
        `''`. Normalization does not check that the URL loads.
-    4. Normalization keeps every other key of an object `slides` with its value unchanged, except
-       `__proto__`, `constructor` and `prototype`, which it drops. So a profile that a later
-       version saved keeps its other slide content through a load, an edit and a save.
+    4. Normalization keeps every key of an object `slides` that steps 2, 3, 5 and 6 do not name.
+       It keeps the value unchanged. It drops `__proto__`, `constructor` and `prototype`. So a
+       profile that a later version saved keeps its other slide content through a load, an edit
+       and a save.
+    5. `start` is the race start of the Countdown slide: a date and a time with no time zone. A
+       string is trimmed. Normalization keeps it only when both of these are true:
+       - It has the form `YYYY-MM-DDTHH:MM`: four digits, `-`, two digits, `-`, two digits, the
+         capital letter `T`, two digits, `:`, two digits.
+       - It names a real date and time. The month is `01` to `12`. The day is a day that the month
+         has in that year. The hour is `00` to `23`. The minute is `00` to `59`.
+
+       Every other value gives `''`, which means no start. So `' 2026-11-20T19:00 '` gives
+       `'2026-11-20T19:00'`. These give `''`: `'2026-02-30T19:00'`, `'2026-11-20T19:00Z'`,
+       `'2026-11-20T19:00:00'`, `'2026-11-20 19:00'`, `'tomorrow'` and the number
+       `1795201200000`. Normalization does not compare the start with the clock. A start in the
+       past stays.
+    6. `startedText` is the text that the Countdown slide shows at the start. It is text, as in
+       step 2. When step 2 gives `''`, it gives the default `'STARTING NOW'`. So `'  Lights out  '`
+       gives `'Lights out'`, and `'   '`, `''`, `null` and `5` give `'STARTING NOW'`.
 
     Normalizing `slides` changes no other part of the profile. A profile without `slides` renders
-    at its saved geometry, and `configVersion` stays `"1"` (rule 2). The standalone `/event` route
-    reads `slides` from the loaded profile. `/event` also writes `data-motion` (rule 10) and
-    `data-theme` (rule 59) from the URL and its profile, as the other render pages do. A live
-    reload (rule 22) applies a changed `slides`, motion or preset at once.
+    at its saved geometry, and `configVersion` stays `"1"` (rule 2). The standalone `/event` and
+    `/countdown` routes read `slides` from the loaded profile. Each of them also writes
+    `data-motion` (rule 10) and `data-theme` (rule 59) from the URL and its profile, as the other
+    render pages do. A live reload (rule 22) applies a changed `slides`, motion or preset at once.
 74. **The editor's Event section** is part of rule 14's control surface. It is a section of its
     own (`data-testid="event-section"`), in no widget row, with the heading **Event**. The heading
     carries help behind an ⓘ (`data-testid="help-event"`). The section holds these controls, in
@@ -348,6 +366,57 @@ reads it. Decision record:
     - **No server.** While no companion server answers, the file input is disabled. The select
       has no server images. It has the **none** option and, when `logo` is not empty, the option
       for the stored URL.
+
+### Countdown slide content
+
+The Countdown slide (`widgets.md` rules 131–141) reads `slides.series`, `slides.logo`,
+`slides.start` and `slides.startedText` (rule 73). The broadcaster types the series name and the
+logo in the Event section (rules 74–75). The Countdown section holds only the two Countdown keys.
+Decision record: `docs/decisions/0042-countdown-slide-local-start-and-zero.md`.
+
+76. **The editor's Countdown section** is part of rule 14's control surface. It is a section of its
+    own (`data-testid="countdown-section"`), in no widget row, with the heading **Countdown**. It
+    comes directly after the Event section. The heading carries help behind an ⓘ
+    (`data-testid="help-countdown"`). The section holds these controls, in this order:
+    1. **race start**, a date and time input (`<input type="datetime-local">`,
+       `data-testid="countdown-start"`, `step` 60),
+    2. **clear**, a button (`data-testid="countdown-start-clear"`) directly after the race start
+       input,
+    3. **starting text**, a text input (`data-testid="countdown-started-text"`, `maxlength` 80).
+
+    The section has no control for the series name or the logo.
+    - **The race start.** The input shows the stored `start`. An empty `start` shows an empty
+      input. The input commits on its `change` event, but only when the input has no bad input
+      (`validity.badInput` is false). The commit writes the value normalized as rule 73, step 5,
+      says.
+    - **A partly typed start changes nothing.** While a part of the date or the time is empty, the
+      browser gives the value `''` and sets `validity.badInput`. The editor does not commit then.
+      So the stored `start` stays until the broadcaster completes the date and the time.
+    - **Clear.** The **clear** button writes `''` to `start`. The input then shows an empty value,
+      and the slide shows no clock. The button is disabled while `start` is `''`. An input that the
+      broadcaster empties completely also commits `''`.
+    - **The starting text.** The input shows the stored `startedText`. It commits on Enter or when
+      focus leaves it, as the Event section's text inputs do (rule 74). Keystrokes before the
+      commit change nothing. The commit writes the text normalized as rule 73, step 6, says. So a
+      blank commit writes `'STARTING NOW'`, and the input then shows `STARTING NOW`.
+    - Save writes the stored `slides`. The section never changes another key of `slides`.
+    - Each control has its own help behind an ⓘ: `help-countdown-start`,
+      `help-countdown-start-clear` and `help-countdown-started-text` (rules 16, 19).
+
+    The `/config` preview does not show the Countdown slide. So the help behind `help-countdown`
+    says these things (rule 21):
+    - The Countdown slide is its own Browser Source, at `/countdown` with the profile's
+      `?profile=`.
+    - It fills the screen on a solid board. The editor preview does not show it.
+    - It shows the series name and the logo from the Event section.
+    - With no race start, the slide shows no timer.
+    - At the start, the starting text replaces the timer. The text stays while the start is in the
+      past. Only a new start removes it.
+
+    The help behind `help-countdown-start` says these things:
+    - The time is the local time of the PC that runs the Browser Source.
+    - A reload of the Browser Source does not restart the countdown.
+    - A start in the past shows the starting text.
 
 ### Weather
 
@@ -686,7 +755,7 @@ reads it. Decision record:
       `<html data-theme="modern"|"vintage70"|"vintage80">`. The attribute is always present on a
       render page, `modern` included.
     - Every render page writes the attribute: `/all`, and the standalone `/tower`, `/battle`,
-      `/driver`, `/qualifying`, `/grid`, `/results`, `/event`, `/logos`, `/updates`, `/info`,
+      `/driver`, `/qualifying`, `/grid`, `/results`, `/event`, `/countdown`, `/logos`, `/updates`, `/info`,
       `/weather`, `/racecontrol` and `/replay`. Each page uses the URL and its profile on the first load, and
       again on each live reload (rule 22). A changed preset applies at once, with no transition.
     - A preset from the profile applies when the profile has loaded. Until then, a page without

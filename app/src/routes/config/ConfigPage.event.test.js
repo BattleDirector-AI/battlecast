@@ -138,7 +138,14 @@ describe('config editor: the Event section (rule 74)', () => {
     await typeAndCommit(q(container, 'event-round'), 'Round 3 of 8', 'blur')
     await typeAndCommit(q(container, 'event-track'), ' Spa-Francorchamps ', 'blur')
     const ev = await savedEvent(container)
-    expect(ev).toEqual({ series: 'Endurance Cup', round: 'Round 3 of 8', track: 'Spa-Francorchamps', logo: '' })
+    expect(ev).toEqual({
+      series: 'Endurance Cup',
+      round: 'Round 3 of 8',
+      track: 'Spa-Francorchamps',
+      logo: '',
+      start: '',
+      startedText: 'STARTING NOW',
+    })
   })
 
   it('keystrokes before the commit change nothing', async () => {
@@ -164,13 +171,17 @@ describe('config editor: the Event section (rule 74)', () => {
   })
 
   it('never changes another key of slides', async () => {
-    const start = '2026-11-20T19:00:00Z'
-    const container = await mountEditor({ profile: { slides: { series: 'GT Cup', start, crew: ['A'] } } })
+    // A valid start and starting text (rule 73, steps 5-6) and an unknown key all survive.
+    const start = '2026-11-20T19:00'
+    const container = await mountEditor({
+      profile: { slides: { series: 'GT Cup', start, startedText: 'Lights out', crew: ['A'] } },
+    })
     section(container)
     await typeAndCommit(q(container, 'event-track'), 'Monza')
     const ev = await savedEvent(container)
     expect(ev.track).toBe('Monza')
     expect(ev.start).toBe(start)
+    expect(ev.startedText).toBe('Lights out')
     expect(ev.crew).toEqual(['A'])
   })
 })

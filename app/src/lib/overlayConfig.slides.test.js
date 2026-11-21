@@ -9,7 +9,8 @@
 import { describe, it, expect } from 'vitest'
 import { normalizeConfig, DEFAULT_CONFIG, WIDGET_KEYS } from './overlayConfig.js'
 
-const EMPTY = { series: '', round: '', track: '', logo: '' }
+// The Countdown keys are part of the default since #464 (rule 73, steps 5 and 6).
+const EMPTY = { series: '', round: '', track: '', logo: '', start: '', startedText: 'STARTING NOW' }
 /** The normalized section; fails with a message that names the gap rather than a null deref. */
 function sectionOf(cfg) {
   expect(cfg.slides, 'normalizeConfig gives no slides section').toBeTypeOf('object')
@@ -90,10 +91,10 @@ describe('slides logo (rule 73, step 3)', () => {
 
 describe('slides forward compatibility (rule 73, step 4)', () => {
   it('keeps every other key of slides with its value unchanged', () => {
-    const start = '2026-11-20T19:00:00Z'
+    // `start` is a known key since #464 (step 5), so the unknown keys here are later slides' keys.
     const schedule = [{ round: 1, track: 'Spa' }]
-    const out = ev({ series: 'GT Cup', start, schedule, crew: { host: 'A. Host' } })
-    expect(out.start).toBe(start)
+    const out = ev({ series: 'GT Cup', schedule, crew: { host: 'A. Host' }, intro: 'x' })
+    expect(out.intro).toBe('x')
     expect(out.schedule).toEqual(schedule)
     expect(out.crew).toEqual({ host: 'A. Host' })
     expect(out.series).toBe('GT Cup')

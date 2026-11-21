@@ -34,6 +34,9 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 | `src/routes/replay/ReplayPage.svelte` | — | Standalone `/replay` route: `sseClient.connect` + `loadConfig(location.search)` + `watchConfig`, for motion and the theme preset only. |
 | `src/routes/event/EventSlide.svelte` | prop `slides` (the normalized profile `slides` section) | The Event slide (`what/widgets.md` rules 123–130): root `.event` (`data-testid="event-slide"`), then `.event__logo` (`img`), `.event__series`, and `.event__meta` holding `.event__round` and `.event__track`. Each element renders only when its field is not empty. The logo's `error` event clears a local "failed" flag keyed on the URL, so a new URL tries again. No Svelte transition, no CSS `transition` or `animation`. |
 | `src/routes/event/EventPage.svelte` | — | Standalone `/event` route: `loadConfig(location.search)` + `watchConfig`, then `applyMotion` and `applyTheme` from the profile, as `LogosPage` does. It imports no `sseClient`. |
+| `src/lib/countdown.js` | `parseStart`, `remainingSeconds`, `formatCountdown` | Pure and DOM-free (`what/widgets.md` rules 134–135). `parseStart(start)` gives the local `Date` of a normalized `slides.start`, or `null` for `''`. It builds the date with `setFullYear(y, m - 1, d)` and `setHours(h, min, 0, 0)` on a local `Date`. It does not use `new Date(y, …)`, which reads the years 0 to 99 as 1900 to 1999 (ADR 0042, decision 12). The day check in `normalizeSlides` (`what/overlay-config.md` rule 73, step 5) uses the same `setFullYear` date. `remainingSeconds(startMs, nowMs)` is `Math.ceil((startMs - nowMs) / 1000)`. `formatCountdown(n)` gives `MM:SS`, `H:MM:SS` or `D DAY(S) H:MM:SS` for `n >= 1`. |
+| `src/routes/countdown/CountdownSlide.svelte` | prop `slides` (the normalized profile `slides` section) | The Countdown slide (`what/widgets.md` rules 131–141): root `.countdown` (`data-testid="countdown-slide"`), then `.countdown__logo` (`img`), `.countdown__series`, and one of `.countdown__timer` or `.countdown__started`. The logo's failed flag works as `EventSlide`'s does. A `$effect` keyed on `slides.start` reads `Date.now()`, sets the text, and schedules one `setTimeout` for the next whole-second boundary: `((startMs - now) % 1000) || 1000` ms ahead. Each timeout reads `Date.now()` again. It schedules nothing once the remaining time is zero or less. The effect's cleanup clears the timeout. No `setInterval`, no Svelte transition, no CSS `transition` or `animation`. |
+| `src/routes/countdown/CountdownPage.svelte` | — | Standalone `/countdown` route, a copy of `EventPage`'s profile wiring: `loadConfig(location.search)` + `watchConfig`, then `applyMotion` and `applyTheme`. It imports no `sseClient`. |
 | `src/routes/all/AllView.svelte` | — | Composes configured widgets onto the scaled canvas by `z`. |
 | `src/routes/{tower,battle,driver,qualifying,racecontrol,onboard,logos,grid,results,config}/` | `<Name>Page.svelte` + widget | One directory per route. |
 | `src/design/` | `tokens/*.css`, `format.js`, `classMeta.js`, `ClassChip.svelte`, `IntensityMeter.svelte`, `sessionProgress.js` | Design tokens + shared presentational primitives. Each token file holds the `modern` values on `:root` and, after them, one `[data-theme="vintage70"]` and one `[data-theme="vintage80"]` block overriding them (ADR 0026). |
@@ -63,8 +66,8 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
 ## Key Abstractions
 
 - **Pathname routing, not a router.** OBS launches each widget by URL, so `App.svelte` is a manual
-  `{#if path === …}` dispatch. `/results`, `/grid` and `/event` are full-bleed but opaque
-  (takeover slides). So they are in `FULL_BLEED_ROUTES` but not in `OVERLAY_ROUTES`, which forces
+  `{#if path === …}` dispatch. `/results`, `/grid`, `/event` and `/countdown` are full-bleed but
+  opaque (takeover slides). So they are in `FULL_BLEED_ROUTES` but not in `OVERLAY_ROUTES`, which forces
   transparency.
 - **One motion source of truth.** `data-motion` on `<html>` is read identically by CSS
   (`:root[data-motion=reduced]`) and JS (`prefersReducedMotion()`). The OS media query is never
@@ -606,6 +609,31 @@ The Vite + Svelte 5 frontend that renders every overlay. Behavioral rules: `what
     `import.meta.glob`). It holds each preset's sorted `selector | prop: value` list to the one
     listed here. A render of `/event` checks that every themed selector names an element the slide
     draws.
+  - **Countdown slide** (`what/widgets.md` rules 139–141,
+    `docs/decisions/0042-countdown-slide-local-start-and-zero.md`), in the `<style>` of
+    `CountdownSlide.svelte`, with the same preset scopes as the Event slide.
+    - Base (`modern`) rules: `.countdown` is `background: var(--bc-board)`, `min-height: 100vh`,
+      `display: flex`, `flex-direction: column`, `align-items: center`, `justify-content: center`,
+      `text-align: center` and `text-transform: uppercase`. `.countdown__logo` is
+      `max-height: 40vh`, `max-width: 60vw`, `width: auto`, `height: auto` and
+      `object-fit: contain`. `.countdown__series` is `font-family: var(--bc-font-display)` and
+      `font-size: var(--bc-size-name)`. `.countdown__timer` is
+      `font-family: var(--bc-font-mono)`, `font-weight: var(--bc-weight-num)`,
+      `font-variant-numeric: tabular-nums` and `font-size: calc(var(--bc-size-name) * 3)`.
+      `.countdown__started` is `font-family: var(--bc-font-display)` and
+      `font-size: calc(var(--bc-size-name) * 3)`.
+    - `vintage70`, exactly: `.countdown` is `background: var(--bc-plate-solid)`.
+      `.countdown__series` is `box-shadow: inset 0 -4px 0 var(--bc-accent)`. No other rule in the
+      component names `--bc-accent`.
+    - `vintage80`, exactly: `.countdown` is `background: var(--bc-plate-solid)`.
+      `.countdown__series` is `background: var(--bc-header)`,
+      `box-shadow: 0 0 0 6px var(--bc-header)` and `color: var(--bc-text-2)`.
+    - The component has no `transition` or `animation` property, no `@keyframes`, and no Svelte
+      `transition:`, `in:` or `out:` directive (rule 138).
+
+    `CountdownSlide.vintage.test.js` reads these rules from the component source, as
+    `EventSlide.vintage.test.js` does. A render of `/countdown` checks that every themed selector
+    names an element the slide draws.
   - **Info panel** (`what/widgets.md` rules 101–102, `docs/decisions/0034-info-panel-vintage-pass.md`),
     in `InfoPanel.svelte`'s `<style>`, exactly these themed declarations and no others, every
     one under the `:global([data-theme='vintage70'])` or `:global([data-theme='vintage80'])`

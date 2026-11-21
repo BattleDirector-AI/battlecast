@@ -1421,6 +1421,115 @@ profile's `slides` section (`overlay-config.md` rule 73). Decision record:
        The series name is the preset's white (`--bc-text-2`). The block changes no box size.
      - **Meta line in white.** The meta line is the preset's white (`--bc-text-2`).
 
+### Countdown slide (`/countdown`, #464)
+
+The Countdown slide is a pre-race card. It shows the series logo, the series name and a live
+countdown to the race start. The broadcaster types the start in `/config`. The slide reads it from
+the profile's `slides` section (`overlay-config.md` rule 73). Decision records:
+`docs/decisions/0041-event-slide-shared-slides-section.md`,
+`docs/decisions/0042-countdown-slide-local-start-and-zero.md`.
+
+131. **The route.** `/countdown` is a full-screen **opaque takeover** slide, as `/event` is
+     (rule 123).
+     - The page fills the window. Its background is not transparent.
+     - The page loads the profile that `?profile=` names (`overlay-config.md` rules 4–5). It reads
+       only the profile's `slides` section.
+     - The page opens no producer connection. It shows the same slide when no producer runs.
+     - The slide is not a widget. `/all` does not show it, and `widgets` has no `countdown` key.
+     - The page ignores `?class=`, `?show=`, `?hide=` and `?src=`.
+132. **The content.** The slide (`data-testid="countdown-slide"`) draws its board on the full page.
+     On the board it shows these parts, in this order, from top to bottom:
+     1. the logo (`data-testid="countdown-logo"`), an image of the `slides.logo` URL,
+     2. the series name (`data-testid="countdown-series"`), the text of `slides.series`,
+     3. the clock, which is one of these two parts:
+        - the timer (`data-testid="countdown-timer"`), before the start (rules 134–136),
+        - the starting line (`data-testid="countdown-started"`), at the start and after it
+          (rule 137).
+
+     The slide never shows the timer and the starting line together. The slide does not show
+     `slides.round` or `slides.track`. Each text part keeps the case of its text. The slide's type
+     style shows all text in capitals.
+133. **Empty fields.** A field that is an empty string has no part, as on the Event slide
+     (rule 125).
+     - An empty `logo` gives no image element. An empty `series` gives no series element.
+     - An empty `start` gives no clock. The slide then shows no timer, no starting line and no
+       placeholder digits such as `00:00`.
+     - The parts that show keep their order and stay centred. Nothing holds the place of a
+       missing part.
+     - When `logo`, `series` and `start` are all empty, the slide shows only its board.
+     - A logo that does not load follows rule 126. The slide removes the image element. When a
+       live reload gives a different `logo`, the slide tries the new URL.
+134. **The start and the remaining time.** `slides.start` is a date and a time with no time zone,
+     in the form `YYYY-MM-DDTHH:MM` (`overlay-config.md` rule 73).
+     - The start is that date and time in the time zone of the browser that shows the slide.
+       Example: `2026-11-20T19:00` is 19:00 on 20 November 2026 on the clock of that PC.
+     - The remaining time is the start minus the current time of the browser clock.
+     - The timer shows the remaining time in whole seconds, rounded up. Example: 65.2 seconds give
+       66 seconds, which is `01:06`.
+     - The slide does not store a count of its own. A reload, a late load and a second Browser
+       Source on the same PC show the same text at the same moment.
+135. **The timer format.** Let N be the whole seconds that remain (rule 134). N is 1 or more while
+     the timer shows. The timer text is one of these:
+     1. When N is less than 3600: `MM:SS`. The minutes and the seconds each have two digits.
+        Examples: 1 gives `00:01`, 65 gives `01:05`, and 3599 gives `59:59`.
+     2. When N is 3600 or more and less than 86400: `H:MM:SS`. The hours have no leading zero.
+        Examples: 3600 gives `1:00:00`, and 86399 gives `23:59:59`.
+     3. When N is 86400 or more: the whole days, a space, `DAY` or `DAYS`, a space, then `H:MM:SS`
+        for the time that remains after the days. The word is `DAY` when there is one day.
+        Examples: 86400 gives `1 DAY 0:00:00`, and 266706 gives `3 DAYS 2:05:06`.
+
+     The timer text has no other characters.
+136. **When the timer changes.** The timer counts in real time and does not drift.
+     - The slide changes the timer text at each whole-second boundary of the remaining time. The
+       change comes not later than 100 ms after the boundary.
+     - At each change the slide reads the browser clock again. It does not subtract one second
+       from the text it shows.
+     - So when the PC clock changes, the next change shows the time from the new clock.
+137. **At the start and after it.** When the remaining time is zero or less, the starting line
+     replaces the timer.
+     - The starting line shows the text of `slides.startedText` (default `STARTING NOW`). The line
+       keeps the case of the text.
+     - The starting line comes not later than 100 ms after the start.
+     - The starting line stays while the start is in the past. The slide does not hide it, cycle it
+       or show the timer again. Only a new start removes it.
+     - When the page loads with a start in the past, the slide shows the starting line at once.
+       It shows no timer for that start.
+     - The timer never shows `00:00` and never shows a negative time.
+     - When a live reload gives a start in the future, the timer replaces the starting line. When a
+       live reload gives an empty `start`, the slide shows no clock (rule 133).
+138. **No entrance.** The slide has no entrance and no exit of its own, as the Event slide
+     (rule 127). It shows its content at once when the profile loads, under every motion mode.
+     - The change from the timer to the starting line is at once, with no transition.
+     - A live reload that changes the content changes it at once, with no transition
+       (`overlay-config.md` rule 22).
+139. **The look under `modern`.** The board, the column, the logo and the series name have the look
+     of the Event slide (rule 128).
+     - The board is the opaque board colour (`--bc-board`). It is at least as tall as the page
+       (`100vh`). The parts are a column, centred on both axes. The slide shows all text in capitals.
+     - The logo keeps its aspect ratio. It is at most 40% of the page height and at most 60% of the
+       page width.
+     - The series name is in the display face, at the title size of `/grid` and `/results`.
+     - The timer is in the numeral face (`--bc-font-mono`), in the numeral weight, with tabular
+       figures. Its width does not change when a digit changes. Its size is three times the title
+       size.
+     - The starting line is in the display face, at the size of the timer.
+     - A text part that is wider than the page wraps onto more lines. The slide does not cut text.
+140. **The look under `vintage70`.** On top of the base look (`overlay-config.md` rule 60) the slide
+     takes the look of the Event slide under `vintage70` (rule 129). Everything this rule does not
+     name renders the base look.
+     - **Board.** The board is solid black (`--bc-plate-solid`).
+     - **Series rule.** A solid rule, 4px high and in the preset's accent colour, runs along the
+       bottom edge of the series name, inside it. The series name is no taller.
+     - **The red marks nothing else.** The series rule is the only element in the accent colour.
+       The timer and the starting line have the base look.
+141. **The look under `vintage80`.** On top of the base look the slide takes the look of the Event
+     slide under `vintage80` (rule 130). Everything this rule does not name renders the base look.
+     - **Board.** The board is solid black (`--bc-plate-solid`).
+     - **Series name on a Scoreboard plate.** The series name sits on a block in the preset's header
+       red (`--bc-header`). The block extends 6px past the text on every side and has no shadow.
+       The series name is the preset's white (`--bc-text-2`). The block changes no box size.
+     - The timer and the starting line have the base look.
+
 ### Field filter & auto-hide
 
 28. **`?class=`** is a **cross-route** field filter, not a per-widget knob: `/tower`, `/all`,
